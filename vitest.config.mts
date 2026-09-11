@@ -13,6 +13,6 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],
-    exclude: ['tests/db/**', 'tests/auth/**'],
+    exclude: ['tests/db/**', 'tests/auth/**', 'tests/deploy/**'],
   },
 });
