@@ -1,0 +1,117 @@
+import 'server-only';
+
+/**
+ * The Data Access Layer for identity.
+ *
+ * Sessions are verified with `supabase.auth.getUser()`, which validates the
+ * token against the auth server, rather than trusting cookie contents or
+ * `getSession()`. Next.js documents this pattern (a DAL memoised with React
+ * `cache()`, with proxy checks treated as optimistic only), and Supabase
+ * documents `getUser()` as the server-side verification call.
+ *
+ * `loadActor()` then asks the DATABASE what this identity may do. Role, status,
+ * outstanding credential actions and session currency all come from
+ * `app_my_account()`, never from JWT metadata a client could influence.
+ */
+
+import { cache } from 'react';
+import type { User } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
+
+export type AccountStatus = 'active' | 'inactive' | 'setup_pending';
+export type AccountRole = 'admin' | 'technician';
+
+export interface ActorAccount {
+  id: string;
+  displayName: string;
+  email: string;
+  role: AccountRole;
+  status: AccountStatus;
+  credentialActionPending: boolean;
+  sessionIsCurrent: boolean;
+}
+
+export type ActorState =
+  | { kind: 'anonymous' }
+  /** Signed in, but no helpdesk account row exists for the identity. */
+  | { kind: 'unlinked'; user: User }
+  /** Signed in with an account that may not use the helpdesk yet. */
+  | { kind: 'restricted'; user: User; account: ActorAccount; reason: RestrictionReason }
+  | { kind: 'active'; user: User; account: ActorAccount };
+
+export type RestrictionReason =
+  | 'setup_pending'
+  | 'inactive'
+  | 'credential_action_pending'
+  | 'session_superseded';
+
+/** Verified auth user for this request, memoised for the render pass. */
+export const currentUser = cache(async (): Promise<User | null> => {
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) return null;
+  return data.user;
+});
+
+/**
+ * Resolves the full actor state from the database.
+ *
+ * Note the ordering: a suspended credential action is reported before an
+ * inactive status, because an account mid-recovery must be sent to the password
+ * screen rather than told it is disabled.
+ */
+export const loadActor = cache(async (): Promise<ActorState> => {
+  const user = await currentUser();
+  if (!user) return { kind: 'anonymous' };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('app_my_account');
+  if (error || !Array.isArray(data) || data.length === 0) {
+    return { kind: 'unlinked', user };
+  }
+
+  const row = data[0] as {
+    id: string;
+    display_name: string;
+    email: string;
+    role: AccountRole;
+    status: AccountStatus;
+    credential_action_pending: boolean;
+    session_is_current: boolean;
+  };
+
+  const account: ActorAccount = {
+    id: row.id,
+    displayName: row.display_name,
+    email: row.email,
+    role: row.role,
+    status: row.status,
+    credentialActionPending: row.credential_action_pending,
+    sessionIsCurrent: row.session_is_current,
+  };
+
+  if (account.credentialActionPending) {
+    return { kind: 'restricted', user, account, reason: 'credential_action_pending' };
+  }
+  if (account.status === 'setup_pending') {
+    return { kind: 'restricted', user, account, reason: 'setup_pending' };
+  }
+  if (account.status === 'inactive') {
+    return { kind: 'restricted', user, account, reason: 'inactive' };
+  }
+  if (!account.sessionIsCurrent) {
+    return { kind: 'restricted', user, account, reason: 'session_superseded' };
+  }
+  return { kind: 'active', user, account };
+});
+
+/** The account for a fully authorized caller, or null. */
+export async function activeAccount(): Promise<ActorAccount | null> {
+  const state = await loadActor();
+  return state.kind === 'active' ? state.account : null;
+}
+
+export async function isAdmin(): Promise<boolean> {
+  const account = await activeAccount();
+  return account?.role === 'admin';
+}

@@ -1,0 +1,47 @@
+{
+  "name": "edison-ticketing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Edison school helpdesk with authenticated, persistent ticketing",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run build",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:status": "supabase status",
+    "db:reset:local": "supabase db reset --local",
+    "db:diff": "supabase db diff --local",
+    "test:db": "npm run db:reset:local && vitest run --config vitest.db.config.mts",
+    "test:db:only": "vitest run --config vitest.db.config.mts",
+    "bootstrap:admin": "node scripts/bootstrap-admin.mjs",
+    "test:auth": "vitest run --config vitest.auth.config.mts",
+    "test:local": "npm run test:db && npm run test:auth"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.116.0",
+    "next": "16.3.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "26.5.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.4",
+    "supabase": "2.117.0",
+    "typescript": "5.9.3",
+    "vitest": "4.1.11"
+  }
+}

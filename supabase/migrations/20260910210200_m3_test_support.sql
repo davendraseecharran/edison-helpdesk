@@ -1,0 +1,8 @@
+-- Historical no-op migration.
+--
+-- This version originally installed app_test_age_recovery_token so the local
+-- authentication suite could age a recovery token without waiting for the
+-- provider expiry window. That helper is test-only and must not be part of the
+-- deployable migration history. Keep this version as an empty migration so its
+-- historical identity remains stable; the local auth setup installs the helper
+-- from tests/auth/support/test-support.sql after the guarded local reset.

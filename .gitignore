@@ -1,0 +1,52 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files — never commit real credentials. .env.example is tracked.
+.env
+.env*.local
+.env.development
+.env.production
+
+# typescript / test tooling
+*.tsbuildinfo
+coverage/
+
+# editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# supabase local artifacts (config.toml and migrations/ ARE tracked)
+supabase/.branches/
+supabase/.temp/
+
+# Hosted deployment metadata and private operator output
+.vercel/
+.env.*
+!.env.example
+.private/
+.vercel
+.env*
+
+# Keep the safe environment template in source control.
+!.env.example
