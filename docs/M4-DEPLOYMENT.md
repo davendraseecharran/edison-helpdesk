@@ -32,3 +32,9 @@ An empty HTTPS deployment is not a completed live pilot. Do not import real tick
 - https://supabase.com/docs/guides/deployment/database-migrations
 - https://supabase.com/docs/guides/platform/backups
 - https://vercel.com/docs/functions/runtimes/node-js/node-js-versions
+
+## Deployment result — September12,2026
+
+Production is READY at https://edison-helpdesk.vercel.app on revision13a1a19. All15 migrations applied, hosted Auth configured, production secrets set, initial admin pending setup. Live browser login/setup/recovery/session revocation/access checks passed. Only Jessie remains in the hosted database, with0tickets. Root-anchored .vercelignore patterns are required to preserve src/lib/supabase.
+
+Automatic Git deployment still needs private-repository access for the Vercel GitHub app. Direct CLI deployment works after the user's GitHub login connection resolved commit-author verification. Backup/restoration and full hosted ticket-workflow pilot checks remain. See PROJECT_STATUS.md for exact current resources and next tasks.
