@@ -45,6 +45,17 @@ export function schoolToday(): string {
   return toDateKey(new Date());
 }
 
+/**
+ * The moment a request is being rendered, in epoch milliseconds.
+ *
+ * For server components that hand a clock to a client component, so the
+ * server render and the hydrated first paint compute the same relative times.
+ * Pages in the authenticated group are rendered per request, never cached.
+ */
+export function requestTime(): number {
+  return Date.now();
+}
+
 /** Parses a `YYYY-MM-DD` key into a local Date at midnight. */
 export function fromDateKey(key: string): Date | null {
   const match = key.match(DATE_KEY_PATTERN);

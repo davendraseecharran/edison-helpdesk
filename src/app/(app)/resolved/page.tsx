@@ -1,5 +1,6 @@
 import { loadQueue } from '@/lib/data/tickets';
 import { loadActor } from '@/lib/auth/session';
+import { requestTime } from '@/lib/format';
 import { PageHeader } from '@/components/Primitives';
 import { TicketListView } from '@/components/TicketListView';
 import type { QueueSearchParams } from '../search-params';
@@ -24,23 +25,17 @@ export default async function ResolvedPage({
         title="Resolved"
         description={
           admin
-            ? 'Every resolved and cancelled ticket, with the solution, the resolver, and the original owner preserved.'
+            ? 'Every resolved and cancelled ticket, with the solution, the resolver and the original owner kept apart. Cancellations never count as resolutions.'
             : 'Resolved and cancelled tickets you owned or helped with. Work belonging to other technicians is not listed here.'
         }
       />
       <TicketListView
         page={page}
+        now={requestTime()}
         history
         showOwner={admin}
         emptyTitle="No closed tickets yet"
         emptyBody="Resolved and cancelled tickets stay here as history, with their notes and authorship intact."
-        notice={
-          <p className="notice">
-            History keeps the primary owner and the resolver separately, so a ticket finished by a
-            collaborator still shows who owned it. Cancelled tickets are never counted as
-            resolutions.
-          </p>
-        }
       />
     </>
   );

@@ -1,0 +1,900 @@
+/*
+ * Ticket screens: the queues, ticket detail, the intake form and the
+ * administration shell. Built on the tokens and on the primitives in
+ * `components.css`; nothing here names a colour or a size directly.
+ *
+ * One surface, `.panel`, holds every grouped block. Rows and panels cast no
+ * shadow. The detail page is a 2fr / 1fr grid from 1024px up and a single
+ * column below; on phones the detail page and the intake form pin their
+ * primary actions in a bar above the bottom tabs.
+ */
+
+/* --- Panel -------------------------------------------------------------- */
+
+.panel {
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+}
+
+.panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  min-height: 52px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.panel-title {
+  font-size: var(--fs-3);
+  font-weight: 600;
+}
+
+.panel-aside {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.panel-head-end {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.panel-body {
+  padding: 16px;
+}
+
+/* Quiet explanatory copy inside a panel. */
+.panel-note {
+  max-width: 60ch;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.panel-empty {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+/* Vertical rhythm inside panels and forms. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.stack-sm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stack-xs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* A short explanation or a state the reader should not miss. */
+.callout {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.callout-warn {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+  color: var(--ink);
+}
+
+.callout strong {
+  color: var(--ink);
+}
+
+/* --- Forms inside panels ------------------------------------------------ */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px 16px;
+}
+
+.form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (min-width: 720px) {
+  .form-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .form-grid-full {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Native checkboxes in the brass, with the shared focus ring. */
+.check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.check input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 3px 0 0;
+  accent-color: var(--brass);
+}
+
+.check input:focus-visible {
+  border-radius: 2px;
+  box-shadow: var(--focus);
+}
+
+.check-text {
+  min-width: 0;
+}
+
+.check-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.draft {
+  min-width: 0;
+  margin: 0;
+  padding: 12px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+}
+
+.draft legend {
+  padding: 0 6px;
+  font-size: var(--fs-1);
+  font-weight: 600;
+}
+
+/* --- Queue -------------------------------------------------------------- */
+
+/* The fields sit directly in the filter bar's own flex row. */
+.queue-filters {
+  display: contents;
+}
+
+.queue-filters .field {
+  flex: 1 1 140px;
+  min-width: 132px;
+  max-width: 220px;
+}
+
+.queue-filters .field-search {
+  flex: 2 1 220px;
+  max-width: none;
+}
+
+/* Two selects per row on phones; the search keeps the full width. */
+@media (max-width: 719.98px) {
+  .queue-filters .field {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+    max-width: none;
+  }
+
+  .queue-filters .field-search {
+    flex-basis: 100%;
+  }
+}
+
+.queue[data-busy='true'] .data-table {
+  opacity: 0.6;
+  transition: opacity 120ms ease-out;
+}
+
+.queue-number {
+  color: var(--ink-2);
+}
+
+.queue-title {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.queue-sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.queue-owner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.queue-owner-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-quiet {
+  color: var(--ink-3);
+}
+
+.queue-age {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.queue-reason {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  white-space: normal;
+}
+
+.queue-card-number {
+  margin-right: 8px;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  font-weight: 500;
+}
+
+/* Two-line cells (title and requester, status and reason) get breathing room. */
+.queue .table td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* The row card's claim button sits at the end of the facts line. */
+.row-card-fact:has(> dd > .queue-claim) {
+  margin-left: auto;
+}
+
+/* --- Ticket detail ------------------------------------------------------ */
+
+.ticket {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ticket-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px 16px;
+  padding-bottom: 8px;
+}
+
+.ticket-head-text {
+  min-width: 0;
+  max-width: 72ch;
+}
+
+.ticket-number {
+  display: inline-block;
+  margin-bottom: 4px;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  font-weight: 500;
+}
+
+.ticket-title {
+  font-size: var(--fs-5);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.ticket-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 10px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.ticket-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ticket-meta-item .icon {
+  flex: 0 0 auto;
+  color: var(--ink-3);
+}
+
+.ticket-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.ticket-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+@media (min-width: 1024px) {
+  .ticket-grid {
+    grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  }
+}
+
+.ticket-issue {
+  max-width: 72ch;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* --- Facts -------------------------------------------------------------- */
+
+.facts {
+  display: grid;
+  grid-template-columns: minmax(96px, max-content) minmax(0, 1fr);
+  gap: 10px 16px;
+  margin: 0;
+}
+
+.facts dt {
+  padding-top: 1px;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.facts dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.facts-sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+/* --- People ------------------------------------------------------------- */
+
+.people-label {
+  margin-bottom: 6px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 500;
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+}
+
+.person + .person {
+  margin-top: 4px;
+}
+
+.person-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.person-name {
+  display: block;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.person-meta {
+  display: block;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.person-end {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+/* --- Notes and solution ------------------------------------------------- */
+
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.note {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+}
+
+.note-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-bottom: 4px;
+}
+
+.note-author {
+  font-size: var(--fs-1);
+  font-weight: 600;
+}
+
+.note-time {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.note-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.solution {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ok);
+  border-radius: var(--radius-2);
+  background: var(--ok-soft);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.solution-previous {
+  border-left-color: var(--warn);
+  background: var(--surface-2);
+}
+
+.solution-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--ink-2);
+  font-size: var(--fs-0);
+  font-weight: 600;
+}
+
+/* --- Devices ------------------------------------------------------------ */
+
+.devices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.device {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+}
+
+.device-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.device-type {
+  font-weight: 600;
+}
+
+.device-meta {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.device-specs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px 16px;
+  margin: 8px 0 0;
+}
+
+.device-specs dt {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.device-specs dd {
+  margin: 0;
+  font-size: var(--fs-1);
+  overflow-wrap: anywhere;
+}
+
+/* --- Time --------------------------------------------------------------- */
+
+.time-total {
+  font-size: var(--fs-4);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.time-total-note {
+  margin-left: 8px;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  font-weight: 400;
+}
+
+.time-by {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  font-size: var(--fs-1);
+  list-style: none;
+}
+
+.time-by li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.time-by-minutes {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.time-entries summary {
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  cursor: pointer;
+}
+
+.time-entries summary:focus-visible {
+  border-radius: var(--radius-1);
+}
+
+.time-entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  font-size: var(--fs-1);
+  list-style: none;
+}
+
+.time-entry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+}
+
+.time-entry-date {
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+
+.time-entry-minutes {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.time-entry-note {
+  flex: 1 0 100%;
+  color: var(--ink-2);
+}
+
+/* --- Timeline ----------------------------------------------------------- */
+
+.timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 0 12px;
+  padding-bottom: 16px;
+}
+
+.timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+/* The line runs from under one dot to the top of the next. */
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  top: 18px;
+  bottom: -2px;
+  left: 5px;
+  width: 2px;
+  background: var(--line);
+}
+
+.timeline-item:last-child::before {
+  display: none;
+}
+
+.timeline-dot {
+  width: 12px;
+  height: 12px;
+  margin-top: 5px;
+  border: 2px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--surface);
+}
+
+.timeline-item[data-kind='created'] .timeline-dot {
+  border-color: var(--signal);
+  background: var(--signal);
+}
+
+.timeline-item[data-kind='resolved'] .timeline-dot {
+  border-color: var(--ok);
+  background: var(--ok);
+}
+
+.timeline-item[data-kind='cancelled'] .timeline-dot,
+.timeline-item[data-kind='reopened'] .timeline-dot {
+  border-color: var(--warn);
+  background: var(--warn);
+}
+
+.timeline-body {
+  min-width: 0;
+}
+
+.timeline-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+
+.timeline-summary {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.timeline-actor {
+  font-weight: 600;
+}
+
+.timeline-time {
+  margin-left: auto;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  white-space: nowrap;
+}
+
+.timeline-detail {
+  margin-top: 6px;
+  padding: 6px 12px;
+  border-left: 2px solid var(--line-2);
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* --- Phone action bar --------------------------------------------------- */
+
+.ticket-bar {
+  display: none;
+}
+
+@media (max-width: 719.98px) {
+  /* Room for the bar above the bottom tabs. */
+  .ticket {
+    padding-bottom: 60px;
+  }
+
+  .ticket-bar {
+    position: fixed;
+    right: 0;
+    bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom));
+    left: 0;
+    z-index: 25;
+    display: flex;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+  }
+
+  .ticket-bar .btn {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+/* --- Intake ------------------------------------------------------------- */
+
+.intake {
+  max-width: 880px;
+}
+
+.intake-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px 32px;
+  padding: 24px;
+  border-top: 1px solid var(--line);
+}
+
+.intake-section:first-child {
+  border-top: 0;
+}
+
+.intake-section-text h2 {
+  font-size: var(--fs-3);
+}
+
+.intake-section-text p {
+  max-width: 36ch;
+  margin-top: 4px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.intake-section-fields {
+  min-width: 0;
+}
+
+/* The requester mode control is as wide as its options, not the field. */
+.intake .segmented {
+  align-self: flex-start;
+}
+
+.intake-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+}
+
+.intake-error {
+  margin: 0 24px;
+}
+
+@media (min-width: 1024px) {
+  .intake-section {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 719.98px) {
+  .intake {
+    padding-bottom: 60px;
+  }
+
+  .intake-section {
+    padding: 16px;
+  }
+
+  .intake-error {
+    margin: 0 16px;
+  }
+
+  .intake-actions {
+    position: fixed;
+    right: 0;
+    bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom));
+    left: 0;
+    z-index: 25;
+    flex-wrap: nowrap;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+  }
+
+  .intake-actions .btn-primary {
+    flex: 1 1 auto;
+  }
+}
+
+/* --- Administration ----------------------------------------------------- */
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+
+@media (min-width: 1024px) {
+  .admin-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.admin-name {
+  font-weight: 600;
+}
+
+.admin-sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.admin-sub-warn {
+  color: var(--warn);
+}
+
+.admin-actions {
+  justify-content: flex-end;
+}
+
+.admin-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-link-row input {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.admin-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}

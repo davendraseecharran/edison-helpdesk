@@ -1,13 +1,14 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { loadQueue } from '@/lib/data/tickets';
 import { loadActor } from '@/lib/auth/session';
+import { requestTime } from '@/lib/format';
 import { PageHeader } from '@/components/Primitives';
+import { ButtonLink } from '@/components/ui/Button';
 import { TicketListView } from '@/components/TicketListView';
 import type { QueueSearchParams } from '../search-params';
 import { toFilters } from '../search-params';
 
-export const metadata = { title: 'All Tickets — Edison Helpdesk' };
+export const metadata = { title: 'All tickets — Edison Helpdesk' };
 
 export default async function AllTicketsPage({
   searchParams,
@@ -26,20 +27,17 @@ export default async function AllTicketsPage({
   return (
     <>
       <PageHeader
-        title="All Tickets"
+        title="All tickets"
         description="Every ticket regardless of owner or status. Filter by owner to see one technician's workload, or by status to audit the day."
-        actions={
-          <Link href="/tickets/new" className="btn btn-primary">
-            New ticket
-          </Link>
-        }
       />
       <TicketListView
         page={page}
+        now={requestTime()}
         showOwner
         allowClaim
         emptyTitle="No tickets recorded"
         emptyBody="Record the first request from the intake form."
+        emptyAction={<ButtonLink href="/tickets/new">New ticket</ButtonLink>}
       />
     </>
   );
