@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 
 /**
@@ -10,6 +11,10 @@ import { defineConfig } from 'vitest/config';
  * run inside the fast suite or alongside the other.
  */
 export default defineConfig({
+  // The `@/` alias from tsconfig, so component modules resolve in tests.
+  resolve: {
+    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+  },
   test: {
     environment: 'node',
     include: ['tests/**/*.test.ts'],

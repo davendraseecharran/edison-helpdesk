@@ -1,0 +1,726 @@
+/*
+ * Application shell: the grid, top bar, rail, bottom tabs and the floating
+ * surfaces they open. Everything here is built on the tokens; no colour or
+ * size is named directly.
+ *
+ * Breakpoints: 1024px and up is the full rail with labels; 720 to 1023 is the
+ * rail collapsed to icons; below 720 the rail is gone and the bottom tabs
+ * take over.
+ */
+
+/* --- Grid --------------------------------------------------------------- */
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  grid-template-rows: var(--topbar-h) minmax(0, 1fr);
+  min-height: 100dvh;
+}
+
+.skip-link {
+  position: absolute;
+  top: 8px;
+  left: -9999px;
+  z-index: 60;
+  padding: 8px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-1);
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.skip-link:focus {
+  left: 12px;
+}
+
+.main {
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  padding: 24px 24px 48px;
+}
+
+/* The skip link lands here; a ring around the whole page would be noise. */
+.main:focus-visible {
+  box-shadow: none;
+}
+
+/* --- Top bar ------------------------------------------------------------ */
+
+.topbar {
+  grid-column: 1 / -1;
+  grid-row: 1;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: var(--topbar-h);
+  padding: 0 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  border-radius: var(--radius-1);
+  color: var(--ink);
+  font-size: var(--fs-2);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.brand:hover {
+  text-decoration: none;
+}
+
+/* Reserve the rail's width so the lookup starts where the main column does. */
+.topbar .brand {
+  width: calc(var(--rail-w) - 16px);
+}
+
+.brand-mark {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-2);
+  background: var(--brass);
+  color: var(--brass-ink);
+  font-size: var(--fs-3);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.topbar-lookup {
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: center;
+  min-width: 0;
+}
+
+.topbar-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.topbar-actions .btn-primary {
+  margin-right: 8px;
+}
+
+/* --- Lookup ------------------------------------------------------------- */
+
+.lookup {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  max-width: 640px;
+}
+
+.lookup-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--ink-3);
+  pointer-events: none;
+}
+
+/* Written to outrank the element-level `input[type='search']` rule. */
+.lookup input.lookup-input {
+  width: 100%;
+  height: 40px;
+  padding: 0 72px 0 40px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-1);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: var(--fs-2);
+  appearance: none;
+}
+
+.lookup input.lookup-input::placeholder {
+  color: var(--ink-3);
+}
+
+.lookup input.lookup-input:focus-visible {
+  border-color: var(--brass);
+  background: var(--surface);
+  box-shadow: var(--focus);
+}
+
+.lookup-input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+.lookup-kbd {
+  position: absolute;
+  right: 8px;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-1);
+  background: var(--surface);
+  color: var(--ink-3);
+  font: 500 var(--fs-0) / 1.2 var(--font-sans);
+  pointer-events: none;
+}
+
+.lookup-sheet input.lookup-input {
+  height: 44px;
+  padding-right: 12px;
+  font-size: var(--fs-3);
+}
+
+/* --- Bell, assistant, account ------------------------------------------ */
+
+.bell {
+  position: relative;
+}
+
+.bell-count {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--brass);
+  color: var(--brass-ink);
+  font-size: var(--fs-0);
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+
+.user-trigger {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.user-trigger:hover,
+.user-trigger[aria-expanded='true'] {
+  background: var(--surface-3);
+}
+
+.account {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 264px;
+}
+
+.account-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px 12px;
+}
+
+.account-identity-text {
+  min-width: 0;
+}
+
+.account-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-role {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.account-theme {
+  margin-top: 4px;
+  padding: 10px 10px 8px;
+  border-top: 1px solid var(--line);
+}
+
+.account-label {
+  margin-bottom: 6px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 500;
+}
+
+.account-theme .segmented {
+  display: flex;
+  width: 100%;
+}
+
+.account-theme .segmented-option {
+  flex: 1 1 0;
+}
+
+.account-foot {
+  display: flex;
+  margin-top: 4px;
+  padding: 12px 10px 4px;
+  border-top: 1px solid var(--line);
+}
+
+.account-foot .btn {
+  width: 100%;
+}
+
+/* --- Rail --------------------------------------------------------------- */
+
+.rail {
+  grid-column: 1;
+  grid-row: 2;
+  position: sticky;
+  top: var(--topbar-h);
+  align-self: start;
+  height: calc(100dvh - var(--topbar-h));
+  overflow-y: auto;
+  padding: 12px 8px 24px;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+}
+
+.rail-group + .rail-group {
+  margin-top: 16px;
+}
+
+.rail-heading {
+  margin-bottom: 4px;
+  padding: 0 12px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 500;
+}
+
+.rail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rail-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 10px 0 12px;
+  border-radius: var(--radius-1);
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+.rail-link:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.rail-link .icon {
+  flex: 0 0 auto;
+  color: var(--ink-3);
+}
+
+.rail-link[aria-current='page'] {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.rail-link[aria-current='page'] .icon {
+  color: var(--ink);
+}
+
+/* The marker sits on the rail's own edge, outside the link's inset. */
+.rail-link[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: -8px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--brass);
+}
+
+.rail-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.count-pill {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--brass);
+  color: var(--brass-ink);
+  font-size: var(--fs-0);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.count-pill-quiet {
+  background: var(--surface-3);
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+.rail-link[aria-current='page'] .count-pill-quiet {
+  background: var(--surface);
+}
+
+/* --- Bottom tabs -------------------------------------------------------- */
+
+.bottom-tabs {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 30;
+  display: none;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  height: calc(var(--tabs-h) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+
+.bottom-tab {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+  height: var(--tabs-h);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--ink-3);
+  font: 500 var(--fs-0) / 1.2 var(--font-sans);
+  cursor: pointer;
+}
+
+.bottom-tab:hover {
+  color: var(--ink-2);
+  text-decoration: none;
+}
+
+.bottom-tab[aria-current='page'] {
+  color: var(--ink);
+}
+
+.bottom-tab[aria-current='page']::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 22%;
+  left: 22%;
+  height: 3px;
+  border-radius: 0 0 2px 2px;
+  background: var(--brass);
+}
+
+.bottom-tab-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 24px;
+}
+
+.bottom-tab-count {
+  position: absolute;
+  top: -7px;
+  left: 17px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--brass);
+  color: var(--brass-ink);
+  font-size: var(--fs-0);
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+
+.bottom-tab-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bottom-tab-cluster {
+  justify-content: flex-end;
+  padding-bottom: 6px;
+  cursor: default;
+}
+
+/* --- Lookup cluster ----------------------------------------------------- */
+
+/*
+ * The cluster's box reaches well above the bar so the satellites and their
+ * labels have room to travel. It ignores the pointer; only the controls in it
+ * take presses, so the page behind stays usable.
+ */
+.fab {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 240px;
+  height: 200px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.fab-liquid {
+  position: absolute !important;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fab-item {
+  position: absolute;
+  left: 50%;
+  pointer-events: auto;
+}
+
+/* Core and satellites share a centre 48px above the bar's bottom edge, so
+   the core stands 14px proud of the bar and the label beneath stays clear. */
+.fab-item-core {
+  bottom: 22px;
+  z-index: 2;
+  margin-left: -26px;
+}
+
+.fab-item-satellite {
+  bottom: 26px;
+  z-index: 1;
+  margin-left: -22px;
+}
+
+.fab-core {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--brass);
+  color: var(--brass-ink);
+  cursor: pointer;
+}
+
+.fab-core:hover {
+  background: var(--brass-2);
+}
+
+.fab-satellite {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: opacity 120ms ease-out;
+}
+
+.fab-satellite:hover {
+  background: var(--surface-3);
+  text-decoration: none;
+}
+
+.fab[data-open='false'] .fab-satellite {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fab-label {
+  position: absolute;
+  padding: 3px 8px;
+  border-radius: var(--radius-1);
+  background: var(--ink);
+  color: var(--paper);
+  font-size: var(--fs-0);
+  font-weight: 500;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.fab[data-open='true'] .fab-label {
+  opacity: 1;
+}
+
+/* Reduced motion: an ordinary button and an ordinary menu above it. */
+.fab-core-plain {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  margin-left: -26px;
+  pointer-events: auto;
+}
+
+.fab-plain-panel {
+  position: absolute;
+  bottom: 88px;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 200px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  transform: translateX(-50%);
+  pointer-events: auto;
+}
+
+/* --- Sheet navigation (phone "More") ------------------------------------ */
+
+.sheet-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.sheet-nav .menu-item {
+  min-height: 44px;
+}
+
+.sheet-nav-foot {
+  display: flex;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.sheet-nav-foot .btn {
+  width: 100%;
+  height: 40px;
+}
+
+/* --- Collapsed rail (720 to 1023) --------------------------------------- */
+
+@media (max-width: 1023.98px) {
+  .shell {
+    --rail-w: 64px;
+  }
+
+  .topbar .brand {
+    width: auto;
+  }
+
+  .rail {
+    padding: 12px 8px;
+  }
+
+  .rail-group + .rail-group {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+  }
+
+  .rail-heading,
+  .rail-text,
+  .rail-link .count-pill-quiet {
+    display: none;
+  }
+
+  .rail-link {
+    justify-content: center;
+    width: 48px;
+    height: 44px;
+    padding: 0;
+  }
+
+  .rail-link .count-pill {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+  }
+}
+
+/* --- Phone (below 720) -------------------------------------------------- */
+
+@media (max-width: 719.98px) {
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .rail {
+    display: none;
+  }
+
+  .topbar {
+    gap: 8px;
+    padding: 0 12px;
+  }
+
+  .brand-name,
+  .topbar-lookup {
+    display: none;
+  }
+
+  .topbar-actions {
+    gap: 2px;
+    margin-left: auto;
+  }
+
+  .topbar-actions .btn-primary {
+    margin-right: 4px;
+  }
+
+  .main {
+    grid-column: 1;
+    padding: 16px 16px calc(var(--tabs-h) + 24px + env(safe-area-inset-bottom));
+  }
+
+  .bottom-tabs {
+    display: grid;
+  }
+}

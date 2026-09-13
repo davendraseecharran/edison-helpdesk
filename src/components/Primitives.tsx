@@ -3,7 +3,10 @@
 /** Small shared building blocks: time display, empty states, skeletons, avatars. */
 
 import type { ReactNode } from 'react';
+import { X } from 'lucide-react';
 import { useRuntime } from '@/components/AppRuntime';
+import { Button } from '@/components/ui/Button';
+import { LoadingRegion, Skeleton } from '@/components/ui/Skeleton';
 import { useNow } from '@/lib/useNow';
 import { formatAge, formatDateTime, formatRelative, initialsOf } from '@/lib/format';
 
@@ -28,9 +31,9 @@ export function TimeAgo({ iso, mode = 'relative' }: { iso: string; mode?: 'relat
   );
 }
 
-export function Avatar({ name }: { name: string }) {
+export function Avatar({ name, size = 'sm' }: { name: string; size?: 'sm' | 'md' }) {
   return (
-    <span className="avatar" aria-hidden="true">
+    <span className={size === 'md' ? 'avatar avatar-md' : 'avatar'} aria-hidden="true">
       {initialsOf(name)}
     </span>
   );
@@ -48,25 +51,26 @@ export function EmptyState({
   return (
     <div className="empty">
       <p className="empty-title">{title}</p>
-      {children ? <p>{children}</p> : null}
-      {action ? <div style={{ marginTop: 14 }}>{action}</div> : null}
+      {children ? <p className="empty-body">{children}</p> : null}
+      {action ? <div className="empty-action">{action}</div> : null}
     </div>
   );
 }
 
 export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="card-body stack" aria-busy="true" aria-live="polite">
-      <span className="sr-only">Loading tickets…</span>
-      {Array.from({ length: rows }, (_, index) => (
-        <div key={index} className="row" style={{ gap: 12 }}>
-          <span className="skeleton" style={{ width: 74 }} />
-          <span className="skeleton" style={{ flex: 1, maxWidth: 360 }} />
-          <span className="skeleton" style={{ width: 90 }} />
-          <span className="skeleton" style={{ width: 64 }} />
-        </div>
-      ))}
-    </div>
+    <LoadingRegion label="Loading tickets">
+      <div className="skeleton-rows">
+        {Array.from({ length: rows }, (_, index) => (
+          <div key={index} className="skeleton-row">
+            <Skeleton width={72} />
+            <Skeleton width="min(360px, 45%)" />
+            <Skeleton width={88} />
+            <Skeleton width={64} />
+          </div>
+        ))}
+      </div>
+    </LoadingRegion>
   );
 }
 
@@ -79,10 +83,8 @@ export function Flash() {
       className={flash.kind === 'success' ? 'flash flash-success' : 'flash flash-error'}
       role={flash.kind === 'error' ? 'alert' : 'status'}
     >
-      <span>{flash.text}</span>
-      <button type="button" onClick={dismissFlash} aria-label="Dismiss message">
-        ×
-      </button>
+      <span className="flash-text">{flash.text}</span>
+      <Button variant="ghost" size="sm" icon={X} aria-label="Dismiss message" onClick={dismissFlash} />
     </div>
   );
 }

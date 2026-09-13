@@ -1,8 +1,9 @@
 /**
  * Status, priority, channel and role badges.
  *
- * Colour is never the only signal: each badge always renders its text label, and
- * priority adds a glyph so High/Urgent are distinguishable in greyscale.
+ * Colour is never the only signal: a status is a coloured dot beside its text
+ * label, and a priority is a glyph beside its label, so High and Urgent stay
+ * distinguishable in greyscale and to a screen reader.
  */
 
 import {
@@ -19,49 +20,58 @@ import {
 
 export function StatusBadge({ status }: { status: TicketStatus }) {
   return (
-    <span className={`badge badge-dot status-${status}`}>{TICKET_STATUS_LABELS[status]}</span>
+    <span className={`badge badge-status status-${status}`}>
+      <span className="badge-dot" aria-hidden="true" />
+      {TICKET_STATUS_LABELS[status]}
+    </span>
   );
 }
 
 const PRIORITY_GLYPH: Record<Priority, string> = {
-  low: '↓',
-  normal: '',
+  low: '▽',
+  normal: '–',
   high: '▲',
   urgent: '▲▲',
 };
 
 export function PriorityBadge({ priority }: { priority: Priority }) {
-  const glyph = PRIORITY_GLYPH[priority];
   return (
-    <span className={`badge priority-${priority}`}>
-      {glyph ? <span aria-hidden="true">{glyph}</span> : null}
+    <span className={`badge badge-priority priority-${priority}`}>
+      <span className="badge-glyph" aria-hidden="true">
+        {PRIORITY_GLYPH[priority]}
+      </span>
       {PRIORITY_LABELS[priority]}
     </span>
   );
 }
 
 export function ChannelBadge({ channel }: { channel: IntakeChannel }) {
-  return <span className="badge badge-neutral">{CHANNEL_LABELS[channel]}</span>;
+  return <span className="badge badge-chip">{CHANNEL_LABELS[channel]}</span>;
 }
 
 export function RoleBadge({ role }: { role: Role }) {
   return (
-    <span className={role === 'admin' ? 'badge badge-role' : 'badge badge-neutral'}>
+    <span className={role === 'admin' ? 'badge badge-chip badge-role' : 'badge badge-chip'}>
       {role === 'admin' ? 'Administrator' : 'Technician'}
     </span>
   );
 }
 
+const ACCOUNT_STATUS_TONE: Record<AccountStatus, string> = {
+  active: 'status-resolved',
+  setup_pending: 'status-waiting',
+  inactive: 'status-cancelled',
+};
+
 export function AccountStatusBadge({ status }: { status: AccountStatus }) {
-  const className =
-    status === 'active'
-      ? 'badge badge-dot status-resolved'
-      : status === 'setup_pending'
-        ? 'badge badge-dot status-waiting'
-        : 'badge badge-dot badge-neutral';
-  return <span className={className}>{ACCOUNT_STATUS_LABELS[status]}</span>;
+  return (
+    <span className={`badge badge-status ${ACCOUNT_STATUS_TONE[status]}`}>
+      <span className="badge-dot" aria-hidden="true" />
+      {ACCOUNT_STATUS_LABELS[status]}
+    </span>
+  );
 }
 
 export function SimulatedBadge({ children = 'Simulated' }: { children?: string }) {
-  return <span className="badge badge-simulated">{children}</span>;
+  return <span className="badge badge-chip badge-simulated">{children}</span>;
 }

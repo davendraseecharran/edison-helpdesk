@@ -4,7 +4,7 @@ import { loadActor } from '@/lib/auth/session';
 import { loadCounts, loadDirectory, loadRequesters } from '@/lib/data/tickets';
 import { schoolToday } from '@/lib/format';
 import { AppRuntimeProvider } from '@/components/AppRuntime';
-import { AppShell } from '@/components/AppShell';
+import { AppShell } from '@/components/shell/AppShell';
 
 /**
  * Authenticated pages are rendered per request and never cached.
@@ -48,7 +48,9 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
       requesters={requesters}
       today={schoolToday()}
     >
-      <AppShell counts={counts}>{children}</AppShell>
+      <AppShell counts={counts} unreadNotifications={0}>
+        {children}
+      </AppShell>
     </AppRuntimeProvider>
   );
 }
