@@ -38,10 +38,11 @@
  * that errors is left out of `rows`; the rest of the file still imports.
  */
 
-// @ts-expect-error Node's native type stripping resolves the real file name, and TypeScript
-// reads the same path. See the note at the top of csv.ts.
+// Node's native type stripping resolves the real file name, and TypeScript
+// reads the same path under `allowImportingTsExtensions`. See the note at the
+// top of csv.ts: the extension is what lets `node scripts/import-directory.mts`
+// run this folder with no loader.
 import { isBlankRow, type ParsedCsv } from './csv.ts';
-// @ts-expect-error Same: the extension is what lets `node scripts/import-directory.mts` run this.
 import { normaliseHeader, type ColumnPreset } from './presets.ts';
 
 export interface PersonRow {

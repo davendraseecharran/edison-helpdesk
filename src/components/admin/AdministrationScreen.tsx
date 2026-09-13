@@ -24,6 +24,7 @@ export function AdminTabs({ accountCount }: { accountCount?: number }) {
     <Tabs
       items={[
         { href: '/admin', label: 'People & access', count: accountCount },
+        { href: '/admin/import', label: 'Import' },
         { href: '/admin/audit', label: 'Audit log' },
         { href: '/admin/backups', label: 'Backups' },
       ]}

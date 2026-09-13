@@ -23,6 +23,7 @@
     "test:db": "npm run db:reset:local && vitest run --config vitest.db.config.mts",
     "test:db:only": "vitest run --config vitest.db.config.mts",
     "bootstrap:admin": "node scripts/bootstrap-admin.mjs",
+    "import:csv": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/import-directory.mts",
     "test:auth": "vitest run --config vitest.auth.config.mts",
     "test:local": "npm run test:db && npm run test:auth",
     "test:deploy:local": "vitest run --config vitest.deploy.config.mts"

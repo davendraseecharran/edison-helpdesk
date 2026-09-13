@@ -1,0 +1,314 @@
+/*
+ * Administration → Import.
+ *
+ * A vertical flow of four numbered panels, read top to bottom once a year by
+ * somebody who last did this last September. Nothing is side by side, because
+ * the steps are ordered and a column layout would invite reading them out of
+ * order; the number in each heading is the only decoration.
+ *
+ * Imported by the import page rather than by `globals.css`: nothing else in the
+ * application uses these classes, so nothing else should carry them.
+ *
+ * Built on the tokens and on the primitives in `components.css`. Nothing here
+ * names a colour, and every rule holds in both themes because every colour is a
+ * token that already has a dark value.
+ */
+
+.import-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* --- The step heading --------------------------------------------------- */
+
+.import-step .panel-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/*
+ * The step number. Decoration only — `aria-hidden`, because the heading reads
+ * as "Choose file" and the order is already the reading order.
+ */
+.import-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+/* --- 1. Choose file ----------------------------------------------------- */
+
+.import-drop {
+  display: flex;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+}
+
+/* The file input is visually hidden but still the focus stop, so the ring
+   belongs to the zone around it. */
+.import-drop:focus-within {
+  border-color: var(--brass);
+  box-shadow: var(--focus);
+}
+
+.import-drop-active {
+  border-color: var(--brass);
+  background: var(--brass-soft);
+}
+
+.import-drop-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 28px 16px;
+  color: var(--ink-3);
+  text-align: center;
+  cursor: pointer;
+}
+
+.import-drop-title {
+  color: var(--ink);
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+
+.import-drop-note {
+  max-width: 52ch;
+  font-size: var(--fs-1);
+}
+
+.import-file {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+}
+
+.import-file-icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--ink-3);
+}
+
+.import-file-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.import-file-name {
+  font-size: var(--fs-1);
+  overflow-wrap: anywhere;
+}
+
+.import-file-note {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+/* --- 2. Map columns ----------------------------------------------------- */
+
+/*
+ * Two columns, field then source. The wrapper scrolls sideways rather than the
+ * page, and keeps room below for the focus ring of the last select.
+ */
+.import-map {
+  min-width: 0;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+}
+
+.import-map table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-2);
+}
+
+.import-map th,
+.import-map td {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.import-map tbody tr:last-child th,
+.import-map tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.import-map thead th {
+  height: 36px;
+  padding-top: 0;
+  padding-bottom: 0;
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.import-map tbody th {
+  width: 40%;
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+.import-map tbody th label {
+  cursor: pointer;
+}
+
+.import-map select {
+  width: 100%;
+  min-width: 168px;
+}
+
+/* --- 3. Check ----------------------------------------------------------- */
+
+/*
+ * The summary strip. Four separate chips rather than one sentence: these are
+ * numbers somebody checks against a spreadsheet, and a number you can point at
+ * is easier to check than a number in a clause.
+ */
+.import-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.import-chip {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The only chip that carries a tone, because it is the only one that asks for
+   something. */
+.import-chip-problem {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+  color: var(--ink);
+}
+
+.import-subhead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+
+.import-subtitle {
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+
+.import-problem-message {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+/* The database's own words, for whoever is debugging rather than fixing. */
+.import-problem-detail {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * The problem and unmatched tables sit inside a panel body that already has
+ * padding, so they get their own border instead of the panel's edges.
+ */
+.import-step .panel-body .data-table {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+}
+
+.import-step .panel-body .table thead th {
+  position: static;
+  background: var(--surface-2);
+}
+
+.import-step .panel-body .table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.import-step .panel-body .row-card:last-child {
+  border-bottom: 0;
+}
+
+/*
+ * A problem is a sentence rather than a fact, so on a phone card its label sits
+ * against the first line of it instead of being centred against three.
+ */
+.import-step .panel-body .row-card-facts {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.import-step .panel-body .row-card-fact {
+  align-items: baseline;
+}
+
+/* --- 4. Import ---------------------------------------------------------- */
+
+.import-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+}
+
+.import-confirm li {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 719.98px) {
+  .import-file {
+    flex-wrap: wrap;
+  }
+
+  .import-map tbody th {
+    width: auto;
+  }
+
+  .import-map select {
+    min-width: 132px;
+  }
+}
