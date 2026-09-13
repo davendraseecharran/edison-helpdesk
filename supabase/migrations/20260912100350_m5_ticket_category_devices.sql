@@ -111,7 +111,7 @@ create index ticket_devices_device_idx on public.ticket_devices (device_id, link
 -- WHOLE list, including every kind added by a migration that sorts EARLIER than
 -- yours — otherwise your re-add silently deletes theirs. The reconciliation for
 -- this file and 20260912100800_m5_attachments.sql is
--- 20260912101000_m5_activity_kind_vocabulary.sql, which restates the union.
+-- 20260912101010_m5_activity_kind_vocabulary.sql, which restates the union.
 -- ---------------------------------------------------------------------------
 
 alter table public.activity_events drop constraint activity_events_kind_valid;
