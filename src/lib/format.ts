@@ -78,6 +78,84 @@ export function isValidDateKey(key: string): boolean {
   return fromDateKey(key) !== null;
 }
 
+/**
+ * Turning a school day into the pair of instants that bound it.
+ *
+ * A date filter means the day the desk worked, not a slice of UTC. Postgres
+ * compares `timestamptz`, so `2026-09-13` has to become the instant the school
+ * day began and the instant it ended — which differ by five hours from UTC in
+ * winter, four in summer, and by twenty-three or twenty-five hours from each
+ * other on the two days a year the clocks move.
+ *
+ * `Intl` is the only clock that knows the rules, so it is asked what the wall
+ * clock reads at a candidate instant; the difference is the offset in force.
+ * The first guess uses the offset at the UTC-naive instant, which can land on
+ * the far side of a transition, so the result is computed again with the offset
+ * at that guess. Two passes settle every real case: offsets change by an hour,
+ * never by more than the distance one pass corrects.
+ */
+const schoolWallClock = new Intl.DateTimeFormat('en-US', {
+  timeZone: SCHOOL_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+});
+
+/** Milliseconds the school's wall clock runs ahead of UTC at this instant. */
+function schoolOffsetAt(instant: number): number {
+  const parts = schoolWallClock.formatToParts(new Date(instant));
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? '0');
+  // en-US with hour12:false renders midnight as 24 in some ICU versions.
+  const hour = value('hour') % 24;
+  const wall = Date.UTC(
+    value('year'),
+    value('month') - 1,
+    value('day'),
+    hour,
+    value('minute'),
+    value('second'),
+  );
+  // Intl reports whole seconds, so the instant's own milliseconds have to be
+  // put back. Without this the offset absorbs them and the end of a day lands
+  // 999ms into the next one — an hour of arithmetic ruined by a rounding.
+  const milliseconds = ((instant % 1000) + 1000) % 1000;
+  return wall + milliseconds - instant;
+}
+
+/** The instant a school-local wall-clock time falls on, or null for a bad key. */
+function schoolInstant(key: string, hour: number, minute: number, second: number, ms: number): string | null {
+  if (!isValidDateKey(key)) return null;
+  const [year, month, day] = key.split('-').map(Number);
+  const wall = Date.UTC(year, month - 1, day, hour, minute, second, ms);
+  const guess = wall - schoolOffsetAt(wall);
+  return new Date(wall - schoolOffsetAt(guess)).toISOString();
+}
+
+/**
+ * Midnight at the start of a school-local day, as an ISO instant.
+ *
+ * On the spring-forward day there is no 2 a.m., but there is still a midnight,
+ * so the start of the day is unremarkable; it is the day's LENGTH that changes,
+ * which is why the end is computed separately rather than by adding a day.
+ */
+export function schoolDayStart(key: string): string | null {
+  return schoolInstant(key, 0, 0, 0, 0);
+}
+
+/**
+ * The last millisecond of a school-local day, so a "to" filter includes it.
+ *
+ * Inclusive because that is what a person means by "to the 13th", and because
+ * the audit RPC compares `at <= p_to`.
+ */
+export function schoolDayEnd(key: string): string | null {
+  return schoolInstant(key, 23, 59, 59, 999);
+}
+
 /** "Thu, Sep 10" — or "Thu, Sep 10, 2025" when the year differs from `reference`. */
 export function formatDateKey(key: string, reference?: string): string {
   const date = fromDateKey(key);

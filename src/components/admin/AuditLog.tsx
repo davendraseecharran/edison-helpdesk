@@ -15,7 +15,7 @@
  * of the fifty on screen.
  */
 
-import { useMemo, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useRuntime } from '@/components/AppRuntime';
@@ -82,6 +82,22 @@ export function AuditLog({ page }: { page: AuditLogPage }) {
     current.kind.trim() !== '' ||
     current.from !== '' ||
     current.to !== '';
+
+  /**
+   * The kind field is the one control that is typed rather than chosen, so it
+   * holds a local draft between keystrokes and only reaches the URL on Enter
+   * or on blur. The draft is keyed to the query string: "Clear filters", the
+   * back button and a pasted link all change `searchParams`, React remounts
+   * the state with the new key, and the box shows what the URL actually says
+   * instead of the last thing anybody typed into it.
+   */
+  const queryKey = searchParams.toString();
+  const [kindDraft, setKindDraft] = useState(current.kind);
+  const [kindKey, setKindKey] = useState(queryKey);
+  if (kindKey !== queryKey) {
+    setKindKey(queryKey);
+    setKindDraft(current.kind);
+  }
 
   // A datalist of what is actually on this page. It is a hint, not a closed
   // set: the field still accepts any kind, so a value read off an older page
@@ -215,24 +231,19 @@ export function AuditLog({ page }: { page: AuditLogPage }) {
             </select>
           </Field>
 
-          <Field label="Kind" htmlFor="audit-kind">
+          <Field label="Kind" htmlFor="audit-kind" hint="Exact kind, such as resolved">
             <input
               id="audit-kind"
               type="text"
               list="audit-kind-options"
-              defaultValue={current.kind}
+              value={kindDraft}
               placeholder="Any kind"
-              // The kinds on this page are offered as a list; the field still
-              // takes any of them, so one read off an older page still works.
-              title="One exact kind, for example resolved"
+              onChange={(event) => setKindDraft(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  updateParam('kind', (event.target as HTMLInputElement).value.trim());
-                }
+                if (event.key === 'Enter') updateParam('kind', kindDraft.trim());
               }}
-              onBlur={(event) => {
-                const value = event.target.value.trim();
-                if (value !== current.kind) updateParam('kind', value);
+              onBlur={() => {
+                if (kindDraft.trim() !== current.kind) updateParam('kind', kindDraft.trim());
               }}
             />
             <datalist id="audit-kind-options">
@@ -322,7 +333,7 @@ function AuditActor({ entry }: { entry: AuditEntry }) {
  * plainly rather than papered over with an identifier nobody can look up.
  */
 function AuditRecord({ entry }: { entry: AuditEntry }) {
-  if (!entry.entityLabel) return <span className="muted">Deleted record</span>;
+  if (!entry.entityLabel) return <span className="muted">(deleted)</span>;
   const href = entry.entityId ? ENTITY_HREF[entry.entityType]?.(entry.entityId) : undefined;
   if (!href) return <span className="audit-record">{entry.entityLabel}</span>;
   return (

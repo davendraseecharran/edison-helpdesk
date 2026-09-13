@@ -18,7 +18,10 @@ import 'server-only';
  */
 
 import { createClient } from '@/lib/supabase/server';
-import { SCHOOL_TIME_ZONE, isValidDateKey } from '@/lib/format';
+// School-local day bounds live in `format.ts` with the rest of the calendar
+// rules: they are pure, and a helper this easy to get wrong belongs where the
+// unit suite can reach it rather than behind `server-only`.
+import { schoolDayEnd, schoolDayStart } from '@/lib/format';
 
 /** Matches the RPC's own default page. Its hard ceiling is 200. */
 export const AUDIT_PAGE_SIZE = 50;
@@ -83,53 +86,6 @@ function asActor(value: string | undefined): string | null {
 function asKind(value: string | undefined): string | null {
   const kind = value?.trim();
   return kind ? kind : null;
-}
-
-/**
- * The school's clock, so a day filter means the day the desk worked.
- *
- * `Intl` is asked what the wall clock reads at a candidate instant, and the
- * difference from the instant is the offset in force. One refinement pass
- * settles the two hours a year when the first guess lands on the far side of a
- * daylight-saving change.
- */
-const SCHOOL_CLOCK = new Intl.DateTimeFormat('en-US', {
-  timeZone: SCHOOL_TIME_ZONE,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-  hour: '2-digit',
-  minute: '2-digit',
-  second: '2-digit',
-  hour12: false,
-});
-
-function schoolOffsetAt(instant: number): number {
-  const parts = SCHOOL_CLOCK.formatToParts(new Date(instant));
-  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? '0');
-  // en-US with hour12:false renders midnight as 24 in some ICU versions.
-  const hour = value('hour') % 24;
-  const wall = Date.UTC(value('year'), value('month') - 1, value('day'), hour, value('minute'), value('second'));
-  return wall - instant;
-}
-
-function schoolInstant(key: string, hour: number, minute: number, second: number, ms: number): string | null {
-  if (!isValidDateKey(key)) return null;
-  const [year, month, day] = key.split('-').map(Number);
-  const wall = Date.UTC(year, month - 1, day, hour, minute, second, ms);
-  const first = wall - schoolOffsetAt(wall);
-  const instant = wall - schoolOffsetAt(first);
-  return new Date(instant).toISOString();
-}
-
-/** Midnight at the start of a school-local day. */
-export function schoolDayStart(key: string): string | null {
-  return schoolInstant(key, 0, 0, 0, 0);
-}
-
-/** The last millisecond of a school-local day, so "to" includes that day. */
-export function schoolDayEnd(key: string): string | null {
-  return schoolInstant(key, 23, 59, 59, 999);
 }
 
 interface AuditRow {

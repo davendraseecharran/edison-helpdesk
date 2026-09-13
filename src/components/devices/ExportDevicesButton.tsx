@@ -38,7 +38,11 @@ export function ExportDevicesButton() {
       link.click();
       link.remove();
       URL.revokeObjectURL(url);
-      notify('success', `Exported ${result.count ?? 0} ${result.count === 1 ? 'device' : 'devices'}.`);
+      // A cut export is reported as a failure even though the file saved: a
+      // success message leaves after five seconds, and "this file is not the
+      // whole filter" must not disappear before it has been read.
+      if (result.capped && result.message) notify('error', result.message);
+      else notify('success', `Exported ${result.count ?? 0} ${result.count === 1 ? 'device' : 'devices'}.`);
     } catch {
       notify('error', 'The export could not be made. Check your connection and try again.');
     } finally {

@@ -1039,6 +1039,13 @@
   flex: 1 1 150px;
   min-width: 140px;
   max-width: 220px;
+  /*
+   * Top-aligned, unlike the queue's filters, because one of these fields
+   * carries a hint under its control. Bottom alignment would push that field's
+   * label and input above the others by the height of its own hint; aligning
+   * the labels instead leaves the hint hanging below where it belongs.
+   */
+  align-self: flex-start;
 }
 
 /* The segmented control sizes itself; a share of the row would clip "Their AI". */

@@ -82,6 +82,35 @@ export function toCsv(headers: readonly string[], rows: readonly (readonly unkno
 }
 
 /**
+ * The most rows one download carries.
+ *
+ * Shared by every CSV export so they agree on what "too big" means. Beyond it
+ * an export keeps the NEWEST rows — the ones most likely to be wanted, and the
+ * ones an earlier backup will not already hold — and says so, in the file name
+ * as well as on screen. A file that quietly held a fraction of a table would
+ * look exactly like a complete one.
+ */
+export const CSV_ROW_CAP = 50_000;
+
+/**
+ * The name an export saves under: `edison-tickets-2026-09-13.csv`, or
+ * `edison-tickets-2026-09-13-newest-50000.csv` when it reached the cap, so the
+ * file carries its own limitation even after the message that announced it is
+ * long gone.
+ */
+export function csvFileName(stem: string, day: string, capped = false): string {
+  return capped ? `edison-${stem}-${day}-newest-${CSV_ROW_CAP}.csv` : `edison-${stem}-${day}.csv`;
+}
+
+/** What to tell somebody whose export stopped at the cap. */
+export function cappedExportMessage(label: string, total: number): string {
+  return (
+    `${label} holds ${total.toLocaleString('en-US')} rows. This file has the ` +
+    `${CSV_ROW_CAP.toLocaleString('en-US')} most recent; the rest needs a database export.`
+  );
+}
+
+/**
  * The column order for a set of rows: the first row's keys, then any key a
  * later row introduces. Postgres hands PostgREST its columns in table order,
  * so the first row settles the layout and the rest only ever add to it.

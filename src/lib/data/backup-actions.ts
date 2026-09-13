@@ -32,14 +32,17 @@
 
 import { loadActor } from '@/lib/auth/session';
 import { createClient } from '@/lib/supabase/server';
-import { csvHeaders, encodeCsv } from '@/lib/csv';
-import { SCHOOL_TIME_ZONE } from '@/lib/format';
+import {
+  cappedExportMessage,
+  csvFileName,
+  csvHeaders,
+  CSV_ROW_CAP,
+  encodeCsv,
+} from '@/lib/csv';
+import { schoolToday } from '@/lib/format';
 
 /** One PostgREST page. The server's own cap is the real limit; this matches it. */
 const READ_PAGE = 1000;
-
-/** The most rows one download carries. Beyond it the file says it is partial. */
-const ROW_CAP = 50_000;
 
 interface TableSpec {
   /** Sentence-case name for the screen. */
@@ -154,13 +157,6 @@ export interface BackupCsvResult {
   message?: string;
 }
 
-const FILE_DATE = new Intl.DateTimeFormat('en-CA', {
-  timeZone: SCHOOL_TIME_ZONE,
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
-
 /** Not exported: a `'use server'` module may only export async functions. */
 function isBackupTable(name: string): name is BackupTableName {
   return Object.prototype.hasOwnProperty.call(TABLES, name);
@@ -222,8 +218,11 @@ export async function exportTableCsvAction(table: string): Promise<BackupCsvResu
   const supabase = await createClient();
 
   const rows: Record<string, unknown>[] = [];
-  for (let offset = 0; offset < ROW_CAP; offset += READ_PAGE) {
-    const size = Math.min(READ_PAGE, ROW_CAP - offset);
+  // Set when a page came back short, which proves the table ended inside the
+  // cap and saves asking the database for a count it has already implied.
+  let reachedEnd = false;
+  for (let offset = 0; offset < CSV_ROW_CAP && !reachedEnd; offset += READ_PAGE) {
+    const size = Math.min(READ_PAGE, CSV_ROW_CAP - offset);
     let query = supabase.from(name).select('*');
     for (const column of spec.order) {
       query = query.order(column, { ascending: false });
@@ -234,26 +233,26 @@ export async function exportTableCsvAction(table: string): Promise<BackupCsvResu
     }
     const page = (data ?? []) as Record<string, unknown>[];
     rows.push(...page);
-    if (page.length < size) break;
+    reachedEnd = page.length < size;
   }
 
-  const { count } = await supabase.from(name).select('*', { count: 'exact', head: true });
-  const total = count ?? rows.length;
-  const capped = rows.length >= ROW_CAP && total > rows.length;
-
-  const day = FILE_DATE.format(new Date());
-  const filename = capped
-    ? `edison-${name}-${day}-newest-${ROW_CAP}.csv`
-    : `edison-${name}-${day}.csv`;
+  // Only a run that filled the cap needs a total: every other one already read
+  // the whole table, so a second count would answer a question just settled.
+  let total = rows.length;
+  if (!reachedEnd) {
+    const { count } = await supabase.from(name).select('*', { count: 'exact', head: true });
+    total = count ?? rows.length;
+  }
+  const capped = !reachedEnd && total > rows.length;
 
   return {
     ok: true,
-    filename,
+    filename: csvFileName(name, schoolToday(), capped),
     csv: encodeCsv(csvHeaders(rows), rows),
     rowCount: rows.length,
     capped,
     message: capped
-      ? `${spec.label} holds ${total.toLocaleString('en-US')} rows. This file has the ${ROW_CAP.toLocaleString('en-US')} most recent; the rest needs a database export.`
+      ? cappedExportMessage(spec.label, total)
       : `${spec.label}: ${rows.length.toLocaleString('en-US')} ${rows.length === 1 ? 'row' : 'rows'} downloaded.`,
   };
 }
