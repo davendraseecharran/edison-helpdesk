@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { createTicket } from '../src/lib/domain/operations';
+import type { TicketCategory } from '../src/lib/domain/types';
 import { toDateKey } from '../src/lib/format';
 import { contextFor, createdTicket, expectFail, expectOk, freshData, IDS, NOW } from './helpers';
 
@@ -264,6 +265,47 @@ describe('intake validation', () => {
     const requester = next.requesters.find((entry) => entry.id === ticket.requesterId);
     expect(requester?.displayName).toBe('Mr. Quintero');
     expect(requester?.descriptor).toBe('Music');
+  });
+
+  it('files an uncategorised ticket as other rather than leaving it blank', () => {
+    const data = freshData();
+    const ticket = createdTicket(
+      createTicket(data, contextFor(IDS.admin), {
+        ...baseInput,
+        channel: 'phone_call',
+        submittedOn: toDateKey(NOW),
+      }),
+    );
+    expect(ticket?.category).toBe('other');
+  });
+
+  it('records the category it was given', () => {
+    const data = freshData();
+    const ticket = createdTicket(
+      createTicket(data, contextFor(IDS.admin), {
+        ...baseInput,
+        channel: 'phone_call',
+        submittedOn: toDateKey(NOW),
+        category: 'projector_display',
+      }),
+    );
+    expect(ticket?.category).toBe('projector_display');
+  });
+
+  it('rejects a category outside the vocabulary instead of filing it as other', () => {
+    const data = freshData();
+    const error = expectFail(
+      createTicket(data, contextFor(IDS.admin), {
+        ...baseInput,
+        channel: 'phone_call',
+        submittedOn: toDateKey(NOW),
+        // Cast because the whole point is a value TypeScript would refuse: the
+        // check exists for a caller that is not type-checked at all.
+        category: 'smartboard' as TicketCategory,
+      }),
+    );
+    expect(error).toMatch(/choose a category/i);
+    expect(data.tickets).toHaveLength(freshData().tickets.length);
   });
 
   it('leaves the original dataset untouched', () => {

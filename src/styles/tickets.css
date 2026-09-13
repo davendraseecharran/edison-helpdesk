@@ -942,3 +942,88 @@
   color: var(--ink-2);
   font-size: var(--fs-1);
 }
+
+/*
+ * Type-ahead pickers: finding one person in 2,800 or one machine in 7,500
+ * without leaving the form.
+ *
+ * The results are laid out in the flow rather than floating over the page. A
+ * floating list has to be positioned, dismissed, and kept from falling off the
+ * bottom of a phone; an inline one pushes the form down, which is the behaviour
+ * somebody looking at a 390px screen can actually follow.
+ */
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.picker-results {
+  margin: 0;
+  padding: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  list-style: none;
+}
+.picker-option {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.picker-option:hover {
+  background: var(--surface-2);
+}
+.picker-option[aria-disabled='true'] {
+  color: var(--ink-3);
+  cursor: default;
+}
+.picker-option-name {
+  display: block;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.picker-option-meta {
+  display: block;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  overflow-wrap: anywhere;
+}
+.picker-chosen {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+}
+.picker-status {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+/* One linked machine: what it is, and who attached it when. */
+.linked-device {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+}
+.linked-devices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}

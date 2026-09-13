@@ -45,6 +45,27 @@ export type TicketStatus =
   | 'resolved'
   | 'cancelled';
 
+/**
+ * What kind of problem a ticket is, from a fixed vocabulary rather than free
+ * text, so the queue filter is a real filter instead of a search over however
+ * somebody happened to type "wifi". `other` is the default and is honest: an
+ * uncategorised ticket is not a miscategorised one.
+ *
+ * Mirrors the `tickets_category_valid` constraint and `app_category_labels()`
+ * in 20260912100350_m5_ticket_category_devices.sql. The database REFUSES a value
+ * outside this set rather than folding it to `other`.
+ */
+export type TicketCategory =
+  | 'chromebook'
+  | 'laptop_desktop'
+  | 'projector_display'
+  | 'network'
+  | 'printer'
+  | 'account'
+  | 'software'
+  | 'phone'
+  | 'other';
+
 export interface Account {
   id: AccountId;
   /** Display name used for attribution in history. */
@@ -72,6 +93,12 @@ export interface Requester {
   kind: 'staff' | 'student' | 'role' | 'unknown';
   /** Department, grade band or role label — only what a technician needs. */
   descriptor?: string | null;
+  /**
+   * The directory record this requester is, when they are on the roster. Absent
+   * for a requester typed in at the desk — a parent, a vendor, a visiting coach
+   * — which stays a normal case rather than an incomplete one.
+   */
+  personId?: string | null;
 }
 
 export interface DeviceObservation {
@@ -88,6 +115,28 @@ export interface DeviceObservation {
   identifiersNotApplicable?: boolean;
   recordedById: AccountId;
   recordedAt: string;
+}
+
+/**
+ * A machine from the inventory that a ticket names.
+ *
+ * Different in kind from a `DeviceObservation`: an observation is what a
+ * technician saw and wrote down, and has to keep working for a laptop that is
+ * not in the inventory at all. This is a claim that a specific inventory record
+ * is involved, so its fields are the inventory's, not the technician's.
+ */
+export interface LinkedDevice {
+  /** The inventory record's id. */
+  id: string;
+  /** The managed-device identifier, e.g. `PW0FYJ9B-WIN`. Often absent. */
+  deviceId: string | null;
+  serialNumber: string | null;
+  assetTag: string | null;
+  type: string;
+  model: string | null;
+  status: string;
+  linkedAt: string;
+  linkedById: AccountId;
 }
 
 export interface WorkNote {
@@ -128,7 +177,10 @@ export type ActivityKind =
   | 'time_logged'
   | 'resolved'
   | 'reopened'
-  | 'cancelled';
+  | 'cancelled'
+  | 'category_changed'
+  | 'device_linked'
+  | 'device_unlinked';
 
 /**
  * How a recorded action was carried out.
@@ -190,6 +242,18 @@ export interface Ticket {
   channel: IntakeChannel;
   priority: Priority;
   status: TicketStatus;
+  /** What kind of problem this is. `other` until somebody says otherwise. */
+  category: TicketCategory;
+  /**
+   * How many inventory machines this ticket names.
+   *
+   * A count rather than the ids on purpose. `app_list_tickets` returns
+   * `device_count` for a queue row, because a list renders a number and
+   * fetching every id for twenty-five rows to call `.length` on them is work
+   * nobody reads. The ids, and everything else about each machine, are on
+   * `TicketDetail.linkedDevices`, which is where a screen that needs them is.
+   */
+  linkedDeviceCount: number;
   /** School-local submission date, backdatable by an admin (`YYYY-MM-DD`). */
   submittedOn: string;
   /** Actual creation timestamp. Backdating never rewrites this. */
@@ -255,6 +319,29 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
   high: 'High',
   urgent: 'Urgent',
 };
+
+/**
+ * Sentence case, and named the way a technician would say it out loud rather
+ * than the way the column stores it. Insertion order is the order the intake and
+ * detail selects offer them in: the common calls first, `Other` last.
+ */
+export const TICKET_CATEGORY_LABELS: Record<TicketCategory, string> = {
+  chromebook: 'Chromebook',
+  laptop_desktop: 'Laptop or desktop',
+  projector_display: 'Projector or display',
+  network: 'Network or Wi-Fi',
+  printer: 'Printer',
+  account: 'Account or password',
+  software: 'Software',
+  phone: 'Phone',
+  other: 'Other',
+};
+
+export const TICKET_CATEGORIES = Object.keys(TICKET_CATEGORY_LABELS) as TicketCategory[];
+
+export function isTicketCategory(value: unknown): value is TicketCategory {
+  return typeof value === 'string' && value in TICKET_CATEGORY_LABELS;
+}
 
 export const CHANNEL_LABELS: Record<IntakeChannel, string> = {
   walk_in: 'Walk-in',

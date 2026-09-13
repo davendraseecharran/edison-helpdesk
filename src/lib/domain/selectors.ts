@@ -13,6 +13,7 @@ import {
   type DeviceObservation,
   type HelpdeskData,
   type IntakeChannel,
+  type LinkedDevice,
   type Priority,
   type Requester,
   type Ticket,
@@ -249,7 +250,10 @@ export interface TicketDetail {
   collaborators: Account[];
   creator: Account | null;
   resolver: Account | null;
+  /** What a technician wrote down, including machines not in the inventory. */
   devices: DeviceObservation[];
+  /** Inventory records this ticket names. Empty is the normal case. */
+  linkedDevices: LinkedDevice[];
   notes: WorkNote[];
   workLogs: WorkLog[];
   activity: ActivityEvent[];
@@ -277,6 +281,9 @@ export function ticketDetail(
     creator: findAccount(data, ticket.createdById),
     resolver: findAccount(data, ticket.resolvedById),
     devices: data.deviceObservations.filter((device) => device.ticketId === ticketId),
+    // The in-memory dataset has no inventory: links exist only in the database,
+    // and this selector is the prototype's read model.
+    linkedDevices: [],
     notes: data.notes
       .filter((note) => note.ticketId === ticketId)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),

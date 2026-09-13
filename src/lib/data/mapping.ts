@@ -12,9 +12,11 @@ import type {
   ActivityEvent,
   DeviceObservation,
   IntakeChannel,
+  LinkedDevice,
   Priority,
   Requester,
   Ticket,
+  TicketCategory,
   TicketStatus,
   WorkLog,
   WorkNote,
@@ -32,6 +34,7 @@ export interface TicketRow {
   channel: string;
   priority: string;
   status: string;
+  category?: string | null;
   submitted_on: string;
   created_at: string;
   created_by: string;
@@ -43,6 +46,8 @@ export interface TicketRow {
   resolved_at: string | null;
   cancel_reason: string | null;
   collaborator_ids?: string[] | null;
+  /** Present on queue rows only; the detail payload carries the devices instead. */
+  device_count?: number | null;
 }
 
 export function mapTicket(row: TicketRow): Ticket {
@@ -58,6 +63,10 @@ export function mapTicket(row: TicketRow): Ticket {
     channel: row.channel as IntakeChannel,
     priority: row.priority as Priority,
     status: row.status as TicketStatus,
+    // The column is NOT NULL with an 'other' default in the database; the
+    // fallback covers a payload shaped before categories existed.
+    category: (row.category ?? 'other') as TicketCategory,
+    linkedDeviceCount: Number(row.device_count ?? 0),
     submittedOn: row.submitted_on,
     createdAt: row.created_at,
     createdById: row.created_by,
@@ -69,6 +78,30 @@ export function mapTicket(row: TicketRow): Ticket {
     resolvedById: row.resolved_by,
     resolvedAt: row.resolved_at,
     cancelReason: row.cancel_reason,
+  };
+}
+
+export function mapLinkedDevice(row: {
+  id: string;
+  device_id: string | null;
+  serial_number: string | null;
+  asset_tag: string | null;
+  type: string;
+  model: string | null;
+  status: string;
+  linked_at: string;
+  linked_by: string;
+}): LinkedDevice {
+  return {
+    id: row.id,
+    deviceId: row.device_id,
+    serialNumber: row.serial_number,
+    assetTag: row.asset_tag,
+    type: row.type,
+    model: row.model,
+    status: row.status,
+    linkedAt: row.linked_at,
+    linkedById: row.linked_by,
   };
 }
 

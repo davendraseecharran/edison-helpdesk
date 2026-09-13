@@ -19,6 +19,7 @@ import {
   mapActivity,
   mapDevice,
   mapDirectoryAccount,
+  mapLinkedDevice,
   mapNote,
   mapRequester,
   mapTicket,
@@ -37,6 +38,8 @@ export interface QueueFilters {
   priority?: string;
   channel?: string;
   owner?: string;
+  /** One of TicketCategory. A value outside it matches nothing, by design. */
+  category?: string;
   page?: number;
 }
 
@@ -69,6 +72,7 @@ export async function loadQueue(
     p_priority: normaliseFilter(filters.priority),
     p_channel: normaliseFilter(filters.channel),
     p_owner: normaliseFilter(filters.owner),
+    p_category: normaliseFilter(filters.category),
     p_limit: PAGE_SIZE,
     p_offset: (page - 1) * PAGE_SIZE,
   });
@@ -78,7 +82,12 @@ export async function loadQueue(
   }
 
   const rows = (data ?? []) as Array<
-    TicketRow & { requester_name: string | null; owner_name: string | null; total_count: number }
+    TicketRow & {
+      requester_name: string | null;
+      owner_name: string | null;
+      device_count: number;
+      total_count: number;
+    }
   >;
 
   // A ticket may leave the last page while another technician works. Return
@@ -173,16 +182,24 @@ export async function loadTicketDetail(
       requester_name: string | null;
       requester_kind: string | null;
       requester_descriptor: string | null;
+      person_id: string | null;
       creator_name: string | null;
       resolver_name: string | null;
     };
     devices: Parameters<typeof mapDevice>[0][];
+    linked_devices: Parameters<typeof mapLinkedDevice>[0][];
     notes: Parameters<typeof mapNote>[0][];
     work_logs: Parameters<typeof mapWorkLog>[0][];
     activity: Parameters<typeof mapActivity>[0][];
   };
 
-  const ticket = mapTicket(payload.ticket);
+  const linkedDevices = (payload.linked_devices ?? []).map(mapLinkedDevice);
+  // The detail RPC returns the machines themselves rather than a count, so the
+  // count on the ticket is taken from them instead of being asked for twice.
+  const ticket: Ticket = {
+    ...mapTicket(payload.ticket),
+    linkedDeviceCount: linkedDevices.length,
+  };
   const byId = new Map(directory.map((account) => [account.id, account]));
 
   const requester: Requester | null = payload.ticket.requester_id
@@ -191,6 +208,9 @@ export async function loadTicketDetail(
         displayName: payload.ticket.requester_name ?? 'Unknown',
         kind: (payload.ticket.requester_kind ?? 'unknown') as Requester['kind'],
         descriptor: payload.ticket.requester_descriptor,
+        // Set when this requester is somebody on the roster rather than a name
+        // typed in at the desk.
+        personId: payload.ticket.person_id,
       }
     : null;
 
@@ -206,6 +226,7 @@ export async function loadTicketDetail(
     creator: byId.get(ticket.createdById) ?? null,
     resolver: ticket.resolvedById ? (byId.get(ticket.resolvedById) ?? null) : null,
     devices: payload.devices.map(mapDevice),
+    linkedDevices,
     notes: payload.notes.map(mapNote),
     workLogs,
     activity: payload.activity.map(mapActivity),

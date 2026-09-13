@@ -8,7 +8,9 @@ import { ButtonLink } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { ActivityTimeline } from '@/components/ticket/ActivityTimeline';
 import { AdminActionsPanel } from '@/components/ticket/AdminActionsPanel';
+import { CategoryFact } from '@/components/ticket/CategoryFact';
 import { DevicePanel } from '@/components/ticket/DevicePanel';
+import { LinkedDevicesPanel } from '@/components/ticket/LinkedDevicesPanel';
 import { NotesPanel } from '@/components/ticket/NotesPanel';
 import { OwnershipPanel } from '@/components/ticket/OwnershipPanel';
 import { ProgressPanel } from '@/components/ticket/ProgressPanel';
@@ -92,6 +94,10 @@ export default async function TicketDetailPage({
           </section>
 
           <NotesPanel detail={detail} />
+          {/* Inventory machines first, then what a technician wrote down: the
+              link is the stronger statement, and the observation may describe a
+              machine the inventory has never heard of. */}
+          <LinkedDevicesPanel detail={detail} />
           <DevicePanel detail={detail} />
 
           <section className="panel" aria-labelledby="activity-heading">
@@ -131,6 +137,8 @@ export default async function TicketDetailPage({
                     </>
                   )}
                 </dd>
+
+                <CategoryFact detail={detail} />
 
                 <dt>Channel</dt>
                 <dd>{CHANNEL_LABELS[ticket.channel]}</dd>

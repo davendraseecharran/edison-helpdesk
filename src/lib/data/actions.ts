@@ -71,6 +71,12 @@ export interface CreateTicketFields {
   ownerId?: string | null;
   collaboratorIds?: string[];
   devices?: Array<Record<string, unknown>>;
+  /** One of TicketCategory. The database refuses anything else. */
+  category?: string | null;
+  /** A directory person as the requester. Their one requester row is reused. */
+  personId?: string | null;
+  /** Inventory machines to name on the ticket at intake. */
+  deviceIds?: string[];
 }
 
 export async function createTicketAction(fields: CreateTicketFields): Promise<ActionResult> {
@@ -94,6 +100,9 @@ export async function createTicketAction(fields: CreateTicketFields): Promise<Ac
       p_owner_id: fields.ownerId ?? null,
       p_collaborator_ids: fields.collaboratorIds ?? [],
       p_devices: fields.devices ?? [],
+      p_category: fields.category ?? 'other',
+      p_person_id: fields.personId ?? null,
+      p_device_ids: fields.deviceIds ?? [],
     },
     'Ticket created.',
   );
@@ -171,6 +180,39 @@ export async function recordDeviceAction(
       p_identifiers_not_applicable: device.identifiersNotApplicable ?? false,
     },
     'Device recorded.',
+  );
+}
+
+export async function setCategoryAction(
+  ticketId: string,
+  category: string,
+): Promise<ActionResult> {
+  return runRpc(
+    'app_set_category',
+    { p_ticket: ticketId, p_category: category },
+    'Category updated.',
+  );
+}
+
+export async function linkDeviceAction(
+  ticketId: string,
+  deviceId: string,
+): Promise<ActionResult> {
+  return runRpc(
+    'app_link_ticket_device',
+    { p_ticket: ticketId, p_device: deviceId },
+    'Device linked.',
+  );
+}
+
+export async function unlinkDeviceAction(
+  ticketId: string,
+  deviceId: string,
+): Promise<ActionResult> {
+  return runRpc(
+    'app_unlink_ticket_device',
+    { p_ticket: ticketId, p_device: deviceId },
+    'Device unlinked.',
   );
 }
 

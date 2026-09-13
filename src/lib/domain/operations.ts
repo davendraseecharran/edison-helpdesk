@@ -26,9 +26,11 @@ import {
   type Requester,
   type RequesterId,
   type Ticket,
+  type TicketCategory,
   type TicketId,
   CHANNEL_LABELS,
   PRIORITY_LABELS,
+  isTicketCategory,
 } from './types';
 import {
   canAdministerAccounts,
@@ -189,6 +191,8 @@ export interface CreateTicketInput {
   issue: string;
   channel: IntakeChannel;
   priority: Priority;
+  /** Defaults to `other`, which is what an uncategorised ticket honestly is. */
+  category?: TicketCategory;
   /** School-local `YYYY-MM-DD`. Defaults to today in the UI; backdating allowed. */
   submittedOn: string;
   requesterId?: RequesterId | null;
@@ -253,6 +257,14 @@ export function createTicket(
 
   const issue = trimmed(input.issue);
   if (!issue) return fail('Describe the issue before saving.', 'issue');
+
+  // Absent means 'other'; PRESENT AND WRONG is rejected rather than folded to
+  // it, matching the database. Rewriting a category nobody recognises would
+  // hide a broken caller and file the ticket where nobody is looking for it.
+  if (input.category !== undefined && !isTicketCategory(input.category)) {
+    return fail('Choose a category for this ticket.', 'category');
+  }
+  const category: TicketCategory = input.category ?? 'other';
 
   if (!isValidDateKey(input.submittedOn)) {
     return fail('Enter a valid submission date.', 'submittedOn');
@@ -337,6 +349,9 @@ export function createTicket(
     isRemote,
     channel,
     priority: input.priority,
+    category,
+    // The in-memory dataset has no inventory to link to.
+    linkedDeviceCount: 0,
     status: ownerId ? 'assigned' : 'open',
     submittedOn: input.submittedOn,
     // The real creation instant is recorded separately so backdating the
