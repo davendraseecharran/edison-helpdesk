@@ -1,0 +1,216 @@
+/*
+ * Streaming skeletons, motion and toasts.
+ *
+ * The motion itself is driven by `motion` from `Motion.tsx` and carries no
+ * CSS animation; what lives here is the layout of the loading skeletons that
+ * each route's `loading.tsx` shows while its page streams, and the toast
+ * stack. The shimmer stays in `components.css` next to `.skeleton`, and
+ * `base.css` switches every animation off under `prefers-reduced-motion`.
+ */
+
+/* --- Loading skeletons -------------------------------------------------- */
+
+.skeleton-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.skeleton-filter-bar .filter-bar-fields {
+  gap: 8px 12px;
+}
+
+.skeleton-field {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 8px;
+  width: 160px;
+  max-width: 100%;
+}
+
+.skeleton-field-search {
+  width: 280px;
+}
+
+.skeleton-field-full {
+  width: 100%;
+}
+
+.skeleton-row-head {
+  height: 40px;
+}
+
+.skeleton-row-head .skeleton {
+  height: 10px;
+}
+
+.skeleton-title-cell {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.skeleton-pill {
+  border-radius: 999px;
+}
+
+.skeleton-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+}
+
+.skeleton-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.skeleton-timeline-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.skeleton-timeline-item .skeleton-circle {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.skeleton-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.skeleton-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+}
+
+.skeleton-bars {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  height: 160px;
+}
+
+.skeleton-bars .skeleton {
+  flex: 1 1 0;
+}
+
+.skeleton-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+.skeleton-profile {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.skeleton-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 1024px) {
+  .skeleton-two {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+/* Below 720px the real rows are cards, so the placeholders stack the same way. */
+@media (max-width: 719.98px) {
+  .skeleton-row {
+    flex-wrap: wrap;
+    gap: 10px 12px;
+    height: auto;
+    padding: 12px 16px;
+  }
+
+  .skeleton-row-head,
+  .skeleton-row .skeleton-id {
+    display: none;
+  }
+
+  .skeleton-title-cell {
+    flex-basis: 100%;
+  }
+
+  .skeleton-field,
+  .skeleton-field-search {
+    width: 100%;
+  }
+}
+
+/* --- Toasts ------------------------------------------------------------- */
+
+/*
+ * A fixed stack in the bottom-right corner, above the modal surfaces so a
+ * change made from inside a sheet is still confirmed. The container itself
+ * lets pointer events through; only the toasts catch them.
+ */
+.toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(360px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 8px 8px 16px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--slate);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-2);
+  pointer-events: auto;
+}
+
+.toast-text {
+  padding: 6px 0;
+  overflow-wrap: anywhere;
+}
+
+.toast-success {
+  border-left-color: var(--ok);
+}
+
+.toast-error {
+  border-left-color: var(--bad);
+}
+
+/* On phones the stack sits above the bottom tabs and spans the width. */
+@media (max-width: 719.98px) {
+  .toasts {
+    right: 12px;
+    bottom: calc(var(--tabs-h) + 12px + env(safe-area-inset-bottom));
+    left: 12px;
+    width: auto;
+  }
+}

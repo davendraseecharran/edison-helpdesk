@@ -11,6 +11,9 @@
  *   - `run()` invokes a real server action and then refreshes the server data,
  *     so queues, counts and detail views all reflect the committed state.
  *   - One action at a time, so a double click cannot submit twice.
+ *   - What an action reports back becomes a toast. The queue lives here so
+ *     the message is produced in the same event as the result; the stack in
+ *     `Primitives.tsx` only renders it and keeps its clock.
  */
 
 import {
@@ -18,20 +21,24 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useReducer,
   useRef,
   useState,
   useTransition,
+  type Dispatch,
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Account, Requester } from '@/lib/domain/types';
 import type { ActorAccount } from '@/lib/auth/session';
 import type { ActionResult } from '@/lib/data/actions';
-
-export interface FlashMessage {
-  kind: 'success' | 'error';
-  text: string;
-}
+import {
+  initialToastState,
+  toastReducer,
+  type ToastAction,
+  type ToastKind,
+  type ToastState,
+} from '@/components/ui/toast';
 
 export interface AppRuntime {
   actor: ActorAccount;
@@ -42,8 +49,11 @@ export interface AppRuntime {
   /** School-local (America/New_York) date, computed on the server. */
   today: string;
   pendingKey: string | null;
-  flash: FlashMessage | null;
-  dismissFlash: () => void;
+  /** The toast stack: what recent actions reported, oldest first. */
+  toasts: ToastState;
+  dispatchToast: Dispatch<ToastAction>;
+  /** Show a message outside `run()`, for example after a client-side check. */
+  notify: (kind: ToastKind, text: string) => void;
   run: (key: string, action: () => Promise<ActionResult>) => Promise<ActionResult>;
 }
 
@@ -64,13 +74,16 @@ export function AppRuntimeProvider({
 }) {
   const router = useRouter();
   const [pendingKey, setPendingKey] = useState<string | null>(null);
-  const [flash, setFlash] = useState<FlashMessage | null>(null);
+  const [toasts, dispatchToast] = useReducer(toastReducer, initialToastState);
   const [, startTransition] = useTransition();
   // Synchronous guard: React state updates are async, so two fast clicks could
   // both pass a state-based check before either re-render lands.
   const busy = useRef(false);
 
-  const dismissFlash = useCallback(() => setFlash(null), []);
+  const notify = useCallback(
+    (kind: ToastKind, text: string) => dispatchToast({ type: 'push', kind, text, now: Date.now() }),
+    [],
+  );
 
   const run = useCallback(
     async (key: string, action: () => Promise<ActionResult>): Promise<ActionResult> => {
@@ -79,34 +92,33 @@ export function AppRuntimeProvider({
       }
       busy.current = true;
       setPendingKey(key);
-      setFlash(null);
 
       try {
         const result = await action();
         if (result.ok) {
-          if (result.message) setFlash({ kind: 'success', text: result.message });
+          if (result.message) notify('success', result.message);
           // Pull fresh server data so every queue, badge and panel agrees with
           // what actually committed, including changes made by other people.
           startTransition(() => router.refresh());
         } else {
-          setFlash({ kind: 'error', text: result.error ?? 'That change could not be saved.' });
+          notify('error', result.error ?? 'That change could not be saved.');
         }
         return result;
       } catch {
         const error = 'That change could not be saved. Check your connection and try again.';
-        setFlash({ kind: 'error', text: error });
+        notify('error', error);
         return { ok: false, error };
       } finally {
         busy.current = false;
         setPendingKey(null);
       }
     },
-    [router],
+    [router, notify],
   );
 
   const value = useMemo<AppRuntime>(
-    () => ({ actor, directory, requesters, today, pendingKey, flash, dismissFlash, run }),
-    [actor, directory, requesters, today, pendingKey, flash, dismissFlash, run],
+    () => ({ actor, directory, requesters, today, pendingKey, toasts, dispatchToast, notify, run }),
+    [actor, directory, requesters, today, pendingKey, toasts, notify, run],
   );
 
   return <RuntimeContext.Provider value={value}>{children}</RuntimeContext.Provider>;

@@ -20,8 +20,10 @@ export interface SheetProps {
  * A panel that slides in from an edge and takes over until dismissed.
  *
  * Focus is trapped, Escape and the backdrop close it, and the page behind
- * stops scrolling. Use it for secondary flows that should not lose the
- * page underneath: filters, the phone "More" menu, a quick lookup.
+ * stops scrolling. It springs in from its edge and slides back out on close
+ * (`SpringSurface` in `Motion.tsx`); nothing moves under reduced motion. Use
+ * it for secondary flows that should not lose the page underneath: filters,
+ * the phone "More" menu, a quick lookup.
  */
 export function Sheet({ side = 'right', ...rest }: SheetProps) {
   return <Overlay kind="sheet" side={side} {...rest} />;

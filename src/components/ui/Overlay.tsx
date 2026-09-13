@@ -1,10 +1,11 @@
 'use client';
 
-import { useId, useRef, type ReactNode } from 'react';
+import { useId, useRef, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { Button } from './Button';
 import { useBodyScrollLock, useEscape, useFocusTrap } from './focus';
+import { AnimatePresence, SpringSurface } from './Motion';
 
 export interface OverlayProps {
   open: boolean;
@@ -24,14 +25,21 @@ export interface OverlayProps {
   className?: string;
 }
 
+function subscribeToNothing(): () => void {
+  return () => {};
+}
+
 /**
  * The modal surface behind `Sheet` and `Dialog`.
  *
  * Renders into `document.body` so no ancestor's overflow or transform can
  * clip it. While open it traps focus, locks page scroll, closes on Escape or
  * a backdrop press, and on close hands focus back to the element that opened
- * it. The 120ms entrance is the only motion; `base.css` removes it under
- * `prefers-reduced-motion`.
+ * it. Arrival and departure are `SpringSurface`'s one orchestrated moment:
+ * the backdrop fades while the panel springs in from its edge (or a dialog
+ * scales from 0.98), and `AnimatePresence` keeps the panel mounted just long
+ * enough to leave the same way, faster. Under `prefers-reduced-motion` both
+ * simply appear and disappear.
  */
 export function Overlay({
   open,
@@ -53,7 +61,14 @@ export function Overlay({
   useBodyScrollLock(open);
   useEscape(open, onClose);
 
-  if (!open || typeof document === 'undefined') return null;
+  // The portal exists only on the client, and only after hydration, so the
+  // server and the hydrating render agree on rendering nothing here.
+  const client = useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false,
+  );
+  if (!client) return null;
 
   const panelClass = [
     'overlay-panel',
@@ -64,34 +79,41 @@ export function Overlay({
     .trim();
 
   return createPortal(
-    <div className="overlay" data-kind={kind}>
-      <div className="overlay-backdrop" onClick={onClose} aria-hidden="true" />
-      <div
-        ref={panelRef}
-        className={panelClass}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        aria-describedby={description ? descriptionId : undefined}
-        tabIndex={-1}
-      >
-        <header className={hideTitle ? 'overlay-head overlay-head-quiet' : 'overlay-head'}>
-          <div className="overlay-head-text">
-            <h2 id={titleId} className={hideTitle ? 'visually-hidden' : 'overlay-title'}>
-              {title}
-            </h2>
-            {description ? (
-              <p id={descriptionId} className="overlay-description">
-                {description}
-              </p>
-            ) : null}
-          </div>
-          <Button variant="ghost" icon={X} aria-label="Close" onClick={onClose} />
-        </header>
-        <div className="overlay-body">{children}</div>
-        {footer ? <footer className="overlay-foot">{footer}</footer> : null}
-      </div>
-    </div>,
+    <AnimatePresence>
+      {open ? (
+        <SpringSurface
+          key="surface"
+          kind={kind}
+          side={side}
+          panelRef={panelRef}
+          panelClassName={panelClass}
+          onBackdropPress={onClose}
+          panelProps={{
+            role: 'dialog',
+            'aria-modal': true,
+            'aria-labelledby': titleId,
+            'aria-describedby': description ? descriptionId : undefined,
+            tabIndex: -1,
+          }}
+        >
+          <header className={hideTitle ? 'overlay-head overlay-head-quiet' : 'overlay-head'}>
+            <div className="overlay-head-text">
+              <h2 id={titleId} className={hideTitle ? 'visually-hidden' : 'overlay-title'}>
+                {title}
+              </h2>
+              {description ? (
+                <p id={descriptionId} className="overlay-description">
+                  {description}
+                </p>
+              ) : null}
+            </div>
+            <Button variant="ghost" icon={X} aria-label="Close" onClick={onClose} />
+          </header>
+          <div className="overlay-body">{children}</div>
+          {footer ? <footer className="overlay-foot">{footer}</footer> : null}
+        </SpringSurface>
+      ) : null}
+    </AnimatePresence>,
     document.body,
   );
 }

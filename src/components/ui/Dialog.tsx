@@ -16,7 +16,8 @@ export interface DialogProps {
 
 /**
  * A centred modal for a decision that needs an answer before anything else:
- * confirmations, short forms. Same contract as `Sheet`, different placement.
+ * confirmations, short forms. Same contract as `Sheet`, different placement:
+ * it scales from 0.98 to 1 as the backdrop fades, and fades back out on close.
  */
 export function Dialog(props: DialogProps) {
   return <Overlay kind="dialog" {...props} />;

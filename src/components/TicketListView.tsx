@@ -352,6 +352,7 @@ export function TicketListView({
             rows={tickets}
             rowKey={(ticket) => ticket.id}
             caption="Tickets visible to this account"
+            settle
             cardTitle={(ticket) => (
               <Link href={`/tickets/${ticket.id}`}>
                 <span className="queue-card-number mono">{ticket.number}</span>

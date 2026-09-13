@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { StaggerItem, StaggerList } from './Motion';
 
 export interface Column<Row> {
   key: string;
@@ -30,6 +31,12 @@ export interface DataTableProps<Row> {
   empty?: ReactNode;
   /** Screen-reader description of the table. */
   caption?: string;
+  /**
+   * Let the rows settle into place with a short stagger when the table first
+   * appears on a client-side navigation. Later rows (another page, a filter,
+   * a refresh) appear in place. Off under `prefers-reduced-motion`.
+   */
+  settle?: boolean;
 }
 
 /**
@@ -40,7 +47,9 @@ export interface DataTableProps<Row> {
  * cards with a headline, a meta line and the columns not marked
  * `hideOnPhone`. Both layouts are in the markup and the stylesheet decides
  * which one shows, so server rendering never has to guess the viewport and
- * nothing re-flows after hydration.
+ * nothing re-flows after hydration. With `settle`, both sets of rows are
+ * `StaggerItem`s keyed to the same sequence, so whichever layout is visible
+ * settles in the same way.
  */
 export function DataTable<Row>({
   columns,
@@ -50,6 +59,7 @@ export function DataTable<Row>({
   cardMeta,
   empty,
   caption,
+  settle = false,
 }: DataTableProps<Row>) {
   if (rows.length === 0) {
     return <div className="data-table-empty">{empty ?? <p className="muted">Nothing to show.</p>}</div>;
@@ -65,57 +75,59 @@ export function DataTable<Row>({
   }
 
   return (
-    <div className="data-table">
-      <table className="table">
-        {caption ? <caption className="visually-hidden">{caption}</caption> : null}
-        <thead>
-          <tr>
-            {columns.map((column) => (
-              <th
-                key={column.key}
-                scope="col"
-                className={column.align === 'right' ? 'num' : undefined}
-                style={column.width !== undefined ? { width: column.width } : undefined}
-              >
-                {column.header}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={rowKey(row)}>
+    <StaggerList generation={rows} enabled={settle}>
+      <div className="data-table">
+        <table className="table">
+          {caption ? <caption className="visually-hidden">{caption}</caption> : null}
+          <thead>
+            <tr>
               {columns.map((column) => (
-                <td key={column.key} className={cellClass(column)}>
-                  {column.cell(row)}
-                </td>
+                <th
+                  key={column.key}
+                  scope="col"
+                  className={column.align === 'right' ? 'num' : undefined}
+                  style={column.width !== undefined ? { width: column.width } : undefined}
+                >
+                  {column.header}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row, index) => (
+              <StaggerItem as="tr" key={rowKey(row)} index={index}>
+                {columns.map((column) => (
+                  <td key={column.key} className={cellClass(column)}>
+                    {column.cell(row)}
+                  </td>
+                ))}
+              </StaggerItem>
+            ))}
+          </tbody>
+        </table>
 
-      <ul className="row-cards">
-        {rows.map((row) => {
-          const meta = cardMeta?.(row);
-          return (
-            <li key={rowKey(row)} className="row-card">
-              <div className="row-card-title">{cardTitle(row)}</div>
-              {meta ? <div className="row-card-meta">{meta}</div> : null}
-              {phoneColumns.length > 0 ? (
-                <dl className="row-card-facts">
-                  {phoneColumns.map((column) => (
-                    <div key={column.key} className="row-card-fact">
-                      <dt>{column.header}</dt>
-                      <dd className={column.mono ? 'mono' : undefined}>{column.cell(row)}</dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+        <ul className="row-cards">
+          {rows.map((row, index) => {
+            const meta = cardMeta?.(row);
+            return (
+              <StaggerItem as="li" key={rowKey(row)} index={index} className="row-card">
+                <div className="row-card-title">{cardTitle(row)}</div>
+                {meta ? <div className="row-card-meta">{meta}</div> : null}
+                {phoneColumns.length > 0 ? (
+                  <dl className="row-card-facts">
+                    {phoneColumns.map((column) => (
+                      <div key={column.key} className="row-card-fact">
+                        <dt>{column.header}</dt>
+                        <dd className={column.mono ? 'mono' : undefined}>{column.cell(row)}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                ) : null}
+              </StaggerItem>
+            );
+          })}
+        </ul>
+      </div>
+    </StaggerList>
   );
 }

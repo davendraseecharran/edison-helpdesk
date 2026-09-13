@@ -1,12 +1,15 @@
 'use client';
 
-/** Small shared building blocks: time display, empty states, skeletons, avatars. */
+/** Small shared building blocks: time display, empty states, skeletons, avatars, toasts. */
 
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { useRuntime } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
+import { useReducedMotion } from '@/components/ui/media';
+import { AnimatePresence, EASE_IN_FAST, EASE_OUT, INSTANT, motion } from '@/components/ui/Motion';
 import { LoadingRegion, Skeleton } from '@/components/ui/Skeleton';
+import { nextDeadline, type ToastHold } from '@/components/ui/toast';
 import { useNow } from '@/lib/useNow';
 import { formatAge, formatDateTime, formatRelative, initialsOf } from '@/lib/format';
 
@@ -74,17 +77,75 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
   );
 }
 
+/**
+ * The toast stack: what actions reported, bottom-right on a desktop and above
+ * the tabs on a phone.
+ *
+ * The queue itself is the runtime's (`toastReducer`); this component keeps
+ * its clock. One timer is armed for the earliest deadline, and the clock
+ * stops while the pointer or keyboard focus rests on the stack, so a message
+ * cannot vanish while it is being read. A success leaves after five seconds;
+ * an error stays until dismissed. Each toast keeps its live-region role, so
+ * assistive technology hears a confirmation politely and an error at once.
+ */
 export function Flash() {
-  const { flash, dismissFlash } = useRuntime();
-  if (!flash) return null;
+  const { toasts, dispatchToast } = useRuntime();
+  const reduced = useReducedMotion();
+  const deadline = nextDeadline(toasts);
+
+  useEffect(() => {
+    if (deadline === null) return;
+    // Expire at the deadline the timer was armed for, not at whatever the
+    // wall clock reads when it fires: a timer that lands a millisecond short
+    // would otherwise remove nothing and never be re-armed.
+    const timer = window.setTimeout(
+      () => dispatchToast({ type: 'expire', now: deadline }),
+      Math.max(0, deadline - Date.now()),
+    );
+    return () => window.clearTimeout(timer);
+  }, [deadline, dispatchToast]);
+
+  function hold(by: ToastHold) {
+    dispatchToast({ type: 'hold', by, now: Date.now() });
+  }
+
+  function release(by: ToastHold) {
+    dispatchToast({ type: 'release', by, now: Date.now() });
+  }
 
   return (
     <div
-      className={flash.kind === 'success' ? 'flash flash-success' : 'flash flash-error'}
-      role={flash.kind === 'error' ? 'alert' : 'status'}
+      className="toasts"
+      onPointerEnter={() => hold('hover')}
+      onPointerLeave={() => release('hover')}
+      onFocus={() => hold('focus')}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) release('focus');
+      }}
     >
-      <span className="flash-text">{flash.text}</span>
-      <Button variant="ghost" size="sm" icon={X} aria-label="Dismiss message" onClick={dismissFlash} />
+      <AnimatePresence initial={false}>
+        {toasts.toasts.map((toast) => (
+          <motion.div
+            key={toast.id}
+            className={toast.kind === 'success' ? 'toast toast-success' : 'toast toast-error'}
+            role={toast.kind === 'error' ? 'alert' : 'status'}
+            layout={reduced ? false : 'position'}
+            initial={reduced ? false : { opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduced ? undefined : { opacity: 0, transition: EASE_IN_FAST }}
+            transition={reduced ? INSTANT : EASE_OUT}
+          >
+            <span className="toast-text">{toast.text}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={X}
+              aria-label="Dismiss message"
+              onClick={() => dispatchToast({ type: 'dismiss', id: toast.id })}
+            />
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 }

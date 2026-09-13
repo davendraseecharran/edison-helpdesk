@@ -498,7 +498,6 @@ p.flash {
   position: absolute;
   inset: 0;
   background: color-mix(in srgb, var(--ink) 45%, transparent);
-  animation: fade-in 120ms ease-out;
 }
 
 .overlay-panel {
@@ -520,7 +519,6 @@ p.flash {
   margin-left: auto;
   border-left: 1px solid var(--line);
   border-radius: var(--radius-3) 0 0 var(--radius-3);
-  animation: slide-left 120ms ease-out;
 }
 
 .sheet-bottom {
@@ -530,7 +528,6 @@ p.flash {
   padding-bottom: env(safe-area-inset-bottom);
   border-top: 1px solid var(--line);
   border-radius: var(--radius-3) var(--radius-3) 0 0;
-  animation: slide-up 120ms ease-out;
 }
 
 .dialog {
@@ -539,7 +536,6 @@ p.flash {
   margin: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius-3);
-  animation: pop-in 120ms ease-out;
 }
 
 .overlay-head {
@@ -976,39 +972,10 @@ p.flash {
 
 /* --- Motion ------------------------------------------------------------- */
 
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slide-left {
-  from {
-    transform: translateX(24px);
-    opacity: 0;
-  }
-
-  to {
-    transform: none;
-    opacity: 1;
-  }
-}
-
-@keyframes slide-up {
-  from {
-    transform: translateY(24px);
-    opacity: 0;
-  }
-
-  to {
-    transform: none;
-    opacity: 1;
-  }
-}
+/*
+ * Menus and popovers pop in with CSS. Sheets, dialogs, list rows and toasts
+ * are driven by `motion` (see `Motion.tsx`), which also plays their exit.
+ */
 
 @keyframes pop-in {
   from {
