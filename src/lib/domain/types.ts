@@ -374,3 +374,235 @@ export const ACTIVE_STATUSES: TicketStatus[] = [
 export function isActiveStatus(status: TicketStatus): boolean {
   return ACTIVE_STATUSES.includes(status);
 }
+
+/* --- Directory and inventory ------------------------------------------- */
+
+export type PersonKind = 'student' | 'staff';
+
+export const PERSON_KIND_LABELS: Record<PersonKind, string> = {
+  student: 'Student',
+  staff: 'Staff',
+};
+
+export function isPersonKind(value: unknown): value is PersonKind {
+  return value === 'student' || value === 'staff';
+}
+
+/**
+ * One directory record, as `public.people` stores it.
+ *
+ * Holds a home address and a parent's phone number, so it is only ever loaded
+ * by an active account through the person's own page; a list row carries
+ * `PersonSummary` instead.
+ */
+export interface Person {
+  id: string;
+  kind: PersonKind;
+  firstName: string;
+  lastName: string;
+  displayName: string;
+  email: string | null;
+  /** New York student identifier, digits only. Students only. */
+  osis: string | null;
+  /** Staff identifier, stored upper-cased. Staff only. */
+  staffId: string | null;
+  schoolDbn: string | null;
+  department: string | null;
+  roleTitle: string | null;
+  officialClass: string | null;
+  classOf: string | null;
+  parentName: string | null;
+  parentPhone: string | null;
+  homePhone: string | null;
+  address: string | null;
+  notes: string | null;
+  /** False archives the record: out of the default listing, still on its tickets and devices. */
+  active: boolean;
+  source: 'manual' | 'import';
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A directory list row: what the people screen shows, with its two counts. */
+export interface PersonSummary {
+  id: string;
+  kind: PersonKind;
+  displayName: string;
+  email: string | null;
+  osis: string | null;
+  staffId: string | null;
+  department: string | null;
+  roleTitle: string | null;
+  officialClass: string | null;
+  classOf: string | null;
+  active: boolean;
+  /** Devices this person holds right now. */
+  deviceCount: number;
+  /** Live tickets they asked for THAT THE VIEWER MAY SEE. Viewer-relative. */
+  openTicketCount: number;
+}
+
+export type DeviceStatus = 'in_stock' | 'deployed' | 'in_repair' | 'retired' | 'lost' | 'surplus';
+
+/** Sentence case, in the database's fixed order. */
+export const DEVICE_STATUS_LABELS: Record<DeviceStatus, string> = {
+  in_stock: 'In stock',
+  deployed: 'Deployed',
+  in_repair: 'In repair',
+  retired: 'Retired',
+  lost: 'Lost',
+  surplus: 'Surplus',
+};
+
+export const DEVICE_STATUSES = Object.keys(DEVICE_STATUS_LABELS) as DeviceStatus[];
+
+export function isDeviceStatus(value: unknown): value is DeviceStatus {
+  return typeof value === 'string' && value in DEVICE_STATUS_LABELS;
+}
+
+/**
+ * The statuses a device can be put in by hand. `deployed` is missing on
+ * purpose: it means, and only means, that somebody is holding the device, so
+ * it is set by assigning and cleared by returning.
+ */
+export const MANUAL_DEVICE_STATUSES: DeviceStatus[] = DEVICE_STATUSES.filter(
+  (status) => status !== 'deployed',
+);
+
+/** One inventory record, as `public.devices` stores it. */
+export interface Device {
+  id: string;
+  /** The managed-device identifier, e.g. `PW0FYJ9B-WIN`. Often absent. */
+  deviceId: string | null;
+  serialNumber: string | null;
+  assetTag: string | null;
+  type: string;
+  manufacturer: string | null;
+  model: string | null;
+  os: string | null;
+  status: DeviceStatus;
+  location: string | null;
+  notes: string | null;
+  source: 'manual' | 'import';
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** An inventory list row: the device plus who is holding it. */
+export interface DeviceSummary {
+  id: string;
+  deviceId: string | null;
+  serialNumber: string | null;
+  assetTag: string | null;
+  type: string;
+  manufacturer: string | null;
+  model: string | null;
+  os: string | null;
+  status: DeviceStatus;
+  location: string | null;
+  holderId: string | null;
+  holderName: string | null;
+  holderKind: PersonKind | null;
+  updatedAt: string;
+}
+
+/** Who has a device right now, and since when. */
+export interface DeviceHolder {
+  id: string;
+  displayName: string;
+  kind: PersonKind;
+  assignedAt: string;
+}
+
+/** One loan in a device's history, newest first on the device page. */
+export interface DeviceAssignment {
+  id: string;
+  personId: string;
+  personName: string;
+  personKind: PersonKind;
+  assignedAt: string;
+  assignedByName: string | null;
+  /** Null while the loan is still open. */
+  returnedAt: string | null;
+  returnedByName: string | null;
+  note: string | null;
+}
+
+/** One loan from the person's side: which machine, and when. */
+export interface PersonDeviceLoan {
+  assignmentId: string;
+  assignedAt: string;
+  returnedAt: string | null;
+  device: {
+    id: string;
+    deviceId: string | null;
+    serialNumber: string | null;
+    assetTag: string | null;
+    type: string;
+    model: string | null;
+    status: DeviceStatus;
+  };
+}
+
+/** A ticket named on a person's or a device's page: enough to link to it. */
+export interface RecordTicketRef {
+  id: string;
+  number: string;
+  title: string;
+  status: TicketStatus;
+  createdAt: string;
+}
+
+/**
+ * One line of a directory or inventory record's history (`record_events`).
+ *
+ * `actorId` is null when a trusted server flow made the change rather than a
+ * person in their own session. Detail text never carries a link or a token.
+ */
+export interface RecordEvent {
+  id: string;
+  entityType: 'person' | 'device' | 'invite' | 'import' | 'account';
+  entityId: string;
+  kind: string;
+  actorId: AccountId | null;
+  performedVia: PerformedVia;
+  aiModel: string | null;
+  at: string;
+  summary: string;
+  detail: string | null;
+}
+
+export interface PersonDetail {
+  person: Person;
+  /** Current loans first, then past ones, newest first within each. */
+  devices: PersonDeviceLoan[];
+  /** The tickets they asked for that the viewer may see, newest first. */
+  tickets: RecordTicketRef[];
+  /** Newest first. */
+  events: RecordEvent[];
+}
+
+export interface DeviceDetail {
+  device: Device;
+  holder: DeviceHolder | null;
+  /** Newest first. */
+  assignments: DeviceAssignment[];
+  /** The tickets naming this device that the viewer may see, newest first. */
+  tickets: RecordTicketRef[];
+  /** Newest first. */
+  events: RecordEvent[];
+}
+
+/**
+ * How a machine is named everywhere: asset tag first, because that is the
+ * label stuck on the lid; then the serial; then the managed-device id. The
+ * same order as `app_device_label` in the database, so a device reads the
+ * same way on screen as it does in the history.
+ */
+export function deviceLabel(device: {
+  assetTag: string | null;
+  serialNumber: string | null;
+  deviceId: string | null;
+}): string {
+  return device.assetTag ?? device.serialNumber ?? device.deviceId ?? 'Unlabelled device';
+}

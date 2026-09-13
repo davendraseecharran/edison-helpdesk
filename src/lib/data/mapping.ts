@@ -10,10 +10,23 @@
 import type {
   Account,
   ActivityEvent,
+  Device,
+  DeviceAssignment,
+  DeviceDetail,
+  DeviceHolder,
   DeviceObservation,
+  DeviceStatus,
+  DeviceSummary,
   IntakeChannel,
   LinkedDevice,
+  Person,
+  PersonDetail,
+  PersonDeviceLoan,
+  PersonKind,
+  PersonSummary,
   Priority,
+  RecordEvent,
+  RecordTicketRef,
   Requester,
   Ticket,
   TicketCategory,
@@ -229,5 +242,325 @@ export function mapActivity(row: {
     // covers a payload shaped before attribution existed.
     performedVia: row.performed_via === 'ai' ? 'ai' : 'user',
     aiModel: row.ai_model ?? null,
+  };
+}
+
+/* --- Directory ---------------------------------------------------------- */
+
+/** One row of `app_list_people`. `total_count` arrives as a string over PostgREST. */
+export interface PersonSummaryRow {
+  id: string;
+  kind: string;
+  display_name: string;
+  email: string | null;
+  osis: string | null;
+  staff_id: string | null;
+  department: string | null;
+  role_title: string | null;
+  official_class: string | null;
+  class_of: string | null;
+  active: boolean;
+  device_count: number | string;
+  open_ticket_count: number | string;
+  total_count: number | string;
+}
+
+function asKind(value: string): PersonKind {
+  return value === 'student' ? 'student' : 'staff';
+}
+
+export function mapPersonSummary(row: PersonSummaryRow): PersonSummary {
+  return {
+    id: row.id,
+    kind: asKind(row.kind),
+    displayName: row.display_name,
+    email: row.email,
+    osis: row.osis,
+    staffId: row.staff_id,
+    department: row.department,
+    roleTitle: row.role_title,
+    officialClass: row.official_class,
+    classOf: row.class_of,
+    active: row.active,
+    deviceCount: Number(row.device_count ?? 0),
+    openTicketCount: Number(row.open_ticket_count ?? 0),
+  };
+}
+
+/** `to_jsonb(people)`: the whole row, as `app_person_detail` returns it. */
+export interface PersonRow {
+  id: string;
+  kind: string;
+  first_name: string;
+  last_name: string;
+  display_name: string;
+  email: string | null;
+  osis: string | null;
+  staff_id: string | null;
+  school_dbn: string | null;
+  department: string | null;
+  role_title: string | null;
+  official_class: string | null;
+  class_of: string | null;
+  parent_name: string | null;
+  parent_phone: string | null;
+  home_phone: string | null;
+  address: string | null;
+  notes: string | null;
+  active: boolean;
+  source: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function mapPerson(row: PersonRow): Person {
+  return {
+    id: row.id,
+    kind: asKind(row.kind),
+    firstName: row.first_name,
+    lastName: row.last_name,
+    displayName: row.display_name,
+    email: row.email,
+    osis: row.osis,
+    staffId: row.staff_id,
+    schoolDbn: row.school_dbn,
+    department: row.department,
+    roleTitle: row.role_title,
+    officialClass: row.official_class,
+    classOf: row.class_of,
+    parentName: row.parent_name,
+    parentPhone: row.parent_phone,
+    homePhone: row.home_phone,
+    address: row.address,
+    notes: row.notes,
+    active: row.active,
+    source: row.source === 'import' ? 'import' : 'manual',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export interface RecordEventRow {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  kind: string;
+  actor_id: string | null;
+  performed_via?: string | null;
+  ai_model?: string | null;
+  at: string;
+  summary: string;
+  detail: string | null;
+}
+
+export function mapRecordEvent(row: RecordEventRow): RecordEvent {
+  return {
+    id: row.id,
+    entityType: row.entity_type as RecordEvent['entityType'],
+    entityId: row.entity_id,
+    kind: row.kind,
+    actorId: row.actor_id,
+    performedVia: row.performed_via === 'ai' ? 'ai' : 'user',
+    aiModel: row.ai_model ?? null,
+    at: row.at,
+    summary: row.summary,
+    detail: row.detail,
+  };
+}
+
+export interface RecordTicketRow {
+  id: string;
+  number: string;
+  title: string;
+  status: string;
+  created_at: string;
+}
+
+export function mapRecordTicket(row: RecordTicketRow): RecordTicketRef {
+  return {
+    id: row.id,
+    number: row.number,
+    title: row.title,
+    status: row.status as TicketStatus,
+    createdAt: row.created_at,
+  };
+}
+
+/** Newest first, whatever order the database chose; ties broken by id so it is stable. */
+function newestFirst<T extends { at: string; id: string }>(events: T[]): T[] {
+  return [...events].sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id));
+}
+
+export interface PersonDetailPayload {
+  person: PersonRow;
+  devices: Array<{
+    assignment_id: string;
+    assigned_at: string;
+    returned_at: string | null;
+    device: {
+      id: string;
+      device_id: string | null;
+      serial_number: string | null;
+      asset_tag: string | null;
+      type: string;
+      model: string | null;
+      status: string;
+    };
+  }>;
+  tickets: RecordTicketRow[];
+  events: RecordEventRow[];
+}
+
+export function mapPersonDetail(payload: PersonDetailPayload): PersonDetail {
+  const loans: PersonDeviceLoan[] = (payload.devices ?? []).map((loan) => ({
+    assignmentId: loan.assignment_id,
+    assignedAt: loan.assigned_at,
+    returnedAt: loan.returned_at,
+    device: {
+      id: loan.device.id,
+      deviceId: loan.device.device_id,
+      serialNumber: loan.device.serial_number,
+      assetTag: loan.device.asset_tag,
+      type: loan.device.type,
+      model: loan.device.model,
+      status: loan.device.status as DeviceStatus,
+    },
+  }));
+  return {
+    person: mapPerson(payload.person),
+    devices: loans,
+    tickets: (payload.tickets ?? []).map(mapRecordTicket),
+    // The person function returns events oldest first and the device function
+    // newest first; the pages read newest first, so the order is settled here.
+    events: newestFirst((payload.events ?? []).map(mapRecordEvent)),
+  };
+}
+
+/* --- Inventory ---------------------------------------------------------- */
+
+/** One row of `app_list_devices`. */
+export interface DeviceSummaryRow {
+  id: string;
+  device_id: string | null;
+  serial_number: string | null;
+  asset_tag: string | null;
+  type: string;
+  manufacturer: string | null;
+  model: string | null;
+  os: string | null;
+  status: string;
+  location: string | null;
+  holder_id: string | null;
+  holder_name: string | null;
+  holder_kind: string | null;
+  updated_at: string;
+  total_count: number | string;
+}
+
+export function mapDeviceSummary(row: DeviceSummaryRow): DeviceSummary {
+  return {
+    id: row.id,
+    deviceId: row.device_id,
+    serialNumber: row.serial_number,
+    assetTag: row.asset_tag,
+    type: row.type,
+    manufacturer: row.manufacturer,
+    model: row.model,
+    os: row.os,
+    status: row.status as DeviceStatus,
+    location: row.location,
+    holderId: row.holder_id,
+    holderName: row.holder_name,
+    holderKind: row.holder_kind ? asKind(row.holder_kind) : null,
+    updatedAt: row.updated_at,
+  };
+}
+
+/** `to_jsonb(devices)`: the whole row, as `app_device_detail` returns it. */
+export interface DeviceRow {
+  id: string;
+  device_id: string | null;
+  serial_number: string | null;
+  asset_tag: string | null;
+  type: string;
+  manufacturer: string | null;
+  model: string | null;
+  os: string | null;
+  status: string;
+  location: string | null;
+  notes: string | null;
+  source: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function mapInventoryDevice(row: DeviceRow): Device {
+  return {
+    id: row.id,
+    deviceId: row.device_id,
+    serialNumber: row.serial_number,
+    assetTag: row.asset_tag,
+    type: row.type,
+    manufacturer: row.manufacturer,
+    model: row.model,
+    os: row.os,
+    status: row.status as DeviceStatus,
+    location: row.location,
+    notes: row.notes,
+    source: row.source === 'import' ? 'import' : 'manual',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export interface DeviceDetailPayload {
+  device: DeviceRow;
+  holder: {
+    id: string;
+    display_name: string;
+    kind: string;
+    assigned_at: string;
+  } | null;
+  assignments: Array<{
+    id: string;
+    person_id: string;
+    person_name: string | null;
+    person_kind: string | null;
+    assigned_at: string;
+    assigned_by_name: string | null;
+    returned_at: string | null;
+    returned_by_name: string | null;
+    note: string | null;
+  }>;
+  tickets: RecordTicketRow[];
+  events: RecordEventRow[];
+}
+
+export function mapDeviceDetail(payload: DeviceDetailPayload): DeviceDetail {
+  const holder: DeviceHolder | null = payload.holder
+    ? {
+        id: payload.holder.id,
+        displayName: payload.holder.display_name,
+        kind: asKind(payload.holder.kind),
+        assignedAt: payload.holder.assigned_at,
+      }
+    : null;
+  const assignments: DeviceAssignment[] = (payload.assignments ?? []).map((loan) => ({
+    id: loan.id,
+    personId: loan.person_id,
+    personName: loan.person_name ?? 'Unknown person',
+    personKind: asKind(loan.person_kind ?? 'staff'),
+    assignedAt: loan.assigned_at,
+    assignedByName: loan.assigned_by_name,
+    returnedAt: loan.returned_at,
+    returnedByName: loan.returned_by_name,
+    note: loan.note,
+  }));
+  return {
+    device: mapInventoryDevice(payload.device),
+    holder,
+    assignments,
+    tickets: (payload.tickets ?? []).map(mapRecordTicket),
+    events: newestFirst((payload.events ?? []).map(mapRecordEvent)),
   };
 }

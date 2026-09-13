@@ -7,8 +7,9 @@ import {
 } from '@/components/ui/Skeleton';
 
 /**
- * A person: avatar, name and meta in the head, then their tickets on the
- * left and their details on the right, on the same 2fr/1fr grid as a ticket.
+ * A person: avatar, name and identifiers in the head, then devices, tickets
+ * and history on the left and details and notes on the right, on the same
+ * 2fr/1fr grid as a ticket.
  */
 export default function Loading() {
   return (
@@ -26,8 +27,9 @@ export default function Loading() {
 
         <div className="ticket-grid">
           <div className="ticket-column">
-            <SkeletonPanel title={96}>
-              <SkeletonRows rows={5} facts={2} />
+            <SkeletonPanel title={72} lines={2} />
+            <SkeletonPanel title={64}>
+              <SkeletonRows rows={4} facts={2} />
             </SkeletonPanel>
           </div>
           <div className="ticket-column">

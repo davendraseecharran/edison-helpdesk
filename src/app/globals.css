@@ -2,8 +2,9 @@
  * Edison helpdesk — application stylesheet.
  *
  * The design system lives in the imports below: tokens, element defaults, the
- * primitives, the shell, the auth screens, the ticket screens, and the
- * skeletons and toasts that carry the motion layer. What follows
+ * primitives, the shell, the auth screens, the ticket screens, the directory
+ * and inventory screens, and the skeletons and toasts that carry the motion
+ * layer. What follows
  * is the short list of text utilities that more than one of those screens
  * shares. Nothing else belongs here.
  */
@@ -14,6 +15,7 @@
 @import '../styles/shell.css';
 @import '../styles/auth.css';
 @import '../styles/tickets.css';
+@import '../styles/directory.css';
 @import '../styles/motion.css';
 
 /* --- Text utilities ----------------------------------------------------- */

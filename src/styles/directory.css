@@ -1,0 +1,655 @@
+/*
+ * Directory and inventory screens: the people and device lists, the two
+ * record pages, their forms, the bulk bar and the type-ahead pickers.
+ *
+ * Built on the tokens and on the ticket layout (`.ticket`, `.ticket-head`,
+ * `.ticket-grid`, `.panel`, `.facts`, `.timeline`), so a person and a device
+ * page share one skeleton with a ticket and nothing here names a colour or a
+ * size directly. Mono is used for identifiers only: asset tags, serials,
+ * device ids, OSIS and staff ids.
+ */
+
+/* --- Lists -------------------------------------------------------------- */
+
+/* The fields sit directly in the filter bar's own flex row. */
+.dir-filters {
+  display: contents;
+}
+
+.dir-filters .field {
+  flex: 1 1 140px;
+  min-width: 132px;
+  max-width: 220px;
+}
+
+.dir-filters .field-search {
+  flex: 2 1 240px;
+  max-width: none;
+}
+
+.dir-filters .field-segmented,
+.dir-filters .field-check {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: none;
+}
+
+/* The toggle lines up with the 40px controls beside it. */
+.dir-filters .field-check .check {
+  align-items: center;
+  height: 40px;
+}
+
+.dir-filters .field-check .check input {
+  margin-top: 0;
+}
+
+@media (max-width: 719.98px) {
+  .dir-filters .field {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+    max-width: none;
+  }
+
+  .dir-filters .field-search,
+  .dir-filters .field-segmented {
+    flex-basis: 100%;
+  }
+
+  .dir-filters .field-segmented .segmented {
+    width: 100%;
+  }
+
+  .dir-filters .field-segmented .segmented-option {
+    flex: 1 1 0;
+  }
+}
+
+.directory[data-busy='true'] .data-table {
+  opacity: 0.6;
+  transition: opacity 120ms ease-out;
+}
+
+.directory .table td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+/* Two-line cells: the name over the kind, the asset tag over the serial. */
+.dir-cell-title {
+  display: block;
+  min-width: 0;
+}
+
+.dir-name {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.dir-sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.dir-sub .badge {
+  vertical-align: middle;
+}
+
+.dir-quiet {
+  color: var(--ink-3);
+}
+
+.dir-tag {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.dir-serial {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.dir-age {
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Two buttons under an empty state sit side by side and wrap on phones. */
+.directory .empty-action {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* --- Selection and the bulk bar ---------------------------------------- */
+
+.directory .table th.select-cell,
+.directory .table td.select-cell {
+  width: 40px;
+  padding-right: 0;
+}
+
+.row-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.row-check input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--brass);
+  cursor: pointer;
+}
+
+.row-check input:focus-visible {
+  border-radius: 2px;
+  box-shadow: var(--focus);
+}
+
+.directory .table tbody tr:has(.row-check input:checked) {
+  background: var(--brass-soft);
+}
+
+.dir-card-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dir-card-title a {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.row-card:has(.row-check input:checked) {
+  background: var(--brass-soft);
+}
+
+/*
+ * The bar for a selection. Sticky to the bottom of the viewport while the
+ * table is in view, so the actions are at hand however far down the page the
+ * last box was ticked; above the bottom tabs on phones.
+ */
+.bulk-bar {
+  position: sticky;
+  bottom: 16px;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 12px 16px;
+  padding: 10px 12px 10px 16px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+}
+
+.bulk-bar-count {
+  margin-right: 4px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.bulk-bar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.bulk-bar-clear {
+  margin-left: auto;
+}
+
+@media (max-width: 719.98px) {
+  .bulk-bar {
+    bottom: calc(var(--tabs-h) + 12px + env(safe-area-inset-bottom));
+    margin: 12px;
+    padding: 10px 12px;
+  }
+
+  .bulk-bar-actions {
+    flex: 1 1 100%;
+  }
+
+  .bulk-bar-actions .btn {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+  }
+}
+
+/* --- Badges ------------------------------------------------------------- */
+
+/*
+ * Device statuses. Deployed is the working state, in the signal blue; in
+ * stock is ready, green; in repair is the amber of waiting; retired and
+ * surplus are slate; lost is the one red. Each carries its label.
+ */
+.device-deployed {
+  --badge-tone: var(--signal);
+}
+
+.device-in_stock {
+  --badge-tone: var(--ok);
+}
+
+.device-in_repair {
+  --badge-tone: var(--warn);
+}
+
+.device-retired,
+.device-surplus {
+  --badge-tone: var(--slate);
+  color: var(--ink-3);
+}
+
+.device-lost {
+  --badge-tone: var(--bad);
+  color: var(--bad);
+}
+
+.badge-archived {
+  background: var(--slate-soft);
+  color: var(--ink-3);
+}
+
+/* --- Record pages ------------------------------------------------------- */
+
+.record-head-main {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.record-head-main .avatar-md {
+  margin-top: 2px;
+}
+
+.record-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.record-title {
+  font-size: var(--fs-5);
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+/* A device's asset tag is the title: mono, large, spaced a touch. */
+.record-tag {
+  font-size: var(--fs-5);
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  overflow-wrap: anywhere;
+}
+
+.record-subtitle {
+  margin-top: 4px;
+  color: var(--ink-2);
+  font-size: var(--fs-3);
+}
+
+.record-idents {
+  gap: 6px 14px;
+  margin-top: 8px;
+}
+
+.record-email {
+  color: var(--signal);
+}
+
+.record-actions {
+  flex: 0 1 auto;
+  align-items: center;
+  min-width: 0;
+}
+
+/*
+ * On phones the actions take a row of their own under the title, and the two
+ * that the pinned bar at the foot of the page repeats are left to the bar.
+ */
+@media (max-width: 719.98px) {
+  .record-actions {
+    flex-basis: 100%;
+  }
+
+  .record-actions .btn-twin {
+    display: none;
+  }
+}
+
+/* A labelled identifier with its copy button: "OSIS 240000123 [copy]". */
+.ident {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ident-label {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.ident-value {
+  color: var(--ink);
+  font-size: var(--fs-2);
+  overflow-wrap: anywhere;
+}
+
+.copy-btn.btn-icon.btn-sm {
+  width: 28px;
+  height: 28px;
+  color: var(--ink-3);
+}
+
+.copy-btn[data-copied='true'] {
+  color: var(--ok);
+}
+
+.facts .copy-btn {
+  margin-left: 2px;
+  vertical-align: middle;
+}
+
+.fact-ident {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.record-notes {
+  max-width: 60ch;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A table inside a panel body: boxed, and its header does not stick. */
+.record-table {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+}
+
+.record-table .table thead th {
+  position: static;
+}
+
+.record-table .table tbody tr:last-child td,
+.record-table .row-card:last-child {
+  border-bottom: 0;
+}
+
+.record-table .data-table {
+  overflow-x: auto;
+}
+
+/* The current loans on a person's page, one card each. */
+.loan-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.loan-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+}
+
+.loan-card-text {
+  display: flex;
+  flex: 1 1 200px;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.loan-card-tag {
+  color: var(--ink);
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+
+.loan-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.loan-card > .btn {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 719.98px) {
+  .loan-card > .btn {
+    width: 100%;
+  }
+}
+
+/* Who holds a device now. */
+.holder-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.holder-card .avatar {
+  flex: 0 0 auto;
+}
+
+.holder-card-text {
+  display: flex;
+  flex: 1 1 200px;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.holder-card-name {
+  color: var(--ink);
+  font-size: var(--fs-3);
+  font-weight: 600;
+}
+
+.holder-card-meta {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.holder-card > .btn {
+  flex: 0 0 auto;
+}
+
+.holder-empty {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.holder-empty p {
+  flex: 1 1 200px;
+}
+
+/* The tickets that name a record. */
+.record-tickets {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  list-style: none;
+}
+
+.record-ticket {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  min-height: 44px;
+  padding: 8px 12px;
+}
+
+.record-ticket + .record-ticket {
+  border-top: 1px solid var(--line);
+}
+
+.record-ticket-link {
+  display: flex;
+  flex: 1 1 240px;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+  color: var(--ink);
+}
+
+.record-ticket-link:hover {
+  text-decoration: none;
+}
+
+.record-ticket-link:hover .record-ticket-title {
+  text-decoration: underline;
+}
+
+.record-ticket-number {
+  flex: 0 0 auto;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.record-ticket-title {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.record-ticket-end {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.record-ticket-time {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  white-space: nowrap;
+}
+
+/* Who made a history entry, under what they did. */
+.timeline-by {
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.timeline-item[data-kind='assigned'] .timeline-dot,
+.timeline-item[data-kind='device_assigned'] .timeline-dot {
+  border-color: var(--signal);
+  background: var(--signal);
+}
+
+.timeline-item[data-kind='returned'] .timeline-dot,
+.timeline-item[data-kind='device_returned'] .timeline-dot {
+  border-color: var(--ok);
+  background: var(--ok);
+}
+
+.timeline-item[data-kind='deactivated'] .timeline-dot {
+  border-color: var(--warn);
+  background: var(--warn);
+}
+
+/* --- Forms -------------------------------------------------------------- */
+
+.record-form-page {
+  max-width: 880px;
+}
+
+.person-form .segmented,
+.device-form .segmented {
+  align-self: flex-start;
+}
+
+/* The edit sheets carry a two-column form, so they are a little wider. */
+.sheet-wide {
+  width: min(560px, 100%);
+}
+
+/* --- Pickers ------------------------------------------------------------ */
+
+/*
+ * Additions to the inline picker in `tickets.css`: results grouped under a
+ * heading, an active option the keyboard has reached, and an option that can
+ * be seen but not chosen.
+ */
+.picker-group + .picker-group {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.picker-group-label {
+  display: block;
+  padding: 6px 10px 2px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 600;
+}
+
+.picker-group-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.picker-option[aria-selected='true'] {
+  background: var(--surface-3);
+}
+
+.picker-option[aria-disabled='true'] {
+  color: var(--ink-3);
+  cursor: default;
+}
+
+.picker-option[aria-disabled='true']:hover {
+  background: transparent;
+}
+
+.picker-option-note {
+  display: block;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
