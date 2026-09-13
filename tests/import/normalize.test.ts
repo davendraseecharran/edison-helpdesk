@@ -70,7 +70,6 @@ describe('mapStatus', () => {
     expect(mapStatus('Deployed')).toBe('deployed');
     expect(mapStatus('In Stock')).toBe('in_stock');
     expect(mapStatus('Available')).toBe('in_stock');
-    expect(mapStatus('')).toBe('in_stock');
     expect(mapStatus('Repair')).toBe('in_repair');
     expect(mapStatus(' in repair ')).toBe('in_repair');
     expect(mapStatus('in_repair')).toBe('in_repair');
@@ -83,6 +82,11 @@ describe('mapStatus', () => {
 
   it('falls back to in stock for a word it does not know', () => {
     expect(mapStatus('On a cart somewhere')).toBe('in_stock');
+  });
+
+  it('says nothing at all for a blank cell', () => {
+    expect(mapStatus('')).toBeNull();
+    expect(mapStatus('   ')).toBeNull();
   });
 });
 
@@ -293,9 +297,23 @@ describe('toDeviceRows', () => {
     expect(rows[0].holder).toBeNull();
   });
 
-  it('defaults the type and the status', () => {
+  it('leaves the type and the status unsaid when the sheet says nothing', () => {
     const { rows } = devices(`${INVENTORY_HEADER}\nDOE-LN0000005-WIN,,,,,,,,,,,,,,`);
-    expect(rows[0]).toMatchObject({ type: 'Laptop', status: 'in_stock', manufacturer: null });
+    expect(rows[0]).toMatchObject({ type: null, status: null, manufacturer: null });
+  });
+
+  it('leaves the type and the status unsaid when the sheet has neither column', () => {
+    const trimmed: ColumnPreset = {
+      ...inventory,
+      map: Object.fromEntries(
+        Object.entries(inventory.map).filter(([field]) => field !== 'type' && field !== 'status'),
+      ),
+    };
+    const { rows } = devices(
+      `DeviceID,SerialNumber,Model\nDOE-LN0000010-WIN,,Latitude 3440`,
+      trimmed,
+    );
+    expect(rows[0]).toMatchObject({ type: null, status: null, model: 'Latitude 3440' });
   });
 
   it('reports a row with no device identifier', () => {

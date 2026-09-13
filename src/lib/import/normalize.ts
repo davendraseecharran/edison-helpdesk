@@ -24,6 +24,15 @@
  * `active` is never emitted. Archiving a person is the administrator's switch
  * and app_upsert_person refuses the key outright.
  *
+ * Nor is a DEFAULT ever emitted. A blank cell and a column the sheet does not
+ * carry both arrive at the database as null, which `app_admin_import` reads as
+ * "leave whatever the helpdesk knows alone". That is why `type` and `status` are
+ * null here rather than 'Laptop' and 'in_stock': a file exported without a
+ * Status column would otherwise take every machine in for repair back out of it,
+ * and one without a Type column would turn every Chromebook into a laptop. The
+ * defaults belong to the INSERT of a machine the inventory has never seen, and
+ * the import RPC is where they are applied.
+ *
  * Errors carry the DATA row number, 1-based with the header excluded, so the
  * number in the import screen is the row the operator can go and fix. A row
  * that errors is left out of `rows`; the rest of the file still imports.
@@ -62,15 +71,25 @@ export interface DeviceHolder {
   name: string | null;
 }
 
+export type DeviceStatus =
+  | 'in_stock'
+  | 'deployed'
+  | 'in_repair'
+  | 'retired'
+  | 'lost'
+  | 'surplus';
+
 export interface DeviceRow {
   device_id: string | null;
   serial_number: string | null;
   asset_tag: string | null;
-  type: string;
+  /** Null when the sheet had no Type column, or left the cell blank. */
+  type: string | null;
   manufacturer: string | null;
   model: string | null;
   os: string | null;
-  status: 'in_stock' | 'deployed' | 'in_repair' | 'retired' | 'lost' | 'surplus';
+  /** Null when the sheet had no Status column, or left the cell blank. */
+  status: DeviceStatus | null;
   location: string | null;
   notes: string | null;
   holder: DeviceHolder | null;
@@ -154,15 +173,25 @@ export function splitDeviceId(raw: string): { serial: string | null; os: string 
 
 /**
  * Maps the inventory sheet's status words onto the `devices.status` check.
- * A word nobody recognises means in stock: an unknown status must not stop an
- * import, and "in stock" is the state that claims the least.
+ *
+ * A BLANK cell is null, not "in stock". A sheet that does not carry a Status
+ * column, or leaves the cell empty, is saying nothing about the machine, and
+ * reading that as "in stock" would take every laptop out for repair back out of
+ * repair on the next import. Null means "leave the inventory's answer alone";
+ * `app_admin_import` supplies `in_stock` only when it is INSERTING a machine the
+ * inventory has never seen.
+ *
+ * A word nobody recognises is the other case, and it does still mean in stock:
+ * the sheet said something, the import must not stop over it, and "in stock" is
+ * the state that claims the least.
  */
-export function mapStatus(raw: string): DeviceRow['status'] {
+export function mapStatus(raw: string): DeviceStatus | null {
   const word = collapse(raw).toLowerCase().replace(/[_-]+/g, ' ');
   switch (word) {
+    case '':
+      return null;
     case 'deployed':
       return 'deployed';
-    case '':
     case 'in stock':
     case 'available':
       return 'in_stock';
@@ -352,7 +381,10 @@ export function toDeviceRows(
       device_id: deviceId,
       serial_number: serial,
       asset_tag: assetTag,
-      type: textOrNull(cell(raw, 'type')) ?? 'Laptop',
+      // No default. A blank Type cell, or a sheet with no Type column at all,
+      // says nothing about the machine; `app_admin_import` fills in 'Laptop'
+      // when it is introducing one, and leaves a known one alone.
+      type: textOrNull(cell(raw, 'type')),
       manufacturer: textOrNull(cell(raw, 'manufacturer')),
       model: textOrNull(cell(raw, 'model')),
       os: textOrNull(cell(raw, 'os')) ?? derived.os,

@@ -27,6 +27,7 @@
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
+import { randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   adminServiceClient,
@@ -40,6 +41,9 @@ import {
 /** insufficient_privilege and check_violation, as PostgREST reports them. */
 const REFUSED = '42501';
 const REJECTED = '23514';
+
+/** What a row gets when the failure has no sentence of its own. */
+const UNKNOWN_ROW_ERROR = 'This row could not be saved. Fix it in the sheet and import again.';
 
 let service: SupabaseClient;
 let admin: SupabaseClient;
@@ -104,11 +108,11 @@ interface DeviceRow {
   device_id: string | null;
   serial_number: string | null;
   asset_tag: string | null;
-  type: string;
+  type: string | null;
   manufacturer: string | null;
   model: string | null;
   os: string | null;
-  status: string;
+  status: string | null;
   location: string | null;
   notes: string | null;
   holder: DeviceHolder | null;
@@ -122,7 +126,7 @@ interface ImportResult {
   inserts: number;
   updates: number;
   unchanged: number;
-  errors: Array<{ row: number; message: string }>;
+  errors: Array<{ row: number; message: string; detail?: string }>;
   unmatched_holders: Array<{ row: number; holder: DeviceHolder }>;
   assignments_created: number;
 }
@@ -182,6 +186,16 @@ function deviceRow(over: Partial<DeviceRow> = {}): DeviceRow {
     holder: null,
     ...over,
   };
+}
+
+/**
+ * An identifier far past what a btree index row can hold, and random so that the
+ * index's own compression cannot bring it back under the limit. Nothing in the
+ * importer anticipates it, which is the point: it is the stand-in for whatever
+ * unforeseen thing PostgreSQL refuses one day.
+ */
+function oversizedIdentifier(): string {
+  return randomBytes(3200).toString('hex');
 }
 
 function holder(over: Partial<DeviceHolder> = {}): DeviceHolder {
@@ -376,6 +390,16 @@ describe('what the call will accept', () => {
     expect(result.inserts).toBe(0);
     expect(result.errors).toEqual([]);
   });
+
+  it('accepts exactly 5000 rows, because the cap is a ceiling not a cliff', async () => {
+    const rows = Array.from({ length: 5000 }, (_, at) =>
+      personRow({ osis: `8${RUN_TAG}${String(at + 1).padStart(4, '0')}` }),
+    );
+    const result = await runImport(admin, 'people', rows, 'dry_run');
+    expect(result.total).toBe(5000);
+    expect(result.inserts).toBe(5000);
+    expect(result.errors).toEqual([]);
+  });
 });
 
 describe('importing people', () => {
@@ -447,6 +471,40 @@ describe('importing people', () => {
 
     const changed = await personByOsis(first.osis as string);
     expect(changed?.department).toBe('Mathematics');
+  });
+
+  it('reports the same counts on a dry run as the commit then performs', async () => {
+    const staying = personRow({ department: 'Science' });
+    const moving = personRow({ department: 'Science' });
+    await runImport(admin, 'people', [staying, moving], 'commit');
+
+    const rows = [
+      staying,
+      { ...moving, department: 'Art' },
+      personRow(),
+      personRow({ kind: 'faculty' }),
+    ];
+
+    const dry = await runImport(admin, 'people', rows, 'dry_run');
+    const committed = await runImport(admin, 'people', rows, 'commit');
+
+    expect(dry.inserts).toBe(1);
+    expect(dry.updates).toBe(1);
+    expect(dry.unchanged).toBe(1);
+    expect(dry.errors).toHaveLength(1);
+    expect({
+      inserts: committed.inserts,
+      updates: committed.updates,
+      unchanged: committed.unchanged,
+      errors: committed.errors.length,
+      assignments: committed.assignments_created,
+    }).toEqual({
+      inserts: dry.inserts,
+      updates: dry.updates,
+      unchanged: dry.unchanged,
+      errors: dry.errors.length,
+      assignments: dry.assignments_created,
+    });
   });
 
   it('leaves a field the sheet left blank alone', async () => {
@@ -693,6 +751,73 @@ describe('importing devices', () => {
     expect(result.errors[0].message).toContain('asset tag');
   });
 
+  it('leaves a known machine alone when the sheet carries no type or status', async () => {
+    const row = deviceRow({ type: 'Chromebook', status: 'in_repair' });
+    await runImport(admin, 'devices', [row], 'commit');
+
+    // Ruling 15: a file exported without a Type or Status column says nothing
+    // about either, and must not flatten what the inventory knows.
+    const result = await runImport(
+      admin,
+      'devices',
+      [{ ...row, type: null, status: null }],
+      'commit',
+    );
+    expect(result.unchanged).toBe(1);
+    expect(result.updates).toBe(0);
+
+    const device = await deviceBySerial(row.serial_number as string);
+    expect(device?.type).toBe('Chromebook');
+    expect(device?.status).toBe('in_repair');
+  });
+
+  it('leaves a known machine alone when the row omits the keys entirely', async () => {
+    const row = deviceRow({ type: 'Cart', status: 'surplus' });
+    await runImport(admin, 'devices', [row], 'commit');
+
+    const result = await runImport(
+      admin,
+      'devices',
+      [{ serial_number: row.serial_number, location: 'Room 212', holder: null }],
+      'commit',
+    );
+    expect(result.unchanged).toBe(1);
+
+    const device = await deviceBySerial(row.serial_number as string);
+    expect(device?.type).toBe('Cart');
+    expect(device?.status).toBe('surplus');
+  });
+
+  it('gives a machine it has never seen the inventory defaults', async () => {
+    const row = deviceRow({ type: null, status: null });
+    const result = await runImport(admin, 'devices', [row], 'commit');
+    expect(result.inserts).toBe(1);
+
+    const device = await deviceBySerial(row.serial_number as string);
+    expect(device?.type).toBe('Laptop');
+    expect(device?.status).toBe('in_stock');
+  });
+
+  it('leaves a hand-entered machine marked manual when it corrects it', async () => {
+    const serial = nextSerial();
+    await rpcOk(admin, 'app_upsert_device', {
+      p_device: { serial_number: serial, type: 'Chromebook', location: 'Room 100' },
+    });
+
+    const result = await runImport(
+      admin,
+      'devices',
+      [deviceRow({ serial_number: serial, type: null, status: null, location: 'Room 214' })],
+      'commit',
+    );
+    expect(result.updates).toBe(1);
+
+    const device = await deviceBySerial(serial);
+    expect(device?.source).toBe('manual');
+    expect(device?.type).toBe('Chromebook');
+    expect(device?.location).toBe('Room 214');
+  });
+
   it('assigns the machine to the student the holder column names', async () => {
     const student = await makePerson();
     const row = deviceRow({
@@ -896,6 +1021,52 @@ describe('importing devices', () => {
   });
 });
 
+describe('what a bad row is told', () => {
+  it('shows its own sentence with nothing else attached', async () => {
+    const result = await runImport(admin, 'people', [personRow({ kind: 'faculty' })], 'commit');
+
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].message).toContain('student or staff');
+    // A message written for the operator needs no database text beside it.
+    expect(result.errors[0].detail).toBeUndefined();
+  });
+
+  it('never puts raw database text where the operator reads', async () => {
+    // The case the generic sentence exists for: the operator is told what to do,
+    // and PostgreSQL's own words go to `detail` for whoever is debugging the
+    // import rather than fixing the sheet.
+    const result = await runImport(
+      admin,
+      'people',
+      [personRow({ staff_id: oversizedIdentifier() })],
+      'commit',
+    );
+
+    expect(result.inserts).toBe(0);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].row).toBe(1);
+    expect(result.errors[0].message).toBe(UNKNOWN_ROW_ERROR);
+    expect(typeof result.errors[0].detail).toBe('string');
+    expect((result.errors[0].detail as string).length).toBeGreaterThan(0);
+    expect((result.errors[0].detail as string).length).toBeLessThanOrEqual(500);
+  });
+
+  it('keeps the rest of the file when a row fails that way', async () => {
+    const good = personRow();
+    const result = await runImport(
+      admin,
+      'people',
+      [personRow({ staff_id: oversizedIdentifier() }), good],
+      'commit',
+    );
+
+    expect(result.inserts).toBe(1);
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].row).toBe(1);
+    expect(await personByOsis(good.osis as string)).not.toBeNull();
+  });
+});
+
 describe('the record of what was imported', () => {
   it('records a committed run with its counts and its summary', async () => {
     const rows = [personRow(), personRow({ kind: 'faculty' })];
@@ -937,5 +1108,35 @@ describe('the record of what was imported', () => {
     const before = await importRunCount();
     await runImport(admin, 'people', [personRow()], 'dry_run');
     expect(await importRunCount()).toBe(before);
+  });
+
+  it('clamps how many runs it will hand back', async () => {
+    await runImport(admin, 'people', [personRow()], 'commit');
+
+    const one = await rpcOk<ImportRunRow[]>(admin, 'app_admin_import_runs', { p_limit: 1 });
+    expect(one).toHaveLength(1);
+
+    // A caller asking for no rows gets none rather than one.
+    const none = await rpcOk<ImportRunRow[]>(admin, 'app_admin_import_runs', { p_limit: 0 });
+    expect(none).toEqual([]);
+    const negative = await rpcOk<ImportRunRow[]>(admin, 'app_admin_import_runs', { p_limit: -5 });
+    expect(negative).toEqual([]);
+
+    // NULL is the documented default of 20, and nothing can ask for more than
+    // 100: `summary` holds a whole file's worth of errors.
+    const fallback = await rpcOk<ImportRunRow[]>(admin, 'app_admin_import_runs', {
+      p_limit: null,
+    });
+    expect(fallback.length).toBeLessThanOrEqual(20);
+    const capped = await rpcOk<ImportRunRow[]>(admin, 'app_admin_import_runs', { p_limit: 1000 });
+    expect(capped.length).toBeLessThanOrEqual(100);
+  });
+
+  it('keeps the row-reading helper out of every session', async () => {
+    const failure = await rpcFails(admin, 'app_import_value', {
+      p_row: { department: 'Science' },
+      p_key: 'department',
+    });
+    expect(failure.message).not.toBe('');
   });
 });
