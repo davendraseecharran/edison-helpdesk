@@ -190,7 +190,11 @@ describe('restricted identities', () => {
       password: `Ed-${crypto.randomUUID()}`,
     });
     expect(error).not.toBeNull();
-    expect(error?.message).toMatch(/signups not allowed|disabled/i);
+    // M5: site-wide signups are ON, because GoTrue will not create the auth user
+    // for a first Google sign-in while they are off. Public email+password
+    // sign-up is closed by the before-user-created hook instead, which fires
+    // only in the signup endpoint — so this is its message, not GoTrue's.
+    expect(error?.message).toMatch(/created by the administrator/i);
   });
 });
 

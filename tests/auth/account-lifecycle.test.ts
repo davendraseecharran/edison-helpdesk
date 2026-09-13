@@ -66,7 +66,10 @@ describe('who may create accounts', () => {
       password: ephemeralPassword(),
     });
     expect(error).not.toBeNull();
-    expect(error?.message).toMatch(/signups not allowed|disabled/i);
+    // Refused by the before-user-created hook rather than by GoTrue's own
+    // signup flag, which has to stay on for a first Google sign-in to work.
+    // See tests/auth/signup-hook.test.ts.
+    expect(error?.message).toMatch(/created by the administrator/i);
   });
 
   it('makes a duplicated or retried provision idempotent', async () => {

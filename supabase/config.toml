@@ -314,9 +314,17 @@ max_frequency = "5s"
 # inactivity_timeout = "8h"
 
 # This hook runs before a new user is created and allows developers to reject the request based on the incoming user object.
-# [auth.hook.before_user_created]
-# enabled = true
-# uri = "pg-functions://postgres/auth/before-user-created-hook"
+#
+# ENABLED (controller Ruling 24). [auth] enable_signup above must stay true so a
+# first external-provider sign-in can create its auth user, and [auth.email]
+# enable_signup cannot be used to close password sign-up because it disables
+# password LOGINS too. This hook fires ONLY in the public signup endpoint, so it
+# refuses email+password self-registration while leaving external-provider
+# sign-ins and admin-API provisioning untouched. The function ships in
+# supabase/migrations/20260912101200_m5_signup_hook.sql.
+[auth.hook.before_user_created]
+enabled = true
+uri = "pg-functions://postgres/public/hook_before_user_created"
 
 # This hook runs before a token is issued and allows you to add additional claims based on the authentication method used.
 # [auth.hook.custom_access_token]
