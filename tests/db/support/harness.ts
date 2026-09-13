@@ -80,6 +80,33 @@ export async function freshSession(key: IdentityKey): Promise<SupabaseClient> {
   return client;
 }
 
+/**
+ * A signed-in client whose every request carries extra HTTP headers.
+ *
+ * PostgREST publishes the request headers to SQL as `request.headers`, which is
+ * how the database learns that a call was made on an operator's behalf by an AI
+ * assistant. Headers are attached at client construction because supabase-js has
+ * no per-call header hook for `.rpc()`; the client is deliberately NOT cached,
+ * so one test's headers can never leak into another's.
+ */
+export async function signInWithHeaders(
+  key: IdentityKey,
+  headers: Record<string, string>,
+): Promise<SupabaseClient> {
+  const local = stack();
+  const person = identity(key);
+  const client = createClient(local.apiUrl, local.anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers },
+  });
+  const { error } = await client.auth.signInWithPassword({
+    email: person.email,
+    password: person.password,
+  });
+  if (error) throw new Error(`Could not sign in as ${key}: ${error.message}`);
+  return client;
+}
+
 export function forgetSessions(): void {
   sessions.clear();
 }

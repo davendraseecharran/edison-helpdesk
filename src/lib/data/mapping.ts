@@ -181,6 +181,8 @@ export function mapActivity(row: {
   at: string;
   summary: string;
   detail: string | null;
+  performed_via?: string | null;
+  ai_model?: string | null;
 }): ActivityEvent {
   return {
     id: row.id,
@@ -190,5 +192,9 @@ export function mapActivity(row: {
     at: row.at,
     summary: row.summary,
     detail: row.detail,
+    // The column is NOT NULL with a 'user' default in the database; the fallback
+    // covers a payload shaped before attribution existed.
+    performedVia: row.performed_via === 'ai' ? 'ai' : 'user',
+    aiModel: row.ai_model ?? null,
   };
 }

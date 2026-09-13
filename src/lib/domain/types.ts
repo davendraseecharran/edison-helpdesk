@@ -122,6 +122,15 @@ export type ActivityKind =
   | 'reopened'
   | 'cancelled';
 
+/**
+ * How a recorded action was carried out.
+ *
+ * `ai` means an assistant performed it on the actor's behalf. It never replaces
+ * the actor: the responsible account is the same either way, so this only adds
+ * context to history, it never removes accountability from it.
+ */
+export type PerformedVia = 'user' | 'ai';
+
 export interface ActivityEvent {
   id: string;
   ticketId: TicketId;
@@ -132,6 +141,30 @@ export interface ActivityEvent {
   summary: string;
   /** Optional longer body (reason text, note excerpt). Never a credential. */
   detail?: string | null;
+  /** Defaults to `user` for records written before attribution existed. */
+  performedVia?: PerformedVia;
+  /** Model that assisted, when `performedVia` is `ai`. */
+  aiModel?: string | null;
+}
+
+/**
+ * A private in-app notice for one account.
+ *
+ * Notices are written by trusted server-side code only, never by a session, and
+ * carry no credential: `href` is a relative in-app path, not a link with a token.
+ */
+export interface Notification {
+  id: string;
+  accountId: AccountId;
+  /** Machine-readable category, e.g. `ticket_assigned`. */
+  kind: string;
+  title: string;
+  body?: string | null;
+  /** Relative in-app path this notice points at. */
+  href?: string | null;
+  createdAt: string;
+  /** `null` while the notice is still unread. */
+  readAt: string | null;
 }
 
 export interface Ticket {
