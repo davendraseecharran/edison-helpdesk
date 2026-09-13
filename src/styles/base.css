@@ -1,0 +1,122 @@
+/*
+ * Element defaults built on the tokens.
+ *
+ * Nothing here names a colour or a size directly; the theme and the type scale
+ * both come from `tokens.css`, so a token change moves the whole application.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 var(--fs-2) / 1.5 var(--font-sans), ui-sans-serif, system-ui;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+figure {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+h1 {
+  font-size: var(--fs-5);
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: var(--fs-4);
+}
+
+h3 {
+  font-size: var(--fs-3);
+}
+
+a {
+  color: var(--signal);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Identifiers only: ticket numbers, asset tags, serials. */
+.mono {
+  font-family: var(--font-mono), ui-monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/*
+ * One focus indicator for the whole application. The brass ring is drawn as a
+ * shadow so it follows the element's own border radius instead of boxing a
+ * rounded control in a rectangle.
+ */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Text for screen readers that must not take up space on screen. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Running text stays within a comfortable measure. */
+.prose {
+  max-width: 72ch;
+}

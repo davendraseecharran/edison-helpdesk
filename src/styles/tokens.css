@@ -1,0 +1,82 @@
+/*
+ * Design tokens — the only place in the codebase that names a colour.
+ *
+ * Every token is defined for both themes. The dark set overrides the light one
+ * on `:root[data-theme="dark"]`, which the blocking boot script stamps before
+ * first paint, so a dark-theme reload never flashes light. Rules elsewhere use
+ * `var(--token)` only; that is what makes the whole application follow the
+ * theme without a second stylesheet.
+ */
+
+:root {
+  color-scheme: light;
+  --ink: #0f1f3d;
+  --ink-2: #33415c;
+  --ink-3: #5b6780;
+  --paper: #f3f5f8;
+  --surface: #ffffff;
+  --surface-2: #f7f8fb;
+  --surface-3: #eef1f6;
+  --line: #d9dee7;
+  --line-2: #c5ccd8;
+  --brass: #d4a72c;
+  --brass-2: #b98d1c;
+  --brass-soft: #fbf3d9;
+  --brass-ink: #0f1f3d;
+  --signal: #2457b6;
+  --signal-soft: #e6eefb;
+  --ok: #1f6b45;
+  --ok-soft: #e4f2ea;
+  --warn: #8a5a08;
+  --warn-soft: #fbf1da;
+  --bad: #9c2b2b;
+  --bad-soft: #fbe9e9;
+  --slate: #5b6780;
+  --slate-soft: #eceff4;
+  --focus: 0 0 0 3px rgba(212, 167, 44, 0.55);
+  --radius-1: 4px;
+  --radius-2: 8px;
+  --radius-3: 12px;
+  --shadow-1: 0 1px 2px rgba(15, 31, 61, 0.06);
+  --shadow-2: 0 6px 24px rgba(15, 31, 61, 0.1);
+  --rail-w: 232px;
+  --topbar-h: 56px;
+  --tabs-h: 60px;
+  --fs-0: 12px;
+  --fs-1: 13px;
+  --fs-2: 14px;
+  --fs-3: 16px;
+  --fs-4: 20px;
+  --fs-5: 26px;
+  --fs-6: 34px;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --ink: #e8ecf3;
+  --ink-2: #b7c0d0;
+  --ink-3: #8b96aa;
+  --paper: #0d1526;
+  --surface: #131d31;
+  --surface-2: #182440;
+  --surface-3: #1e2c4c;
+  --line: #27365a;
+  --line-2: #34466f;
+  --brass: #e2b93f;
+  --brass-2: #f0c95a;
+  --brass-soft: #3a3116;
+  --brass-ink: #0d1526;
+  --signal: #7aa2ec;
+  --signal-soft: #1a2a4d;
+  --ok: #6fcf97;
+  --ok-soft: #14301f;
+  --warn: #e6b45a;
+  --warn-soft: #3a2c10;
+  --bad: #ef8a8a;
+  --bad-soft: #3b1717;
+  --slate: #9aa6bb;
+  --slate-soft: #202c46;
+  --focus: 0 0 0 3px rgba(226, 185, 63, 0.55);
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.5);
+}

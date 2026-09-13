@@ -1,51 +1,56 @@
 /*
- * Edison helpdesk — design tokens and shared component styles.
+ * Edison helpdesk — application stylesheet.
  *
- * Restrained application look: neutral surfaces, one accent, readable type,
- * dense-but-legible tables. Status and priority are never communicated by colour
- * alone; every badge carries its text label, and priority adds a glyph.
+ * The design system lives in the two imports below. Everything after the legacy
+ * bridge is the previous stylesheet, kept so every screen keeps rendering while
+ * later tasks replace it screen by screen.
  */
 
+@import '../styles/tokens.css';
+@import '../styles/base.css';
+
+/* --- Legacy bridge ------------------------------------------------------ */
+
+/*
+ * The old variable names, now aliases onto the tokens.
+ *
+ * Not one of them carries a value of its own any more, so the legacy rules
+ * below follow the dark theme as well. They disappear with the rules that use
+ * them. `--surface`, `--font-sans` and `--font-mono` are absent on purpose:
+ * tokens.css and next/font already own those names.
+ */
 :root {
-  color-scheme: light;
+  --bg: var(--paper);
+  --surface-muted: var(--surface-2);
+  --surface-sunken: var(--surface-3);
+  --border: var(--line);
+  --border-strong: var(--line-2);
 
-  --bg: #f5f6f8;
-  --surface: #ffffff;
-  --surface-muted: #f1f3f6;
-  --surface-sunken: #eceff3;
-  --border: #dadee5;
-  --border-strong: #c3c9d3;
+  --text: var(--ink);
+  --text-muted: var(--ink-2);
+  --text-subtle: var(--ink-3);
 
-  --text: #1b1f27;
-  --text-muted: #5a626f;
-  --text-subtle: #79808d;
+  --accent: var(--signal);
+  --accent-strong: var(--signal);
+  --accent-soft: var(--signal-soft);
 
-  --accent: #17548f;
-  --accent-strong: #0f4176;
-  --accent-soft: #e8f0f9;
-  --accent-ring: rgba(23, 84, 143, 0.35);
+  --danger: var(--bad);
+  --danger-soft: var(--bad-soft);
+  --success: var(--ok);
+  --success-soft: var(--ok-soft);
+  --warning: var(--warn);
+  --warning-soft: var(--warn-soft);
+  --info: var(--signal);
+  --info-soft: var(--signal-soft);
 
-  --danger: #9c2b2b;
-  --danger-soft: #fbecec;
-  --success: #1f6b45;
-  --success-soft: #e8f3ed;
-  --warning: #8a5a08;
-  --warning-soft: #fdf2dd;
-  --info: #1f4f80;
-  --info-soft: #e9f0f7;
+  --radius-sm: var(--radius-1);
+  --radius: var(--radius-2);
+  --radius-lg: var(--radius-3);
 
-  --radius-sm: 4px;
-  --radius: 7px;
-  --radius-lg: 10px;
+  --shadow-sm: var(--shadow-1);
+  --shadow: var(--shadow-2);
 
-  --shadow-sm: 0 1px 2px rgba(18, 24, 33, 0.06);
-  --shadow: 0 1px 3px rgba(18, 24, 33, 0.08), 0 4px 12px rgba(18, 24, 33, 0.04);
-
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica,
-    Arial, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-
-  --sidebar-width: 228px;
+  --sidebar-width: var(--rail-w);
 }
 
 * {
@@ -100,12 +105,6 @@ a {
 
 a:hover {
   text-decoration: underline;
-}
-
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  border-radius: 3px;
 }
 
 .sr-only {
