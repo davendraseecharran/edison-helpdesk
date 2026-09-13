@@ -29,18 +29,24 @@ export function AdminActionsPanel({ detail }: { detail: TicketDetail }) {
   const [mode, setMode] = useState<'none' | 'reopen' | 'cancel'>('none');
   const [error, setError] = useState<string | null>(null);
   const reopenRef = useRef<HTMLInputElement>(null);
-  const cancelRef = useRef<HTMLInputElement>(null);
+  // Set by the phone bar's intent and consumed once the reopen field exists,
+  // so a desktop click on "Reopen ticket" reveals the form without scrolling.
+  const revealReopen = useRef(false);
 
   const candidates = useMemo(
     () => directory.filter((account) => account.status === 'active'),
     [directory],
   );
 
-  // The phone bar asks for the reopen form; the field takes focus once it exists.
-  useTicketIntent('reopen', () => setMode('reopen'));
+  useTicketIntent('reopen', () => {
+    revealReopen.current = true;
+    setMode('reopen');
+  });
   useEffect(() => {
-    if (mode === 'reopen') revealControl(reopenRef.current);
-    if (mode === 'cancel') revealControl(cancelRef.current);
+    if (mode === 'reopen' && revealReopen.current) {
+      revealReopen.current = false;
+      revealControl(reopenRef.current);
+    }
   }, [mode]);
 
   // Every hook must run before this guard, so it stays below the hooks above.
@@ -186,7 +192,6 @@ export function AdminActionsPanel({ detail }: { detail: TicketDetail }) {
                 <Field label="Reason for cancelling" htmlFor={`cancel-${ticket.id}`} error={error}>
                   <input
                     id={`cancel-${ticket.id}`}
-                    ref={cancelRef}
                     type="text"
                     value={cancelReason}
                     aria-invalid={error ? 'true' : undefined}

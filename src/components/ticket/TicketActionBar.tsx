@@ -13,10 +13,11 @@
 
 import { useEffect, useRef } from 'react';
 import type { TicketDetail } from '@/lib/domain/selectors';
-import { claimTicketAction, returnTicketAction } from '@/lib/data/actions';
+import { claimTicketAction, resumeWorkAction, returnTicketAction } from '@/lib/data/actions';
 import {
   canAdministerTicket,
   canClaimTicket,
+  canContribute,
   canResolveTicket,
   canReturnToQueue,
 } from '@/lib/domain/permissions';
@@ -53,6 +54,11 @@ export function revealControl(element: HTMLElement | null): void {
   element.focus({ preventScroll: true });
 }
 
+/**
+ * The bar itself, plus the in-flow spacer that reserves room for it at the
+ * end of the page. Both are hidden above 720px; both exist only when there is
+ * an action to offer, so a page without a bar keeps its normal bottom edge.
+ */
 export function TicketActionBar({ detail }: { detail: TicketDetail }) {
   const { pendingKey, run } = useRuntime();
   const actor = useActorAccount();
@@ -60,54 +66,78 @@ export function TicketActionBar({ detail }: { detail: TicketDetail }) {
   const closed = ticket.status === 'resolved' || ticket.status === 'cancelled';
   const busy = pendingKey !== null;
 
-  if (canClaimTicket(ticket, actor)) {
-    return (
-      <div className="ticket-bar" role="group" aria-label="Ticket actions">
+  const actions: React.ReactNode[] = [];
+
+  if (closed) {
+    if (canAdministerTicket(actor)) {
+      actions.push(
+        <Button key="reopen" disabled={busy} onClick={() => requestTicketIntent('reopen')}>
+          Reopen ticket
+        </Button>,
+      );
+    }
+  } else {
+    // Claim is the primary when it is offered; otherwise resolve is. Never two.
+    const mayClaim = canClaimTicket(ticket, actor);
+    if (mayClaim) {
+      actions.push(
         <Button
+          key="claim"
           variant="primary"
           disabled={busy}
           loading={pendingKey === `claim:${ticket.id}`}
           onClick={() => void run(`claim:${ticket.id}`, () => claimTicketAction(ticket.id))}
         >
           Claim ticket
-        </Button>
-      </div>
-    );
+        </Button>,
+      );
+    }
+    if (ticket.status === 'waiting' && canContribute(ticket, actor)) {
+      actions.push(
+        <Button
+          key="resume"
+          disabled={busy}
+          loading={pendingKey === `resume:${ticket.id}`}
+          onClick={() => void run(`resume:${ticket.id}`, () => resumeWorkAction(ticket.id))}
+        >
+          Resume work
+        </Button>,
+      );
+    }
+    if (canReturnToQueue(ticket, actor)) {
+      actions.push(
+        <Button
+          key="return"
+          disabled={busy}
+          loading={pendingKey === `return:${ticket.id}`}
+          onClick={() => void run(`return:${ticket.id}`, () => returnTicketAction(ticket.id))}
+        >
+          Return to queue
+        </Button>,
+      );
+    }
+    if (canResolveTicket(ticket, actor)) {
+      actions.push(
+        <Button
+          key="resolve"
+          variant={mayClaim ? 'secondary' : 'primary'}
+          disabled={busy}
+          onClick={() => requestTicketIntent('resolve')}
+        >
+          Resolve ticket
+        </Button>,
+      );
+    }
   }
 
-  if (!closed) {
-    const mayResolve = canResolveTicket(ticket, actor);
-    const mayReturn = canReturnToQueue(ticket, actor);
-    if (!mayResolve && !mayReturn) return null;
-    return (
+  if (actions.length === 0) return null;
+
+  return (
+    <>
+      <div className="ticket-bar-space" aria-hidden="true" />
       <div className="ticket-bar" role="group" aria-label="Ticket actions">
-        {mayReturn ? (
-          <Button
-            disabled={busy}
-            loading={pendingKey === `return:${ticket.id}`}
-            onClick={() => void run(`return:${ticket.id}`, () => returnTicketAction(ticket.id))}
-          >
-            Return to queue
-          </Button>
-        ) : null}
-        {mayResolve ? (
-          <Button variant="primary" disabled={busy} onClick={() => requestTicketIntent('resolve')}>
-            Resolve ticket
-          </Button>
-        ) : null}
+        {actions}
       </div>
-    );
-  }
-
-  if (canAdministerTicket(actor)) {
-    return (
-      <div className="ticket-bar" role="group" aria-label="Ticket actions">
-        <Button disabled={busy} onClick={() => requestTicketIntent('reopen')}>
-          Reopen ticket
-        </Button>
-      </div>
-    );
-  }
-
-  return null;
+    </>
+  );
 }

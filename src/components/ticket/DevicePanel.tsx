@@ -35,6 +35,7 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
   const key = `device:${ticket.id}`;
   const saving = pendingKey === key;
   const count = detail.devices.length;
+  const formId = `device-form-${ticket.id}`;
 
   async function onSubmit(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
@@ -63,6 +64,7 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
               size="sm"
               icon={open ? undefined : Plus}
               aria-expanded={open}
+              aria-controls={open ? formId : undefined}
               onClick={() => setOpen((value) => !value)}
             >
               {open ? 'Cancel' : 'Record device'}
@@ -117,7 +119,7 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
         )}
 
         {open && mayAdd ? (
-          <form onSubmit={onSubmit} className="form">
+          <form id={formId} onSubmit={onSubmit} className="form">
             <fieldset className="draft">
               <legend>New device</legend>
               <div className="form-grid">

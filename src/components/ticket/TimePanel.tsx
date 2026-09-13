@@ -30,6 +30,7 @@ export function TimePanel({ detail }: { detail: TicketDetail }) {
   const saving = pendingKey === key;
   const contributors = detail.time.byContributor.length;
   const entries = detail.workLogs.length;
+  const formId = `time-form-${ticket.id}`;
 
   async function onSubmit(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
@@ -57,6 +58,7 @@ export function TimePanel({ detail }: { detail: TicketDetail }) {
             size="sm"
             icon={open ? undefined : Plus}
             aria-expanded={open}
+            aria-controls={open ? formId : undefined}
             onClick={() => setOpen((value) => !value)}
           >
             {open ? 'Cancel' : 'Log time'}
@@ -69,7 +71,8 @@ export function TimePanel({ detail }: { detail: TicketDetail }) {
             <p>
               <span className="time-total">{formatMinutes(detail.time.totalMinutes)}</span>
               <span className="time-total-note">
-                across {contributors} {contributors === 1 ? 'person' : 'people'}
+                person-time across {contributors}{' '}
+                {contributors === 1 ? 'contributor' : 'contributors'}
               </span>
             </p>
             <ul className="time-by">
@@ -106,7 +109,7 @@ export function TimePanel({ detail }: { detail: TicketDetail }) {
         )}
 
         {open && mayLog ? (
-          <form onSubmit={onSubmit} className="form">
+          <form id={formId} onSubmit={onSubmit} className="form">
             <Field label="Work date" htmlFor={`time-date-${ticket.id}`}>
               <input
                 id={`time-date-${ticket.id}`}

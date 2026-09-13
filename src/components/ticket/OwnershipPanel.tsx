@@ -142,7 +142,7 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
                 {mayManage ? (
                   <span className="person-end">
                     <Button
-                      variant="ghost"
+                      variant="danger"
                       size="sm"
                       onClick={() => void onRemove(collaborator.id)}
                       disabled={busy}
