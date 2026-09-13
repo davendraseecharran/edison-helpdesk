@@ -49,6 +49,13 @@
   flex: 0 0 auto;
 }
 
+/* The quiet default. Restates the base so the class always means something. */
+.btn-secondary {
+  border-color: var(--line-2);
+  background: var(--surface);
+  color: var(--ink);
+}
+
 .btn-primary {
   border-color: var(--brass);
   background: var(--brass);
@@ -297,7 +304,9 @@ select[aria-invalid='true'] {
   color: var(--ink-3);
 }
 
-.badge-chip {
+/* `.badge-neutral` is the legacy name for the same chip, still in older panels. */
+.badge-chip,
+.badge-neutral {
   padding: 2px 8px;
   border-radius: 999px;
   background: var(--surface-3);
@@ -766,8 +775,15 @@ p.flash {
 
 /* --- Data table --------------------------------------------------------- */
 
+/*
+ * The page never scrolls sideways. From 1024px up the wrapper clips rather
+ * than scrolls: `clip` creates no scroll container, so the header still sticks
+ * to the page, and a table too wide for the column is cut at the edge where a
+ * review will see it, instead of dragging the whole page along.
+ */
 .data-table {
   min-width: 0;
+  overflow-x: clip;
 }
 
 .table {
@@ -878,6 +894,24 @@ p.flash {
 .data-table-empty {
   padding: 40px 16px;
   text-align: center;
+}
+
+/*
+ * Between the phone cards and the full-width desktop the table may be wider
+ * than the main column, so the wrapper scrolls sideways instead of the page.
+ * A scrolling box clips outside it, so the wrapper keeps a little padding at
+ * the bottom for the focus ring of a control in the last row, and the header
+ * cannot stick to the page here (sticky follows the nearest scroll container).
+ */
+@media (min-width: 720px) and (max-width: 1023.98px) {
+  .data-table {
+    padding-bottom: 4px;
+    overflow-x: auto;
+  }
+
+  .table thead th {
+    position: static;
+  }
 }
 
 @media (max-width: 719.98px) {

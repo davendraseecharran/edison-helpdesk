@@ -48,11 +48,17 @@
 
 /* --- Top bar ------------------------------------------------------------ */
 
+/*
+ * Pinned with `fixed`, not `sticky`: as a grid item the bar's containing block
+ * is its own 56px row, which leaves a sticky element no room to stick. The
+ * explicit first row of the grid stays behind as its spacer, so the rail and
+ * the table headers can both offset by `--topbar-h` and agree with it.
+ */
 .topbar {
-  grid-column: 1 / -1;
-  grid-row: 1;
-  position: sticky;
+  position: fixed;
   top: 0;
+  right: 0;
+  left: 0;
   z-index: 30;
   display: flex;
   align-items: center;
@@ -180,14 +186,17 @@
 
 /* --- Bell, assistant, account ------------------------------------------ */
 
+/* The count sits beside the button, not inside it, so the 40px box holds. */
 .bell {
   position: relative;
+  display: inline-flex;
 }
 
 .bell-count {
   position: absolute;
   top: 3px;
   right: 3px;
+  pointer-events: none;
   min-width: 18px;
   height: 18px;
   padding: 0 5px;

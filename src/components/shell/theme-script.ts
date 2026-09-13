@@ -16,11 +16,12 @@ export const THEME_STORAGE_KEY = 'edison.theme';
 export const DARK_MEDIA_QUERY = '(prefers-color-scheme: dark)';
 
 /**
- * Turn a stored preference into the theme that should actually be painted.
+ * Turn a preference into the theme that should actually be painted.
  *
- * Anything that is not an explicit `light` or `dark` — including a value left
- * behind by an older build or edited by hand — is treated as `system`, so a
- * corrupt storage entry can never leave the app without a theme.
+ * `light` and `dark` are painted as asked; anything else means `system` and
+ * follows the operating system. Raw storage values do not arrive here: the
+ * provider and the boot script first pass them through `preferenceFromStored`,
+ * which turns an empty or corrupt entry into the default theme.
  */
 export function resolveTheme(pref: ThemePreference, systemDark: boolean): 'light' | 'dark' {
   if (pref === 'dark' || pref === 'light') return pref;

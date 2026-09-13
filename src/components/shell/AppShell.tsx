@@ -35,14 +35,16 @@ export function AppShell({
   const closeLookup = useCallback(() => setLookupOpen(false), []);
 
   // Cmd/Ctrl+K: focus the top-bar field where it is visible, otherwise open
-  // the lookup sheet. The command palette will take this shortcut over.
+  // the lookup sheet. Never while another modal surface is open; that one
+  // owns the keyboard. The command palette will take this shortcut over.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'k') return;
       if (event.altKey || event.shiftKey) return;
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       event.preventDefault();
       const input = document.querySelector<HTMLInputElement>('[data-lookup-input="bar"]');
-      if (input && input.offsetParent !== null) {
+      if (input && input.getClientRects().length > 0) {
         input.focus();
         input.select();
       } else {

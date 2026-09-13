@@ -17,8 +17,9 @@ describe('resolveTheme', () => {
     expect(resolveTheme('dark', false)).toBe('dark');
     expect(resolveTheme('light', true)).toBe('light');
   });
-  it('treats unknown stored values as system', () => {
+  it('follows the system for any preference that is not light or dark', () => {
     expect(resolveTheme('purple' as never, true)).toBe('dark');
+    expect(resolveTheme('purple' as never, false)).toBe('light');
   });
   it('exposes a stable storage key', () => {
     expect(THEME_STORAGE_KEY).toBe('edison.theme');

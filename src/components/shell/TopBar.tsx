@@ -21,13 +21,14 @@ export function openAssistant(): void {
 export function NotificationsBell({ unread }: { unread: number }) {
   const label = unread > 0 ? `Notifications, ${unread} unread` : 'Notifications';
   return (
-    <Button variant="ghost" icon={Bell} aria-label={label} title="Notifications" className="bell">
+    <span className="bell">
+      <Button variant="ghost" icon={Bell} aria-label={label} title="Notifications" />
       {unread > 0 ? (
         <span className="bell-count" aria-hidden="true">
           {unread > 9 ? '9+' : unread}
         </span>
       ) : null}
-    </Button>
+    </span>
   );
 }
 

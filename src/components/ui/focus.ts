@@ -2,13 +2,22 @@
 
 import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 
+/** `useLayoutEffect` on the client, `useEffect` on the server, where layout effects only warn. */
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-/** Every element inside `root` that can currently take keyboard focus. */
+/**
+ * Every element inside `root` that can currently take keyboard focus.
+ *
+ * Rendered means it has a box: `getClientRects()` is empty for anything under
+ * `display: none`, and unlike `offsetParent` it does not also discard
+ * elements that are positioned `fixed`.
+ */
 export function focusableWithin(root: HTMLElement): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
-    (el) => !el.hasAttribute('aria-hidden') && el.offsetParent !== null,
+    (el) => el.getAttribute('aria-hidden') !== 'true' && el.getClientRects().length > 0,
   );
 }
 
@@ -24,7 +33,7 @@ export function focusableWithin(root: HTMLElement): HTMLElement[] {
 export function useFocusTrap(ref: RefObject<HTMLElement | null>, active: boolean): void {
   const previous = useRef<HTMLElement | null>(null);
 
-  useLayoutEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (!active) return;
     const root = ref.current;
     if (!root) return;
