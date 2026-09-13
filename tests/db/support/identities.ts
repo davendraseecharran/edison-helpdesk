@@ -20,7 +20,9 @@ export type IdentityKey =
   | 'collaborator'
   | 'unrelated'
   | 'pending'
-  | 'inactive';
+  | 'inactive'
+  | 'pendingApproval'
+  | 'denied';
 
 export interface SeededIdentity {
   key: IdentityKey;
@@ -29,7 +31,7 @@ export interface SeededIdentity {
   password: string;
   displayName: string;
   role: 'admin' | 'technician';
-  status: 'active' | 'inactive' | 'setup_pending';
+  status: 'active' | 'inactive' | 'setup_pending' | 'pending_approval' | 'denied';
 }
 
 const PEOPLE: Array<Omit<SeededIdentity, 'id' | 'password'>> = [
@@ -74,6 +76,24 @@ const PEOPLE: Array<Omit<SeededIdentity, 'id' | 'password'>> = [
     displayName: 'Alex Reyes',
     role: 'technician',
     status: 'inactive',
+  },
+  // M5. Someone who signed in with Google without an invite and is waiting for
+  // an administrator to decide.
+  {
+    key: 'pendingApproval',
+    email: 'rowan.deleon@edison.example',
+    displayName: 'Rowan De Leon',
+    role: 'technician',
+    status: 'pending_approval',
+  },
+  // M5. A request an administrator turned down. Kept as a seeded identity so
+  // every suite can prove a denied account reaches nothing.
+  {
+    key: 'denied',
+    email: 'noor.baptiste@edison.example',
+    displayName: 'Noor Baptiste',
+    role: 'technician',
+    status: 'denied',
   },
 ];
 

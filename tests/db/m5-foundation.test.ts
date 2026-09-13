@@ -339,7 +339,15 @@ describe('record events', () => {
     const { data, error } = await admin.from('record_events').select('entity_type');
     expect(error).toBeNull();
     const types = new Set((data ?? []).map((row) => row.entity_type));
-    expect(types).toEqual(new Set(['person', 'device', 'account']));
+    // Everything the technician above can see, plus the entity types reserved
+    // for administrators. The exact set is asserted on the TECHNICIAN, which is
+    // where the confidentiality rule lives; asserting it here as well would make
+    // this file depend on which other suite happened to run first, because
+    // record events are append-only and other M5 suites write admin-only kinds
+    // (invites, imports) into the same table.
+    expect(types).toContain('person');
+    expect(types).toContain('device');
+    expect(types).toContain('account');
   });
 
   it('keeps AI attribution on a record event', async () => {
