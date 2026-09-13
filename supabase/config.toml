@@ -180,7 +180,20 @@ enable_refresh_token_rotation = true
 # Requires enable_refresh_token_rotation = true.
 refresh_token_reuse_interval = 10
 # Allow/disallow new user signups to your project.
-enable_signup = false
+#
+# TRUE because this is the site-wide gate: GoTrue will not create an auth user
+# for a first external-provider sign-in while it is false, which would stop an
+# INVITED colleague just as firmly as an uninvited one.
+#
+# It is not what decides who may USE the helpdesk. A Google sign-in with no
+# invite only ever produces a pending_approval account that can reach nothing
+# until an administrator approves it, and an auth user with no app_accounts row
+# reaches nothing at all.
+#
+# It does, however, reopen POST /auth/v1/signup, and [auth.email] enable_signup
+# below cannot close that without also disabling password LOGINS. Closing it
+# needs the before_user_created hook further down — see the Task 6b report.
+enable_signup = true
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
@@ -225,6 +238,24 @@ web3 = 30
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
+#
+# This is NOT a signup switch in this version of GoTrue: it maps to
+# GOTRUE_EXTERNAL_EMAIL_ENABLED, which gates the email provider as a whole.
+# Setting it false answers every password sign-in with "Email logins are
+# disabled", which takes down the administrator's own account along with every
+# password account (proved locally: 40 of 48 auth tests fail on it). So it stays
+# true, and POST /auth/v1/signup is therefore still reachable.
+#
+# What that does and does not give somebody: a self-registered address gets an
+# auth user and NO app_accounts row, so `loadActor()` reports `unlinked` and the
+# database refuses every read and write — account rows are created only by
+# app_trusted_finalize_account (administrator flow) or app_trusted_link_identity
+# (service role, called only from /auth/callback). The real risk is
+# pre-registration: claiming a colleague's address with a password before they
+# are invited, so that the identity GoTrue later links carries a password the
+# attacker knows. Closing that properly needs the before_user_created hook below
+# (a pg function that rejects provider 'email' signups), which is a migration.
+# See the Task 6b report.
 enable_signup = true
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
