@@ -213,7 +213,7 @@ export default function NewTicketPage() {
         }
       />
 
-      <form onSubmit={onSubmit} noValidate className="panel intake-form">
+      <form onSubmit={onSubmit} noValidate className="panel">
         <IntakeSection
           id="who"
           title="Who is asking"
@@ -221,9 +221,7 @@ export default function NewTicketPage() {
         >
           <div className="form-grid">
             <div className="field form-grid-full">
-              <span className="field-label" id="requester-mode-label">
-                Requester
-              </span>
+              <span className="field-label">Requester</span>
               <SegmentedControl
                 label="Requester"
                 value={requesterMode}
@@ -596,10 +594,10 @@ export default function NewTicketPage() {
               </Field>
             )}
 
-            <div className="field form-grid-full">
-              <span className="field-label">
+            <fieldset className="field-group form-grid-full">
+              <legend>
                 Collaborators <span className="field-optional">optional</span>
-              </span>
+              </legend>
               {collaboratorChoices.length === 0 ? (
                 <p className="panel-empty">No other active accounts are available.</p>
               ) : (
@@ -617,11 +615,11 @@ export default function NewTicketPage() {
                 </div>
               )}
               {errorFor('collaborators') ? (
-                <span className="field-error" role="alert">
+                <p className="field-error" role="alert">
                   {errorFor('collaborators')}
-                </span>
+                </p>
               ) : null}
-            </div>
+            </fieldset>
           </div>
         </IntakeSection>
 
