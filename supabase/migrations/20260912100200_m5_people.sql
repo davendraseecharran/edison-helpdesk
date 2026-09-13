@@ -34,11 +34,20 @@
 -- decides who can still be picked as a requester, so app_set_person_active is
 -- administrators only — and `active` is deliberately absent from the set of
 -- columns app_upsert_person will write, because accepting it there would hand
--- every technician the administrator's switch under another name.
+-- every technician the administrator's switch under another name. (As of
+-- 20260912100210_m5_people_fixes.sql, sending the key is refused outright
+-- rather than ignored: a silent no-op reports success for a change that did not
+-- happen.)
 
--- Trigram search for the lookup bar: "vanc" has to find "Rowan Vance" without a
--- sequential scan over the whole school. Supabase keeps extensions out of
--- `public`, so both the extension and its operator classes are schema-qualified.
+-- Trigram support for the lookup bar Task 11 builds. Note what it is NOT for:
+-- app_list_people below does not use a trigram index and cannot, because its
+-- search is one OR group whose first branch tests the search term rather than a
+-- column. That function sequential-scans by design (see the note on it), which
+-- over roughly 2,800 rows is the right plan. The index-served search is Task
+-- 11's app_search, which puts the term on one side of a trigram operator.
+--
+-- Supabase keeps extensions out of `public`, so both the extension and its
+-- operator classes are schema-qualified.
 create extension if not exists pg_trgm with schema extensions;
 
 -- ---------------------------------------------------------------------------
@@ -96,9 +105,22 @@ create unique index people_osis_idx on public.people (osis) where osis is not nu
 create unique index people_staff_id_idx on public.people (staff_id) where staff_id is not null;
 create unique index people_email_idx on public.people (email) where email is not null;
 
--- Name search is substring ("vanc" must find "Rowan Vance"), which no b-tree can
--- serve; identifier search is prefix, and is answered from the second index when
--- the operator types enough of a number to be worth matching.
+-- For Task 11's app_search, not for app_list_people. Neither index below is
+-- reachable from app_list_people's predicates, and saying otherwise would send
+-- the next person looking for a plan that cannot exist.
+--
+--   people_display_name_trgm is usable by any predicate that puts the term on
+--   one side of a trigram operator against the column itself:
+--     where p.display_name % p_query
+--     order by extensions.similarity(p.display_name, p_query) desc
+--
+--   people_search_trgm is kept on the same terms, and is usable ONLY by a
+--   predicate written over the identical expression, verbatim:
+--     where (coalesce(p.email,'') || ' ' || coalesce(p.osis,'') || ' ' ||
+--            coalesce(p.staff_id,'')) % p_query
+--   which is what lets the lookup bar find somebody from the middle of an OSIS
+--   or a staff id rather than only from its start. If Task 11 does not write it
+--   that way, this index serves nothing and should be dropped there.
 create index people_display_name_trgm
   on public.people using gin (display_name extensions.gin_trgm_ops);
 create index people_search_trgm
@@ -119,6 +141,9 @@ create index people_class_of_idx on public.people (class_of) where active;
 -- nothing here can hand out a person the caller is not allowed to see.
 -- ---------------------------------------------------------------------------
 
+-- Superseded by 20260912100210_m5_people_fixes.sql, which recreates this
+-- function so LIKE metacharacters in the query are literal text and p_limit 0
+-- returns no rows. Read that file for the current body.
 create function public.app_list_people(
   p_query text default null,
   p_kind text default null,
@@ -261,6 +286,10 @@ comment on function public.app_people_facets() is
 -- Writes. SECURITY DEFINER, actor re-derived inside the database.
 -- ---------------------------------------------------------------------------
 
+-- Superseded by 20260912100210_m5_people_fixes.sql, which recreates this
+-- function so a sent `active` key is refused rather than ignored, staff_id is
+-- upper-cased on the way in, and an empty `source` is left alone. Read that
+-- file for the current body.
 create function public.app_upsert_person(p_person jsonb)
 returns uuid
 language plpgsql

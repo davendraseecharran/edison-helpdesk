@@ -12,8 +12,10 @@
  *      row-level policy — not a filter in the application — is what hides it.
  *   2. Any active technician may add and correct a person, because keeping the
  *      roster right is the ordinary work of the helpdesk. Archiving a record is
- *      not: `app_set_person_active` is administrators only, and a technician
- *      cannot reach around it by sending `active` to the upsert.
+ *      not: `app_set_person_active` is administrators only, and sending `active`
+ *      to the upsert is refused rather than quietly ignored, because a no-op
+ *      that returns a person id reports success for a change that did not
+ *      happen.
  *   3. The table takes no session writes at all. Every change goes through the
  *      RPCs, so every change is attributed and recorded.
  *   4. What changed is recorded by FIELD NAME. Person history is readable by
@@ -45,6 +47,7 @@ let owner: SupabaseClient;
 let unrelated: SupabaseClient;
 let pending: SupabaseClient;
 let inactive: SupabaseClient;
+let pendingApproval: SupabaseClient;
 let denied: SupabaseClient;
 
 /** The OSIS the brief names, used by the one test that must own it exactly. */
@@ -147,12 +150,13 @@ function student(overrides: Record<string, unknown> = {}): Record<string, unknow
 
 beforeAll(async () => {
   service = adminServiceClient();
-  [admin, owner, unrelated, pending, inactive, denied] = await Promise.all([
+  [admin, owner, unrelated, pending, inactive, pendingApproval, denied] = await Promise.all([
     signIn('admin'),
     signIn('owner'),
     signIn('unrelated'),
     signIn('pending'),
     signIn('inactive'),
+    signIn('pendingApproval'),
     signIn('denied'),
   ]);
 
@@ -231,6 +235,27 @@ describe('adding a person', () => {
     expect(row.department).toBeNull();
     expect(row.notes).toBeNull();
     expect(row.source).toBe('manual');
+  });
+
+  it('folds a staff id, so two spellings of it are one identifier', async () => {
+    const staffId = `EMP-${RUN_TAG}-F`;
+    const personId = await upsert(owner, {
+      kind: 'staff',
+      first_name: 'Odette',
+      last_name: 'Marchetti',
+      staff_id: `  ${staffId.toLowerCase()}  `,
+    });
+    expect((await rawPerson(personId)).staff_id).toBe(staffId);
+
+    const clash = await rpcFails(owner, 'app_upsert_person', {
+      p_person: {
+        kind: 'staff',
+        first_name: 'Second',
+        last_name: 'Claim',
+        staff_id: staffId.toLowerCase(),
+      },
+    });
+    expect(clash.message).toMatch(/already has staff id/i);
   });
 
   it('refuses a second person with the same OSIS, in words an operator can act on', async () => {
@@ -363,11 +388,38 @@ describe('correcting a person', () => {
     expect(failure.message).toMatch(/not in the directory/i);
   });
 
-  it('cannot archive a person by sending active to the upsert', async () => {
+  it('refuses an upsert that sends active, and says where archiving is done', async () => {
     const personId = await upsert(owner, student({ first_name: 'Still', last_name: 'Enrolled' }));
-    await upsert(owner, { id: personId, active: false, role_title: 'Student' });
 
-    expect((await rawPerson(personId)).active).toBe(true);
+    for (const [label, client] of [
+      ['a technician', owner],
+      ['an administrator', admin],
+    ] as const) {
+      const failure = await rpcFails(client, 'app_upsert_person', {
+        p_person: { id: personId, active: false, role_title: 'Student' },
+      });
+      expect(failure.code, label).toBe(REJECTED);
+      expect(failure.message, label).toMatch(/administrator/i);
+    }
+
+    const row = await rawPerson(personId);
+    expect(row.active).toBe(true);
+    // Refused outright rather than partially applied: a silent no-op would have
+    // reported success for a change that did not happen.
+    expect(row.role_title).toBeNull();
+  });
+
+  it('leaves the source alone when it is sent empty', async () => {
+    const personId = await upsert(owner, student({ source: 'import' }));
+    expect((await rawPerson(personId)).source).toBe('import');
+
+    await upsert(owner, { id: personId, source: '', role_title: 'Transfer' });
+
+    const row = await rawPerson(personId);
+    // An empty source is no instruction at all, not an instruction to forget
+    // that this record came from a roster import.
+    expect(row.source).toBe('import');
+    expect(row.role_title).toBe('Transfer');
   });
 });
 
@@ -445,6 +497,19 @@ describe('searching and paging', () => {
     expect(byIdentifierMiddle.map((row) => row.id)).not.toContain(personId);
   });
 
+  it('treats a wildcard typed into the search box as text', async () => {
+    const personId = await upsert(owner, student({ first_name: 'Percy', last_name: 'Underwood' }));
+    // Sanity: the person is findable by an ordinary search.
+    expect((await list(owner, { p_query: 'Underwood' })).map((row) => row.id)).toContain(personId);
+
+    // `%` used to mean "every person in the school"; `_` used to mean "any
+    // character". They are now literal, and nobody has one in their name.
+    expect(await list(owner, { p_query: '%' })).toHaveLength(0);
+    expect(await list(owner, { p_query: '_nderwood' })).toHaveLength(0);
+    expect(await list(owner, { p_query: '\\' })).toHaveLength(0);
+    expect(await list(owner, { p_query: 'Under%wood' })).toHaveLength(0);
+  });
+
   it('filters by kind, department and class year', async () => {
     const department = `Facilities ${RUN_TAG}`;
     const staffId = await upsert(owner, {
@@ -490,14 +555,21 @@ describe('searching and paging', () => {
     const nextPage = await list(owner, { p_department: department, p_limit: 2, p_offset: 2 });
     expect(nextPage.map((row) => row.display_name)).toEqual(['Zara Abiodun']);
     expect(Number(nextPage[0]?.total_count)).toBe(3);
+
+    // Asking for no rows gets no rows, rather than being rounded up to one.
+    expect(await list(owner, { p_department: department, p_limit: 0 })).toHaveLength(0);
   });
 });
 
 describe('facets', () => {
   it('offers the departments and class years that active people actually have', async () => {
+    // Everything this test asserts on is seeded by this test, so it does not
+    // depend on which describe above it happened to run first.
     const liveDepartment = `Music ${RUN_TAG}`;
+    const secondDepartment = `Robotics ${RUN_TAG}`;
     const archivedDepartment = `Archive ${RUN_TAG}`;
     const classOf = `19${RUN_TAG.slice(0, 2)}`;
+    const secondClassOf = `17${RUN_TAG.slice(0, 2)}`;
 
     await upsert(owner, {
       kind: 'staff',
@@ -506,7 +578,15 @@ describe('facets', () => {
       department: liveDepartment,
       staff_id: `EMP-${RUN_TAG}-D`,
     });
+    await upsert(owner, {
+      kind: 'staff',
+      first_name: 'Ines',
+      last_name: 'Fontaine',
+      department: secondDepartment,
+      staff_id: `EMP-${RUN_TAG}-G`,
+    });
     await upsert(owner, student({ class_of: classOf }));
+    await upsert(owner, student({ class_of: secondClassOf }));
     const retiredId = await upsert(owner, {
       kind: 'staff',
       first_name: 'Wendell',
@@ -518,9 +598,9 @@ describe('facets', () => {
 
     const facets = await rpcOk<Facets>(owner, 'app_people_facets');
     expect(facets.departments).toContain(liveDepartment);
-    expect(facets.departments).toContain(DEPARTMENT);
+    expect(facets.departments).toContain(secondDepartment);
     expect(facets.class_years).toContain(classOf);
-    expect(facets.class_years).toContain(CLASS_OF);
+    expect(facets.class_years).toContain(secondClassOf);
     // An archived person no longer offers a filter nobody can use.
     expect(facets.departments).not.toContain(archivedDepartment);
     // Sorted, and with no empty entries.
@@ -573,6 +653,7 @@ describe('who may reach the directory', () => {
     for (const [label, client] of [
       ['awaiting setup', pending],
       ['deactivated', inactive],
+      ['awaiting an access decision', pendingApproval],
       ['denied', denied],
     ] as const) {
       const direct = await client.from('people').select('id');
@@ -592,7 +673,7 @@ describe('who may reach the directory', () => {
   });
 
   it('refuses every write from an account that is not active', async () => {
-    for (const client of [pending, inactive, denied]) {
+    for (const client of [pending, inactive, pendingApproval, denied]) {
       const write = await rpcFails(client, 'app_upsert_person', {
         p_person: { kind: 'student', first_name: 'Forged', last_name: 'Entry' },
       });
