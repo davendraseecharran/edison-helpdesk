@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInAction } from '@/lib/auth/actions';
 import { Field } from '@/components/Primitives';
+import { Button } from '@/components/ui/Button';
 
 export function LoginForm() {
   const router = useRouter();
@@ -32,7 +33,7 @@ export function LoginForm() {
   }
 
   return (
-    <form className="stack" onSubmit={onSubmit} noValidate>
+    <form className="auth-form" onSubmit={onSubmit} noValidate>
       <Field label="School email" htmlFor="login-email">
         <input
           id="login-email"
@@ -61,9 +62,9 @@ export function LoginForm() {
         />
       </Field>
 
-      <button type="submit" className="btn btn-primary btn-block" disabled={pending}>
-        {pending ? 'Signing in…' : 'Sign in'}
-      </button>
+      <Button type="submit" variant="primary" block loading={pending} className="auth-submit">
+        Sign in
+      </Button>
     </form>
   );
 }

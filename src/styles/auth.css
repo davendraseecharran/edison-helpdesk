@@ -1,0 +1,286 @@
+/*
+ * Auth screens: sign-in, set-password and restricted.
+ *
+ * One frame for all three. A brand panel and a form column sit side by side
+ * from 1024px up; below that the panel becomes a band across the top and the
+ * column follows. The panel is the only surface in the application painted in
+ * `--ink` (the dark theme swaps it for `--surface-2`), so its foreground
+ * colours are remapped once, here, instead of being named in every rule.
+ */
+
+.auth {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 100dvh;
+  background: var(--paper);
+}
+
+/* --- Brand panel -------------------------------------------------------- */
+
+.auth-panel {
+  --auth-panel-bg: var(--ink);
+  --auth-panel-fg: var(--paper);
+  display: flex;
+  align-items: center;
+  padding: 14px 20px;
+  background: var(--auth-panel-bg);
+  color: var(--auth-panel-fg);
+}
+
+/* Dark: the ink token is now the text colour, so the panel steps up a surface. */
+:root[data-theme='dark'] .auth-panel {
+  --auth-panel-bg: var(--surface-2);
+  --auth-panel-fg: var(--ink);
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--fs-2);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.auth-mark {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-2);
+  background: var(--brass);
+  color: var(--brass-ink);
+  font-size: var(--fs-3);
+  font-weight: 600;
+  line-height: 1;
+}
+
+/* The tagline belongs to the full-height panel; the band has no room for it. */
+.auth-tagline {
+  display: none;
+}
+
+/* --- Form column -------------------------------------------------------- */
+
+.auth-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 20px 56px;
+}
+
+.auth-body {
+  width: 100%;
+  max-width: 420px;
+}
+
+.auth-head {
+  margin-bottom: 24px;
+}
+
+.auth-title {
+  font-size: var(--fs-5);
+  letter-spacing: -0.01em;
+}
+
+.auth-lead,
+.auth-hint {
+  max-width: 72ch;
+  color: var(--ink-2);
+}
+
+.auth-lead {
+  margin-top: 8px;
+}
+
+.auth-identity {
+  margin-top: 12px;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.auth-identity-value {
+  color: var(--ink-2);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * Primary action slot. Task 6b renders the Google button here; until then
+ * the slot is empty and takes no space, so the disclosure sits directly under
+ * the heading.
+ */
+.auth-primary {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.auth-primary:empty {
+  display: none;
+}
+
+/* --- Password disclosure ------------------------------------------------ */
+
+.auth-disclosure {
+  border-top: 1px solid var(--line);
+}
+
+.auth-disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  margin: 0 -8px;
+  padding: 0 8px;
+  border-radius: var(--radius-1);
+  color: var(--ink);
+  font-weight: 600;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+
+.auth-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.auth-disclosure > summary .icon {
+  flex: 0 0 auto;
+  color: var(--ink-3);
+  transition: transform 120ms ease-out;
+}
+
+.auth-disclosure > summary:hover .icon {
+  color: var(--ink);
+}
+
+.auth-disclosure[open] > summary .icon {
+  transform: rotate(90deg);
+}
+
+.auth-disclosure-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 0 12px;
+}
+
+/* --- Forms -------------------------------------------------------------- */
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-submit {
+  margin-top: 4px;
+}
+
+.auth-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  list-style: none;
+}
+
+.auth-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.auth-check .icon {
+  flex: 0 0 auto;
+}
+
+.auth-check-met {
+  color: var(--ink-2);
+}
+
+.auth-check-met .icon {
+  color: var(--ok);
+}
+
+.auth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* --- Footer ------------------------------------------------------------- */
+
+.auth-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 32px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.auth-foot p {
+  max-width: 72ch;
+}
+
+.auth-foot strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* --- Two columns (1024 and up) ------------------------------------------ */
+
+@media (min-width: 1024px) {
+  .auth {
+    grid-template-columns: minmax(360px, 5fr) minmax(0, 7fr);
+    grid-template-rows: none;
+  }
+
+  .auth-panel {
+    position: sticky;
+    top: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: space-between;
+    height: 100dvh;
+    padding: 40px 48px;
+  }
+
+  .auth-brand {
+    gap: 12px;
+    font-size: var(--fs-3);
+  }
+
+  .auth-mark {
+    width: 40px;
+    height: 40px;
+    font-size: var(--fs-4);
+  }
+
+  .auth-tagline {
+    display: block;
+    max-width: 22ch;
+    font-size: var(--fs-5);
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  .auth-column {
+    justify-content: center;
+    padding: 64px 48px;
+  }
+}

@@ -1,6 +1,7 @@
-import Link from 'next/link';
 import { loadActor } from '@/lib/auth/session';
+import { AuthFrame } from '@/components/auth/AuthFrame';
 import { SignOutButton } from '@/components/auth/SignOutButton';
+import { ButtonLink } from '@/components/ui/Button';
 
 // Session-dependent: never cached or prerendered.
 export const dynamic = 'force-dynamic';
@@ -19,23 +20,19 @@ export default async function RestrictedPage() {
 
   if (actor.kind === 'active') {
     return (
-      <div className="auth-page">
-        <div className="auth-main">
-          <div className="auth-wrap auth-wrap-single">
-            <section className="auth-card">
-              <h1>Your account is active</h1>
-              <p className="muted" style={{ marginTop: 8 }}>
-                Nothing is restricted right now.
-              </p>
-              <div style={{ marginTop: 16 }}>
-                <Link href="/queue" className="btn btn-primary">
-                  Go to the Open Queue
-                </Link>
-              </div>
-            </section>
-          </div>
+      <AuthFrame labelledBy="restricted-heading">
+        <div className="auth-head">
+          <h1 id="restricted-heading" className="auth-title">
+            Your account is active
+          </h1>
+          <p className="auth-lead">Nothing is restricted right now.</p>
         </div>
-      </div>
+        <div className="auth-actions">
+          <ButtonLink href="/queue" variant="primary">
+            Go to the queue
+          </ButtonLink>
+        </div>
+      </AuthFrame>
     );
   }
 
@@ -71,44 +68,33 @@ export default async function RestrictedPage() {
                 };
 
   return (
-    <div className="auth-page">
-      <div className="auth-main">
-        <div className="auth-wrap auth-wrap-single">
-          <section className="auth-card" aria-labelledby="restricted-heading">
-            <div className="brand" style={{ marginBottom: 14 }}>
-              <span className="brand-mark" aria-hidden="true">
-                ED
-              </span>
-              <span>Edison Helpdesk</span>
-            </div>
-            <h1 id="restricted-heading">{explanation.title}</h1>
-            <p className="muted" style={{ marginTop: 10 }}>
-              {explanation.body}
-            </p>
-
-            {actor.kind === 'restricted' ? (
-              <p className="small subtle" style={{ marginTop: 12 }}>
-                Signed in as {actor.account.email}
-              </p>
-            ) : null}
-
-            <div className="btn-row" style={{ marginTop: 18 }}>
-              {actor.kind === 'restricted' && actor.reason === 'credential_action_pending' ? (
-                <Link href="/set-password" className="btn btn-primary">
-                  Choose a password
-                </Link>
-              ) : null}
-              {actor.kind === 'anonymous' ? (
-                <Link href="/login" className="btn btn-primary">
-                  Sign in
-                </Link>
-              ) : (
-                <SignOutButton />
-              )}
-            </div>
-          </section>
-        </div>
+    <AuthFrame labelledBy="restricted-heading">
+      <div className="auth-head">
+        <h1 id="restricted-heading" className="auth-title">
+          {explanation.title}
+        </h1>
+        <p className="auth-lead">{explanation.body}</p>
+        {actor.kind === 'restricted' ? (
+          <p className="auth-identity">
+            Signed in as <span className="auth-identity-value">{actor.account.email}</span>
+          </p>
+        ) : null}
       </div>
-    </div>
+
+      <div className="auth-actions">
+        {actor.kind === 'restricted' && actor.reason === 'credential_action_pending' ? (
+          <ButtonLink href="/set-password" variant="primary">
+            Choose a password
+          </ButtonLink>
+        ) : null}
+        {actor.kind === 'anonymous' ? (
+          <ButtonLink href="/login" variant="primary">
+            Sign in
+          </ButtonLink>
+        ) : (
+          <SignOutButton />
+        )}
+      </div>
+    </AuthFrame>
   );
 }

@@ -1,6 +1,7 @@
-import { redirect } from 'next/navigation';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { loadActor } from '@/lib/auth/session';
+import { AuthFrame } from '@/components/auth/AuthFrame';
 import { SetPasswordForm } from '@/components/auth/SetPasswordForm';
 
 // Session-dependent: never cached or prerendered.
@@ -36,43 +37,33 @@ export default async function SetPasswordPage() {
   const isSetup = actor.account.status === 'setup_pending';
 
   return (
-    <div className="auth-page">
-      <div className="auth-main">
-        <div className="auth-wrap auth-wrap-single">
-          <section className="auth-card" aria-labelledby="setup-heading">
-            <div className="auth-head">
-              <div className="brand" style={{ marginBottom: 14 }}>
-                <span className="brand-mark" aria-hidden="true">
-                  ED
-                </span>
-                <span>Edison Helpdesk</span>
-              </div>
-              <h1 id="setup-heading">
-                {isSetup ? 'Choose your app password' : 'Choose a new app password'}
-              </h1>
-              <p>
-                This password is only for the helpdesk. It is separate from your school account,
-                and the administrator cannot see it.
-              </p>
-              <p className="small subtle" style={{ marginTop: 8 }}>
-                Signed in as {actor.account.email}
-              </p>
-            </div>
-
-            <p className="notice" style={{ marginBottom: 16 }}>
-              {isSetup
-                ? 'Your account cannot open tickets until this is finished.'
-                : 'Until you finish, this account cannot open tickets, and every other signed-in session will be signed out when you do.'}
-            </p>
-
-            <SetPasswordForm isSetup={isSetup} />
-
-            <div className="auth-meta">
-              <Link href="/login">Return to sign in</Link>
-            </div>
-          </section>
-        </div>
+    <AuthFrame labelledBy="setup-heading">
+      <div className="auth-head">
+        <h1 id="setup-heading" className="auth-title">
+          {isSetup ? 'Choose your app password' : 'Choose a new app password'}
+        </h1>
+        <p className="auth-lead">
+          This password is only for the helpdesk. It is separate from your school account, and
+          the administrator cannot see it.
+        </p>
+        <p className="auth-identity">
+          Signed in as <span className="auth-identity-value">{actor.account.email}</span>
+        </p>
       </div>
-    </div>
+
+      <p className="flash">
+        {isSetup
+          ? 'Your account cannot open tickets until this is finished.'
+          : 'Until you finish, this account cannot open tickets, and every other signed-in session will be signed out when you do.'}
+      </p>
+
+      <SetPasswordForm isSetup={isSetup} />
+
+      <div className="auth-foot">
+        <p>
+          <Link href="/login">Return to sign in</Link>
+        </p>
+      </div>
+    </AuthFrame>
   );
 }

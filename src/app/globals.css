@@ -1,17 +1,19 @@
 /*
  * Edison helpdesk — application stylesheet.
  *
- * The design system lives in the four imports below. Everything after the
+ * The design system lives in the five imports below. Everything after the
  * legacy bridge is what remains of the previous stylesheet: rules for the
- * ticket, admin and auth screens that are restyled screen by screen in the
- * tasks that own them. The shell, buttons, fields, badges, tables, menus and
- * overlays are no longer here; `components.css` and `shell.css` own them.
+ * ticket and admin screens that are restyled screen by screen in the tasks
+ * that own them. The shell, buttons, fields, badges, tables, menus, overlays
+ * and the auth screens are no longer here; `components.css`, `shell.css` and
+ * `auth.css` own them.
  */
 
 @import '../styles/tokens.css';
 @import '../styles/base.css';
 @import '../styles/components.css';
 @import '../styles/shell.css';
+@import '../styles/auth.css';
 
 /* --- Legacy bridge ------------------------------------------------------ */
 
@@ -555,135 +557,6 @@ table.tickets tbody tr:hover {
   font-size: 12px;
 }
 
-/* --- Auth screens ----------------------------------------------------- */
-
-.auth-page {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: var(--bg);
-}
-
-.auth-main {
-  flex: 1;
-  display: grid;
-  place-items: start center;
-  padding: 32px 16px 56px;
-}
-
-.auth-wrap {
-  width: 100%;
-  max-width: 980px;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
-  gap: 24px;
-  align-items: start;
-}
-
-.auth-wrap-single {
-  max-width: 440px;
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.auth-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 24px;
-}
-
-.auth-head {
-  margin-bottom: 18px;
-}
-
-.auth-head h1 {
-  font-size: var(--fs-4);
-}
-
-.auth-head p {
-  margin-top: 6px;
-  color: var(--text-muted);
-}
-
-.auth-meta {
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-  font-size: 12.5px;
-  color: var(--text-muted);
-}
-
-.switcher-card {
-  background: var(--surface);
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--radius-lg);
-  padding: 18px;
-}
-
-.switcher-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.switcher-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.switcher-btn {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  text-align: left;
-  padding: 9px 11px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  font: inherit;
-  cursor: pointer;
-}
-
-.switcher-btn:hover:not(:disabled) {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.switcher-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.switcher-btn-text {
-  min-width: 0;
-  flex: 1;
-}
-
-.switcher-btn-name,
-.switcher-btn-meta {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.switcher-btn-name {
-  font-weight: 600;
-}
-
-.switcher-btn-meta {
-  color: var(--text-subtle);
-  font-size: 12px;
-}
-
-.switcher-btn .badge {
-  flex: 0 0 auto;
-}
-
 /* --- Responsive ------------------------------------------------------- */
 
 @media (max-width: 1000px) {
@@ -694,10 +567,6 @@ table.tickets tbody tr:hover {
 }
 
 @media (max-width: 900px) {
-  .auth-wrap {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .form-grid {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -2,8 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { Check, Circle } from 'lucide-react';
 import { completeCredentialAction } from '@/lib/auth/credential-actions';
 import { Field } from '@/components/Primitives';
+import { Button } from '@/components/ui/Button';
+import { Icon } from '@/components/ui/Icon';
 
 const MIN_LENGTH = 12;
 
@@ -46,7 +49,7 @@ export function SetPasswordForm({ isSetup }: { isSetup: boolean }) {
   }
 
   return (
-    <form className="stack" onSubmit={onSubmit} noValidate>
+    <form className="auth-form" onSubmit={onSubmit} noValidate>
       <Field label="New app password" htmlFor="setup-password" error={error}>
         <input
           id="setup-password"
@@ -78,19 +81,26 @@ export function SetPasswordForm({ isSetup }: { isSetup: boolean }) {
         />
       </Field>
 
-      <ul className="stack-sm small" style={{ margin: 0, paddingLeft: 18 }}>
+      <ul className="auth-checks" aria-label="Password requirements">
         {checks.map((check) => (
-          <li key={check.label} className={check.passed ? 'muted' : 'subtle'}>
-            <span aria-hidden="true">{check.passed ? '✓ ' : '· '}</span>
+          <li key={check.label} className={check.passed ? 'auth-check auth-check-met' : 'auth-check'}>
+            <Icon icon={check.passed ? Check : Circle} size={14} />
             {check.label}
-            <span className="sr-only">{check.passed ? ' — met' : ' — not met'}</span>
+            <span className="visually-hidden">{check.passed ? ' — met' : ' — not met'}</span>
           </li>
         ))}
       </ul>
 
-      <button type="submit" className="btn btn-primary btn-block" disabled={pending || !ready}>
-        {pending ? 'Saving…' : isSetup ? 'Set password and activate' : 'Change password'}
-      </button>
+      <Button
+        type="submit"
+        variant="primary"
+        block
+        loading={pending}
+        disabled={!ready}
+        className="auth-submit"
+      >
+        {isSetup ? 'Set password' : 'Change password'}
+      </Button>
     </form>
   );
 }
