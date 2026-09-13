@@ -1,0 +1,175 @@
+/**
+ * Account preferences: the vocabulary, the defaults and the rules for reading
+ * and changing them.
+ *
+ * Pure on purpose. The database owns these settings — `app_my_preferences()`
+ * creates the row, `app_update_preferences()` accepts five keys and refuses a
+ * value outside its vocabulary — and this module is the same knowledge in
+ * TypeScript, so the settings screen can label a control, fall back sensibly
+ * when a row holds something this build does not know about, and refuse an
+ * impossible patch before a round trip. It is not a security boundary: every
+ * rule here is enforced again inside the RPC.
+ */
+
+import type { ThemePreference } from '@/components/shell/theme-script';
+
+/**
+ * The theme vocabulary, taken from the provider rather than retyped, so a
+ * choice the provider cannot resolve can never reach the database.
+ */
+export type ThemeChoice = ThemePreference;
+
+/** How hard the assistant thinks before it answers. */
+export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh';
+
+export const THEME_CHOICES: readonly ThemeChoice[] = ['dark', 'light', 'system'];
+export const REASONING_EFFORTS: readonly ReasoningEffort[] = ['low', 'medium', 'high', 'xhigh'];
+
+/** What the reasoning levels are called in the interface. */
+export const REASONING_LABELS: Record<ReasoningEffort, string> = {
+  low: 'Low',
+  medium: 'Medium',
+  high: 'High',
+  xhigh: 'Extra high',
+};
+
+export interface Preferences {
+  theme: ThemeChoice;
+  aiReasoning: ReasoningEffort;
+  /** Whether the assistant stops to ask before it applies a change. */
+  aiConfirmChanges: boolean;
+  aiSpeakReplies: boolean;
+  notifyInApp: boolean;
+}
+
+/**
+ * What a reader gets before choosing anything, matching the column defaults in
+ * `account_preferences`: the application ships dark, thinks hard, and does not
+ * interrupt to confirm every change.
+ */
+export const DEFAULT_PREFERENCES: Preferences = {
+  theme: 'dark',
+  aiReasoning: 'high',
+  aiConfirmChanges: false,
+  aiSpeakReplies: false,
+  notifyInApp: true,
+};
+
+export function isThemeChoice(value: unknown): value is ThemeChoice {
+  return THEME_CHOICES.includes(value as ThemeChoice);
+}
+
+export function isReasoningEffort(value: unknown): value is ReasoningEffort {
+  return REASONING_EFFORTS.includes(value as ReasoningEffort);
+}
+
+/**
+ * One `account_preferences` row as the application sees it.
+ *
+ * A value this build does not recognise falls back to the default rather than
+ * rendering an empty control: a newer vocabulary written by a newer deployment
+ * must not leave a reader looking at a settings screen with nothing selected.
+ */
+export function preferencesFromRow(row: unknown): Preferences {
+  if (!row || typeof row !== 'object') return DEFAULT_PREFERENCES;
+  const source = row as Record<string, unknown>;
+  return {
+    theme: isThemeChoice(source.theme) ? source.theme : DEFAULT_PREFERENCES.theme,
+    aiReasoning: isReasoningEffort(source.ai_reasoning)
+      ? source.ai_reasoning
+      : DEFAULT_PREFERENCES.aiReasoning,
+    aiConfirmChanges:
+      typeof source.ai_confirm_changes === 'boolean'
+        ? source.ai_confirm_changes
+        : DEFAULT_PREFERENCES.aiConfirmChanges,
+    aiSpeakReplies:
+      typeof source.ai_speak_replies === 'boolean'
+        ? source.ai_speak_replies
+        : DEFAULT_PREFERENCES.aiSpeakReplies,
+    notifyInApp:
+      typeof source.notify_in_app === 'boolean'
+        ? source.notify_in_app
+        : DEFAULT_PREFERENCES.notifyInApp,
+  };
+}
+
+/** The settings one save may change. Everything is optional; nothing else is read. */
+export interface PreferencePatch {
+  theme?: ThemeChoice;
+  aiReasoning?: ReasoningEffort;
+  aiConfirmChanges?: boolean;
+  aiSpeakReplies?: boolean;
+  notifyInApp?: boolean;
+}
+
+export type PatchResult =
+  | { ok: true; patch: Record<string, string | boolean> }
+  | { ok: false; error: string };
+
+/**
+ * Turns a patch into the JSON the RPC takes, in its column names.
+ *
+ * Only the five keys the database whitelists are carried across, so a form that
+ * posts its whole state back cannot smuggle a sixth; a key that is absent keeps
+ * the value it had. The messages match the ones the RPC raises, so the reader
+ * sees the same sentence whichever side refuses.
+ */
+export function preferencePatch(patch: PreferencePatch): PatchResult {
+  const out: Record<string, string | boolean> = {};
+
+  if (patch.theme !== undefined) {
+    if (!isThemeChoice(patch.theme)) {
+      return { ok: false, error: 'Choose a theme: system, light or dark.' };
+    }
+    out.theme = patch.theme;
+  }
+
+  if (patch.aiReasoning !== undefined) {
+    if (!isReasoningEffort(patch.aiReasoning)) {
+      return { ok: false, error: 'Choose a reasoning level: low, medium, high or xhigh.' };
+    }
+    out.ai_reasoning = patch.aiReasoning;
+  }
+
+  const flags: [keyof PreferencePatch, string][] = [
+    ['aiConfirmChanges', 'ai_confirm_changes'],
+    ['aiSpeakReplies', 'ai_speak_replies'],
+    ['notifyInApp', 'notify_in_app'],
+  ];
+  for (const [key, column] of flags) {
+    const value = patch[key];
+    if (value === undefined) continue;
+    if (typeof value !== 'boolean') {
+      return { ok: false, error: `Send true or false for ${column.replace(/_/g, ' ')}.` };
+    }
+    out[column] = value;
+  }
+
+  if (Object.keys(out).length === 0) {
+    return { ok: false, error: 'There was nothing to save.' };
+  }
+  return { ok: true, patch: out };
+}
+
+/** The length `app_update_display_name` accepts, after trimming. */
+export const DISPLAY_NAME_MIN = 2;
+export const DISPLAY_NAME_MAX = 80;
+
+/**
+ * Why a display name cannot be saved, or null when it can.
+ *
+ * The same bounds the RPC enforces, checked here so the reader is told while
+ * they are still typing rather than after a failed save.
+ */
+export function displayNameError(name: string): string | null {
+  const trimmed = name.trim();
+  if (trimmed.length < DISPLAY_NAME_MIN || trimmed.length > DISPLAY_NAME_MAX) {
+    return `A display name has to be between ${DISPLAY_NAME_MIN} and ${DISPLAY_NAME_MAX} characters.`;
+  }
+  return null;
+}
+
+/** Whether saving this name would change anything. Re-saving is not a change. */
+export function displayNameChanged(name: string, current: string): boolean {
+  return name.trim() !== current.trim();
+}

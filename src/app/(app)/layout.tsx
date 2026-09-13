@@ -1,10 +1,12 @@
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { loadActor } from '@/lib/auth/session';
+import { loadPreferences } from '@/lib/data/preferences';
 import { loadCounts, loadDirectory, loadRequesters } from '@/lib/data/tickets';
 import { schoolToday } from '@/lib/format';
 import { AppRuntimeProvider } from '@/components/AppRuntime';
 import { AppShell } from '@/components/shell/AppShell';
+import { ServerTheme } from '@/components/shell/ThemeProvider';
 
 /**
  * Authenticated pages are rendered per request and never cached.
@@ -40,10 +42,11 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
     redirect(actor.reason === 'denied' ? '/restricted?reason=denied' : '/restricted');
   }
 
-  const [counts, directory, requesters] = await Promise.all([
+  const [counts, directory, requesters, preferences] = await Promise.all([
     loadCounts(),
     loadDirectory(),
     loadRequesters(),
+    loadPreferences(),
   ]);
 
   return (
@@ -53,6 +56,9 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
       requesters={requesters}
       today={schoolToday()}
     >
+      {/* The account's stored theme, handed up to the provider in the root
+          layout, which is above this one and knows nothing about accounts. */}
+      <ServerTheme theme={preferences.theme} />
       <AppShell counts={counts} unreadNotifications={0}>
         {children}
       </AppShell>

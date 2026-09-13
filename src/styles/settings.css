@@ -1,0 +1,204 @@
+/*
+ * Settings.
+ *
+ * One column, 720px at most, because every setting on it is a sentence and a
+ * control and nothing reads better stretched across a monitor. A section is a
+ * heading, a line saying what it covers, and a card of rows; the space between
+ * sections is what separates them, not a rule.
+ *
+ * Imported by the settings page rather than by `globals.css`: nothing else in
+ * the application uses these classes, so nothing else should carry them.
+ *
+ * Built on the tokens and on the primitives in `components.css`. Nothing here
+ * names a colour.
+ */
+
+.settings {
+  max-width: 720px;
+}
+
+.settings-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.settings-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.settings-section-title {
+  font-size: var(--fs-4);
+  font-weight: 600;
+}
+
+.settings-section-note {
+  max-width: 64ch;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.settings-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+}
+
+/* One rule between settings, and none above the first or below the last. */
+.settings-card > * + * {
+  border-top: 1px solid var(--line);
+}
+
+/* --- One setting -------------------------------------------------------- */
+
+.setting-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 14px 16px;
+}
+
+.setting-row-text {
+  display: flex;
+  flex: 1 1 240px;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.setting-row-label {
+  color: var(--ink);
+  font-size: var(--fs-2);
+  font-weight: 500;
+}
+
+.setting-row-hint {
+  max-width: 56ch;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.setting-row-control {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  min-width: 0;
+}
+
+/* A value that is shown rather than changed, such as the sign-in address. */
+.setting-value {
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  overflow-wrap: anywhere;
+}
+
+/* --- The one form on the screen ----------------------------------------- */
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+}
+
+.settings-name-field {
+  width: 100%;
+  max-width: 360px;
+}
+
+/* --- Assistant connection ----------------------------------------------- */
+
+.connection-status {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* Never colour alone: the dot sits beside the words it agrees with. */
+.status-dot {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+
+.connection-status[data-connected='true'] .status-dot {
+  background: var(--ok);
+}
+
+/* --- Switch ------------------------------------------------------------- */
+
+/*
+ * A button with `role="switch"`, so it is one tab stop, Space and Enter both
+ * work, and the state is read out rather than inferred from the colour.
+ */
+.switch {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  width: 44px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--surface-3);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.switch-thumb {
+  position: absolute;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  transition:
+    transform 120ms ease,
+    background-color 120ms ease;
+}
+
+.switch[aria-checked='true'] {
+  border-color: var(--brass-2);
+  background: var(--brass);
+}
+
+.switch[aria-checked='true'] .switch-thumb {
+  background: var(--brass-ink);
+  transform: translateX(18px);
+}
+
+/* While a save is running the switch keeps focus and ignores presses. */
+.switch[aria-disabled='true'] {
+  cursor: default;
+}
+
+/* --- Phones ------------------------------------------------------------- */
+
+@media (max-width: 559.98px) {
+  .setting-row {
+    align-items: flex-start;
+  }
+
+  /* Under the label rather than pushed off the right edge. */
+  .setting-row-control {
+    margin-left: 0;
+  }
+
+  /* Four reasoning levels do not fit one line on a narrow phone. */
+  .setting-row-control .segmented {
+    flex-wrap: wrap;
+  }
+}

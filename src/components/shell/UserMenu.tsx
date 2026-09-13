@@ -11,18 +11,19 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { Sheet } from '@/components/ui/Sheet';
 import { useEscape, useFocusTrap, useOutsidePress } from '@/components/ui/focus';
 import { usePhone } from '@/components/ui/media';
-import { useTheme } from './ThemeProvider';
+import { useThemeChoice } from './ThemeProvider';
 import type { ThemePreference } from './theme-script';
 
+/** Dark first: it is what the application ships with. */
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
-  { value: 'system', label: 'System', icon: Monitor },
-  { value: 'light', label: 'Light', icon: Sun },
   { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'system', label: 'System', icon: Monitor },
 ];
 
 function AccountPanel({ onNavigate }: { onNavigate: () => void }) {
   const { actor } = useRuntime();
-  const { theme, setTheme } = useTheme();
+  const { theme, choose } = useThemeChoice();
   return (
     <div className="account">
       <div className="account-identity">
@@ -43,7 +44,7 @@ function AccountPanel({ onNavigate }: { onNavigate: () => void }) {
           size="sm"
           value={theme}
           options={THEME_OPTIONS}
-          onChange={setTheme}
+          onChange={choose}
         />
       </div>
       <div className="account-foot">
