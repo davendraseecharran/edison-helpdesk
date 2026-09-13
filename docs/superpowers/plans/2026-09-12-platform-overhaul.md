@@ -968,3 +968,72 @@ Panel: header "Assistant" + model label "GPT-5.6 Luna" (static) + reasoning `Seg
 
 - Spec coverage: §2 → T1–T4, T28; §3 → T6; §4 → T5, T29; §5 → T8, T17; §6 → T9, T10, T18; §7 → T12a, T12, T23; §8 → T11, T19; §9 → T5, T16, T20; §10 → T13, T21; §11 → T14, T22; §12 → T4, T10, T18, T22; §13 → T15, T26, T27; §14 → T24, T25, T6; §15 → T28; §16 → global constraints; §17 → T30.
 - Names used across tasks: `ActorLabel` (T2, T29), `DataTable`/`FilterBar`/`Pagination` (T2, T4, T17, T18), `PersonPicker` (T17, T18), `app_can_view_ticket` (existing), `app_request_via` (T5, T16), `record_events` (T5, T8, T9, T16), `app_admin_import` (T12, T23), `AI_MODEL` (T26, T27), `searchAction` (T19), `createClientWithHeaders` (T26).
+
+---
+
+## Addendum (2026-09-12, after user feedback): Tasks 31–33 and amendments
+
+### Amendment to Task 19: Command palette instead of a plain lookup bar
+
+Build `LookupBar` on `cmdk` (pin exact version). `Ctrl/Cmd+K` opens a `Dialog`-styled palette on desktop and a full-height `Sheet` from the Lookup tab on phones. Groups: **Actions** (New ticket → `/tickets/new`; Claim ticket by number → prompts for a number then calls `claimTicketAction`; Go to Queue / My tickets / People / Devices / Insights / Settings / Administration; Toggle theme; Ask the assistant → opens the AI panel with the typed text as the first message; Scan with your phone → opens the scanner pairing dialog from Task 31), **Tickets**, **People**, **Devices** (from `searchAction`), **Recent** (localStorage, when the query is empty). Keyboard hints (`↑↓ to move`, `↵ to open`, `esc to close`) in the footer. The palette uses the one allowed reveal animation via `motion`.
+
+### Amendment to Task 26: full tool coverage
+
+Add tools: `list_people(query?, kind?, department?, class_of?)`, `create_person`, `update_person`, `create_device`, `update_device`, `move_device`, `bulk_update_devices(ids[] | filter, patch)`, `log_work(ticket, minutes, date?, description?)`, `record_device_observation`, `remove_collaborator`, `list_notifications`, `get_insights(days)`, admin: `import_csv(kind, csv_text, mode)` (uses `src/lib/import` + `app_admin_import`; `dry_run` executes without approval, `commit` requires approval), `create_invite(email, role, name?)`, `set_role(account, role)`. Keep the write/admin classification lists in `tools.ts` exhaustive; add a unit test that every tool name in `toolsFor('admin')` is classified as read, write or admin.
+
+### Amendment to Task 27: thinking orb and phone parity
+
+Add `src/components/ai/ThinkingOrb.tsx` (+ `orb.css`): props `state: 'idle'|'listening'|'thinking'|'speaking'|'working'`, `size: 'sm'|'md'|'lg'`, optional `level` (0–1 mic level). Implementation: three stacked layers — a radial-gradient core (`--brass` to `--signal` to `--ink`), a rotating conic-gradient ring with `filter: blur()`, and a soft outer glow — animated with CSS keyframes (`orb-breathe` 4s idle, `orb-swirl` 1.2s thinking, `orb-pulse` synced to `level` via a CSS variable while listening/speaking). Reduced motion: static gradient with a subtle opacity change. Verify visually: write `scripts/orb-preview.cjs` that renders `/dev/orb` (a dev-only route that only exists when `NODE_ENV !== 'production'`, rendering the orb in each state and size on both themes) and screenshots each state at 3 frames 400ms apart to `/tmp/edison-orb/`; look at the PNGs and iterate until the orb reads as alive and premium rather than a spinner. The `AiToggle` shows the `sm` orb in `working` state while a request is in flight and the panel is closed. On phones the panel is a full-screen `Sheet` with the composer pinned above the keyboard (`position: sticky; bottom: 0` inside the sheet) and push-to-talk as a hold gesture on the mic.
+
+### Task 31: Phone scanner relay
+
+**Files:**
+- Create: `supabase/migrations/20260912101100_m5_scan_relay.sql`, `tests/db/m5-scan-relay.test.ts`, `src/lib/data/scan-actions.ts`, `src/app/scan/[session]/page.tsx` (outside the `(app)` group but requires an active account: use `loadActor()` and redirect to `/login?next=/scan/<id>` when anonymous — add optional `next` support to the login redirect only for paths starting with `/scan/`), `src/components/scan/{PhoneScanner,ScanPairingDialog,useScanRelay}.tsx`, `src/components/ui/QrCode.tsx`
+- Modify: `src/components/shell/LookupBar.tsx` (action), `src/components/devices/DeviceForm.tsx` (scan buttons on serial/asset tag), `src/components/ticket/LinkedDevicesPanel.tsx`, `package.json` (`qrcode` + `@types/qrcode`)
+
+**Interfaces (SQL):**
+
+```sql
+create table public.scan_sessions (
+  id uuid primary key default extensions.gen_random_uuid(),
+  account_id uuid not null references public.app_accounts (id) on delete cascade,
+  label text,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null default now() + interval '30 minutes',
+  ended_at timestamptz
+);
+create table public.scan_events (
+  id uuid primary key default extensions.gen_random_uuid(),
+  session_id uuid not null references public.scan_sessions (id) on delete cascade,
+  code text not null check (length(code) between 1 and 200),
+  format text,
+  scanned_at timestamptz not null default now()
+);
+create index scan_events_session_idx on public.scan_events (session_id, scanned_at);
+-- RLS: scan_sessions select/insert/update own rows; scan_events select where session belongs to caller; insert via RPC only.
+create function public.app_start_scan_session(p_label text default null) returns public.scan_sessions;
+create function public.app_end_scan_session(p_session uuid) returns void;
+create function public.app_scan_session(p_session uuid) returns table (id uuid, label text, expires_at timestamptz, ended_at timestamptz, active boolean); -- own sessions only
+create function public.app_record_scan(p_session uuid, p_code text, p_format text default null) returns uuid; -- rejects ended/expired/foreign sessions
+create function public.app_scan_events(p_session uuid, p_after timestamptz default null) returns setof public.scan_events;
+alter publication supabase_realtime add table public.scan_events;
+```
+
+**Interfaces (TS):** `startScanSessionAction(label)`, `endScanSessionAction(id)`, `recordScanAction(id, code, format)`, `scanEventsAction(id, after)`; `useScanRelay(sessionId, onScan)` subscribes with the browser client (`supabase.channel('scan:'+id).on('postgres_changes', { event:'INSERT', schema:'public', table:'scan_events', filter:'session_id=eq.'+id }, ...)`) and polls `scanEventsAction` every 2s until the channel reports `SUBSCRIBED`; `ScanPairingDialog({ open, label, onScan, onClose })` shows the QR (`QrCode` renders SVG from `qrcode.toString(url, { type: 'svg', margin: 0 })` produced by a server action so the package stays server-side), the last five codes, and Stop; `PhoneScanner` page: camera with `BarcodeDetector` (formats `code_128, code_39, ean_13, ean_8, upc_a, qr_code, data_matrix`), 1.5s debounce per identical code, haptic `navigator.vibrate?.(30)`, a manual entry field, session status, Stop.
+
+- [ ] DB tests: owner starts a session; unrelated cannot read it or record into it; owner records a scan and reads it back; expired/ended sessions reject scans; `pending` cannot start.
+- [ ] Implement; `npm run check`; manual: open the dialog on desktop, open the URL in a second browser context, record a scan through the RPC, see it arrive.
+- [ ] Commit `feat(scan): phone as a barcode scanner for the desktop session`.
+
+### Task 32: Streaming skeletons, motion and toasts
+
+**Files:**
+- Create: `src/app/(app)/loading.tsx` (generic list skeleton) and route-specific `loading.tsx` for `tickets/[id]`, `people/[id]`, `devices/[id]`, `insights`, `admin`, `settings`; `src/components/ui/Motion.tsx` (`FadeIn`, `StaggerList`, `SpringSheet` wrappers around `motion` honouring reduced motion), `src/styles/motion.css`
+- Modify: `src/components/ui/Sheet.tsx`, `Dialog.tsx` (use `SpringSheet`), `src/components/TicketListView.tsx`, `people/PeopleList.tsx`, `devices/DeviceList.tsx` (`StaggerList` on first paint only), `src/components/Primitives.tsx` (`Flash` → animated toast stack, auto-dismiss 5s, pause on hover, close button), `package.json` (`motion`)
+
+- [ ] Implement; `npm run check`; verify with Playwright that `loading.tsx` renders (throttle network in a script or add an artificial `await` behind an env flag only in development) and that reduced motion disables animations (`page.emulateMedia({ reducedMotion: 'reduce' })`).
+- [ ] Commit `feat(ui): streaming skeletons, motion and toasts`.
+
+### Task 33: UX polish pass (after everything else, before Task 30)
+
+A dedicated pass by the strongest model over every screen at 1440 and 390 with Playwright screenshots: spacing rhythm, alignment, empty states, hover/focus states, copy, tab order, dark theme parity, and any "one more thing" improvements that save technicians time (examples: keyboard shortcut `c` to claim on a ticket page, `n` for new ticket, sticky filter bar, ticket row quick-peek on hover showing the issue text, person quick-view card in the palette). Each improvement is small, reviewed, and committed separately. Nothing here changes data contracts.
