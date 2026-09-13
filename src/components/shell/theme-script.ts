@@ -28,14 +28,28 @@ export function resolveTheme(pref: ThemePreference, systemDark: boolean): 'light
 }
 
 /**
+ * The theme a visitor gets before choosing one: dark.
+ *
+ * Only an explicit `system` choice follows the operating system; a first
+ * visit, a cleared storage entry or a corrupt value all land here.
+ */
+export const DEFAULT_THEME: ThemePreference = 'dark';
+
+/** Turn whatever localStorage holds into a preference, defaulting to dark. */
+export function preferenceFromStored(value: string | null | undefined): ThemePreference {
+  return value === 'system' || value === 'light' || value === 'dark' ? value : DEFAULT_THEME;
+}
+
+/**
  * Inline script source: reads the stored preference and stamps data-theme
  * before first paint.
  *
- * It repeats the logic of `resolveTheme` rather than importing it, because it
- * is injected as a standalone string with no module loader available. The
- * storage key and the media query are interpolated from the constants above
- * instead of being retyped, so the script cannot drift away from the provider
- * that takes over after hydration. Every access is wrapped in try/catch: a
- * browser that blocks storage must still render, just in the light theme.
+ * It repeats the logic of `preferenceFromStored` and `resolveTheme` rather
+ * than importing them, because it is injected as a standalone string with no
+ * module loader available. The storage key, the media query and the default
+ * theme are interpolated from the constants above instead of being retyped, so
+ * the script cannot drift away from the provider that takes over after
+ * hydration. Every access is wrapped in try/catch: a browser that blocks
+ * storage must still render, in the default theme.
  */
-export const THEME_BOOT_SCRIPT = `(function(){try{var k=${JSON.stringify(THEME_STORAGE_KEY)};var p=localStorage.getItem(k);var d=window.matchMedia(${JSON.stringify(DARK_MEDIA_QUERY)}).matches;var t=(p==='dark'||p==='light')?p:(d?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`;
+export const THEME_BOOT_SCRIPT = `(function(){var f=${JSON.stringify(DEFAULT_THEME)};var t=f;try{var k=${JSON.stringify(THEME_STORAGE_KEY)};var p=localStorage.getItem(k);if(p==='dark'||p==='light'){t=p;}else if(p==='system'){t=window.matchMedia(${JSON.stringify(DARK_MEDIA_QUERY)}).matches?'dark':'light';}}catch(e){}try{document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`;

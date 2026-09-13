@@ -11,7 +11,13 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 import type { ThemePreference } from './theme-script';
-import { DARK_MEDIA_QUERY, resolveTheme, THEME_STORAGE_KEY } from './theme-script';
+import {
+  DARK_MEDIA_QUERY,
+  DEFAULT_THEME,
+  preferenceFromStored,
+  resolveTheme,
+  THEME_STORAGE_KEY,
+} from './theme-script';
 
 type ThemeContextValue = {
   /** What the user asked for, including `system`. */
@@ -23,17 +29,15 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function isPreference(value: unknown): value is ThemePreference {
-  return value === 'system' || value === 'light' || value === 'dark';
-}
-
-/** Read the stored preference, tolerating browsers that refuse storage. */
+/**
+ * Read the stored preference, tolerating browsers that refuse storage.
+ * Nothing stored, or nothing usable, means the default theme.
+ */
 function readStoredPreference(): ThemePreference {
   try {
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
-    return isPreference(stored) ? stored : 'system';
+    return preferenceFromStored(window.localStorage.getItem(THEME_STORAGE_KEY));
   } catch {
-    return 'system';
+    return DEFAULT_THEME;
   }
 }
 
@@ -75,6 +79,8 @@ function getSystemDarkOnServer(): boolean {
  * Without it the first client render falls back to localStorage, which is the
  * same value the blocking boot script already used to stamp `data-theme`, so
  * the painted theme never changes underneath the reader during hydration.
+ * With nothing stored anywhere the application is dark; `system` is a choice
+ * the user makes, not the starting point.
  */
 export function ThemeProvider({
   initialTheme,
@@ -85,7 +91,7 @@ export function ThemeProvider({
 }) {
   const [theme, setThemeState] = useState<ThemePreference>(() => {
     if (initialTheme) return initialTheme;
-    if (typeof window === 'undefined') return 'system';
+    if (typeof window === 'undefined') return DEFAULT_THEME;
     return readStoredPreference();
   });
 
