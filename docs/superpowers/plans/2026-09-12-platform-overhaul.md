@@ -1050,3 +1050,8 @@ Verified on npm (MIT, React ≥18): `thinking-orbs@0.3.1`, `border-beam@1.3.0`, 
 ## Addendum 3: orb state map (user-confirmed 2026-09-12)
 
 `thinking-orbs` state per moment — idle/welcome `weaving`; request sent, awaiting first token `breathing`; reasoning summary streaming `solving`; text streaming `composing`; read tool call `working`; `search_records` tool `searching`; write tool call `connecting`; mic push-to-talk `listening`; speaking reply aloud `listening`; Connect-ChatGPT pairing `shaping`; phone-scanner pairing dialog waiting for scans `shaping`; command palette search in flight `searching` at 20px inside the input; approval card waiting on the user `weaving`; error `paused` with a `--bad` tint; AI toggle in the top bar shows a 20px orb mirroring the current state while the panel is closed and work is in flight; admin import dry run running `solving`. Page loading uses skeletons only, no orb. Sizes: 64 in the panel header/welcome, 20 inline.
+
+## Addendum 4: defaults (user, 2026-09-12)
+
+- **Dark theme is the default.** With no stored preference the boot script and `ThemeProvider` resolve to `dark` (the `system` option still exists and follows the OS when chosen). `account_preferences.theme` defaults to `'dark'` (Task 15). `resolveTheme('system', …)` semantics are unchanged; only the fallback when nothing is stored changes from `system` to `dark`.
+- **The assistant does not ask before making changes by default.** `account_preferences.ai_confirm_changes` defaults to `false` (Task 15); the panel switch "Ask before changes" is off by default and can be turned on per user (Task 27). Write tools still show what they did as chips, and every change is still attributed as the person's AI.
