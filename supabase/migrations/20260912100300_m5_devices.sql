@@ -149,8 +149,12 @@ create index device_assignments_person_idx
 -- and app_accounts shows a technician only their own row, so a plain join would
 -- render every other technician's action as if nobody had performed it.
 --
--- This exposes no more than app_directory() already does — a display name for an
--- account id, to an active caller — and nothing at all to anyone else.
+-- The version below is WRONG and is superseded by
+-- 20260912100310_m5_devices_fixes.sql. It claimed to expose no more than
+-- app_directory() does, but app_directory() omits accounts whose status is
+-- `pending_approval` or `denied` and this did not, so feeding it uuids turned it
+-- into a name-for-uuid oracle over precisely the accounts that are meant to stay
+-- invisible. Read that file for the current body.
 create function public.app_account_label(p_account uuid)
 returns text
 language sql
@@ -684,6 +688,10 @@ $$;
 comment on function public.app_upsert_device(jsonb) is
   'Adds or corrects one device. Keys are column names; unknown keys are ignored; an absent key is left alone and an empty one is cleared. Identifiers are trimmed and upper-cased. `status` may be sent, but a status change still has to agree with who is holding the device.';
 
+-- Superseded by 20260912100310_m5_devices_fixes.sql, which recreates this
+-- function so that re-assigning a device to the person who already has it is a
+-- no-op returning the existing loan, instead of closing that loan and opening an
+-- identical one. Read that file for the current body.
 create function public.app_assign_device(
   p_device uuid,
   p_person uuid,
@@ -960,6 +968,12 @@ comment on function public.app_move_device(uuid, text) is
   'Records where a device now lives. An empty location clears it. Changes and records nothing when the device is already there.';
 
 -- One change applied to a selection from the inventory screen.
+--
+-- Superseded by 20260912100310_m5_devices_fixes.sql, which recreates this
+-- function so a failure names the device that refused, the ids are locked in a
+-- total order, the pre-reads take the row lock they decide from, and a patch
+-- carrying both `person_id` and `status` is refused rather than half-applied.
+-- Read that file for the current body.
 --
 -- All or nothing: this is one function, so one device that cannot take the
 -- change rolls the whole selection back rather than leaving an operator to work

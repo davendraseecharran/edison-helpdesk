@@ -201,10 +201,13 @@ as $$
   )
   select f.id, f.kind, f.display_name, f.email, f.osis, f.staff_id,
          f.department, f.role_title, f.official_class, f.class_of, f.active,
-         -- Placeholders. Task 9 recreates this function counting device
-         -- assignments, and Task 10 counts open tickets through
-         -- requesters.person_id, which does not exist yet. The columns are here
-         -- now so the shape the application reads does not change under it.
+         -- Placeholders. Task 9 landed the device tables but recreated only
+         -- app_person_detail, which is all its brief asked for, so BOTH counts
+         -- are Task 10's: it recreates this function for open_ticket_count
+         -- through requesters.person_id, and device_count is one more
+         -- subquery over device_assignments in the same recreation. The columns
+         -- are here now so the shape the application reads does not change
+         -- under it.
          0::integer as device_count,
          0::integer as open_ticket_count,
          -- Window count over the same filtered, RLS-limited set, so a page total

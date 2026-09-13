@@ -476,6 +476,42 @@ describe('assigning a device', () => {
     expect(person.devices[1]?.returned_at).not.toBeNull();
   });
 
+  it('changes nothing when the device is handed to the person who already has it', async () => {
+    const personId = await newStudent('Callum Reyes');
+    const deviceId = await upsertDevice(owner, laptop());
+    const first = await rpcOk<string>(owner, 'app_assign_device', {
+      p_device: deviceId,
+      p_person: personId,
+    });
+
+    const again = await rpcOk<string>(owner, 'app_assign_device', {
+      p_device: deviceId,
+      p_person: personId,
+      p_note: 'Submitted twice',
+    });
+
+    // The loan they already have, not a zero-length one beside it.
+    expect(again).toBe(first);
+    const rows = await rawAssignments(deviceId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.returned_at).toBeNull();
+    // Nothing happened, so the note describing it is not recorded either.
+    expect(rows[0]?.note).toBeNull();
+    expect(kinds(await recordEvents('device', deviceId))).toEqual(['created', 'assigned']);
+    expect(kinds(await recordEvents('person', personId))).toEqual(['created', 'device_assigned']);
+
+    // And a bulk patch that re-assigns them counts it as unchanged.
+    expect(
+      Number(
+        await rpcOk<number>(owner, 'app_bulk_update_devices', {
+          p_ids: [deviceId],
+          p_patch: { person_id: personId },
+        }),
+      ),
+    ).toBe(0);
+    expect(await rawAssignments(deviceId)).toHaveLength(1);
+  });
+
   it('refuses a device or a person that is not there, and an archived person', async () => {
     const personId = await newStudent('Percy Underwood');
     const deviceId = await upsertDevice(owner, laptop());
@@ -741,8 +777,9 @@ describe('bulk changes', () => {
 
   it('applies nothing at all when one device in the selection cannot be changed', async () => {
     const personId = await newStudent('Cleo Barnaby');
+    const freeTag = nextAssetTag();
     const held = await upsertDevice(owner, laptop());
-    const free = await upsertDevice(owner, laptop());
+    const free = await upsertDevice(owner, laptop({ asset_tag: freeTag }));
     await rpcOk(owner, 'app_assign_device', { p_device: held, p_person: personId });
 
     const failure = await rpcFails(owner, 'app_bulk_update_devices', {
@@ -750,10 +787,25 @@ describe('bulk changes', () => {
       p_patch: { return: true },
     });
     expect(failure.code).toBe(REJECTED);
+    // Which machine refused, not only that one did. "This device is not assigned
+    // to anyone." over a selection of three hundred laptops is not something an
+    // operator can act on.
+    expect(failure.message).toContain(freeTag);
+    expect(failure.message).toContain('This device is not assigned to anyone.');
 
     // All or nothing: the one that could have been returned was not.
     expect((await rawDevice(held)).status).toBe('deployed');
     expect((await rawAssignments(held))[0]?.returned_at).toBeNull();
+  });
+
+  it('names a device by its id when the selection contains one that is not there', async () => {
+    const missing = '00000000-0000-0000-0000-000000000000';
+    const failure = await rpcFails(owner, 'app_bulk_update_devices', {
+      p_ids: [missing],
+      p_patch: { status: 'surplus' },
+    });
+    expect(failure.message).toContain(missing);
+    expect(failure.message).toMatch(/not in the inventory/i);
   });
 
   it('refuses more than five hundred devices at once', async () => {
@@ -781,6 +833,20 @@ describe('bulk changes', () => {
       p_patch: { person_id: personId, return: true },
     });
     expect(both.code).toBe(REJECTED);
+
+    // Assigning already sets the status to deployed, so a status beside it is a
+    // contradiction, and every other contradiction here is refused rather than
+    // quietly resolved by precedence.
+    const assignAndSet = await rpcFails(owner, 'app_bulk_update_devices', {
+      p_ids: [deviceId],
+      p_patch: { person_id: personId, status: 'in_repair' },
+    });
+    expect(assignAndSet.code).toBe(REJECTED);
+    expect(assignAndSet.message).toMatch(/deployed/i);
+
+    // Nothing was applied by any of the three refusals.
+    expect((await rawDevice(deviceId)).status).toBe('in_stock');
+    expect(await rawAssignments(deviceId)).toHaveLength(0);
   });
 });
 
@@ -882,6 +948,30 @@ describe('listing and searching', () => {
     ).not.toContain(deviceId);
   });
 
+  it('treats an unrecognised holder kind as matching nothing', async () => {
+    // Fails closed. An unknown value is a bug in the caller, and answering it
+    // with the whole inventory would be the wrong way to report one.
+    expect(await listDevices(owner, { p_location: location, p_holder_kind: 'parent' })).toEqual([]);
+    expect(await listDevices(owner, { p_location: location, p_holder_kind: '' })).toEqual([]);
+  });
+
+  it('never returns more than a hundred rows, whatever the caller asks for', async () => {
+    const warehouse = `Warehouse ${RUN_TAG}`;
+    const total = 101;
+    for (let done = 0; done < total; done += 20) {
+      await Promise.all(
+        Array.from({ length: Math.min(20, total - done) }, () =>
+          upsertDevice(owner, laptop({ location: warehouse })),
+        ),
+      );
+    }
+
+    const rows = await listDevices(owner, { p_location: warehouse, p_limit: 1000 });
+    expect(rows).toHaveLength(100);
+    // The total still counts the whole filtered set, not the page.
+    expect(Number(rows[0]?.total_count)).toBe(total);
+  });
+
   it('treats a wildcard typed into the search box as text', async () => {
     const assetTag = nextAssetTag();
     const deviceId = await upsertDevice(owner, laptop({ asset_tag: assetTag }));
@@ -961,6 +1051,52 @@ describe('device detail', () => {
       p_device: '00000000-0000-0000-0000-000000000000',
     });
     expect(detail).toBeNull();
+  });
+});
+
+describe('attribution labels', () => {
+  it('names a colleague, including a deactivated one, and nobody else', async () => {
+    const label = async (client: SupabaseClient, account: string): Promise<string | null> =>
+      rpcOk<string | null>(client, 'app_account_label', { p_account: account });
+
+    expect(await label(owner, identity('collaborator').id)).toBe('Dev Okafor');
+    // A deactivated colleague stays nameable: their name is on historical work
+    // and still has to render beside it.
+    expect(await label(owner, identity('inactive').id)).toBe('Alex Reyes');
+
+    // Someone waiting for, or refused, an access decision is not a colleague.
+    // app_directory() omits them so that a named person's attempt to sign in is
+    // not broadcast to every technician in the building, and a label function
+    // that answered for them would be that broadcast one uuid at a time.
+    expect(await label(owner, identity('pendingApproval').id)).toBeNull();
+    expect(await label(owner, identity('denied').id)).toBeNull();
+
+    expect(await label(owner, '00000000-0000-0000-0000-000000000000')).toBeNull();
+    expect(await label(owner, null as unknown as string)).toBeNull();
+
+    // And nothing at all to a caller who is not active themselves.
+    for (const client of [pending, inactive, pendingApproval, denied]) {
+      expect(await label(client, identity('admin').id)).toBeNull();
+    }
+  });
+});
+
+describe('the assignment closer is unreachable from a session', () => {
+  const args = { p_device: '00000000-0000-0000-0000-000000000000', p_actor: null };
+
+  it('refuses an admin session', async () => {
+    const failure = await rpcFails(admin, 'app_close_device_assignment', args);
+    expect(failure.message).toMatch(/permission denied/i);
+  });
+
+  it('refuses an ordinary technician too', async () => {
+    const failure = await rpcFails(owner, 'app_close_device_assignment', args);
+    expect(failure.message).toMatch(/permission denied/i);
+  });
+
+  it('refuses the service role as well', async () => {
+    const { error } = await service.rpc('app_close_device_assignment', args);
+    expect(error?.message).toMatch(/permission denied/i);
   });
 });
 
