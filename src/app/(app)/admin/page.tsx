@@ -24,7 +24,8 @@ export default async function AdministrationPage() {
       />
       <AdministrationScreen
         accounts={accounts}
-        invites={invites}
+        invites={invites.invites}
+        invitesError={invites.error}
         currentAccountId={actor.account.id}
       />
     </>

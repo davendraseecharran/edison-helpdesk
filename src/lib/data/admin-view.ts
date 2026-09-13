@@ -86,19 +86,33 @@ export async function loadAdminAccounts(): Promise<AdminAccountView[]> {
   }));
 }
 
+export interface InvitesResult {
+  invites: InviteView[];
+  /** Set when the list could not be read at all. Never the same as "no invites". */
+  error: string | null;
+}
+
 /**
  * Every invite ever issued, newest first, with its derived state.
  *
- * The RPC raises for anyone who is not an active administrator; an empty list
- * here therefore means "no invites", never "not allowed", and the page that
- * calls it has already redirected a non-admin away.
+ * The error is carried rather than swallowed. An empty list and a failed read
+ * look identical on screen, and the difference matters here: "nobody is
+ * invited" invites an administrator to send one, while "this could not be
+ * read" means a second invite for an address that already has one is about to
+ * be created. The RPC raises for anyone who is not an active administrator, so
+ * a technician who somehow reached this code sees the refusal, not a blank.
  */
-export async function loadInvites(): Promise<InviteView[]> {
+export async function loadInvites(): Promise<InvitesResult> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('app_admin_list_invites');
-  if (error || !Array.isArray(data)) return [];
+  if (error) {
+    return { invites: [], error: `Invites could not be read: ${error.message}. Reload the page.` };
+  }
+  if (!Array.isArray(data)) {
+    return { invites: [], error: 'Invites could not be read. Reload the page.' };
+  }
 
-  return (data as Record<string, unknown>[]).map((row) => ({
+  const invites = (data as Record<string, unknown>[]).map((row) => ({
     id: row.id as string,
     email: row.email as string,
     role: row.role as AccountRole,
@@ -110,4 +124,6 @@ export async function loadInvites(): Promise<InviteView[]> {
     revokedAt: (row.revoked_at as string | null) ?? null,
     state: row.state as InviteState,
   }));
+
+  return { invites, error: null };
 }

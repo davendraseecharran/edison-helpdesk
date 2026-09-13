@@ -35,10 +35,12 @@ export function AdminTabs({ accountCount }: { accountCount?: number }) {
 export function AdministrationScreen({
   accounts,
   invites,
+  invitesError,
   currentAccountId,
 }: {
   accounts: AdminAccountView[];
   invites: InviteView[];
+  invitesError: string | null;
   currentAccountId: string;
 }) {
   return (
@@ -47,6 +49,7 @@ export function AdministrationScreen({
       <AccessScreen
         accounts={accounts}
         invites={invites}
+        invitesError={invitesError}
         currentAccountId={currentAccountId}
       />
     </>

@@ -47,7 +47,14 @@ function InviteStateBadge({ state }: { state: InviteState }) {
   );
 }
 
-export function InvitesPanel({ invites }: { invites: InviteView[] }) {
+export function InvitesPanel({
+  invites,
+  loadError,
+}: {
+  invites: InviteView[];
+  /** Set when the list could not be read. An empty list is not the same thing. */
+  loadError: string | null;
+}) {
   const { pendingKey, run } = useRuntime();
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<AccountRole>('technician');
@@ -163,10 +170,17 @@ export function InvitesPanel({ invites }: { invites: InviteView[] }) {
         <h2 className="panel-title" id="invites-heading">
           Invites
         </h2>
-        <span className="panel-aside">{live} waiting to be used</span>
+        <span className="panel-aside">
+          {live === 0 ? 'None waiting to be used' : `${live} waiting to be used`}
+        </span>
       </div>
 
       <div className="panel-body stack-sm">
+        {loadError ? (
+          <p className="flash flash-error" role="alert">
+            {loadError}
+          </p>
+        ) : null}
         <p className="panel-note">
           An invite decides the role the address gets the first time it signs in with Google. It
           is not a link and not a password, so there is nothing in it worth stealing. Inviting the
@@ -277,7 +291,11 @@ export function InvitesPanel({ invites }: { invites: InviteView[] }) {
         caption="Invites and their current state"
         cardTitle={(invite) => invite.email}
         cardMeta={(invite) => invite.displayName ?? undefined}
-        empty={<p className="muted">No invites yet. Send one above.</p>}
+        empty={
+          <p className="muted">
+            {loadError ? 'The invite list is unavailable.' : 'No invites yet. Send one above.'}
+          </p>
+        }
       />
     </section>
   );

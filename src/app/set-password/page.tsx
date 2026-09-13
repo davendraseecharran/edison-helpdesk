@@ -30,6 +30,14 @@ export default async function SetPasswordPage() {
   if (actor.kind === 'active') {
     redirect('/queue');
   }
+  // The Google path has no password step at all: an account waiting for or
+  // refused an access decision is answered by an administrator, not by a form.
+  if (actor.reason === 'pending_approval') {
+    redirect('/pending');
+  }
+  if (actor.reason === 'denied') {
+    redirect('/restricted?reason=denied');
+  }
   if (actor.reason === 'inactive' || actor.reason === 'session_superseded') {
     redirect('/restricted');
   }

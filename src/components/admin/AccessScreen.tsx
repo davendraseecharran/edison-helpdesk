@@ -34,10 +34,12 @@ import type { AdminAccountView, InviteView } from '@/lib/data/admin-view';
 export function AccessScreen({
   accounts,
   invites,
+  invitesError,
   currentAccountId,
 }: {
   accounts: AdminAccountView[];
   invites: InviteView[];
+  invitesError: string | null;
   currentAccountId: string;
 }) {
   const { pendingKey, run } = useRuntime();
@@ -259,7 +261,7 @@ export function AccessScreen({
         />
       </section>
 
-      <InvitesPanel invites={invites} />
+      <InvitesPanel invites={invites} loadError={invitesError} />
 
       <PasswordAccountsPanel accounts={accounts} currentAccountId={currentAccountId} />
 

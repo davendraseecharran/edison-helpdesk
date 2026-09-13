@@ -102,8 +102,10 @@ export const loadActor = cache(async (): Promise<ActorState> => {
   if (account.credentialActionPending) {
     return { kind: 'restricted', user, account, reason: 'credential_action_pending' };
   }
-  // An access decision outranks everything below it: somebody who is waiting to
-  // be let in, or who has been refused, must be told that and nothing else.
+  // Checked before status and session currency, but after a suspended credential
+  // action: an account that has never been approved has never had a password, so
+  // its session is not current either, and "sign in again" would be the wrong
+  // thing to say to somebody nobody has answered yet.
   if (account.status === 'pending_approval') {
     return { kind: 'restricted', user, account, reason: 'pending_approval' };
   }
