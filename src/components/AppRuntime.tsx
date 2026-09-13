@@ -13,7 +13,9 @@
  *   - One action at a time, so a double click cannot submit twice.
  *   - What an action reports back becomes a toast. The queue lives here so
  *     the message is produced in the same event as the result; the stack in
- *     `Primitives.tsx` only renders it and keeps its clock.
+ *     `Primitives.tsx` only renders it and keeps its clock. The queue sits in
+ *     its own context so a hover or an expiry re-renders the stack alone,
+ *     not every `useRuntime()` consumer.
  */
 
 import {
@@ -49,15 +51,19 @@ export interface AppRuntime {
   /** School-local (America/New_York) date, computed on the server. */
   today: string;
   pendingKey: string | null;
-  /** The toast stack: what recent actions reported, oldest first. */
-  toasts: ToastState;
-  dispatchToast: Dispatch<ToastAction>;
   /** Show a message outside `run()`, for example after a client-side check. */
   notify: (kind: ToastKind, text: string) => void;
   run: (key: string, action: () => Promise<ActionResult>) => Promise<ActionResult>;
 }
 
+/** The toast stack: what recent actions reported, oldest first, and its reducer. */
+export interface ToastStore {
+  toasts: ToastState;
+  dispatchToast: Dispatch<ToastAction>;
+}
+
 const RuntimeContext = createContext<AppRuntime | null>(null);
+const ToastContext = createContext<ToastStore | null>(null);
 
 export function AppRuntimeProvider({
   actor,
@@ -117,17 +123,29 @@ export function AppRuntimeProvider({
   );
 
   const value = useMemo<AppRuntime>(
-    () => ({ actor, directory, requesters, today, pendingKey, toasts, dispatchToast, notify, run }),
-    [actor, directory, requesters, today, pendingKey, toasts, notify, run],
+    () => ({ actor, directory, requesters, today, pendingKey, notify, run }),
+    [actor, directory, requesters, today, pendingKey, notify, run],
   );
+  const toastStore = useMemo<ToastStore>(() => ({ toasts, dispatchToast }), [toasts]);
 
-  return <RuntimeContext.Provider value={value}>{children}</RuntimeContext.Provider>;
+  return (
+    <RuntimeContext.Provider value={value}>
+      <ToastContext.Provider value={toastStore}>{children}</ToastContext.Provider>
+    </RuntimeContext.Provider>
+  );
 }
 
 export function useRuntime(): AppRuntime {
   const runtime = useContext(RuntimeContext);
   if (!runtime) throw new Error('useRuntime must be used inside AppRuntimeProvider');
   return runtime;
+}
+
+/** The toast stack. Only the component that renders it should need this. */
+export function useToasts(): ToastStore {
+  const store = useContext(ToastContext);
+  if (!store) throw new Error('useToasts must be used inside AppRuntimeProvider');
+  return store;
 }
 
 /** The signed-in account, in the shape the approved panels already expect. */

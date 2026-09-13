@@ -1,6 +1,6 @@
 'use client';
 
-import { useId, useRef, useSyncExternalStore, type ReactNode } from 'react';
+import { useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { Button } from './Button';
@@ -38,8 +38,15 @@ function subscribeToNothing(): () => void {
  * it. Arrival and departure are `SpringSurface`'s one orchestrated moment:
  * the backdrop fades while the panel springs in from its edge (or a dialog
  * scales from 0.98), and `AnimatePresence` keeps the panel mounted just long
- * enough to leave the same way, faster. Under `prefers-reduced-motion` both
- * simply appear and disappear.
+ * enough to leave the same way, faster. The focus trap and the scroll lock
+ * hold until that exit completes, so the page behind does not scroll or take
+ * focus while the surface is still visible. Under `prefers-reduced-motion`
+ * both simply appear and disappear.
+ *
+ * While `open` is false the leaving surface shows the content of its last
+ * open render, so a caller may clear the state that fed it in the same
+ * update (`open={item !== null}` with children built from `item`) without
+ * the panel emptying mid-exit.
  */
 export function Overlay({
   open,
@@ -57,8 +64,18 @@ export function Overlay({
   const titleId = useId();
   const descriptionId = useId();
 
-  useFocusTrap(panelRef, open);
-  useBodyScrollLock(open);
+  // `present` outlives `open` by the length of the exit: it drops only once
+  // `AnimatePresence` reports the surface gone.
+  const [wasOpen, setWasOpen] = useState(open);
+  const [exiting, setExiting] = useState(false);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (!open) setExiting(true);
+  }
+  const present = open || exiting;
+
+  useFocusTrap(panelRef, present);
+  useBodyScrollLock(present);
   useEscape(open, onClose);
 
   // The portal exists only on the client, and only after hydration, so the
@@ -79,7 +96,7 @@ export function Overlay({
     .trim();
 
   return createPortal(
-    <AnimatePresence>
+    <AnimatePresence onExitComplete={() => setExiting(false)}>
       {open ? (
         <SpringSurface
           key="surface"

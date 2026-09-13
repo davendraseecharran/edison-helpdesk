@@ -158,6 +158,13 @@
   }
 }
 
+/* --- Overlays ----------------------------------------------------------- */
+
+/* A surface on its way out is still visible for 120ms; nothing on it should take a press. */
+.overlay[data-exiting='true'] {
+  pointer-events: none;
+}
+
 /* --- Toasts ------------------------------------------------------------- */
 
 /*

@@ -2,14 +2,14 @@
 
 /** Small shared building blocks: time display, empty states, skeletons, avatars, toasts. */
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, type Dispatch, type ReactNode } from 'react';
 import { X } from 'lucide-react';
-import { useRuntime } from '@/components/AppRuntime';
+import { useToasts } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
 import { useReducedMotion } from '@/components/ui/media';
 import { AnimatePresence, EASE_IN_FAST, EASE_OUT, INSTANT, motion } from '@/components/ui/Motion';
 import { LoadingRegion, Skeleton } from '@/components/ui/Skeleton';
-import { nextDeadline, type ToastHold } from '@/components/ui/toast';
+import { nextDeadline, type Toast, type ToastAction, type ToastHold } from '@/components/ui/toast';
 import { useNow } from '@/lib/useNow';
 import { formatAge, formatDateTime, formatRelative, initialsOf } from '@/lib/format';
 
@@ -83,13 +83,16 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
  *
  * The queue itself is the runtime's (`toastReducer`); this component keeps
  * its clock. One timer is armed for the earliest deadline, and the clock
- * stops while the pointer or keyboard focus rests on the stack, so a message
- * cannot vanish while it is being read. A success leaves after five seconds;
- * an error stays until dismissed. Each toast keeps its live-region role, so
- * assistive technology hears a confirmation politely and an error at once.
+ * stops while the pointer or keyboard focus rests on a toast, so a message
+ * cannot vanish while it is being read. Each hold names its toast, so the
+ * reducer can let go of it when that toast leaves; the browser sends no
+ * blur or leave for an element that is unmounted. A success leaves after
+ * five seconds; an error stays until dismissed. The container is a polite
+ * live region that is always mounted, so insertions are announced, and each
+ * toast keeps its own role so an error is heard at once.
  */
 export function Flash() {
-  const { toasts, dispatchToast } = useRuntime();
+  const { toasts, dispatchToast } = useToasts();
   const reduced = useReducedMotion();
   const deadline = nextDeadline(toasts);
 
@@ -105,17 +108,44 @@ export function Flash() {
     return () => window.clearTimeout(timer);
   }, [deadline, dispatchToast]);
 
+  return (
+    <div className="toasts" aria-live="polite">
+      <AnimatePresence initial={false}>
+        {toasts.toasts.map((toast) => (
+          <ToastItem key={toast.id} toast={toast} reduced={reduced} dispatch={dispatchToast} />
+        ))}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+/** One toast: its text, its close button, and the holds it puts on the clock. */
+function ToastItem({
+  toast,
+  reduced,
+  dispatch,
+}: {
+  toast: Toast;
+  reduced: boolean;
+  dispatch: Dispatch<ToastAction>;
+}) {
   function hold(by: ToastHold) {
-    dispatchToast({ type: 'hold', by, now: Date.now() });
+    dispatch({ type: 'hold', by, toast: toast.id, now: Date.now() });
   }
 
   function release(by: ToastHold) {
-    dispatchToast({ type: 'release', by, now: Date.now() });
+    dispatch({ type: 'release', by, toast: toast.id, now: Date.now() });
   }
 
   return (
-    <div
-      className="toasts"
+    <motion.div
+      className={toast.kind === 'success' ? 'toast toast-success' : 'toast toast-error'}
+      role={toast.kind === 'error' ? 'alert' : 'status'}
+      layout={reduced ? false : 'position'}
+      initial={reduced ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reduced ? undefined : { opacity: 0, transition: EASE_IN_FAST }}
+      transition={reduced ? INSTANT : EASE_OUT}
       onPointerEnter={() => hold('hover')}
       onPointerLeave={() => release('hover')}
       onFocus={() => hold('focus')}
@@ -123,30 +153,15 @@ export function Flash() {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) release('focus');
       }}
     >
-      <AnimatePresence initial={false}>
-        {toasts.toasts.map((toast) => (
-          <motion.div
-            key={toast.id}
-            className={toast.kind === 'success' ? 'toast toast-success' : 'toast toast-error'}
-            role={toast.kind === 'error' ? 'alert' : 'status'}
-            layout={reduced ? false : 'position'}
-            initial={reduced ? false : { opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={reduced ? undefined : { opacity: 0, transition: EASE_IN_FAST }}
-            transition={reduced ? INSTANT : EASE_OUT}
-          >
-            <span className="toast-text">{toast.text}</span>
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={X}
-              aria-label="Dismiss message"
-              onClick={() => dispatchToast({ type: 'dismiss', id: toast.id })}
-            />
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </div>
+      <span className="toast-text">{toast.text}</span>
+      <Button
+        variant="ghost"
+        size="sm"
+        icon={X}
+        aria-label="Dismiss message"
+        onClick={() => dispatch({ type: 'dismiss', id: toast.id, now: Date.now() })}
+      />
+    </motion.div>
   );
 }
 

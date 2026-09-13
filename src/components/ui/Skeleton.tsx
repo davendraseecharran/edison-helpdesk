@@ -76,14 +76,20 @@ export function SkeletonPageHeader({ action = false }: { action?: boolean }) {
   );
 }
 
-/** A panel with a titled head and either `lines` of body text or the children given. */
+/**
+ * A panel with a titled head and either `lines` of body text or the children
+ * given. `flush` drops the body padding, for a panel whose real content is a
+ * table sitting directly under the head.
+ */
 export function SkeletonPanel({
   title = 120,
   lines = 3,
+  flush = false,
   children,
 }: {
   title?: number;
   lines?: number;
+  flush?: boolean;
   children?: ReactNode;
 }) {
   return (
@@ -91,7 +97,7 @@ export function SkeletonPanel({
       <div className="panel-head">
         <Skeleton width={title} height={16} />
       </div>
-      <div className="panel-body">{children ?? <SkeletonText lines={lines} />}</div>
+      {flush ? children : <div className="panel-body">{children ?? <SkeletonText lines={lines} />}</div>}
     </section>
   );
 }

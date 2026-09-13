@@ -4,7 +4,11 @@
  * with Playwright; everything with an edge case worth naming lives here.
  */
 
+import { createElement as h } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import AdminLoading from '../src/app/(app)/admin/loading';
+import TicketLoading from '../src/app/(app)/tickets/[id]/loading';
 import { STAGGER_CAP, STAGGER_STEP, staggerDelay } from '../src/components/ui/Motion';
 import {
   TOAST_LIFETIME_MS,
@@ -12,6 +16,7 @@ import {
   initialToastState,
   nextDeadline,
   toastReducer,
+  type ToastHold,
   type ToastState,
 } from '../src/components/ui/toast';
 
@@ -43,6 +48,18 @@ describe('staggerDelay', () => {
 
 function push(state: ToastState, kind: 'success' | 'error', text: string, now: number) {
   return toastReducer(state, { type: 'push', kind, text, now });
+}
+
+function hold(state: ToastState, by: ToastHold, toast: number, now: number) {
+  return toastReducer(state, { type: 'hold', by, toast, now });
+}
+
+function release(state: ToastState, by: ToastHold, toast: number, now: number) {
+  return toastReducer(state, { type: 'release', by, toast, now });
+}
+
+function dismiss(state: ToastState, id: number, now: number) {
+  return toastReducer(state, { type: 'dismiss', id, now });
 }
 
 describe('toastReducer', () => {
@@ -83,13 +100,14 @@ describe('toastReducer', () => {
     let state = push(initialToastState, 'success', 'Note added', 0);
     state = push(state, 'error', 'Something failed', 0);
     const [first] = state.toasts;
-    state = toastReducer(state, { type: 'dismiss', id: first.id });
+    state = dismiss(state, first.id, 10);
     expect(state.toasts.map((toast) => toast.text)).toEqual(['Something failed']);
   });
 
-  it('pauses the clock while hovered and resumes with the time left', () => {
+  it('pauses the clock while a toast is hovered and resumes with the time left', () => {
     let state = push(initialToastState, 'success', 'Note added', 0);
-    state = toastReducer(state, { type: 'hold', by: 'hover', now: 1_500 });
+    const id = state.toasts[0].id;
+    state = hold(state, 'hover', id, 1_500);
     expect(state.paused).toBe(true);
     expect(state.toasts[0].deadline).toBeNull();
     expect(state.toasts[0].remaining).toBe(TOAST_LIFETIME_MS - 1_500);
@@ -99,43 +117,102 @@ describe('toastReducer', () => {
     state = toastReducer(state, { type: 'expire', now: 60_000 });
     expect(state.toasts).toHaveLength(1);
 
-    state = toastReducer(state, { type: 'release', by: 'hover', now: 60_000 });
+    state = release(state, 'hover', id, 60_000);
     expect(state.paused).toBe(false);
     expect(state.toasts[0].deadline).toBe(60_000 + TOAST_LIFETIME_MS - 1_500);
   });
 
   it('stays paused until both the pointer and keyboard focus have left', () => {
     let state = push(initialToastState, 'success', 'Note added', 0);
-    state = toastReducer(state, { type: 'hold', by: 'hover', now: 1_000 });
-    state = toastReducer(state, { type: 'hold', by: 'focus', now: 2_000 });
-    state = toastReducer(state, { type: 'release', by: 'hover', now: 3_000 });
+    const id = state.toasts[0].id;
+    state = hold(state, 'hover', id, 1_000);
+    state = hold(state, 'focus', id, 2_000);
+    state = release(state, 'hover', id, 3_000);
     expect(state.paused).toBe(true);
     expect(state.toasts[0].deadline).toBeNull();
-    state = toastReducer(state, { type: 'release', by: 'focus', now: 4_000 });
+    state = release(state, 'focus', id, 4_000);
     expect(state.paused).toBe(false);
     expect(state.toasts[0].deadline).toBe(4_000 + TOAST_LIFETIME_MS - 1_000);
   });
 
-  it('pushes a toast while paused without a deadline until the pointer leaves', () => {
-    let state = toastReducer(initialToastState, { type: 'hold', by: 'hover', now: 0 });
+  it('pushes a toast while paused without a deadline until the hold is released', () => {
+    let state = push(initialToastState, 'error', 'Failed', 0);
+    const error = state.toasts[0].id;
+    state = hold(state, 'hover', error, 0);
     state = push(state, 'success', 'Ticket claimed', 100);
-    expect(state.toasts[0].deadline).toBeNull();
-    expect(state.toasts[0].remaining).toBe(TOAST_LIFETIME_MS);
-    state = toastReducer(state, { type: 'release', by: 'hover', now: 400 });
-    expect(state.toasts[0].deadline).toBe(400 + TOAST_LIFETIME_MS);
+    expect(state.toasts[1].deadline).toBeNull();
+    expect(state.toasts[1].remaining).toBe(TOAST_LIFETIME_MS);
+    state = release(state, 'hover', error, 400);
+    expect(state.toasts[1].deadline).toBe(400 + TOAST_LIFETIME_MS);
   });
 
   it('is unchanged by a repeated hold or an unpaired release', () => {
     const running = push(initialToastState, 'success', 'Note added', 0);
-    expect(toastReducer(running, { type: 'release', by: 'hover', now: 10 })).toBe(running);
-    const paused = toastReducer(running, { type: 'hold', by: 'hover', now: 10 });
-    expect(toastReducer(paused, { type: 'hold', by: 'hover', now: 20 })).toBe(paused);
+    const id = running.toasts[0].id;
+    expect(release(running, 'hover', id, 10)).toBe(running);
+    const paused = hold(running, 'hover', id, 10);
+    expect(hold(paused, 'hover', id, 20)).toBe(paused);
+  });
+
+  it('ignores a hold for a toast that is not on the stack', () => {
+    const state = push(initialToastState, 'success', 'Note added', 0);
+    expect(hold(state, 'focus', 99, 10)).toBe(state);
+  });
+
+  it('drops the hold of a dismissed toast and re-arms the survivors', () => {
+    let state = push(initialToastState, 'success', 'Note added', 0);
+    state = push(state, 'success', 'Ticket claimed', 0);
+    const [focused, other] = state.toasts;
+    state = hold(state, 'focus', focused.id, 1_000);
+    expect(state.toasts[1].deadline).toBeNull();
+
+    // Closing the focused toast with its own button unmounts it; no blur ever
+    // arrives, so the reducer must let go of the hold itself.
+    state = dismiss(state, focused.id, 2_000);
+    expect(state.paused).toBe(false);
+    expect(state.holds).toEqual([]);
+    expect(state.toasts.map((toast) => toast.id)).toEqual([other.id]);
+    expect(state.toasts[0].deadline).toBe(2_000 + TOAST_LIFETIME_MS - 1_000);
+    expect(nextDeadline(state)).toBe(2_000 + TOAST_LIFETIME_MS - 1_000);
+  });
+
+  it('keeps a hold from another toast when one is removed', () => {
+    let state = push(initialToastState, 'success', 'Note added', 0);
+    state = push(state, 'success', 'Ticket claimed', 0);
+    const [hovered, focused] = state.toasts;
+    state = hold(state, 'hover', hovered.id, 1_000);
+    state = hold(state, 'focus', focused.id, 1_500);
+
+    state = dismiss(state, hovered.id, 2_000);
+    expect(state.paused).toBe(true);
+    expect(state.holds).toEqual([{ by: 'focus', toast: focused.id }]);
+    expect(state.toasts[0].deadline).toBeNull();
+
+    state = release(state, 'focus', focused.id, 3_000);
+    expect(state.paused).toBe(false);
+    expect(state.toasts[0].deadline).toBe(3_000 + TOAST_LIFETIME_MS - 1_000);
+  });
+
+  it('releases the hold of a toast the limit pushes out', () => {
+    let state = push(initialToastState, 'success', 'First', 0);
+    state = hold(state, 'hover', state.toasts[0].id, 0);
+    state = push(state, 'success', 'Second', 100);
+    state = push(state, 'success', 'Third', 200);
+    state = push(state, 'success', 'Fourth', 300);
+    expect(state.toasts.map((toast) => toast.text)).toEqual(['Second', 'Third', 'Fourth']);
+    expect(state.paused).toBe(false);
+    expect(state.toasts.map((toast) => toast.deadline)).toEqual([
+      300 + TOAST_LIFETIME_MS,
+      300 + TOAST_LIFETIME_MS,
+      300 + TOAST_LIFETIME_MS,
+    ]);
   });
 
   it('drops every hold once the stack is empty, so the next toast gets a clock', () => {
     let state = push(initialToastState, 'success', 'Note added', 0);
-    state = toastReducer(state, { type: 'hold', by: 'hover', now: 100 });
-    state = toastReducer(state, { type: 'dismiss', id: state.toasts[0].id });
+    const id = state.toasts[0].id;
+    state = hold(state, 'hover', id, 100);
+    state = dismiss(state, id, 150);
     expect(state.toasts).toHaveLength(0);
     expect(state.paused).toBe(false);
     state = push(state, 'success', 'Ticket claimed', 200);
@@ -180,5 +257,25 @@ describe('toastReducer', () => {
     state = push(state, 'error', 'Never', 0);
     expect(nextDeadline(state)).toBe(1_000 + TOAST_LIFETIME_MS);
     expect(nextDeadline(initialToastState)).toBeNull();
+  });
+});
+
+describe('route skeletons', () => {
+  it('mirrors the administration page: header without an action, three tabs, a callout and four panels', () => {
+    const html = renderToStaticMarkup(h(AdminLoading));
+    expect(html).toContain('aria-busy="true"');
+    expect(html.match(/class="tab"/g)).toHaveLength(3);
+    expect(html.match(/class="callout"/g)).toHaveLength(1);
+    expect(html.match(/class="panel"/g)).toHaveLength(4);
+    // The header carries a title and a description bar only; no action placeholder.
+    const header = html.slice(html.indexOf('class="page-header"'), html.indexOf('class="tabs"'));
+    expect(header.match(/class="skeleton"/g)).toHaveLength(2);
+  });
+
+  it('reserves the phone action bar space under the ticket detail skeleton', () => {
+    const html = renderToStaticMarkup(h(TicketLoading));
+    expect(html).toContain('class="ticket"');
+    expect(html.match(/class="ticket-bar-space"/g)).toHaveLength(1);
+    expect(html.indexOf('ticket-bar-space')).toBeGreaterThan(html.indexOf('class="ticket-grid"'));
   });
 });

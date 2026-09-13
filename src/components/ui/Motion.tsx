@@ -3,12 +3,13 @@
 /**
  * Motion wrappers over the `motion` package.
  *
- * Motion answers actions; it never decorates. Three moments are covered: a
- * surface arriving from an edge or the centre (`SpringSurface`), a list
- * settling into place on first paint (`StaggerList` and `StaggerItem`), and a
- * single element fading in (`FadeIn`). Every wrapper is inert under
- * `prefers-reduced-motion`, through `useReducedMotion` here and the global
- * kill switch in `base.css`.
+ * Motion answers actions; it never decorates. Two moments are covered: a
+ * surface arriving from an edge or the centre (`SpringSurface`) and a list
+ * settling into place on first paint (`StaggerList` and `StaggerItem`). A
+ * single-element `FadeIn` was left out because nothing needed it; the AI
+ * panel's chips and cards (Task 27) can add one on `useEntranceAllowed`.
+ * Every wrapper is inert under `prefers-reduced-motion`, through
+ * `useReducedMotion` here and the global kill switch in `base.css`.
  *
  * Entrance animations run only for mounts that happen after hydration, that
  * is on client-side navigation. Server-rendered HTML therefore never arrives
@@ -25,7 +26,7 @@ import {
   type ReactNode,
   type Ref,
 } from 'react';
-import { AnimatePresence, motion, type Transition } from 'motion/react';
+import { AnimatePresence, motion, useIsPresent, type Transition } from 'motion/react';
 import { useReducedMotion } from './media';
 
 export { AnimatePresence, motion };
@@ -89,30 +90,6 @@ export function useEntranceAllowed(): boolean {
 
 const RISE = { opacity: 0, y: 4 };
 const SETTLED = { opacity: 1, y: 0 };
-
-/** One block that fades and rises 4px into place when it mounts on the client. */
-export function FadeIn({
-  children,
-  delay = 0,
-  className,
-}: {
-  children: ReactNode;
-  /** Seconds. */
-  delay?: number;
-  className?: string;
-}) {
-  const allowed = useEntranceAllowed();
-  return (
-    <motion.div
-      className={className}
-      initial={allowed ? RISE : false}
-      animate={SETTLED}
-      transition={allowed ? { ...EASE_OUT, delay } : INSTANT}
-    >
-      {children}
-    </motion.div>
-  );
-}
 
 const StaggerContext = createContext<{ active: boolean }>({ active: false });
 
@@ -191,8 +168,10 @@ export interface SpringSurfaceProps {
  * The backdrop and panel of a modal surface, with their one orchestrated
  * moment: the backdrop fades over 120ms while the panel springs in from its
  * edge, or the dialog scales from 0.98 to 1. Render inside `AnimatePresence`
- * so closing plays the same in reverse, faster. Under reduced motion both
- * appear and disappear at once.
+ * so closing plays the same in reverse, faster; while that exit plays the
+ * root carries `data-exiting` and takes no pointer events, so a second press
+ * lands on the page underneath rather than on a surface that is leaving.
+ * Under reduced motion both appear and disappear at once.
  */
 export function SpringSurface({
   kind,
@@ -204,6 +183,7 @@ export function SpringSurface({
   children,
 }: SpringSurfaceProps) {
   const reduced = useReducedMotion();
+  const present = useIsPresent();
 
   const hidden =
     kind === 'dialog'
@@ -214,7 +194,7 @@ export function SpringSurface({
   const shown = kind === 'dialog' ? { opacity: 1, scale: 1 } : side === 'bottom' ? { y: 0 } : { x: 0 };
 
   return (
-    <div className="overlay" data-kind={kind}>
+    <div className="overlay" data-kind={kind} data-exiting={present ? undefined : 'true'}>
       <motion.div
         className="overlay-backdrop"
         aria-hidden="true"

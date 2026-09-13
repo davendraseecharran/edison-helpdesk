@@ -1,23 +1,41 @@
-import { LoadingRegion, Skeleton, SkeletonPageHeader, SkeletonRows } from '@/components/ui/Skeleton';
+import {
+  LoadingRegion,
+  Skeleton,
+  SkeletonPageHeader,
+  SkeletonPanel,
+  SkeletonRows,
+  SkeletonText,
+} from '@/components/ui/Skeleton';
 
 /**
- * Administration: page header, the tab row, then a panel of account rows
- * with name, role, state and actions, as `AdministrationScreen` lays it out.
+ * Administration: the page header (no action), the tab row, then the access
+ * screen's stack: a callout, the access requests panel, the accounts table,
+ * invites and password accounts, as `AccessScreen` lays them out.
  */
 export default function Loading() {
   return (
     <LoadingRegion label="Loading administration">
-      <SkeletonPageHeader action />
+      <SkeletonPageHeader />
       <nav className="tabs" aria-hidden="true">
-        {[72, 56, 88].map((width, index) => (
+        {[120, 64, 60].map((width, index) => (
           <span key={index} className="tab">
             <Skeleton width={width} />
           </span>
         ))}
       </nav>
-      <section className="panel">
-        <SkeletonRows rows={6} facts={3} />
-      </section>
+      <div className="stack" aria-hidden="true">
+        <div className="callout">
+          <SkeletonText lines={2} />
+        </div>
+        <SkeletonPanel title={112} flush>
+          <SkeletonRows rows={2} facts={2} />
+        </SkeletonPanel>
+        <SkeletonPanel title={72} flush>
+          <SkeletonRows rows={6} facts={3} />
+        </SkeletonPanel>
+        <SkeletonPanel title={56} lines={2} />
+        <SkeletonPanel title={136} lines={2} />
+      </div>
     </LoadingRegion>
   );
 }

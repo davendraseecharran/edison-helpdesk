@@ -10,7 +10,7 @@ import {
  * Ticket detail: the head (number, title, meta), then the 2fr/1fr grid with
  * the issue, notes, device and activity panels on the left and details,
  * ownership, progress and time on the right, exactly as `tickets/[id]/page.tsx`
- * lays them out.
+ * lays them out, plus the space the phone action bar takes.
  */
 export default function Loading() {
   return (
@@ -50,6 +50,9 @@ export default function Loading() {
             <SkeletonPanel title={40} lines={1} />
           </div>
         </div>
+
+        {/* The phone action bar is fixed; the real page reserves its room the same way. */}
+        <div className="ticket-bar-space" />
       </div>
     </LoadingRegion>
   );

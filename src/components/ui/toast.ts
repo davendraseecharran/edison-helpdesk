@@ -4,8 +4,14 @@
  * Time comes in with every action instead of being read from a clock, so the
  * reducer is deterministic and the component that owns the timer decides when
  * "now" is. A success toast leaves on its own five seconds after it appears;
- * the clock stops while the pointer or keyboard focus rests on the stack; an
+ * the clock stops while the pointer or keyboard focus rests on a toast; an
  * error stays until it is dismissed, because it asks for a decision.
+ *
+ * A hold belongs to the toast it rests on. The browser sends no leave or blur
+ * for an element that is removed, so when a toast goes (dismissed, expired,
+ * or pushed out by the limit) its holds go with it, and the survivors' clocks
+ * restart if that was the last one. Without this, closing a focused toast
+ * would stop every other toast's clock for good.
  */
 
 export type ToastKind = 'success' | 'error';
@@ -29,19 +35,25 @@ export interface Toast {
   remaining: number | null;
 }
 
+/** One reason the clock is stopped, and the toast it rests on. */
+export interface ToastHoldRecord {
+  by: ToastHold;
+  toast: number;
+}
+
 export interface ToastState {
   /** Oldest first. */
   toasts: Toast[];
-  holds: ToastHold[];
+  holds: ToastHoldRecord[];
   paused: boolean;
   nextId: number;
 }
 
 export type ToastAction =
   | { type: 'push'; kind: ToastKind; text: string; now: number }
-  | { type: 'dismiss'; id: number }
-  | { type: 'hold'; by: ToastHold; now: number }
-  | { type: 'release'; by: ToastHold; now: number }
+  | { type: 'dismiss'; id: number; now: number }
+  | { type: 'hold'; by: ToastHold; toast: number; now: number }
+  | { type: 'release'; by: ToastHold; toast: number; now: number }
   | { type: 'expire'; now: number };
 
 export const TOAST_LIFETIME_MS = 5_000;
@@ -77,10 +89,25 @@ function startClock(toast: Toast, now: number): Toast {
   return { ...toast, deadline: now + toast.remaining };
 }
 
-/** Nothing can be hovered or focused once the stack is empty, so no hold survives it. */
-function settle(state: ToastState, toasts: Toast[]): ToastState {
-  if (toasts.length === 0) return { ...state, toasts, holds: [], paused: false };
-  return { ...state, toasts };
+function sameHold(record: ToastHoldRecord, by: ToastHold, toast: number): boolean {
+  return record.by === by && record.toast === toast;
+}
+
+/**
+ * Settle a new list of toasts. Holds whose toast has gone are dropped, and if
+ * that was the last hold the survivors' clocks restart from `now`.
+ */
+function withToasts(state: ToastState, toasts: Toast[], now: number): ToastState {
+  const holds = state.holds.filter((hold) => toasts.some((toast) => toast.id === hold.toast));
+  if (state.paused && holds.length === 0) {
+    return {
+      ...state,
+      toasts: toasts.map((toast) => startClock(toast, now)),
+      holds,
+      paused: false,
+    };
+  }
+  return { ...state, toasts, holds };
 }
 
 export function toastReducer(state: ToastState, action: ToastAction): ToastState {
@@ -108,23 +135,26 @@ export function toastReducer(state: ToastState, action: ToastAction): ToastState
         deadline,
         remaining: lifetime,
       };
-      return {
-        ...state,
-        nextId: state.nextId + 1,
-        toasts: withinLimit([...state.toasts, toast]),
-      };
+      return withToasts(
+        { ...state, nextId: state.nextId + 1 },
+        withinLimit([...state.toasts, toast]),
+        action.now,
+      );
     }
 
     case 'dismiss': {
       const toasts = state.toasts.filter((toast) => toast.id !== action.id);
-      return toasts.length === state.toasts.length ? state : settle(state, toasts);
+      return toasts.length === state.toasts.length ? state : withToasts(state, toasts, action.now);
     }
 
     case 'hold': {
-      if (state.holds.includes(action.by)) return state;
+      // A hold can only rest on a toast that is on the stack; one that arrives
+      // for a toast already gone (its exit still playing) is ignored.
+      if (!state.toasts.some((toast) => toast.id === action.toast)) return state;
+      if (state.holds.some((hold) => sameHold(hold, action.by, action.toast))) return state;
       return {
         ...state,
-        holds: [...state.holds, action.by],
+        holds: [...state.holds, { by: action.by, toast: action.toast }],
         paused: true,
         toasts: state.paused
           ? state.toasts
@@ -133,8 +163,8 @@ export function toastReducer(state: ToastState, action: ToastAction): ToastState
     }
 
     case 'release': {
-      if (!state.holds.includes(action.by)) return state;
-      const holds = state.holds.filter((hold) => hold !== action.by);
+      if (!state.holds.some((hold) => sameHold(hold, action.by, action.toast))) return state;
+      const holds = state.holds.filter((hold) => !sameHold(hold, action.by, action.toast));
       if (holds.length > 0) return { ...state, holds };
       return {
         ...state,
@@ -148,7 +178,7 @@ export function toastReducer(state: ToastState, action: ToastAction): ToastState
       const toasts = state.toasts.filter(
         (toast) => toast.deadline === null || toast.deadline > action.now,
       );
-      return toasts.length === state.toasts.length ? state : settle(state, toasts);
+      return toasts.length === state.toasts.length ? state : withToasts(state, toasts, action.now);
     }
   }
 }
