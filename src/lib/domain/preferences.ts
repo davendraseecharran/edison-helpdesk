@@ -151,6 +151,22 @@ export function preferencePatch(patch: PreferencePatch): PatchResult {
   return { ok: true, patch: out };
 }
 
+/**
+ * The theme that should be showing once a save has come back.
+ *
+ * A theme is applied before it is saved, because waiting on a round trip to
+ * repaint would be worse than the rare undo. If the database refuses it, the
+ * one the account actually has is what belongs on screen: leaving the new one
+ * would have the reader working in a theme their next reload takes away.
+ */
+export function nextThemeAfterSave(
+  previous: ThemeChoice,
+  next: ThemeChoice,
+  saved: boolean,
+): ThemeChoice {
+  return saved ? next : previous;
+}
+
 /** The length `app_update_display_name` accepts, after trimming. */
 export const DISPLAY_NAME_MIN = 2;
 export const DISPLAY_NAME_MAX = 80;

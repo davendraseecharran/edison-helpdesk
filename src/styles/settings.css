@@ -180,9 +180,14 @@
   transform: translateX(18px);
 }
 
-/* While a save is running the switch keeps focus and ignores presses. */
-.switch[aria-disabled='true'] {
+/*
+ * While this switch's own save is in flight it keeps focus and ignores
+ * presses, and dims to say so. A save started by another control leaves it
+ * alone: one busy control on a screen of settings, not five.
+ */
+.switch[aria-busy='true'] {
   cursor: default;
+  opacity: 0.6;
 }
 
 /* --- Phones ------------------------------------------------------------- */

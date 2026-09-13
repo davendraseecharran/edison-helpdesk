@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useSyncExternalStore,
@@ -12,6 +13,7 @@ import {
 import type { ReactNode } from 'react';
 import { useRuntime } from '@/components/AppRuntime';
 import { updatePreferencesAction } from '@/lib/data/preferences-actions';
+import { nextThemeAfterSave } from '@/lib/domain/preferences';
 import type { ActionResult } from '@/lib/data/actions';
 import type { ThemePreference } from './theme-script';
 import {
@@ -22,14 +24,18 @@ import {
   THEME_STORAGE_KEY,
 } from './theme-script';
 
+/** `useLayoutEffect` on the client, `useEffect` on the server, where layout effects only warn. */
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
 type ThemeContextValue = {
   /** What the user asked for, including `system`. */
   theme: ThemePreference;
   /** What is actually painted right now. */
   resolved: 'light' | 'dark';
   /**
-   * Applies a theme immediately and, for a signed-in reader, saves it. The
-   * result is the save's: `{ ok: true }` when there is nothing to save.
+   * Applies a theme immediately and, for a signed-in reader, saves it. A save
+   * the database refuses puts the theme back; the result is the save's, and
+   * `{ ok: true }` when there was nothing to save.
    */
   setTheme: (next: ThemePreference) => Promise<ActionResult>;
   /** Takes the preference the server rendered. `ServerTheme` is its only caller. */
@@ -51,6 +57,15 @@ const ThemeContext = createContext<ThemeContextValue | null>(null);
  */
 const listeners = new Set<() => void>();
 
+/**
+ * What this page last chose, for a browser that refuses storage.
+ *
+ * Without it a blocked localStorage would make every snapshot the default and
+ * the control would never move, which is a worse failure than not remembering
+ * the choice after a reload.
+ */
+let lastChosen: ThemePreference | null = null;
+
 function subscribeToStoredTheme(onChange: () => void): () => void {
   listeners.add(onChange);
   window.addEventListener('storage', onChange);
@@ -63,13 +78,21 @@ function subscribeToStoredTheme(onChange: () => void): () => void {
 /** Read the stored preference, tolerating browsers that refuse storage. */
 function getStoredTheme(): ThemePreference {
   try {
-    return preferenceFromStored(window.localStorage.getItem(THEME_STORAGE_KEY));
+    const raw = window.localStorage.getItem(THEME_STORAGE_KEY);
+    if (raw !== null) return preferenceFromStored(raw);
   } catch {
-    return DEFAULT_THEME;
+    // Storage refused. What this page chose is still what it is showing.
   }
+  return lastChosen ?? DEFAULT_THEME;
+}
+
+/** The server cannot know what a browser remembers. */
+function getStoredThemeOnServer(): ThemePreference {
+  return DEFAULT_THEME;
 }
 
 function writeStoredTheme(next: ThemePreference): void {
+  lastChosen = next;
   try {
     window.localStorage.setItem(THEME_STORAGE_KEY, next);
   } catch {
@@ -111,26 +134,23 @@ function getSystemDarkOnServer(): boolean {
  * application is dark; `system` is a choice the user makes, not the starting
  * point.
  *
- * The account's stored preference arrives afterwards, either as `initialTheme`
- * or through `ServerTheme` inside the signed-in layout, and it wins: a choice
- * made on one machine follows the reader to the next one. From that point the
- * provider is "server backed", so every later change is saved as well as
- * applied — and on a signed-out screen, where there is no account to save it
- * to, changing the theme still works and stays in this browser.
+ * The account's stored preference arrives afterwards, through `ServerTheme`
+ * inside the signed-in layout, and it wins: a choice made on one machine
+ * follows the reader to the next one. From that point the provider is "server
+ * backed", so every later change is saved as well as applied — and on a
+ * signed-out screen, where there is no account to save it to, changing the
+ * theme still works and stays in this browser.
  */
-export function ThemeProvider({
-  initialTheme,
-  children,
-}: {
-  initialTheme?: ThemePreference;
-  children: ReactNode;
-}) {
+export function ThemeProvider({ children }: { children: ReactNode }) {
   // Not state: nothing renders differently because of it, and it must be
   // readable by a handler the moment the account's preference has arrived.
-  const serverBacked = useRef(initialTheme !== undefined);
+  const serverBacked = useRef(false);
 
-  const getThemeOnServer = useCallback(() => initialTheme ?? DEFAULT_THEME, [initialTheme]);
-  const theme = useSyncExternalStore(subscribeToStoredTheme, getStoredTheme, getThemeOnServer);
+  const theme = useSyncExternalStore(
+    subscribeToStoredTheme,
+    getStoredTheme,
+    getStoredThemeOnServer,
+  );
 
   const systemDark = useSyncExternalStore(
     subscribeToSystemTheme,
@@ -141,8 +161,10 @@ export function ThemeProvider({
   const resolved = resolveTheme(theme, systemDark);
 
   // One writer for the attribute: every path that changes the theme lands here,
-  // including the first commit after the boot script's guess.
-  useEffect(() => {
+  // including the first commit after the boot script's guess. A layout effect,
+  // so the account's theme is stamped in the same frame it arrives rather than
+  // one paint of the browser's guess later.
+  useIsomorphicLayoutEffect(() => {
     document.documentElement.setAttribute('data-theme', resolved);
   }, [resolved]);
 
@@ -153,14 +175,25 @@ export function ThemeProvider({
     if (next !== getStoredTheme()) writeStoredTheme(next);
   }, []);
 
-  useEffect(() => {
-    if (initialTheme) adoptServerTheme(initialTheme);
-  }, [initialTheme, adoptServerTheme]);
-
   const setTheme = useCallback(async (next: ThemePreference): Promise<ActionResult> => {
+    const previous = getStoredTheme();
     writeStoredTheme(next);
     if (!serverBacked.current) return { ok: true };
-    return updatePreferencesAction({ theme: next });
+
+    // A theme the database did not accept must not stay on the screen: the
+    // reader would carry on in a theme their account does not have, and see it
+    // undone by the next reload.
+    let result: ActionResult;
+    try {
+      result = await updatePreferencesAction({ theme: next });
+    } catch (error) {
+      writeStoredTheme(nextThemeAfterSave(previous, next, false));
+      // The runtime turns a thrown action into its own message; nothing is
+      // added here beyond putting the theme back.
+      throw error;
+    }
+    writeStoredTheme(nextThemeAfterSave(previous, next, result.ok));
+    return result;
   }, []);
 
   const value = useMemo<ThemeContextValue>(
@@ -182,12 +215,14 @@ export function useTheme(): ThemeContextValue {
  *
  * The provider is mounted in the root layout, which knows nothing about
  * accounts; this renders nothing and exists so the authenticated layout, which
- * does, can pass down the preference it loaded.
+ * does, can pass down the preference it loaded. A layout effect, so a browser
+ * that has never seen this account adopts its theme before the first paint
+ * instead of flashing the default.
  */
 export function ServerTheme({ theme }: { theme: ThemePreference }) {
   const { adoptServerTheme } = useTheme();
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     adoptServerTheme(theme);
   }, [theme, adoptServerTheme]);
 

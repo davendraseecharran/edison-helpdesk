@@ -5,6 +5,7 @@ import {
   displayNameError,
   isReasoningEffort,
   isThemeChoice,
+  nextThemeAfterSave,
   preferencePatch,
   preferencesFromRow,
   REASONING_EFFORTS,
@@ -154,6 +155,25 @@ describe('preferencePatch', () => {
       ok: false,
       error: 'There was nothing to save.',
     });
+  });
+});
+
+describe('nextThemeAfterSave', () => {
+  it('keeps the new theme when the save landed', () => {
+    expect(nextThemeAfterSave('dark', 'light', true)).toBe('light');
+    expect(nextThemeAfterSave('light', 'system', true)).toBe('system');
+  });
+
+  it('puts the old theme back when the save was refused', () => {
+    // The reader would otherwise carry on in a theme their account does not
+    // have, and watch the next reload undo it.
+    expect(nextThemeAfterSave('dark', 'light', false)).toBe('dark');
+    expect(nextThemeAfterSave('system', 'dark', false)).toBe('system');
+  });
+
+  it('is a no-op when the choice did not change', () => {
+    expect(nextThemeAfterSave('dark', 'dark', true)).toBe('dark');
+    expect(nextThemeAfterSave('dark', 'dark', false)).toBe('dark');
   });
 });
 

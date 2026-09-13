@@ -65,8 +65,9 @@ export function AiSection({
   confirmChanges: boolean;
   speakReplies: boolean;
 }) {
-  const { busy, save } = useSavePreference();
+  const { savingKey, save } = useSavePreference();
   const [effort, setEffort] = useState<ReasoningEffort>(reasoning);
+  const saving = savingKey === 'ai-reasoning';
 
   const plan = planLabel(connection.planType);
   const status = connection.connected
@@ -76,7 +77,7 @@ export function AiSection({
   // Chosen at once and put back if the save is refused, the same way the
   // switches below behave.
   async function chooseEffort(next: ReasoningEffort) {
-    if (busy || next === effort) return;
+    if (saving || next === effort) return;
     setEffort(next);
     const saved = await save('ai-reasoning', { aiReasoning: next }, 'Reasoning effort saved.');
     if (!saved) setEffort(reasoning);

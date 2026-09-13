@@ -68,8 +68,8 @@ export function SettingRow({
  * shown in the reader's own words rather than swallowed.
  */
 export function useSavePreference(): {
-  /** True while any action is running, including one started elsewhere. */
-  busy: boolean;
+  /** The key of the save in flight, so a control can tell its own from another's. */
+  savingKey: string | null;
   save: (key: string, patch: PreferencePatch, message: string) => Promise<boolean>;
 } {
   const { pendingKey, run } = useRuntime();
@@ -85,7 +85,7 @@ export function useSavePreference(): {
     [run],
   );
 
-  return { busy: pendingKey !== null, save };
+  return { savingKey: pendingKey, save };
 }
 
 /**
@@ -93,9 +93,10 @@ export function useSavePreference(): {
  *
  * It moves the moment it is pressed and only settles once the save has landed:
  * a refusal puts it back to the value the server gave, so the switch never
- * keeps showing a setting the database refused. While a save is running the
- * switch stays focused and ignores presses rather than being disabled
- * underneath the reader's finger.
+ * keeps showing a setting the database refused. While its own save is in
+ * flight it dims and ignores presses, but keeps focus rather than being
+ * disabled underneath the reader's finger — and only that switch dims, not
+ * every switch on the screen.
  *
  * After the first render the switch is the one that knows: a save that lands
  * gives it the same value back, and nothing else in the application changes
@@ -114,13 +115,14 @@ export function PreferenceSwitch({
   field: 'aiConfirmChanges' | 'aiSpeakReplies' | 'notifyInApp';
   message?: string;
 }) {
-  const { busy, save } = useSavePreference();
+  const { savingKey, save } = useSavePreference();
   const [on, setOn] = useState(checked);
   const labelId = useId();
   const hintId = useId();
+  const saving = savingKey === field;
 
   async function toggle() {
-    if (busy) return;
+    if (saving) return;
     const next = !on;
     setOn(next);
     const saved = await save(field, { [field]: next }, message);
@@ -147,7 +149,8 @@ export function PreferenceSwitch({
           aria-checked={on}
           aria-labelledby={labelId}
           aria-describedby={hint ? hintId : undefined}
-          aria-disabled={busy || undefined}
+          aria-busy={saving || undefined}
+          aria-disabled={saving || undefined}
           onClick={() => void toggle()}
         >
           <span className="switch-thumb" />
