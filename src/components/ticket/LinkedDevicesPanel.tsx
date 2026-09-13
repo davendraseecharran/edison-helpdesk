@@ -54,9 +54,13 @@ export function LinkedDevicesPanel({ detail }: { detail: TicketDetail }) {
     [run, ticket.id],
   );
 
+  // Keyed by DEVICE, not by ticket: one key for the whole list spins every
+  // row's button at once, which reads as "all of them are being removed".
+  const unlinkKey = (deviceId: string) => `unlink-device:${ticket.id}:${deviceId}`;
+
   async function onUnlink(deviceId: string) {
     setError(null);
-    const result = await run(`unlink-device:${ticket.id}`, () =>
+    const result = await run(unlinkKey(deviceId), () =>
       unlinkDeviceAction(ticket.id, deviceId),
     );
     if (!result.ok) setError(result.error ?? 'That device could not be unlinked.');
@@ -116,7 +120,7 @@ export function LinkedDevicesPanel({ detail }: { detail: TicketDetail }) {
                       variant="ghost"
                       size="sm"
                       disabled={busy}
-                      loading={pendingKey === `unlink-device:${ticket.id}`}
+                      loading={pendingKey === unlinkKey(device.id)}
                       onClick={() => void onUnlink(device.id)}
                     >
                       Unlink

@@ -31,6 +31,7 @@ import {
   adminServiceClient,
   createTicketAs,
   eventKinds,
+  freshSession,
   identity,
   rawEvents,
   rawTicket,
@@ -256,6 +257,19 @@ describe('ticket category', () => {
     expect(change?.actor_id).toBe(identity('owner').id);
   });
 
+  it('refuses a category change to a value outside the vocabulary', async () => {
+    const ticketId = await ownedTicketWith();
+    for (const value of ['smartboard', '', 'OTHER', 'Chromebook']) {
+      const failure = await rpcFails(owner, 'app_set_category', {
+        p_ticket: ticketId,
+        p_category: value,
+      });
+      expect(failure.code, `p_category ${JSON.stringify(value)}`).toBe(REJECTED);
+      expect(failure.message).toMatch(/choose a category/i);
+    }
+    expect((await rawTicket(ticketId)).category).toBe('other');
+  });
+
   it('refuses a category change from an unrelated account and on a closed ticket', async () => {
     const ticketId = await ownedTicketWith();
     const stranger = await rpcFails(unrelated, 'app_set_category', {
@@ -312,6 +326,65 @@ describe('a directory person as the requester', () => {
     });
     expect(await rawRequesters(personId)).toHaveLength(1);
     expect((await rawTicket(second)).requester_id).toBe(linked[0]?.id);
+  });
+
+  it('makes one requester when several technicians record the same person at once', async () => {
+    // The rule that stops a second copy of a person being made is
+    // `requesters_person_idx`, and a SELECT-then-INSERT hit it: whichever
+    // technician pressed Create second saw the index name. Several people
+    // recording a walk-in for the same student at the same moment is a Monday
+    // morning at the help desk, not an exotic scenario.
+    //
+    // Six genuinely separate connections per attempt, so the intakes race
+    // inside the database rather than being serialised by one client, and
+    // three attempts because a race that is lost sometimes is still a bug.
+    const sessions = await Promise.all([
+      freshSession('admin'),
+      freshSession('owner'),
+      freshSession('collaborator'),
+      freshSession('unrelated'),
+      freshSession('owner'),
+      freshSession('collaborator'),
+    ]);
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const personId = await addPerson(owner, {
+        kind: 'student',
+        first_name: 'Ines',
+        last_name: `Marchetti${RUN_TAG}${attempt}`,
+        osis: nextOsis(),
+        official_class: '10B',
+      });
+
+      const results = await Promise.all(
+        sessions.map((client, index) =>
+          client.rpc('app_create_ticket', {
+            p_title: `Simultaneous intake ${attempt}-${index}`,
+            p_issue: 'Recorded at the desk at the same moment as the others.',
+            p_channel: 'walk_in',
+            p_person_id: personId,
+          }),
+        ),
+      );
+
+      for (const result of results) {
+        // Whatever else goes wrong here, an index name must never be the message.
+        expect(
+          String(result.error?.message ?? ''),
+          `attempt ${attempt}`,
+        ).not.toMatch(/requesters_person_idx|duplicate key/i);
+        expect(result.error, `attempt ${attempt}`).toBeNull();
+      }
+
+      const linked = await rawRequesters(personId);
+      expect(linked, `attempt ${attempt}`).toHaveLength(1);
+      const tickets = await Promise.all(
+        results.map((result) => rawTicket(result.data as string)),
+      );
+      for (const ticket of tickets) {
+        expect(ticket.requester_id, `attempt ${attempt}`).toBe(linked[0]?.id);
+      }
+    }
   });
 
   it('refuses a person who is not in the directory', async () => {

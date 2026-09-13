@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import { toFilters } from '../src/app/(app)/search-params';
-import { TICKET_CATEGORIES } from '../src/lib/domain/types';
+import { isTicketCategory, TICKET_CATEGORIES } from '../src/lib/domain/types';
 it('normalizes repeated query parameters and bounds pagination offsets', () => {
   expect(toFilters({ query: ['display', 'ignored'], owner: ['all'], page: ['2'] }))
     .toMatchObject({ query: 'display', owner: 'all', page: 2 });
@@ -18,4 +18,17 @@ it('keeps only a category the database knows, so a mistyped link is not an empty
   for (const value of TICKET_CATEGORIES) {
     expect(toFilters({ category: value }).category).toBe(value);
   }
+});
+
+it('does not take an inherited property name for a category', () => {
+  // `value in TICKET_CATEGORY_LABELS` accepted all three, so
+  // ?category=constructor reached the database as a real filter and came back
+  // refused with a message about choosing a category.
+  for (const name of ['toString', 'constructor', '__proto__', 'valueOf', 'hasOwnProperty']) {
+    expect(isTicketCategory(name), name).toBe(false);
+    expect(toFilters({ category: name }).category, name).toBeUndefined();
+  }
+  expect(isTicketCategory('network')).toBe(true);
+  expect(isTicketCategory(undefined)).toBe(false);
+  expect(isTicketCategory(null)).toBe(false);
 });

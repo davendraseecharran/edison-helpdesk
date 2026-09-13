@@ -156,11 +156,21 @@ export default function NewTicketPage() {
     const id = personSearchId.current + 1;
     personSearchId.current = id;
     const timer = setTimeout(() => {
-      void searchPeopleAction(term).then((found) => {
-        if (personSearchId.current !== id) return;
-        setPersonResults(found);
-        setSearchedPeople(term);
-      });
+      searchPeopleAction(term).then(
+        (found) => {
+          if (personSearchId.current !== id) return;
+          setPersonResults(found);
+          setSearchedPeople(term);
+        },
+        () => {
+          // A dropped connection must not leave the status on "Searching…"
+          // forever. Marking the term as searched with no results says what is
+          // true: nothing to offer, try again.
+          if (personSearchId.current !== id) return;
+          setPersonResults([]);
+          setSearchedPeople(term);
+        },
+      );
     }, PERSON_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [personQuery, requesterMode, person]);

@@ -339,8 +339,16 @@ export const TICKET_CATEGORY_LABELS: Record<TicketCategory, string> = {
 
 export const TICKET_CATEGORIES = Object.keys(TICKET_CATEGORY_LABELS) as TicketCategory[];
 
+/**
+ * `Object.hasOwn`, not `in`: every object inherits `toString`, `constructor`
+ * and `__proto__` from its prototype, so `in` would accept all three as
+ * categories. This guard decides what reaches the database from a URL, and the
+ * database would then refuse the value with a message about choosing a
+ * category — which is a confusing way to learn that `?category=constructor`
+ * was treated as real.
+ */
 export function isTicketCategory(value: unknown): value is TicketCategory {
-  return typeof value === 'string' && value in TICKET_CATEGORY_LABELS;
+  return typeof value === 'string' && Object.hasOwn(TICKET_CATEGORY_LABELS, value);
 }
 
 export const CHANNEL_LABELS: Record<IntakeChannel, string> = {
