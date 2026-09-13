@@ -42,7 +42,7 @@ export default async function setup(project: TestProject): Promise<void> {
 
   // Test-only SQL is installed after the guarded local reset. It is not part
   // of the migration set and therefore cannot reach a hosted deployment.
-  installLocalAuthTestSupport();
+  await installLocalAuthTestSupport(stack);
 
   project.provide('stack', stack);
 }

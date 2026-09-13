@@ -68,6 +68,20 @@ async function createGoogleUser(options: {
   return { id: data.user.id, email: options.email, password };
 }
 
+/**
+ * Attaches an already-verified provider identity for some OTHER address to a
+ * user. One auth user can carry several identities, each with its own address
+ * and its own verification, which is the shape the email binding has to defend
+ * against.
+ */
+async function addVerifiedIdentity(userId: string, email: string): Promise<void> {
+  const { error } = await serviceClient().rpc('app_test_add_verified_identity', {
+    p_user: userId,
+    p_email: email,
+  });
+  if (error) throw new Error(`Could not add the synthetic identity: ${error.message}`);
+}
+
 /** Exactly what /auth/callback does once the provider hands back a session. */
 async function link(userId: string): Promise<LinkResult> {
   const { data, error } = await serviceClient().rpc('app_trusted_link_identity', {
@@ -299,6 +313,67 @@ describe('an address the provider has not confirmed', () => {
   });
 });
 
+describe('which address the verification belongs to', () => {
+  it('refuses a user whose only verified identity is for a different address', async () => {
+    // The primary address is unconfirmed. A verified identity exists, but it is
+    // for somewhere else entirely, so it proves nothing about this address.
+    const user = await createGoogleUser({
+      email: syntheticEmail('primary'),
+      fullName: 'Mixed Identity',
+      verified: false,
+    });
+    await addVerifiedIdentity(user.id, syntheticEmail('elsewhere'));
+
+    const result = await link(user.id);
+    expect(result.outcome).toBe('unverified');
+    expect(result.account_id).toBeNull();
+    expect(await accountExists(user.id)).toBe(false);
+  });
+
+  it('does not let a verified address vouch for a different invited address', async () => {
+    // The attack this binding exists to stop: an invite makes an address worth
+    // claiming, so a verification for an address the person really controls must
+    // not be accepted as proof of the invited one.
+    const admin = await createAdmin();
+    const invitedEmail = syntheticEmail('target');
+    const inviteId = await adminRpc<string>(admin.session, 'app_admin_create_invite', {
+      p_email: invitedEmail,
+      p_role: 'admin',
+    });
+
+    const user = await createGoogleUser({
+      email: invitedEmail,
+      fullName: 'Would Be Administrator',
+      verified: false,
+    });
+    await addVerifiedIdentity(user.id, syntheticEmail('attacker'));
+
+    expect((await link(user.id)).outcome).toBe('unverified');
+    expect(await accountExists(user.id)).toBe(false);
+
+    const { data: invite } = await serviceClient()
+      .from('account_invites')
+      .select('accepted_at, accepted_account_id')
+      .eq('id', inviteId)
+      .single();
+    expect(invite?.accepted_at, 'the invite must still be waiting').toBeNull();
+    expect(invite?.accepted_account_id).toBeNull();
+  });
+
+  it('accepts an identity verified for the address actually being claimed', async () => {
+    // The positive control for the two refusals above: the same unconfirmed
+    // primary address, but this time the verified identity is for that address.
+    const email = syntheticEmail('matched');
+    const user = await createGoogleUser({ email, fullName: 'Rowan De Leon', verified: false });
+    await addVerifiedIdentity(user.id, email);
+
+    const result = await link(user.id);
+    expect(result.outcome).toBe('requested');
+    expect(result.status).toBe('pending_approval');
+    expect((await accountRow(user.id)).email).toBe(email);
+  });
+});
+
 describe('who may ask', () => {
   it('refuses the linking function to a signed-in administrator', async () => {
     const admin = await createAdmin();
@@ -312,6 +387,6 @@ describe('who may ask', () => {
     const { error } = await anonClient().rpc('app_trusted_link_identity', {
       p_user: '00000000-0000-0000-0000-000000000000',
     });
-    expect(error?.message).toMatch(/permission denied|schema cache|function/i);
+    expect(error?.message).toMatch(/permission denied/i);
   });
 });

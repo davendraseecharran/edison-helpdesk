@@ -229,7 +229,9 @@ describe('invites', () => {
       p_email: inviteEmail(),
       p_role: 'technician',
     });
-    expect(anonRpc.message).toMatch(/permission denied|cannot access/i);
+    // No EXECUTE at all, so the call never runs. An executed-and-refused call
+    // would say something else entirely, and must not satisfy this assertion.
+    expect(anonRpc.message).toMatch(/permission denied/i);
   });
 
   it('cannot be written from a session, not even an administrator one', async () => {
@@ -423,7 +425,7 @@ describe('trusted identity linking', () => {
     const asAnon = await rpcFails(anonClient(), 'app_trusted_link_identity', {
       p_user: identity('owner').id,
     });
-    expect(asAnon.message).toMatch(/permission denied|schema cache|function/i);
+    expect(asAnon.message).toMatch(/permission denied/i);
   });
 
   it('answers the trusted server with the account that already exists', async () => {
