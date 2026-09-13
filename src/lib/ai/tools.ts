@@ -68,7 +68,17 @@ interface Field {
   choices?: readonly string[];
   /** A plain calendar date, `YYYY-MM-DD`. */
   date?: boolean;
+  /** Longest text accepted. Defaults to MAX_TEXT; only pasted files need more. */
+  maxLength?: number;
 }
+
+/**
+ * A ceiling on every text argument, so a model that loops cannot post a
+ * megabyte into a note field and have the database be the thing that says no.
+ * The one field that legitimately carries a file overrides it.
+ */
+const MAX_TEXT = 4000;
+const MAX_CSV_TEXT = 5_000_000;
 
 const PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
 const CATEGORIES = [
@@ -95,11 +105,22 @@ const IMPORT_MODES = ['dry_run', 'commit'] as const;
 // Errors and context
 // ---------------------------------------------------------------------------
 
-/** A refusal the operator can act on, rather than a stack trace. */
+/**
+ * A refusal the operator can act on, rather than a stack trace.
+ *
+ * `code` and `raw` are the driver's own, kept for the two callers that have to
+ * tell one failure from another. They are never what `message` says: see
+ * `safeRpcMessage`.
+ */
 export class ToolError extends Error {
-  constructor(message: string) {
+  readonly code: string | null;
+  readonly raw: string;
+
+  constructor(message: string, code: string | null = null, raw = '') {
     super(message);
     this.name = 'ToolError';
+    this.code = code;
+    this.raw = raw;
   }
 }
 
@@ -166,10 +187,43 @@ function rows(data: unknown): Record<string, unknown>[] {
   return Array.isArray(data) ? data.filter(isRecord) : [];
 }
 
-/** The message shaping `src/lib/data/actions.ts` uses, so errors read alike. */
+/**
+ * SQLSTATEs our own RPCs raise deliberately, whose messages are WRITTEN to be
+ * read: 'Only an administrator can do that', 'Choose a theme', and so on.
+ *
+ *   P0001  a bare `raise exception`
+ *   23514  `using errcode = 'check_violation'`, the argument-refusal spelling
+ *   42501  `insufficient_privilege`, the authorization spelling
+ *
+ * Anything else is the driver talking — a unique-index name, a column that does
+ * not exist, a syntax error — and naming a constraint at somebody mid-repair
+ * tells them nothing and tells an attacker the schema.
+ */
+const AUTHORED_CODES = new Set(['P0001', '23514', '42501']);
+
+const GENERIC_RPC_FAILURE =
+  'That did not go through. Try it from the screen if it keeps failing.';
+
+function safeRpcMessage(error: { code?: string | null; message?: string | null }): string {
+  const code = error.code ?? '';
+  const message = (error.message ?? '').trim();
+  if (AUTHORED_CODES.has(code) && message !== '') return message;
+  return GENERIC_RPC_FAILURE;
+}
+
+/**
+ * Runs one RPC as the signed-in technician.
+ *
+ * The raw failure goes to the server log and the safe sentence goes to the
+ * operator and the model, so a stack of Postgres detail never reaches a chat
+ * bubble the person might paste somewhere.
+ */
 async function rpc(ctx: ToolContext, fn: string, args: Record<string, unknown>): Promise<unknown> {
   const { data, error } = await ctx.supabase.rpc(fn, args);
-  if (error) throw new ToolError(error.message);
+  if (error) {
+    console.error('[ai] rpc failed', { fn, code: error.code, message: error.message });
+    throw new ToolError(safeRpcMessage(error), error.code ?? null, error.message ?? '');
+  }
   return data;
 }
 
@@ -567,9 +621,18 @@ const TOOLS: Record<string, ToolSpec> = {
         return outcome(data, `Read insights for the last ${Number(args.days ?? 30)} days.`);
       } catch (error) {
         // Task 13 adds app_insights. Until it lands, say so plainly rather than
-        // reporting a database error the operator cannot act on.
-        const message = error instanceof Error ? error.message : '';
-        if (/could not find the function|does not exist|schema cache/i.test(message)) {
+        // reporting a database failure the operator cannot act on.
+        //
+        // Matched on the DRIVER'S code, not on prose: PGRST202 is PostgREST's
+        // "not in the schema cache" and 42883 is Postgres's own undefined_function.
+        // The text is checked too, because a PostgREST version that changes its
+        // code should not turn a missing feature into a mystery.
+        const missing =
+          error instanceof ToolError &&
+          (error.code === 'PGRST202' ||
+            error.code === '42883' ||
+            /function .* does not exist|could not find the function/i.test(error.raw));
+        if (missing) {
           return {
             ok: false,
             result: { error: 'Insights are not available in this build yet.' },
@@ -1096,7 +1159,12 @@ const TOOLS: Record<string, ToolSpec> = {
       'Import people or devices from pasted CSV. Run dry_run first and read the counts back before committing.',
     fields: {
       kind: { type: 'string', required: true, description: 'people or devices.', choices: IMPORT_KINDS },
-      csv_text: { type: 'string', required: true, description: 'The whole CSV, header row included.' },
+      csv_text: {
+        type: 'string',
+        required: true,
+        description: 'The whole CSV, header row included.',
+        maxLength: MAX_CSV_TEXT,
+      },
       mode: { type: 'string', required: true, description: 'dry_run to check, commit to apply.', choices: IMPORT_MODES },
     },
     run: async (args, ctx) => {
@@ -1156,9 +1224,48 @@ export const ADMIN_TOOLS: string[] = namesIn('admin');
  * Whether a call changes anything. Administrator tools count: they are changes
  * with a higher bar, not reads.
  */
+/**
+ * The only way a tool is looked up.
+ *
+ * `TOOLS[name]` alone answers for `toString`, `constructor` and `__proto__`,
+ * which are inherited rather than declared — so a model that names one would
+ * have found `isWriteTool` saying true and `validateArgs` throwing on a spec
+ * that is really `Object.prototype.toString`. `Object.hasOwn` is the whole fix.
+ */
+function specFor(name: string): ToolSpec | undefined {
+  return Object.hasOwn(TOOLS, name) ? TOOLS[name] : undefined;
+}
+
 export function isWriteTool(name: string): boolean {
-  const spec = TOOLS[name];
+  const spec = specFor(name);
   return spec !== undefined && spec.group !== 'read';
+}
+
+/**
+ * Changes an administrator must confirm however their settings are set
+ * (Ruling 23). Addendum 4 turns confirmations off by default for ordinary work;
+ * these five are not ordinary work. Granting a role, inviting somebody, deciding
+ * an access request, cancelling a ticket and committing an import are each hard
+ * or impossible to take back, and each is the kind of thing a prompt buried in a
+ * ticket body would try to talk the assistant into.
+ */
+export const ALWAYS_CONFIRM: string[] = [
+  'set_role',
+  'create_invite',
+  'review_access_request',
+  'cancel_ticket',
+  'import_csv',
+];
+
+/** Whether this specific call has to be put to the operator before it runs. */
+export function requiresApproval(
+  name: string,
+  args: Record<string, unknown>,
+  confirmChanges: boolean,
+): boolean {
+  if (!isWriteCall(name, args)) return false;
+  if (ALWAYS_CONFIRM.includes(name)) return true;
+  return confirmChanges;
 }
 
 /**
@@ -1248,6 +1355,10 @@ function checkField(name: string, field: Field, value: unknown): { value?: unkno
       if (field.date === true && Number.isNaN(Date.parse(`${trimmed}T00:00:00Z`))) {
         return { error: fieldError(name, 'is not a real date.') };
       }
+      const limit = field.maxLength ?? MAX_TEXT;
+      if (trimmed.length > limit) {
+        return { error: fieldError(name, `has to be ${limit.toLocaleString('en-GB')} characters or fewer.`) };
+      }
       return { value: trimmed };
     }
     case 'integer': {
@@ -1289,7 +1400,7 @@ function checkField(name: string, field: Field, value: unknown): { value?: unkno
  * that a table and a switch say them more plainly than a validator would.
  */
 export function validateArgs(name: string, args: unknown): ValidationResult {
-  const spec = TOOLS[name];
+  const spec = specFor(name);
   if (spec === undefined) return { ok: false, error: `${name} is not a tool this helpdesk offers.` };
   if (!isRecord(args)) return { ok: false, error: 'Send the arguments as an object of fields.' };
 
@@ -1337,7 +1448,11 @@ export async function executeTool(
   const checked = validateArgs(name, args);
   if (!checked.ok) return { ok: false, result: { error: checked.error }, summary: checked.error };
 
-  const spec = TOOLS[name];
+  const spec = specFor(name);
+  if (spec === undefined) {
+    const message = `${name} is not a tool this helpdesk offers.`;
+    return { ok: false, result: { error: message }, summary: message };
+  }
   if (spec.group === 'admin' && ctx.actor.role !== 'admin') {
     const message = 'Only an administrator can do that.';
     return { ok: false, result: { error: message }, summary: message };
@@ -1354,13 +1469,34 @@ export async function executeTool(
   }
 }
 
+/** Longest argument value an approval card shows before it is cut. */
+const DESCRIBE_LIMIT = 120;
+
+/**
+ * One argument, as a card should show it.
+ *
+ * A pasted spreadsheet is named rather than quoted: `import_csv` carries up to
+ * five megabytes, and the operator approving it wants to know how big it is, not
+ * to scroll it. Every other long value is cut at a readable length.
+ */
+function describeValue(key: string, value: unknown): string {
+  if (Array.isArray(value)) {
+    const shown = value.slice(0, 5).map(String).join(', ');
+    return value.length > 5 ? `${shown} and ${value.length - 5} more` : shown;
+  }
+  const asText = String(value);
+  if (key === 'csv_text') return `${asText.length.toLocaleString('en-GB')} characters of CSV`;
+  if (asText.length <= DESCRIBE_LIMIT) return asText;
+  return `${asText.slice(0, DESCRIBE_LIMIT).trimEnd()}\u2026`;
+}
+
 /** The description a pending approval card shows before anything has run. */
 export function describeCall(name: string, args: Record<string, unknown>): string {
-  const spec = TOOLS[name];
+  const spec = specFor(name);
   if (spec === undefined) return name;
   const parts = Object.entries(args)
     .filter(([, value]) => value !== null && value !== undefined && value !== '')
-    .map(([key, value]) => `${key.replace(/_/g, ' ')}: ${Array.isArray(value) ? value.join(', ') : String(value)}`);
+    .map(([key, value]) => `${key.replace(/_/g, ' ')}: ${describeValue(key, value)}`);
   const subject = parts.length === 0 ? '' : ` (${parts.join('; ')})`;
   return `${label(name)}${subject}`;
 }

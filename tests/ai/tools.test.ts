@@ -1,12 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
   ADMIN_TOOLS,
+  ALWAYS_CONFIRM,
+  describeCall,
+  executeTool,
   isWriteCall,
   isWriteTool,
   normaliseTicketNumber,
   READ_TOOLS,
+  requiresApproval,
   toolsFor,
+  validateArgs,
   WRITE_TOOLS,
+  type ToolContext,
 } from '../../src/lib/ai/tools';
 
 const ALL = [...READ_TOOLS, ...WRITE_TOOLS, ...ADMIN_TOOLS];
@@ -159,5 +165,117 @@ describe('normaliseTicketNumber', () => {
   it('returns null for anything else', () => {
     expect(normaliseTicketNumber('a laptop')).toBeNull();
     expect(normaliseTicketNumber('')).toBeNull();
+  });
+});
+
+
+/**
+ * Names that are on `Object.prototype` rather than on the tool table. A plain
+ * `TOOLS[name]` answers for all three, which made `isWriteTool` say true and
+ * `validateArgs` reach into `Object.prototype.toString` as though it were a
+ * tool specification.
+ */
+const INHERITED = ['toString', 'constructor', '__proto__', 'hasOwnProperty', 'valueOf'];
+
+describe('inherited property names are not tools', () => {
+  it('reports them as unknown rather than as writes', () => {
+    for (const name of INHERITED) expect(isWriteTool(name)).toBe(false);
+  });
+
+  it('refuses them in the argument checker instead of throwing', () => {
+    for (const name of INHERITED) {
+      const result = validateArgs(name, {});
+      expect(result.ok).toBe(false);
+      expect(result.error).toMatch(/not a tool/i);
+    }
+  });
+
+  it('never asks for approval for one', () => {
+    for (const name of INHERITED) expect(requiresApproval(name, {}, true)).toBe(false);
+  });
+
+  it('describes one as its bare name', () => {
+    for (const name of INHERITED) expect(describeCall(name, {})).toBe(name);
+  });
+
+  it('refuses to execute one, without reaching the database', () => {
+    const ctx = {
+      supabase: {
+        rpc: () => {
+          throw new Error('a tool that does not exist must never reach the database');
+        },
+      },
+      actor: { id: 'a', displayName: 'Pat Example', role: 'admin' },
+    } as unknown as ToolContext;
+
+    return Promise.all(
+      INHERITED.map(async (name) => {
+        const result = await executeTool(name, {}, ctx);
+        expect(result.ok).toBe(false);
+        expect(result.summary).toMatch(/not a tool/i);
+      }),
+    );
+  });
+});
+
+describe('requiresApproval', () => {
+  it('asks for the irreversible administrator changes however the setting is set', () => {
+    for (const name of ['set_role', 'create_invite', 'review_access_request', 'cancel_ticket']) {
+      expect(requiresApproval(name, {}, false)).toBe(true);
+      expect(requiresApproval(name, {}, true)).toBe(true);
+    }
+  });
+
+  it('asks before an import commits, and not for a dry run', () => {
+    expect(requiresApproval('import_csv', { mode: 'commit' }, false)).toBe(true);
+    expect(requiresApproval('import_csv', { mode: 'dry_run' }, true)).toBe(false);
+  });
+
+  it('follows the setting for ordinary work', () => {
+    for (const name of ['claim_ticket', 'add_note', 'resolve_ticket', 'assign_device']) {
+      expect(requiresApproval(name, {}, false)).toBe(false);
+      expect(requiresApproval(name, {}, true)).toBe(true);
+    }
+  });
+
+  it('never asks for a read, whatever the setting', () => {
+    for (const name of READ_TOOLS) {
+      expect(requiresApproval(name, {}, true)).toBe(false);
+    }
+  });
+
+  it('lists only tools that exist', () => {
+    const known = new Set([...READ_TOOLS, ...WRITE_TOOLS, ...ADMIN_TOOLS]);
+    for (const name of ALWAYS_CONFIRM) expect(known.has(name)).toBe(true);
+  });
+});
+
+describe('describeCall', () => {
+  it('names a call in sentence case with its arguments', () => {
+    expect(describeCall('claim_ticket', { ticket: 'EDT-1042' })).toBe(
+      'Claim ticket (ticket: EDT-1042)',
+    );
+  });
+
+  it('never inlines a pasted spreadsheet', () => {
+    const csv = 'a,b\n'.repeat(50_000);
+    const described = describeCall('import_csv', { kind: 'people', csv_text: csv, mode: 'commit' });
+    expect(described).not.toContain('a,b');
+    expect(described).toMatch(/characters of CSV/);
+    expect(described.length).toBeLessThan(200);
+  });
+
+  it('cuts any other long value', () => {
+    const described = describeCall('add_note', { ticket: 'EDT-1042', body: 'x'.repeat(400) });
+    expect(described.length).toBeLessThan(200);
+    expect(described).toContain('\u2026');
+  });
+
+  it('summarises a long list rather than printing all of it', () => {
+    const described = describeCall('bulk_update_devices', {
+      device_ids: Array.from({ length: 40 }, (_, at) => `DEV-${at}`),
+      status: 'retired',
+    });
+    expect(described).toContain('35 more');
   });
 });

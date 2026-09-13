@@ -46,7 +46,14 @@ import {
   type InputItem,
   type Reasoning,
 } from '@/lib/ai/responses-client';
-import { describeCall, executeTool, isWriteCall, toolsFor, type ToolContext } from '@/lib/ai/tools';
+import {
+  describeCall,
+  executeTool,
+  requiresApproval,
+  toolsFor,
+  validateArgs,
+  type ToolContext,
+} from '@/lib/ai/tools';
 import { systemInstructions, type PageKind } from '@/lib/ai/prompt';
 import {
   appendItems,
@@ -54,6 +61,7 @@ import {
   clearPending,
   createConversation,
   loadConversation,
+  trimItems,
   toolOutputItem,
   userItem,
   type PendingCall,
@@ -136,8 +144,16 @@ export async function POST(request: NextRequest): Promise<Response> {
   try {
     connection = await loadConnection(account.id);
   } catch (error) {
-    const detail = error instanceof Error ? error.message : 'the connection could not be read';
-    return problem(409, 'not_connected', `That ChatGPT connection is no longer usable: ${detail}`);
+    // The driver's text goes to the log, not to the browser: a refresh failure
+    // can carry a token endpoint's body, and none of it helps the operator.
+    console.error('[ai] connection load failed', {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return problem(
+      409,
+      'not_connected',
+      'That ChatGPT connection is no longer usable. Disconnect it in settings and connect again.',
+    );
   }
   if (connection === null) {
     return problem(
@@ -151,10 +167,19 @@ export async function POST(request: NextRequest): Promise<Response> {
   // carry no attribution.
   const supabase = await createClient();
 
+  // Settings FAIL CLOSED. If this read does not come back, the turn runs as
+  // though the operator had asked to be consulted: the cost of asking somebody
+  // who did not want to be asked is one extra tap, and the cost of the other
+  // mistake is a change nobody agreed to. The panel is told, so the extra cards
+  // are explained rather than mysterious.
   const preferences = await supabase.rpc('app_my_preferences');
+  const preferencesFailed = Boolean(preferences.error);
+  if (preferencesFailed) {
+    console.error('[ai] preferences read failed', { message: preferences.error?.message });
+  }
   const prefs = Array.isArray(preferences.data) ? preferences.data[0] : preferences.data;
   const reasoning: Reasoning = isReasoning(prefs?.ai_reasoning) ? prefs.ai_reasoning : 'high';
-  const confirmChanges = prefs?.ai_confirm_changes === true;
+  const confirmChanges = preferencesFailed || prefs?.ai_confirm_changes === true;
 
   // The tool client. Same cookies, same JWT, same row-level security — the two
   // headers only tell the database HOW the change was made, and
@@ -175,8 +200,10 @@ export async function POST(request: NextRequest): Promise<Response> {
         ? body.conversationId.trim()
         : await createConversation(supabase, account.id, body.message ?? 'New conversation');
   } catch (error) {
-    const detail = error instanceof Error ? error.message : 'the conversation could not be opened';
-    return problem(500, 'conversation_failed', detail);
+    console.error('[ai] conversation open failed', {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return problem(500, 'conversation_failed', 'That conversation could not be opened. Try again.');
   }
 
   const controller = new AbortController();
@@ -218,8 +245,20 @@ export async function POST(request: NextRequest): Promise<Response> {
       try {
         send({ type: 'conversation', id: conversationId });
 
+        if (preferencesFailed) {
+          // Non-fatal: the turn carries on, asking before every change.
+          send({
+            type: 'error',
+            message: 'Could not read your assistant settings; changes will ask for approval this turn.',
+          });
+        }
+
         const loaded = await loadConversation(supabase, conversationId);
-        const input: InputItem[] = [...loaded.items];
+        // Only the tail of a long conversation is replayed. Nothing is put in
+        // the place of what is dropped: the Responses API has no input item that
+        // means "earlier turns omitted", and a fake user or system message would
+        // be this application putting words in somebody's mouth. See trimItems.
+        const input: InputItem[] = trimItems(loaded.items);
 
         // --- Answers to pending changes ---------------------------------
         if (loaded.pending.length > 0) {
@@ -269,6 +308,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         void touchUsed(account.id);
 
         // --- The turn -----------------------------------------------------
+        let ranOutOfRounds = false;
         for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
           if (controller.signal.aborted) break;
 
@@ -332,8 +372,14 @@ export async function POST(request: NextRequest): Promise<Response> {
             // that message is what the model gets to correct on its next turn.
           }
 
+          // Checked BEFORE the card is drawn. An approval card for a call that
+          // cannot run asks somebody to agree to nothing, and then fails anyway;
+          // an invalid call goes straight to the executor, whose refusal is the
+          // message the model needs to correct itself.
+          const checked = validateArgs(pendingCall.name, args);
           const summary = describeCall(pendingCall.name, args);
-          const needsApproval = confirmChanges && isWriteCall(pendingCall.name, args);
+          const needsApproval =
+            checked.ok && requiresApproval(pendingCall.name, checked.value, confirmChanges);
 
           send({
             type: 'tool_call',
@@ -367,19 +413,26 @@ export async function POST(request: NextRequest): Promise<Response> {
           await appendItems(supabase, conversationId, 'tool', [output]);
           input.push(output);
 
-          if (round === MAX_TOOL_ROUNDS - 1) {
-            send({
-              type: 'error',
-              message: 'The assistant used its limit of steps for one message. Ask again to carry on.',
-            });
-          }
+          // A tool ran in the last round, so the model is owed a turn to say
+          // what it found and will not get one. That — and only that — is when
+          // the operator needs telling.
+          if (round === MAX_TOOL_ROUNDS - 1) ranOutOfRounds = true;
+        }
+
+        if (ranOutOfRounds) {
+          send({
+            type: 'error',
+            message: 'The assistant used its limit of steps for one message. Ask again to carry on.',
+          });
         }
 
         send({ type: 'done' });
       } catch (error) {
+        console.error('[ai] chat turn failed', {
+          message: error instanceof Error ? error.message : String(error),
+        });
         if (!controller.signal.aborted) {
-          const detail = error instanceof Error ? error.message : 'something went wrong';
-          send({ type: 'error', message: detail });
+          send({ type: 'error', message: 'The assistant could not finish that. Try again.' });
           send({ type: 'done' });
         }
       } finally {
