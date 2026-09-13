@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { loadActor } from '@/lib/auth/session';
-import { adminAccountsView } from '@/lib/data/admin-view';
+import { loadAdminAccounts, loadInvites } from '@/lib/data/admin-view';
 import { PageHeader } from '@/components/Primitives';
 import { AdministrationScreen } from '@/components/admin/AdministrationScreen';
 
@@ -12,15 +12,21 @@ export default async function AdministrationPage() {
     redirect('/queue');
   }
 
-  const accounts = await adminAccountsView();
+  // Both reads run in the administrator's own session, so row-level security
+  // and the invite RPC's own admin check decide what comes back.
+  const [accounts, invites] = await Promise.all([loadAdminAccounts(), loadInvites()]);
 
   return (
     <>
       <PageHeader
         title="Administration"
-        description="Helpdesk accounts, their setup state, and the single-use links you hand over in person. Technicians never need hosting or database accounts."
+        description="Who may use the helpdesk and as what. People sign in with Google; an invite sets the role an address gets, and anyone signing in without one waits here for a decision."
       />
-      <AdministrationScreen accounts={accounts} currentAccountId={actor.account.id} />
+      <AdministrationScreen
+        accounts={accounts}
+        invites={invites}
+        currentAccountId={actor.account.id}
+      />
     </>
   );
 }

@@ -60,7 +60,11 @@ export function RoleBadge({ role }: { role: Role }) {
 const ACCOUNT_STATUS_TONE: Record<AccountStatus, string> = {
   active: 'status-resolved',
   setup_pending: 'status-waiting',
+  // A request nobody has answered yet is live work for an administrator, so it
+  // carries the same tone as an unclaimed ticket rather than a warning.
+  pending_approval: 'status-open',
   inactive: 'status-cancelled',
+  denied: 'status-cancelled',
 };
 
 export function AccountStatusBadge({ status }: { status: AccountStatus }) {

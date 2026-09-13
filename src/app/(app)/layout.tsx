@@ -32,7 +32,12 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
   if (actor.kind === 'anonymous') redirect('/login');
   if (actor.kind === 'unlinked') redirect('/restricted');
   if (actor.kind === 'restricted') {
-    redirect(actor.reason === 'credential_action_pending' ? '/set-password' : '/restricted');
+    if (actor.reason === 'credential_action_pending') redirect('/set-password');
+    // The two Google-path states get their own screens: waiting for a decision
+    // is not a failure, and a refusal must say so plainly rather than reading
+    // as a deactivated account.
+    if (actor.reason === 'pending_approval') redirect('/pending');
+    redirect(actor.reason === 'denied' ? '/restricted?reason=denied' : '/restricted');
   }
 
   const [counts, directory, requesters] = await Promise.all([

@@ -20,10 +20,18 @@ export type Role = 'admin' | 'technician';
 
 /**
  * `setup_pending` means the admin has created the account but the technician has
- * not chosen a password yet. Such accounts must not be able to reach ticket data
- * (enforced server-side in M3; here it only shapes the prototype's lists).
+ * not chosen a password yet. `pending_approval` and `denied` belong to the
+ * Google sign-in path: somebody signed in with a verified address that held no
+ * invite, so an administrator has to decide before they are anything at all.
+ * None of the three can reach ticket data (enforced server-side in M3/M5; here
+ * it only shapes labels and lists).
  */
-export type AccountStatus = 'active' | 'inactive' | 'setup_pending';
+export type AccountStatus =
+  | 'active'
+  | 'inactive'
+  | 'setup_pending'
+  | 'pending_approval'
+  | 'denied';
 
 export type IntakeChannel = 'walk_in' | 'email' | 'phone_call';
 
@@ -258,6 +266,8 @@ export const ACCOUNT_STATUS_LABELS: Record<AccountStatus, string> = {
   active: 'Active',
   inactive: 'Inactive',
   setup_pending: 'Setup pending',
+  pending_approval: 'Waiting for approval',
+  denied: 'Access declined',
 };
 
 export const WAITING_REASONS = [

@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react';
 import { loadActor } from '@/lib/auth/session';
 import { AuthFrame } from '@/components/auth/AuthFrame';
 import { LoginForm } from '@/components/auth/LoginForm';
+import { GoogleButton } from '@/components/auth/GoogleButton';
 import { Icon } from '@/components/ui/Icon';
 
 // Session-dependent: never cached or prerendered.
@@ -34,7 +35,11 @@ export default async function LoginPage({
 
   if (actor.kind === 'active') redirect('/queue');
   if (actor.kind === 'restricted') {
-    redirect(actor.reason === 'credential_action_pending' ? '/set-password' : '/restricted');
+    // Same routing as the app group, so arriving here signed-in never hides the
+    // one thing the person needs to read.
+    if (actor.reason === 'credential_action_pending') redirect('/set-password');
+    if (actor.reason === 'pending_approval') redirect('/pending');
+    redirect(actor.reason === 'denied' ? '/restricted?reason=denied' : '/restricted');
   }
 
   const error =
@@ -42,9 +47,11 @@ export default async function LoginPage({
       ? 'That link has already been used or has expired. Ask the administrator for a new one.'
       : params.linkError === 'invalid'
         ? 'That link is not valid. Ask the administrator for a new one.'
-        : params.oauthError
-          ? 'Google sign-in did not complete. Try again, or sign in with a password.'
-          : null;
+        : params.oauthError === 'unverified'
+          ? 'Google did not confirm that email address. Use a Google account with a verified email.'
+          : params.oauthError
+            ? 'Google sign-in did not complete. Try again, or sign in with a password.'
+            : null;
 
   const notice =
     params.setup === 'done'
@@ -76,14 +83,15 @@ export default async function LoginPage({
         </p>
       ) : null}
 
-      {/*
-        Task 6b: <GoogleButton /> renders inside this slot as the primary
-        action, and the disclosure below loses `open`. The slot takes no space
-        while it is empty.
-      */}
-      <div className="auth-primary" />
+      <div className="auth-primary">
+        <GoogleButton />
+        <p className="auth-hint">
+          Use the Google account your administrator invited. No invite yet? Sign in anyway and an
+          administrator will review your request.
+        </p>
+      </div>
 
-      <details className="auth-disclosure" open>
+      <details className="auth-disclosure">
         <summary>
           <Icon icon={ChevronRight} size={16} />
           Sign in with a password
@@ -99,11 +107,14 @@ export default async function LoginPage({
 
       <div className="auth-foot">
         <p>
-          <strong>Forgot your password?</strong> Contact the helpdesk administrator in person.
-          They confirm your identity and issue a single-use recovery link directly — the system
-          sends no email.
+          <strong>No invite?</strong> Signing in with Google still works: it creates a request an
+          administrator answers, and you can reach nothing until they do.
         </p>
-        <p>Accounts are created by the administrator. There is no public sign-up.</p>
+        <p>
+          <strong>Password trouble?</strong> Passwords are only for people who cannot use a Google
+          account. Ask the helpdesk administrator in person; they confirm who you are and hand you
+          a single-use recovery link directly.
+        </p>
         <p>
           Need the administrator?{' '}
           <Link href="/restricted">What the different account states mean</Link>

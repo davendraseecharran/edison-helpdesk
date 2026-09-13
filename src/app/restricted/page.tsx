@@ -14,6 +14,10 @@ export const metadata = { title: 'Account not active — Edison Helpdesk' };
  * These accounts hold a valid auth session and no helpdesk access at all: the
  * database refuses every ticket read and write for them. This screen exists so
  * that state is explained rather than looking like a broken application.
+ *
+ * The `reason` in the URL is decoration only — it makes the link readable in a
+ * support conversation. Everything shown here is derived from the session and
+ * the database, so editing the query string changes nothing.
  */
 export default async function RestrictedPage() {
   const actor = await loadActor();
@@ -47,25 +51,35 @@ export default async function RestrictedPage() {
             title: 'No helpdesk account',
             body: 'You are signed in, but this identity has no helpdesk account. Ask the administrator to create one for you.',
           }
-        : actor.reason === 'setup_pending'
+        : actor.reason === 'denied'
           ? {
-              title: 'Setup not finished',
-              body: 'Your account exists but has no password yet. Ask the administrator for a setup link — they will hand it to you directly.',
+              title: 'Access was declined',
+              body: 'An administrator reviewed your request and decided this account should not have helpdesk access. If that is unexpected, speak to the helpdesk administrator — they can approve it later without you signing up again.',
             }
-          : actor.reason === 'credential_action_pending'
+          : actor.reason === 'pending_approval'
             ? {
-                title: 'Finish setting your password',
-                body: 'A setup or recovery link is outstanding for this account. Open it and choose a password to restore access.',
+                title: 'Waiting for approval',
+                body: 'Your request has not been answered yet. The helpdesk administrator decides who gets access.',
               }
-            : actor.reason === 'session_superseded'
+            : actor.reason === 'setup_pending'
               ? {
-                  title: 'This session has ended',
-                  body: 'Your password was changed or your account was deactivated after this session started. Sign in again.',
+                  title: 'Setup not finished',
+                  body: 'Your account exists but has no password yet. Ask the administrator for a setup link — they will hand it to you directly.',
                 }
-              : {
-                  title: 'Account deactivated',
-                  body: 'This account has been deactivated. Your past work is preserved and still attributed to you. Ask the administrator if this is unexpected.',
-                };
+              : actor.reason === 'credential_action_pending'
+                ? {
+                    title: 'Finish setting your password',
+                    body: 'A setup or recovery link is outstanding for this account. Open it and choose a password to restore access.',
+                  }
+                : actor.reason === 'session_superseded'
+                  ? {
+                      title: 'This session has ended',
+                      body: 'Your password was changed or your account was deactivated after this session started. Sign in again.',
+                    }
+                  : {
+                      title: 'Account deactivated',
+                      body: 'This account has been deactivated. Your past work is preserved and still attributed to you. Ask the administrator if this is unexpected.',
+                    };
 
   return (
     <AuthFrame labelledBy="restricted-heading">

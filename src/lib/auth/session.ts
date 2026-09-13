@@ -18,7 +18,14 @@ import { cache } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 
-export type AccountStatus = 'active' | 'inactive' | 'setup_pending';
+export type AccountStatus =
+  | 'active'
+  | 'inactive'
+  | 'setup_pending'
+  /** Signed in with a verified provider address that held no invite. */
+  | 'pending_approval'
+  /** An administrator reviewed that request and said no. */
+  | 'denied';
 export type AccountRole = 'admin' | 'technician';
 
 export interface ActorAccount {
@@ -43,7 +50,9 @@ export type RestrictionReason =
   | 'setup_pending'
   | 'inactive'
   | 'credential_action_pending'
-  | 'session_superseded';
+  | 'session_superseded'
+  | 'pending_approval'
+  | 'denied';
 
 /** Verified auth user for this request, memoised for the render pass. */
 export const currentUser = cache(async (): Promise<User | null> => {
@@ -92,6 +101,14 @@ export const loadActor = cache(async (): Promise<ActorState> => {
 
   if (account.credentialActionPending) {
     return { kind: 'restricted', user, account, reason: 'credential_action_pending' };
+  }
+  // An access decision outranks everything below it: somebody who is waiting to
+  // be let in, or who has been refused, must be told that and nothing else.
+  if (account.status === 'pending_approval') {
+    return { kind: 'restricted', user, account, reason: 'pending_approval' };
+  }
+  if (account.status === 'denied') {
+    return { kind: 'restricted', user, account, reason: 'denied' };
   }
   if (account.status === 'setup_pending') {
     return { kind: 'restricted', user, account, reason: 'setup_pending' };
