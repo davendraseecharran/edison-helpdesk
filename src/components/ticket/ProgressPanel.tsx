@@ -7,6 +7,7 @@ import { canContribute, canSetPriority } from '@/lib/domain/permissions';
 import { resumeWorkAction, setPriorityAction, setWaitingAction } from '@/lib/data/actions';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Field } from '@/components/Primitives';
+import { Button } from '@/components/ui/Button';
 
 /** Priority and the Waiting hold, both of which write an activity event. */
 export function ProgressPanel({ detail }: { detail: TicketDetail }) {
@@ -20,6 +21,7 @@ export function ProgressPanel({ detail }: { detail: TicketDetail }) {
 
   const mayChangePriority = canSetPriority(ticket, actor);
   const mayContribute = canContribute(ticket, actor);
+  const busy = pendingKey !== null;
 
   async function onPriorityChange(value: Priority) {
     setError(null);
@@ -47,11 +49,13 @@ export function ProgressPanel({ detail }: { detail: TicketDetail }) {
   }
 
   return (
-    <div className="card">
-      <div className="card-header">
-        <h2>Progress</h2>
+    <section className="panel" aria-labelledby={`progress-heading-${ticket.id}`}>
+      <div className="panel-head">
+        <h2 className="panel-title" id={`progress-heading-${ticket.id}`}>
+          Progress
+        </h2>
       </div>
-      <div className="card-body stack-sm">
+      <div className="panel-body stack-sm">
         <Field
           label="Priority"
           htmlFor={`priority-${ticket.id}`}
@@ -60,7 +64,7 @@ export function ProgressPanel({ detail }: { detail: TicketDetail }) {
           <select
             id={`priority-${ticket.id}`}
             value={ticket.priority}
-            disabled={!mayChangePriority || pendingKey !== null}
+            disabled={!mayChangePriority || busy}
             onChange={(event) => void onPriorityChange(event.target.value as Priority)}
           >
             {(Object.keys(PRIORITY_LABELS) as Priority[]).map((value) => (
@@ -73,26 +77,26 @@ export function ProgressPanel({ detail }: { detail: TicketDetail }) {
 
         {ticket.status === 'waiting' ? (
           <>
-            <p className="notice notice-warning">
+            <p className="callout callout-warn">
               <strong>Waiting.</strong> {ticket.waitingReason}
             </p>
             {mayContribute ? (
-              <div>
-                <button
-                  type="button"
-                  className="btn btn-sm"
+              <div className="form-actions">
+                <Button
+                  size="sm"
                   onClick={() => void onResume()}
-                  disabled={pendingKey !== null}
+                  disabled={busy}
+                  loading={pendingKey === `resume:${ticket.id}`}
                 >
-                  {pendingKey === `resume:${ticket.id}` ? 'Resuming…' : 'Resume work'}
-                </button>
+                  Resume work
+                </Button>
               </div>
             ) : null}
           </>
         ) : mayContribute && ticket.ownerId ? (
           showWaiting ? (
-            <form onSubmit={onWaiting} className="stack-sm">
-              <Field label="Waiting reason" htmlFor={`waiting-reason-${ticket.id}`} error={error}>
+            <form onSubmit={onWaiting} className="form">
+              <Field label="Waiting for" htmlFor={`waiting-reason-${ticket.id}`} error={error}>
                 <select
                   id={`waiting-reason-${ticket.id}`}
                   value={reason}
@@ -119,28 +123,25 @@ export function ProgressPanel({ detail }: { detail: TicketDetail }) {
                   placeholder="Replacement pen ordered"
                 />
               </Field>
-              <div className="btn-row">
-                <button
+              <div className="form-actions">
+                <Button
                   type="submit"
-                  className="btn btn-sm"
-                  disabled={pendingKey !== null}
+                  size="sm"
+                  disabled={busy}
+                  loading={pendingKey === `waiting:${ticket.id}`}
                 >
-                  {pendingKey === `waiting:${ticket.id}` ? 'Saving…' : 'Set to Waiting'}
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-sm btn-ghost"
-                  onClick={() => setShowWaiting(false)}
-                >
+                  Put on hold
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setShowWaiting(false)}>
                   Cancel
-                </button>
+                </Button>
               </div>
             </form>
           ) : (
-            <div>
-              <button type="button" className="btn btn-sm" onClick={() => setShowWaiting(true)}>
+            <div className="form-actions">
+              <Button size="sm" onClick={() => setShowWaiting(true)}>
                 Put on hold
-              </button>
+              </Button>
             </div>
           )
         ) : null}
@@ -151,6 +152,6 @@ export function ProgressPanel({ detail }: { detail: TicketDetail }) {
           </p>
         ) : null}
       </div>
-    </div>
+    </section>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { Plus } from 'lucide-react';
 import type { TicketDetail } from '@/lib/domain/selectors';
 import { canLogWork } from '@/lib/domain/permissions';
 import { logWorkAction } from '@/lib/data/actions';
@@ -8,6 +9,7 @@ import { nameOf } from '@/lib/directory';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { formatDateKey, formatMinutes } from '@/lib/format';
 import { Field } from '@/components/Primitives';
+import { Button } from '@/components/ui/Button';
 
 /**
  * Optional manual time entries. Totals are person-time, and "not recorded" is
@@ -26,6 +28,8 @@ export function TimePanel({ detail }: { detail: TicketDetail }) {
   const mayLog = canLogWork(ticket, actor);
   const key = `time:${ticket.id}`;
   const saving = pendingKey === key;
+  const contributors = detail.time.byContributor.length;
+  const entries = detail.workLogs.length;
 
   async function onSubmit(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
@@ -43,55 +47,66 @@ export function TimePanel({ detail }: { detail: TicketDetail }) {
   }
 
   return (
-    <div className="card">
-      <div className="card-header">
-        <h2>Time</h2>
+    <section className="panel" aria-labelledby={`time-heading-${ticket.id}`}>
+      <div className="panel-head">
+        <h2 className="panel-title" id={`time-heading-${ticket.id}`}>
+          Time
+        </h2>
         {mayLog ? (
-          <button type="button" className="btn btn-sm" onClick={() => setOpen((value) => !value)}>
+          <Button
+            size="sm"
+            icon={open ? undefined : Plus}
+            aria-expanded={open}
+            onClick={() => setOpen((value) => !value)}
+          >
             {open ? 'Cancel' : 'Log time'}
-          </button>
+          </Button>
         ) : null}
       </div>
-      <div className="card-body stack-sm">
+      <div className="panel-body stack-sm">
         {detail.time.recorded ? (
           <>
             <p>
-              <strong>{formatMinutes(detail.time.totalMinutes)}</strong>{' '}
-              <span className="muted small">person-time across {detail.time.byContributor.length}{' '}
-                {detail.time.byContributor.length === 1 ? 'contributor' : 'contributors'}
+              <span className="time-total">{formatMinutes(detail.time.totalMinutes)}</span>
+              <span className="time-total-note">
+                across {contributors} {contributors === 1 ? 'person' : 'people'}
               </span>
             </p>
-            <ul className="stack-sm small" style={{ margin: 0, paddingLeft: 16 }}>
+            <ul className="time-by">
               {detail.time.byContributor.map((entry) => (
                 <li key={entry.accountId}>
-                  {entry.displayName} — {formatMinutes(entry.minutes)}
+                  <span>{entry.displayName}</span>
+                  <span className="time-by-minutes">{formatMinutes(entry.minutes)}</span>
                 </li>
               ))}
             </ul>
-            <details>
-              <summary className="small muted" style={{ cursor: 'pointer' }}>
-                {detail.workLogs.length} {detail.workLogs.length === 1 ? 'entry' : 'entries'}
+            <details className="time-entries">
+              <summary>
+                {entries} {entries === 1 ? 'entry' : 'entries'}
               </summary>
-              <ul className="stack-sm small" style={{ marginTop: 8, paddingLeft: 16 }}>
+              <ul className="time-entry-list">
                 {detail.workLogs.map((log) => (
-                  <li key={log.id}>
-                    {formatDateKey(log.workDate)} · {formatMinutes(log.minutes)} ·{' '}
-                    {nameOf(directory, log.contributorId)}
-                    {log.description ? ` — ${log.description}` : ''}
+                  <li key={log.id} className="time-entry">
+                    <span className="time-entry-date">{formatDateKey(log.workDate)}</span>
+                    <span className="time-entry-minutes">{formatMinutes(log.minutes)}</span>
+                    <span>{nameOf(directory, log.contributorId)}</span>
+                    {log.description ? (
+                      <span className="time-entry-note">{log.description}</span>
+                    ) : null}
                   </li>
                 ))}
               </ul>
             </details>
           </>
         ) : (
-          <p className="small muted">
-            <strong>No time recorded.</strong> That is different from zero minutes — time entries
+          <p className="panel-note">
+            <strong>No time recorded.</strong> That is different from zero minutes. Time entries
             are optional and never required to resolve a ticket.
           </p>
         )}
 
         {open && mayLog ? (
-          <form onSubmit={onSubmit} className="stack-sm">
+          <form onSubmit={onSubmit} className="form">
             <Field label="Work date" htmlFor={`time-date-${ticket.id}`}>
               <input
                 id={`time-date-${ticket.id}`}
@@ -124,14 +139,14 @@ export function TimePanel({ detail }: { detail: TicketDetail }) {
                 onChange={(event) => setDescription(event.target.value)}
               />
             </Field>
-            <div>
-              <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>
-                {saving ? 'Saving…' : 'Save entry'}
-              </button>
+            <div className="form-actions">
+              <Button type="submit" size="sm" disabled={pendingKey !== null} loading={saving}>
+                Save entry
+              </Button>
             </div>
           </form>
         ) : null}
       </div>
-    </div>
+    </section>
   );
 }

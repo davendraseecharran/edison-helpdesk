@@ -16,7 +16,9 @@ import {
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Avatar, Field, TimeAgo } from '@/components/Primitives';
 import { RoleBadge } from '@/components/Badges';
+import { Button } from '@/components/ui/Button';
 
+/** Owner and collaborators, with claim, return and the collaborator list. */
 export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
   const { directory, pendingKey, run } = useRuntime();
   const actor = useActorAccount();
@@ -26,6 +28,7 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
   const ticket = detail.ticket;
   const mayManage = canManageCollaborators(ticket, actor);
   const mayClaim = canClaimTicket(ticket, actor);
+  const busy = pendingKey !== null;
 
   const candidates = useMemo(
     () =>
@@ -62,89 +65,92 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
   }
 
   return (
-    <div className="card">
-      <div className="card-header">
-        <h2>People</h2>
+    <section className="panel" aria-labelledby={`people-heading-${ticket.id}`}>
+      <div className="panel-head">
+        <h2 className="panel-title" id={`people-heading-${ticket.id}`}>
+          People
+        </h2>
       </div>
-      <div className="card-body stack">
+      <div className="panel-body stack">
         <div>
-          <p className="small subtle" style={{ marginBottom: 4 }}>
-            Primary owner
-          </p>
+          <p className="people-label">Owner</p>
           {detail.owner ? (
-            <div className="person-row">
-              <span className="person">
-                <Avatar name={detail.owner.displayName} />
-                <span>
-                  <span className="person-name">{detail.owner.displayName}</span>
+            <div className="person">
+              <Avatar name={detail.owner.displayName} />
+              <span className="person-text">
+                <span className="person-name">{detail.owner.displayName}</span>
+                {ticket.assignedAt ? (
                   <span className="person-meta">
-                    {' '}
-                    {ticket.assignedAt ? (
-                      <>
-                        since <TimeAgo iso={ticket.assignedAt} />
-                      </>
-                    ) : null}
+                    Since <TimeAgo iso={ticket.assignedAt} />
                   </span>
-                </span>
+                ) : null}
               </span>
-              <RoleBadge role={detail.owner.role} />
+              <span className="person-end">
+                <RoleBadge role={detail.owner.role} />
+              </span>
             </div>
           ) : (
-            <div className="person-row">
-              <span className="muted">Unassigned — sitting in the Open Queue</span>
+            <div className="person">
+              <span className="person-text muted">Unassigned. Anyone can claim it from the queue.</span>
               {mayClaim ? (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-primary"
-                  onClick={() => void onClaim()}
-                  disabled={pendingKey !== null}
-                >
-                  {pendingKey === `claim:${ticket.id}` ? 'Claiming…' : 'Claim'}
-                </button>
+                <span className="person-end">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => void onClaim()}
+                    disabled={busy}
+                    loading={pendingKey === `claim:${ticket.id}`}
+                  >
+                    Claim ticket
+                  </Button>
+                </span>
               ) : null}
             </div>
           )}
         </div>
 
         {canReturnToQueue(ticket, actor) ? (
-          <div className="stack-sm">
-            <button
-              type="button"
-              className="btn btn-sm"
-              disabled={pendingKey !== null}
-              onClick={() => void run(`return:${ticket.id}`, () => returnTicketAction(ticket.id))}
-            >
-              {pendingKey === `return:${ticket.id}` ? 'Returning…' : 'Return to Open Queue'}
-            </button>
-            <p className="small subtle">
-              Unable to finish? Release this ticket for another technician to claim.
-              All notes, device information, time entries, collaborators, and history stay on the ticket.
+          <div className="stack-xs">
+            <div className="form-actions">
+              <Button
+                size="sm"
+                disabled={busy}
+                loading={pendingKey === `return:${ticket.id}`}
+                onClick={() => void run(`return:${ticket.id}`, () => returnTicketAction(ticket.id))}
+              >
+                Return to queue
+              </Button>
+            </div>
+            <p className="panel-note">
+              Cannot finish it? Release the ticket for another technician. Notes, devices, time,
+              collaborators and history all stay with it.
             </p>
           </div>
         ) : null}
 
         <div>
-          <p className="small subtle" style={{ marginBottom: 4 }}>
-            Collaborators
-          </p>
+          <p className="people-label">Collaborators</p>
           {detail.collaborators.length === 0 ? (
-            <p className="small muted">No collaborators.</p>
+            <p className="panel-empty">No collaborators.</p>
           ) : (
             detail.collaborators.map((collaborator) => (
-              <div className="person-row" key={collaborator.id}>
-                <span className="person">
-                  <Avatar name={collaborator.displayName} />
+              <div className="person" key={collaborator.id}>
+                <Avatar name={collaborator.displayName} />
+                <span className="person-text">
                   <span className="person-name">{collaborator.displayName}</span>
                 </span>
                 {mayManage ? (
-                  <button
-                    type="button"
-                    className="btn btn-sm btn-danger"
-                    onClick={() => void onRemove(collaborator.id)}
-                    disabled={pendingKey !== null}
-                  >
-                    Remove
-                  </button>
+                  <span className="person-end">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void onRemove(collaborator.id)}
+                      disabled={busy}
+                      loading={pendingKey === `remove-collab:${ticket.id}:${collaborator.id}`}
+                    >
+                      Remove
+                    </Button>
+                  </span>
                 ) : null}
               </div>
             ))
@@ -152,7 +158,7 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
         </div>
 
         {mayManage && candidates.length > 0 ? (
-          <form onSubmit={onAdd} className="stack-sm">
+          <form onSubmit={onAdd} className="form">
             <Field label="Add a collaborator" htmlFor={`add-collab-${ticket.id}`} error={error}>
               <select
                 id={`add-collab-${ticket.id}`}
@@ -162,7 +168,7 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
                   setError(null);
                 }}
               >
-                <option value="">Select an account…</option>
+                <option value="">Choose an account</option>
                 {candidates.map((account) => (
                   <option key={account.id} value={account.id}>
                     {account.displayName}
@@ -170,23 +176,26 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
                 ))}
               </select>
             </Field>
-            <div>
-              <button
+            <div className="form-actions">
+              <Button
                 type="submit"
-                className="btn btn-sm"
-                disabled={!collaboratorId || pendingKey !== null}
+                size="sm"
+                disabled={!collaboratorId || busy}
+                loading={pendingKey === `add-collab:${ticket.id}`}
               >
-                {pendingKey === `add-collab:${ticket.id}` ? 'Adding…' : 'Add collaborator'}
-              </button>
+                Add collaborator
+              </Button>
             </div>
           </form>
         ) : null}
 
-        <p className="small subtle">
-          Removing a collaborator revokes their further access. Notes and events they already
-          authored keep their names.
-        </p>
+        {mayManage ? (
+          <p className="panel-note">
+            Removing a collaborator ends their access. Notes and events they already wrote keep
+            their name.
+          </p>
+        ) : null}
       </div>
-    </div>
+    </section>
   );
 }

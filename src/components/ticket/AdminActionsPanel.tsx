@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { TicketDetail } from '@/lib/domain/selectors';
 import {
   cancelTicketAction,
@@ -11,9 +11,11 @@ import {
 import { canAdministerTicket } from '@/lib/domain/permissions';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Field } from '@/components/Primitives';
+import { Button } from '@/components/ui/Button';
+import { revealControl, useTicketIntent } from './TicketActionBar';
 
 /**
- * Administrator-only lifecycle controls: reassign, return to the Open Queue,
+ * Administrator-only lifecycle controls: reassign, return to the queue,
  * reopen with a reason, and cancel with a reason. Prior ownership, notes, time
  * and events are preserved by every one of these operations.
  */
@@ -26,21 +28,31 @@ export function AdminActionsPanel({ detail }: { detail: TicketDetail }) {
   const [cancelReason, setCancelReason] = useState('');
   const [mode, setMode] = useState<'none' | 'reopen' | 'cancel'>('none');
   const [error, setError] = useState<string | null>(null);
+  const reopenRef = useRef<HTMLInputElement>(null);
+  const cancelRef = useRef<HTMLInputElement>(null);
 
   const candidates = useMemo(
     () => directory.filter((account) => account.status === 'active'),
     [directory],
   );
 
-  // Every hook must run before this guard, so it stays below the useMemo above.
+  // The phone bar asks for the reopen form; the field takes focus once it exists.
+  useTicketIntent('reopen', () => setMode('reopen'));
+  useEffect(() => {
+    if (mode === 'reopen') revealControl(reopenRef.current);
+    if (mode === 'cancel') revealControl(cancelRef.current);
+  }, [mode]);
+
+  // Every hook must run before this guard, so it stays below the hooks above.
   if (!canAdministerTicket(actor)) return null;
 
   const closed = ticket.status === 'resolved' || ticket.status === 'cancelled';
+  const busy = pendingKey !== null;
 
   async function onReassign(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
     setError(null);
-    // The selector's blank option means "back to the Open Queue", which is a
+    // The selector's blank option means "back to the queue", which is a
     // different database operation from handing the ticket to another owner.
     const result = await run(`reassign:${ticket.id}`, () =>
       ownerId === ''
@@ -79,18 +91,21 @@ export function AdminActionsPanel({ detail }: { detail: TicketDetail }) {
   }
 
   return (
-    <div className="card">
-      <div className="card-header">
-        <h2>Administration</h2>
-        <span className="badge badge-role">Admin only</span>
+    <section className="panel" aria-labelledby={`admin-heading-${ticket.id}`}>
+      <div className="panel-head">
+        <h2 className="panel-title" id={`admin-heading-${ticket.id}`}>
+          Administration
+        </h2>
+        <span className="badge badge-chip badge-role">Admin only</span>
       </div>
-      <div className="card-body stack-sm">
+      <div className="panel-body stack">
         {closed ? (
           mode === 'reopen' ? (
-            <form onSubmit={onReopen} className="stack-sm">
+            <form onSubmit={onReopen} className="form">
               <Field label="Reason for reopening" htmlFor={`reopen-${ticket.id}`} error={error}>
                 <input
                   id={`reopen-${ticket.id}`}
+                  ref={reopenRef}
                   type="text"
                   value={reopenReason}
                   aria-invalid={error ? 'true' : undefined}
@@ -101,36 +116,42 @@ export function AdminActionsPanel({ detail }: { detail: TicketDetail }) {
                   placeholder="Fault returned the next morning"
                 />
               </Field>
-              <div className="btn-row">
-                <button type="submit" className="btn btn-sm btn-primary" disabled={pendingKey !== null}>
-                  {pendingKey === `reopen:${ticket.id}` ? 'Reopening…' : 'Reopen ticket'}
-                </button>
-                <button type="button" className="btn btn-sm btn-ghost" onClick={() => setMode('none')}>
+              <div className="form-actions">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="sm"
+                  disabled={busy}
+                  loading={pendingKey === `reopen:${ticket.id}`}
+                >
+                  Reopen ticket
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setMode('none')}>
                   Cancel
-                </button>
+                </Button>
               </div>
             </form>
           ) : (
-            <>
-              <p className="small muted">
+            <div className="stack-xs">
+              <div className="form-actions">
+                <Button size="sm" onClick={() => setMode('reopen')}>
+                  Reopen ticket
+                </Button>
+              </div>
+              <p className="panel-note">
                 Reopening keeps the previous owner, the recorded solution, and every note and
                 event in the history.
               </p>
-              <div>
-                <button type="button" className="btn btn-sm" onClick={() => setMode('reopen')}>
-                  Reopen ticket
-                </button>
-              </div>
-            </>
+            </div>
           )
         ) : (
           <>
-            <form onSubmit={onReassign} className="stack-sm">
+            <form onSubmit={onReassign} className="form">
               <Field
-                label="Primary owner"
+                label="Owner"
                 htmlFor={`reassign-${ticket.id}`}
                 error={error}
-                hint="Choosing Open Queue returns the ticket for anyone to claim."
+                hint="Choosing the queue returns the ticket for anyone to claim."
               >
                 <select
                   id={`reassign-${ticket.id}`}
@@ -140,7 +161,7 @@ export function AdminActionsPanel({ detail }: { detail: TicketDetail }) {
                     setError(null);
                   }}
                 >
-                  <option value="">Open Queue — unassigned</option>
+                  <option value="">Queue, unassigned</option>
                   {candidates.map((account) => (
                     <option key={account.id} value={account.id}>
                       {account.displayName}
@@ -148,22 +169,24 @@ export function AdminActionsPanel({ detail }: { detail: TicketDetail }) {
                   ))}
                 </select>
               </Field>
-              <div>
-                <button
+              <div className="form-actions">
+                <Button
                   type="submit"
-                  className="btn btn-sm"
-                  disabled={pendingKey !== null || ownerId === (ticket.ownerId ?? '')}
+                  size="sm"
+                  disabled={busy || ownerId === (ticket.ownerId ?? '')}
+                  loading={pendingKey === `reassign:${ticket.id}`}
                 >
-                  {pendingKey === `reassign:${ticket.id}` ? 'Saving…' : 'Apply ownership change'}
-                </button>
+                  Change owner
+                </Button>
               </div>
             </form>
 
             {mode === 'cancel' ? (
-              <form onSubmit={onCancel} className="stack-sm">
+              <form onSubmit={onCancel} className="form">
                 <Field label="Reason for cancelling" htmlFor={`cancel-${ticket.id}`} error={error}>
                   <input
                     id={`cancel-${ticket.id}`}
+                    ref={cancelRef}
                     type="text"
                     value={cancelReason}
                     aria-invalid={error ? 'true' : undefined}
@@ -174,21 +197,29 @@ export function AdminActionsPanel({ detail }: { detail: TicketDetail }) {
                     placeholder="Duplicate of EDT-1001"
                   />
                 </Field>
-                <div className="btn-row">
-                  <button type="submit" className="btn btn-sm btn-danger" disabled={pendingKey !== null}>
-                    {pendingKey === `cancel:${ticket.id}` ? 'Cancelling…' : 'Confirm cancellation'}
-                  </button>
-                  <button type="button" className="btn btn-sm btn-ghost" onClick={() => setMode('none')}>
+                <div className="form-actions">
+                  <Button
+                    type="submit"
+                    variant="danger"
+                    size="sm"
+                    disabled={busy}
+                    loading={pendingKey === `cancel:${ticket.id}`}
+                  >
+                    Confirm cancellation
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => setMode('none')}>
                     Keep ticket
-                  </button>
+                  </Button>
                 </div>
               </form>
             ) : (
-              <div>
-                <button type="button" className="btn btn-sm btn-danger" onClick={() => setMode('cancel')}>
-                  Cancel ticket
-                </button>
-                <p className="field-hint" style={{ marginTop: 4 }}>
+              <div className="stack-xs">
+                <div className="form-actions">
+                  <Button variant="danger" size="sm" onClick={() => setMode('cancel')}>
+                    Cancel ticket
+                  </Button>
+                </div>
+                <p className="panel-note">
                   A cancellation needs a reason and never counts as a resolution.
                 </p>
               </div>
@@ -196,6 +227,6 @@ export function AdminActionsPanel({ detail }: { detail: TicketDetail }) {
           </>
         )}
       </div>
-    </div>
+    </section>
   );
 }

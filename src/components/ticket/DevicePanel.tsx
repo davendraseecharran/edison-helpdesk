@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { Plus } from 'lucide-react';
 import type { TicketDetail } from '@/lib/domain/selectors';
 import { canContribute } from '@/lib/domain/permissions';
 import { recordDeviceAction } from '@/lib/data/actions';
 import { nameOf } from '@/lib/directory';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Field, TimeAgo } from '@/components/Primitives';
+import { Button } from '@/components/ui/Button';
 
 const EMPTY_DRAFT = {
   deviceType: '',
@@ -32,6 +34,7 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
   const mayAdd = canContribute(ticket, actor);
   const key = `device:${ticket.id}`;
   const saving = pendingKey === key;
+  const count = detail.devices.length;
 
   async function onSubmit(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
@@ -46,66 +49,77 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
   }
 
   return (
-    <div className="card">
-      <div className="card-header">
-        <h2>
-          Devices
-          <span className="badge badge-neutral">{detail.devices.length}</span>
+    <section className="panel" aria-labelledby={`devices-heading-${ticket.id}`}>
+      <div className="panel-head">
+        <h2 className="panel-title" id={`devices-heading-${ticket.id}`}>
+          Devices observed
         </h2>
-        {mayAdd ? (
-          <button type="button" className="btn btn-sm" onClick={() => setOpen((value) => !value)}>
-            {open ? 'Cancel' : 'Record device'}
-          </button>
-        ) : null}
+        <div className="panel-head-end">
+          <span className="panel-aside">
+            {count} {count === 1 ? 'device' : 'devices'}
+          </span>
+          {mayAdd ? (
+            <Button
+              size="sm"
+              icon={open ? undefined : Plus}
+              aria-expanded={open}
+              onClick={() => setOpen((value) => !value)}
+            >
+              {open ? 'Cancel' : 'Record device'}
+            </Button>
+          ) : null}
+        </div>
       </div>
-      <div className="card-body stack">
-        {detail.devices.length === 0 ? (
-          <p className="small muted">
+      <div className="panel-body stack">
+        {count === 0 ? (
+          <p className="panel-empty">
             No devices recorded. A room-wide fault may legitimately have none.
           </p>
         ) : (
-          detail.devices.map((device) => (
-            <div className="device" key={device.id}>
-              <div className="device-head">
-                <strong>{device.deviceType}</strong>
-                <span className="small subtle">
-                  {nameOf(directory, device.recordedById)} · <TimeAgo iso={device.recordedAt} />
-                </span>
-              </div>
-              <div className="device-specs">
-                <div>
-                  <div className="device-spec-label">Model</div>
-                  <div>{device.model ?? 'Unknown'}</div>
+          <ul className="devices">
+            {detail.devices.map((device) => (
+              <li className="device" key={device.id}>
+                <div className="device-head">
+                  <span className="device-type">{device.deviceType}</span>
+                  <span className="device-meta">
+                    {nameOf(directory, device.recordedById)}, <TimeAgo iso={device.recordedAt} />
+                  </span>
                 </div>
-                <div>
-                  <div className="device-spec-label">OS / firmware</div>
-                  <div>{device.osVersion ?? 'Unknown'}</div>
-                </div>
-                <div>
-                  <div className="device-spec-label">Serial</div>
-                  <div className={device.serialNumber ? 'mono' : undefined}>
-                    {device.identifiersNotApplicable
-                      ? 'Not applicable'
-                      : (device.serialNumber ?? 'Unknown')}
+                <dl className="device-specs">
+                  <div>
+                    <dt>Model</dt>
+                    <dd>{device.model ?? 'Unknown'}</dd>
                   </div>
-                </div>
-                <div>
-                  <div className="device-spec-label">Asset tag</div>
-                  <div className={device.assetTag ? 'mono' : undefined}>
-                    {device.identifiersNotApplicable
-                      ? 'Not applicable'
-                      : (device.assetTag ?? 'Unknown')}
+                  <div>
+                    <dt>OS or firmware</dt>
+                    <dd>{device.osVersion ?? 'Unknown'}</dd>
                   </div>
-                </div>
-              </div>
-            </div>
-          ))
+                  <div>
+                    <dt>Serial</dt>
+                    <dd className={device.serialNumber ? 'mono' : undefined}>
+                      {device.identifiersNotApplicable
+                        ? 'Not applicable'
+                        : (device.serialNumber ?? 'Unknown')}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Asset tag</dt>
+                    <dd className={device.assetTag ? 'mono' : undefined}>
+                      {device.identifiersNotApplicable
+                        ? 'Not applicable'
+                        : (device.assetTag ?? 'Unknown')}
+                    </dd>
+                  </div>
+                </dl>
+              </li>
+            ))}
+          </ul>
         )}
 
         {open && mayAdd ? (
-          <form onSubmit={onSubmit} className="stack-sm">
-            <fieldset>
-              <legend>New device observation</legend>
+          <form onSubmit={onSubmit} className="form">
+            <fieldset className="draft">
+              <legend>New device</legend>
               <div className="form-grid">
                 <Field label="Device type" htmlFor={`add-device-type-${ticket.id}`} error={error}>
                   <input
@@ -142,6 +156,7 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
                   <input
                     id={`add-device-serial-${ticket.id}`}
                     type="text"
+                    className="mono"
                     value={draft.serialNumber}
                     disabled={draft.identifiersNotApplicable}
                     onChange={(event) => setDraft({ ...draft, serialNumber: event.target.value })}
@@ -151,6 +166,7 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
                   <input
                     id={`add-device-asset-${ticket.id}`}
                     type="text"
+                    className="mono"
                     value={draft.assetTag}
                     disabled={draft.identifiersNotApplicable}
                     onChange={(event) => setDraft({ ...draft, assetTag: event.target.value })}
@@ -158,7 +174,7 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
                 </Field>
                 <div className="field">
                   <span className="field-label">Identifiers</span>
-                  <label className="checkbox-row small">
+                  <label className="check">
                     <input
                       type="checkbox"
                       checked={draft.identifiersNotApplicable}
@@ -166,19 +182,19 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
                         setDraft({ ...draft, identifiersNotApplicable: event.target.checked })
                       }
                     />
-                    <span>Serial and asset tag not applicable</span>
+                    <span className="check-text">Serial and asset tag not applicable</span>
                   </label>
                 </div>
               </div>
             </fieldset>
-            <div>
-              <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>
-                {saving ? 'Saving…' : 'Save device'}
-              </button>
+            <div className="form-actions">
+              <Button type="submit" size="sm" disabled={pendingKey !== null} loading={saving}>
+                Save device
+              </Button>
             </div>
           </form>
         ) : null}
       </div>
-    </div>
+    </section>
   );
 }
