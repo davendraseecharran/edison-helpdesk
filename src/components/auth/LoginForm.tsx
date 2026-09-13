@@ -33,7 +33,7 @@ export function LoginForm() {
 
   return (
     <form className="stack" onSubmit={onSubmit} noValidate>
-      <Field label="School email" htmlFor="login-email">
+      <Field label="Email" htmlFor="login-email">
         <input
           id="login-email"
           name="email"
@@ -43,11 +43,10 @@ export function LoginForm() {
           value={email}
           disabled={pending}
           onChange={(event) => setEmail(event.target.value)}
-          placeholder="first.last@edison.example"
         />
       </Field>
 
-      <Field label="App password" htmlFor="login-password" error={error}>
+      <Field label="Password" htmlFor="login-password" error={error}>
         <input
           id="login-password"
           name="password"

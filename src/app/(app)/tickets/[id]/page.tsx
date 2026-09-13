@@ -120,9 +120,9 @@ export default async function TicketDetailPage({
 
               <div>
                 <p className="small subtle" style={{ marginBottom: 4 }}>
-                  Issue as reported
+                  Intake notes
                 </p>
-                <p className="note-body">{ticket.issue}</p>
+                <p className="note-body">{ticket.issue || 'No intake notes.'}</p>
               </div>
             </div>
           </div>

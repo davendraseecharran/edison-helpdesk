@@ -1,48 +1,52 @@
 # Edison Helpdesk — resume here
 
-Updated September12,2026 13:28 EDT. **The application is deployed and verified at https://edison-helpdesk.vercel.app.** M3 complete; M4 deployment complete, operational pilot preparation remains.
+Updated September13,2026. **Requested intake/sign-in/role updates are implemented and locally verified, awaiting publishing.** Existing live site remains https://edison-helpdesk.vercel.app on the previous release. No new hosted migrations, directory import, push or deployment has occurred for these updates.
 
-## Live resources
+## Current work and ownership
 
-- Supabase project `lfqlkngxgefoaijuuvvx`, us-east-1, PostgreSQL17. All15 migrations applied through CLI; no fixtures/seeds. Local workspace remains unlinked.
-- GitHub https://github.com/davendraseecharran/edison-helpdesk — private. App revision `13a1a19` on main deployed successfully.
-- Vercel project `thomas-edison-cte-high-school/edison-helpdesk`, id `prj_9NEP7fDNQMsXUpI9VQ4KSfKE7BwL`, team `team_OhQP0pKULim8YlcnUg27qSdX`. Ready production deployment `dpl_6QFDhS871ZyDeizmf4cafnR8ALYD`, URL https://edison-helpdesk-jgrwrhwma-thomas-edison-cte-high-school.vercel.app, stable alias https://edison-helpdesk.vercel.app.
-- Next.js/Node24.x, npm ci/build. Four environment variables set for Production only; service-role key is Secret. Local .env.local is still local.
+Branch `codex/intake-directory-updates`. Root completed helper review, fixes and verification; all helpers released. No active editing ownership. Preserve unrelated pre-existing `.claude/`; do not stage it. Local release commit records intended code/docs/tests only; inspect git log for its ID.
 
-GitHub login connection resolved the commit-author deployment block. Vercel repository connection still fails private-repository access; automatic deployments are NOT configured. Direct authenticated CLI deployments work. Future automatic deployment setup requires granting the Vercel GitHub app access to this private repository; no need to recreate resources.
+Implemented: centered login; Email/Password labels without email placeholder or forgot-password section; admin role changes with audit/session revocation and last usable admin protection; existing staff/student or unknown requester; debounced name/OSIS lookup; assigned-device Add; required catalog type/manufacturer/model/serial; optional asset/OS; required Issue and optional Notes; no Remote intake. Linked inventory details are read-only authoritative snapshots. Requester changes remove linked drafts; incomplete assigned devices cannot be added. Historical incomplete observations remain readable; ticket-detail later-observation form retains earlier flexible rules.
 
-## First administrator — user action required
+Root fixes during review: removed full requester loading from runtime, strengthened last-admin guard against unapproved credentials, made lookup selection invalidation and linked draft reset consistent, blocked incomplete inventory Add, disabled editing linked details, corrected stale browser selectors and order-dependent requester visibility fixture, repaired browser error redaction.
 
-Jessie Kalloo / jkalloo@schools.nyc.gov exists as setup-pending super admin. Password is not chosen yet. Fresh private setup link file:
+## Verification
 
-`/Users/davendraseecharran/.edison-private/admin-setup-1789233924946.txt`
+- `npm run check` under Node24.21.0: typecheck, lint,85 unit tests and production build pass (14 routes).
+- Clean `npm run test:db`:135 tests pass, including roles, directory searches, inventory snapshots, transaction rollback and existing authorization/concurrency.
+- Additional `tests/db/import-preparation.test.ts`:1test passes; actual generated import SQL executes against isolated local tables and rolls back, preserving person links and quoted names.
+- `npm run test:auth`:31 tests pass.
+- `scripts/review-m3.cjs`:browser login, protected routes, technician intake, notes, collaborators, return/reclaim/access loss, resolution, mobile view, account setup/recovery and old-session revocation pass.
+- `scripts/review-intake.cjs`:browser centered login, requester searches, assigned devices, snapshot detail, blank Notes, required fields, stale selection prevention, phone layout and actual admin-role promotion pass. Synthetic phone screenshot visually reviewed.
+- Hosted migration dry run lists exactly the two new migrations. No hosted mutations made.
 
-Expires September12 at14:25:24 EDT. Do not paste link/token into chat or open the callback automatically; user opens the private file and follows the link to choose a password. If expired while still pending, rerun guarded hosted bootstrap with the same identity to issue a new private link. If active, use normal recovery, not bootstrap. The older September11 link is superseded.
+Auth suite resets local DB and leaves additional admin fixtures: rerun last-admin tests via a clean `npm run test:db`, not a standalone DB test after auth/browser fixtures. No resets concurrently with browser scripts.
 
-Final hosted counts: **1 app account,1 Auth user,0 tickets**. Only Jessie remains. No real student/staff/ticket/inventory imports.
+## Exact next step
 
-## Verification and changes
+Follow `docs/PUBLISH-INTAKE-UPDATE.md`:push branch; stage Vercel production build with --skip-domain; refresh private backups; apply reviewed migrations; import reviewed snapshot; promote staged deployment; verify live; fast-forward main. User explicitly requested direct publishing steps after verification. Do not claim the updates are live yet.
 
-- Hosted schema:15 migration history rows;0 public tables without RLS; no test-only recovery helper; anon/authenticated cannot call first-admin bootstrap. Signup disabled, minpassword12, HTTPS site/callback configured.
-- Production build passed with14 routes. Initial build excluded src/lib/supabase because .vercelignore patterns were unanchored; fixed by anchoring exclusions to root, committed13a1a19.
-- Live browser tests passed: signup denial, password login, session persistence/reload, technician admin denial, walk-in intake fields, logout.
-- Separate live browser tests passed password setup, recovery, new-password login, and old-browser revocation. Normal cleanup correctly hit append-only audit protections; root removed only the exact synthetic test UUID in a locked transaction and re-enabled both guards before commit. Verified2 enabled audit guards and no leftover synthetic accounts.
-- Temporary hosted scripts /tmp/edison-deploy/smoke.cjs and setup-smoke.cjs record the checks. The latter's generic cleanup cannot delete append-only grants/events; do not rerun without controlled cleanup. Never use local reset suites against hosted data.
-- Earlier local checks:81 unit tests,122 DB tests,31 auth tests,2 deployment-bootstrap tests; typecheck/lint/build passed. Node24.21.0 also verified for M4 preparation.
+New migrations: `20260912210000_account_roles.sql`, `20260912220000_directory_inventory.sql`.
 
-## Remaining pilot work
+## Private directory/inventory copy
 
-1. User completes Jessie's setup and creates technician accounts through Administration.
-2. Demonstrate backup/restoration and establish private backup storage before relying on the system for daily tickets. No backup/restore rehearsal has been completed.
-3. Review hosted logging/rate limits and verify full live ticket workflows (claim/collaborate/return/resolve/concurrency); local M3 covered these, but hosted browser checks above did not create tickets.
-4. Optionally finish Vercel GitHub app repository access for automatic deployments. Historical ticket import, inventory, directory, public intake, attachments and email remain deferred.
+Google workbook read-only September12. Used Staff,Students,DeviceSheet,Master_Inventory; excluded Audit,StudentOnly and raw helper/backup tabs. Snapshot `.private/inventory-source.json`. Import script `scripts/prepare-inventory-import.mjs` produces private `.private/inventory-import.sql` and row-number report. Source sheets unchanged; no automatic sync or authoritative AppSheet cutover.
 
-Do not claim complete production/pilot readiness solely from deployment. M3 approved-credential fingerprint depends on provider bcrypt/session/AMR schema. Cancelled provider recovery tokens cannot access helpdesk records, but misuse can temporarily disrupt the password until admin recovery; keep this documented tradeoff.
+Prepared counts:261 staff,3,448 students,4,278 devices,113 catalog combinations.18 rows sharing9 conflicting device IDs excluded;29 unmatched assignments unlinked;12 retained incomplete devices blocked from assigned intake until corrected. Imported person fields only name/kind/external ID; no parent/address/email/freeform source notes. People records are NOT login accounts. If sheets changed since snapshot, refresh and review before import. SQL is atomic and refuses a repeat initial import.
 
-## Private configuration and continuity
+Both Git and .vercelignore exclude .private. Never log/publish real records. Existing private backups `.private/pre-intake-data.sql` (public+auth data) and `.private/pre-intake-schema.sql` (public schema), mode0600. Refresh before release. Restoration rehearsal remains uncompleted pilot work.
 
-Hosted operator env exists at /tmp/edison-deploy/production.env mode0600, outside Git; contains sensitive server key. Do not display its contents. Scripts/bootstrap-hosted-admin.mjs accepts an explicit matching project/HTTPS origin and writes setup links privately. Runbooks: docs/M4-DEPLOYMENT.md and docs/M4-BOOTSTRAP.md. Prior history: docs/handoffs/M4-PRE-LAUNCH-STATUS.md and PRE-M4-STATUS.md.
+## Existing live resources
 
-No active editor; root releases ownership. Helpers stopped/completed. User prefers bounded Luna max tasks with short context. Live usage at13:28: Plus five-hour27%, weekly4%; resets 2026-09-12T18:23:02-04:00 and 2026-09-19T13:23:02-04:00. No reset redeemed by tools; one credit available. Values account-wide, not predictive. No automatic wakeup configured.
+- Supabase `lfqlkngxgefoaijuuvvx`,us-east-1,PG17.15migrations deployed through hosted_bootstrap. Workspace is not linked. Last hosted read:1active admin,0tickets,0requesters (recheck before release).
+- Jessie Kalloo completed setup; do not use old bootstrap links. Existing accounts and passwords must be preserved.
+- GitHub private `davendraseecharran/edison-helpdesk`; prior app release13a1a19 on main, later docs e999242.
+- Vercel `thomas-edison-cte-high-school/edison-helpdesk`, project `prj_9NEP7fDNQMsXUpI9VQ4KSfKE7BwL`, team `team_OhQP0pKULim8YlcnUg27qSdX`. Existing deployment `dpl_6QFDhS871ZyDeizmf4cafnR8ALYD`. Node24,Next.js, npm ci/build. Production env configured.
+- GitHub login connected; private-repository automatic deployment not verified. Authenticated Vercel CLI deployment works. --prod --skip-domain verified supported before explicit promote.
+- Hosted operator env /tmp/edison-deploy/production.env is sensitive; never print. Local.env remains local. Local Supabase/Docker and next dev on3000 remain running with synthetic fixtures. No synthetic data on hosted project from these checks.
 
-Claude continuation: Read AGENTS.md and this short checkpoint. The app is already live; do not recreate or reset hosted resources. Continue only the user's requested pilot work. Preserve auth guards, keep credentials private, and checkpoint verified outcomes.
+## Continuity
+
+Latest Plus usage September13:16%five-hour,24%weekly; reset timestamps1789324883/1789838582. No credit redeemed. No automatic wakeup configured. User prefers small Luna-max helpers; this resumed turn finished locally without additional delegation.
+
+Short implementation overview:docs/INTAKE-DIRECTORY-UPDATE.md. Publishing:docs/PUBLISH-INTAKE-UPDATE.md. Older resume notes:docs/handoffs/INTAKE-DIRECTORY-RESUME.md (superseded by this verified checkpoint). Do not recreate resources or reset hosted data.

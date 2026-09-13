@@ -20,7 +20,6 @@ import {
   mapDevice,
   mapDirectoryAccount,
   mapNote,
-  mapRequester,
   mapTicket,
   mapWorkLog,
   type DirectoryRow,
@@ -140,16 +139,6 @@ export const loadDirectory = cache(async (): Promise<Account[]> => {
   const { data, error } = await supabase.rpc('app_directory');
   if (error) return [];
   return ((data ?? []) as DirectoryRow[]).map(mapDirectoryAccount);
-});
-
-export const loadRequesters = cache(async (): Promise<Requester[]> => {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('requesters')
-    .select('id, display_name, kind, descriptor')
-    .order('display_name');
-  if (error) return [];
-  return (data ?? []).map(mapRequester);
 });
 
 export interface TicketDetailView extends TicketDetail {

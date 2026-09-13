@@ -154,7 +154,10 @@ export interface NewTicketOptions {
   channel?: 'walk_in' | 'email' | 'phone_call';
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   submittedOn?: string;
+  requesterId?: string | null;
   requesterName?: string;
+  requesterKind?: 'staff' | 'student';
+  requesterDescriptor?: string | null;
   requesterUnknown?: boolean;
   location?: string;
   isRemote?: boolean;
@@ -170,8 +173,12 @@ function rpcArgs(options: NewTicketOptions): Record<string, unknown> {
     p_channel: options.channel ?? 'walk_in',
     p_priority: options.priority ?? 'normal',
     p_submitted_on: options.submittedOn ?? null,
-    p_requester_name: options.requesterUnknown ? null : (options.requesterName ?? 'Ms. Calloway'),
-    p_requester_unknown: options.requesterUnknown ?? false,
+    p_requester_id: options.requesterId ?? null,
+    p_requester_name: options.requesterName ?? null,
+    p_requester_kind: options.requesterKind ?? 'staff',
+    p_requester_descriptor: options.requesterDescriptor ?? null,
+    p_requester_unknown:
+      options.requesterUnknown ?? (options.requesterId == null && options.requesterName == null),
     p_location: options.location ?? 'Room 212',
     p_is_remote: options.isRemote ?? false,
     p_owner_id: options.ownerId ?? null,

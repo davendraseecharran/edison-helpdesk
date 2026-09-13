@@ -10,6 +10,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   anonClient,
+  adminServiceClient,
   collaborativeTicket,
   identity,
   openTicket,
@@ -251,7 +252,9 @@ describe('account and requester lookups', () => {
   });
 
   it('lets an active technician read requesters for walk-in intake', async () => {
-    const { data, error } = await owner.from('requesters').select('id, display_name, kind');
+    const fixture = await adminServiceClient().from('requesters').insert({ display_name: 'Synthetic Visibility Requester', kind: 'staff', created_by: identity('admin').id }).select('id').single();
+    expect(fixture.error).toBeNull();
+    const { data, error } = await owner.from('requesters').select('id, display_name, kind').eq('id', fixture.data!.id);
     expect(error).toBeNull();
     expect((data ?? []).length).toBeGreaterThan(0);
   });

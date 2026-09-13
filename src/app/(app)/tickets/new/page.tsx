@@ -3,64 +3,96 @@
 /**
  * Intake form for both roles.
  *
- * Admin: any channel, any owner or the Open Queue, and a backdatable submission
- * date. Technician: walk-in only, owner fixed to themselves, dated today — the
- * controls for the other options are not rendered, and `createTicket` rejects
- * them anyway rather than silently correcting a forged value.
+ * Admin: any channel, any owner or the Open Queue, and a backdatable
+ * submission date. Technician: walk-in only, owner fixed to themselves,
+ * dated today. Requesters and inventory lookups are live server actions, so
+ * this page keeps only the selected ids and the fields needed for the ticket.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import {
+  type CatalogEntry,
+  type InventoryDevice,
+  loadAssignedDevices,
+  loadDeviceCatalog,
+  searchRequesters,
+} from '@/lib/data/inventory-actions';
 import {
   type IntakeChannel,
   type Priority,
-  type Requester,
   CHANNEL_LABELS,
   PRIORITY_LABELS,
 } from '@/lib/domain/types';
 import { canChooseChannelAndOwner } from '@/lib/domain/permissions';
 import { createTicketAction } from '@/lib/data/actions';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
+import { SearchSelect } from '@/components/SearchSelect';
 import { Field, PageHeader } from '@/components/Primitives';
 
-const DEVICE_TYPE_SUGGESTIONS = [
-  'Laptop',
-  'Chromebook',
-  'Desktop',
-  'Tablet',
-  'Projector',
-  'Interactive panel',
-  'Printer',
-  'Phone',
-  'Network equipment',
-];
+type RequesterMode = 'existing' | 'unknown';
+type RequesterKind = 'staff' | 'student';
 
-type RequesterMode = 'existing' | 'new' | 'unknown';
+interface RequesterResult {
+  id: string;
+  displayName: string;
+  externalId: string | null;
+}
 
 interface DeviceDraft {
   key: number;
+  inventoryDeviceId?: string;
   deviceType: string;
+  deviceTypeQuery: string;
+  manufacturer: string;
+  manufacturerQuery: string;
   model: string;
+  modelQuery: string;
   osVersion: string;
   serialNumber: string;
   assetTag: string;
-  identifiersNotApplicable: boolean;
 }
 
 function emptyDevice(key: number): DeviceDraft {
   return {
     key,
     deviceType: '',
+    deviceTypeQuery: '',
+    manufacturer: '',
+    manufacturerQuery: '',
     model: '',
+    modelQuery: '',
     osVersion: '',
     serialNumber: '',
     assetTag: '',
-    identifiersNotApplicable: false,
   };
 }
 
+function requesterLabel(requester: RequesterResult): string {
+  return requester.externalId
+    ? `${requester.displayName} — ${requester.externalId}`
+    : requester.displayName;
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function uniqueSorted(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+function isCompleteDevice(device: DeviceDraft): boolean {
+  return Boolean(
+    device.deviceType.trim() &&
+      device.manufacturer.trim() &&
+      device.model.trim() &&
+      device.serialNumber.trim(),
+  );
+}
+
 export default function NewTicketPage() {
-  const { directory, requesters, today, pendingKey, run } = useRuntime();
+  const { directory, today, pendingKey, run } = useRuntime();
   const actor = useActorAccount();
   const router = useRouter();
   const isAdminIntake = canChooseChannelAndOwner(actor);
@@ -71,17 +103,27 @@ export default function NewTicketPage() {
   const [priority, setPriority] = useState<Priority>('normal');
   const [submittedOn, setSubmittedOn] = useState(today);
   const [requesterMode, setRequesterMode] = useState<RequesterMode>('existing');
-  const [requesterId, setRequesterId] = useState('');
-  const [requesterName, setRequesterName] = useState('');
-  const [requesterKind, setRequesterKind] = useState<Requester['kind']>('staff');
-  const [requesterDescriptor, setRequesterDescriptor] = useState('');
+  const [requesterKind, setRequesterKind] = useState<RequesterKind>('staff');
+  const [requesterQuery, setRequesterQuery] = useState('');
+  const [requesterResults, setRequesterResults] = useState<RequesterResult[]>([]);
+  const [selectedRequester, setSelectedRequester] = useState<RequesterResult | null>(null);
+  const [requesterLoading, setRequesterLoading] = useState(false);
+  const [requesterLookupError, setRequesterLookupError] = useState<string | null>(null);
   const [location, setLocation] = useState('');
-  const [isRemote, setIsRemote] = useState(false);
   const [ownerId, setOwnerId] = useState<string>('');
   const [collaboratorIds, setCollaboratorIds] = useState<string[]>([]);
   const [devices, setDevices] = useState<DeviceDraft[]>([]);
-  const [nextDeviceKey, setNextDeviceKey] = useState(1);
+  const [catalogEntries, setCatalogEntries] = useState<CatalogEntry[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [assignedDevices, setAssignedDevices] = useState<InventoryDevice[]>([]);
+  const [assignedLoading, setAssignedLoading] = useState(false);
+  const [assignedError, setAssignedError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<{ field?: string; error: string } | null>(null);
+
+  const requesterSearchSequence = useRef(0);
+  const assignedDeviceSequence = useRef(0);
+  const nextDeviceKey = useRef(1);
 
   const activeAccounts = useMemo(
     () => directory.filter((account) => account.status === 'active'),
@@ -90,24 +132,201 @@ export default function NewTicketPage() {
   const collaboratorChoices = useMemo(
     () =>
       activeAccounts.filter(
-        (account) => account.id !== (isAdminIntake ? ownerId : actor?.id),
+        (account) => account.id !== (isAdminIntake ? ownerId : actor.id),
       ),
-    [activeAccounts, isAdminIntake, ownerId, actor?.id],
+    [activeAccounts, isAdminIntake, ownerId, actor.id],
   );
-  const sortedRequesters = useMemo(
-    () => [...requesters].sort((a, b) => a.displayName.localeCompare(b.displayName)),
-    [requesters],
+  const catalogDeviceTypes = useMemo(
+    () => uniqueSorted(catalogEntries.map((entry) => entry.deviceType)),
+    [catalogEntries],
   );
+  const manufacturersByType = useMemo(() => {
+    const values = new Map<string, string[]>();
+    for (const entry of catalogEntries) {
+      const existing = values.get(entry.deviceType) ?? [];
+      if (!existing.includes(entry.manufacturer)) existing.push(entry.manufacturer);
+      values.set(entry.deviceType, existing);
+    }
+    for (const [key, entries] of values) values.set(key, uniqueSorted(entries));
+    return values;
+  }, [catalogEntries]);
+  const modelsByTypeAndManufacturer = useMemo(() => {
+    const values = new Map<string, string[]>();
+    for (const entry of catalogEntries) {
+      const key = `${entry.deviceType}\u0000${entry.manufacturer}`;
+      const existing = values.get(key) ?? [];
+      if (!existing.includes(entry.model)) existing.push(entry.model);
+      values.set(key, existing);
+    }
+    for (const [key, entries] of values) values.set(key, uniqueSorted(entries));
+    return values;
+  }, [catalogEntries]);
 
   const submitting = pendingKey === 'create-ticket';
+  const hasIncompleteDevice = devices.some((device) => !isCompleteDevice(device));
+  const requesterSearchPrompt =
+    requesterKind === 'staff' ? 'Search staff name' : 'Search name or OSIS';
 
   function errorFor(field: string): string | null {
     return fieldError?.field === field ? fieldError.error : null;
   }
 
+  function clearAssignedDevices() {
+    assignedDeviceSequence.current += 1;
+    setAssignedDevices([]);
+    setAssignedLoading(false);
+    setAssignedError(null);
+  }
+
+  function clearRequesterSelection() {
+    setSelectedRequester(null);
+    setDevices((current) => current.filter((device) => !device.inventoryDeviceId));
+    clearAssignedDevices();
+  }
+
+  function handleRequesterModeChange(mode: RequesterMode) {
+    setRequesterMode(mode);
+    setRequesterKind('staff');
+    setRequesterQuery('');
+    setRequesterResults([]);
+    setRequesterLookupError(null);
+    setRequesterLoading(false);
+    clearRequesterSelection();
+  }
+
+  function handleRequesterKindChange(kind: RequesterKind) {
+    setRequesterKind(kind);
+    setRequesterQuery('');
+    setRequesterResults([]);
+    setRequesterLookupError(null);
+    setRequesterLoading(false);
+    clearRequesterSelection();
+  }
+
+  function handleRequesterQueryChange(query: string) {
+    setRequesterQuery(query);
+    setRequesterResults([]);
+    setRequesterLookupError(null);
+    setRequesterLoading(false);
+    clearRequesterSelection();
+  }
+
+  function handleRequesterSelect(requester: RequesterResult) {
+    setSelectedRequester(requester);
+    setRequesterQuery(requesterLabel(requester));
+    setRequesterResults([]);
+    setRequesterLookupError(null);
+    setRequesterLoading(false);
+
+    const sequence = ++assignedDeviceSequence.current;
+    setAssignedDevices([]);
+    setAssignedError(null);
+    setAssignedLoading(true);
+    loadAssignedDevices(requester.id)
+      .then((loaded) => {
+        if (sequence !== assignedDeviceSequence.current) return;
+        setAssignedDevices(loaded);
+      })
+      .catch((error: unknown) => {
+        if (sequence !== assignedDeviceSequence.current) return;
+        setAssignedError(errorMessage(error, 'Assigned devices could not be loaded.'));
+      })
+      .finally(() => {
+        if (sequence === assignedDeviceSequence.current) setAssignedLoading(false);
+      });
+  }
+
+  function handleCatalogQueryChange(
+    key: number,
+    field: 'deviceType' | 'manufacturer' | 'model',
+    query: string,
+  ) {
+    setDevices((current) =>
+      current.map((device) => {
+        if (device.key !== key) return device;
+        if (field === 'deviceType') {
+          return {
+            ...device,
+            deviceTypeQuery: query,
+            deviceType: query === device.deviceType ? device.deviceType : '',
+            manufacturer: '',
+            manufacturerQuery: '',
+            model: '',
+            modelQuery: '',
+          };
+        }
+        if (field === 'manufacturer') {
+          return {
+            ...device,
+            manufacturerQuery: query,
+            manufacturer: query === device.manufacturer ? device.manufacturer : '',
+            model: '',
+            modelQuery: '',
+          };
+        }
+        return {
+          ...device,
+          modelQuery: query,
+          model: query === device.model ? device.model : '',
+        };
+      }),
+    );
+  }
+
+  function handleCatalogSelect(
+    key: number,
+    field: 'deviceType' | 'manufacturer' | 'model',
+    value: string,
+  ) {
+    if (field === 'deviceType') {
+      updateDevice(key, {
+        deviceType: value,
+        deviceTypeQuery: value,
+        manufacturer: '',
+        manufacturerQuery: '',
+        model: '',
+        modelQuery: '',
+      });
+    } else if (field === 'manufacturer') {
+      updateDevice(key, {
+        manufacturer: value,
+        manufacturerQuery: value,
+        model: '',
+        modelQuery: '',
+      });
+    } else {
+      updateDevice(key, { model: value, modelQuery: value });
+    }
+  }
+
   function addDevice() {
-    setDevices((current) => [...current, emptyDevice(nextDeviceKey)]);
-    setNextDeviceKey((key) => key + 1);
+    const key = nextDeviceKey.current++;
+    setDevices((current) => [...current, emptyDevice(key)]);
+  }
+
+  function addAssignedDevice(inventoryDevice: InventoryDevice) {
+    const key = nextDeviceKey.current++;
+    setDevices((current) => {
+      if (current.some((device) => device.inventoryDeviceId === inventoryDevice.id)) {
+        return current;
+      }
+      return [
+        ...current,
+        {
+          key,
+          inventoryDeviceId: inventoryDevice.id,
+          deviceType: inventoryDevice.deviceType,
+          deviceTypeQuery: inventoryDevice.deviceType,
+          manufacturer: inventoryDevice.manufacturer,
+          manufacturerQuery: inventoryDevice.manufacturer,
+          model: inventoryDevice.model,
+          modelQuery: inventoryDevice.model,
+          osVersion: inventoryDevice.osVersion ?? '',
+          serialNumber: inventoryDevice.serialNumber ?? '',
+          assetTag: inventoryDevice.assetTag ?? '',
+        },
+      ];
+    });
   }
 
   function updateDevice(key: number, patch: Partial<DeviceDraft>) {
@@ -128,9 +347,74 @@ export default function NewTicketPage() {
     );
   }
 
+  useEffect(() => {
+    let current = true;
+    loadDeviceCatalog()
+      .then((entries) => {
+        if (current) setCatalogEntries(entries);
+      })
+      .catch((error: unknown) => {
+        if (current) setCatalogError(errorMessage(error, 'The device catalog could not be loaded.'));
+      })
+      .finally(() => {
+        if (current) setCatalogLoading(false);
+      });
+
+    return () => {
+      current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    const sequence = ++requesterSearchSequence.current;
+    const query = requesterQuery.trim();
+
+    if (
+      requesterMode !== 'existing' ||
+      selectedRequester !== null ||
+      query.length < 2
+    ) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setRequesterLoading(true);
+      searchRequesters(requesterKind, query)
+        .then((results) => {
+          if (sequence !== requesterSearchSequence.current) return;
+          setRequesterResults(results);
+        })
+        .catch((error: unknown) => {
+          if (sequence !== requesterSearchSequence.current) return;
+          setRequesterLookupError(errorMessage(error, 'Requesters could not be loaded.'));
+        })
+        .finally(() => {
+          if (sequence === requesterSearchSequence.current) setRequesterLoading(false);
+        });
+    }, 280);
+
+    return () => window.clearTimeout(timer);
+  }, [requesterKind, requesterMode, requesterQuery, selectedRequester]);
+
   async function onSubmit(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
     setFieldError(null);
+
+    if (!title.trim()) {
+      setFieldError({ field: 'title', error: 'Describe the issue in a short title.' });
+      return;
+    }
+    if (requesterMode === 'existing' && !selectedRequester) {
+      setFieldError({ field: 'requester', error: 'Select a requester or choose Unknown requester.' });
+      return;
+    }
+    if (hasIncompleteDevice) {
+      setFieldError({
+        field: 'devices',
+        error: 'Complete the type, manufacturer, model, and serial number for each device.',
+      });
+      return;
+    }
 
     const result = await run('create-ticket', () =>
       createTicketAction({
@@ -141,22 +425,22 @@ export default function NewTicketPage() {
         channel: isAdminIntake ? channel : 'walk_in',
         priority,
         submittedOn: isAdminIntake ? submittedOn : null,
-        requesterId: requesterMode === 'existing' && requesterId ? requesterId : null,
-        requesterName: requesterMode === 'new' ? requesterName : null,
-        requesterKind: requesterMode === 'new' ? requesterKind : null,
-        requesterDescriptor: requesterMode === 'new' ? requesterDescriptor : null,
+        requesterId: requesterMode === 'existing' ? selectedRequester?.id ?? null : null,
+        requesterName: null,
+        requesterKind: requesterMode === 'existing' ? requesterKind : null,
+        requesterDescriptor: null,
         requesterUnknown: requesterMode === 'unknown',
         location,
-        isRemote,
-        ownerId: isAdminIntake ? (ownerId || null) : null,
+        ownerId: isAdminIntake ? ownerId || null : null,
         collaboratorIds,
         devices: devices.map((device) => ({
-          deviceType: device.deviceType,
-          model: device.model,
-          osVersion: device.osVersion,
-          serialNumber: device.serialNumber,
-          assetTag: device.assetTag,
-          identifiersNotApplicable: device.identifiersNotApplicable,
+          ...(device.inventoryDeviceId ? { inventoryDeviceId: device.inventoryDeviceId } : {}),
+          deviceType: device.deviceType.trim(),
+          manufacturer: device.manufacturer.trim(),
+          model: device.model.trim(),
+          osVersion: device.osVersion.trim(),
+          serialNumber: device.serialNumber.trim(),
+          assetTag: device.assetTag.trim(),
         })),
       }),
     );
@@ -182,92 +466,76 @@ export default function NewTicketPage() {
         }
       />
 
-      <form onSubmit={onSubmit} noValidate>
+      <form className="intake-form" onSubmit={onSubmit} noValidate>
         <div className="card">
           <div className="card-header">
             <h2>Request</h2>
           </div>
           <div className="card-body">
             <div className="form-grid">
-              <Field
-                label="Requester"
-                htmlFor="requester-mode"
-                error={errorFor('requester')}
-                className="form-grid-full"
-              >
-                <div className="row">
-                  <select
-                    id="requester-mode"
-                    value={requesterMode}
-                    onChange={(event) => setRequesterMode(event.target.value as RequesterMode)}
-                    style={{ maxWidth: 210 }}
-                  >
-                    <option value="existing">Known requester</option>
-                    <option value="new">New requester</option>
-                    <option value="unknown">Requester unknown</option>
-                  </select>
-
-                  {requesterMode === 'existing' ? (
-                    <select
-                      aria-label="Select a requester"
-                      value={requesterId}
-                      onChange={(event) => setRequesterId(event.target.value)}
-                      style={{ maxWidth: 280 }}
-                    >
-                      <option value="">Select a requester…</option>
-                      {sortedRequesters.map((requester) => (
-                        <option key={requester.id} value={requester.id}>
-                          {requester.displayName}
-                          {requester.descriptor ? ` — ${requester.descriptor}` : ''}
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
-                </div>
+              <Field label="Requester" htmlFor="requester-mode" error={errorFor('requester')}>
+                <select
+                  id="requester-mode"
+                  value={requesterMode}
+                  onChange={(event) =>
+                    handleRequesterModeChange(event.target.value as RequesterMode)
+                  }
+                >
+                  <option value="existing">Existing requester</option>
+                  <option value="unknown">Unknown requester</option>
+                </select>
               </Field>
 
-              {requesterMode === 'new' ? (
-                <>
-                  <Field label="Requester name" htmlFor="requester-name">
-                    <input
-                      id="requester-name"
-                      type="text"
-                      value={requesterName}
-                      onChange={(event) => setRequesterName(event.target.value)}
-                      placeholder="Ms. Calloway"
-                    />
-                  </Field>
-                  <Field label="Requester type" htmlFor="requester-kind">
-                    <select
-                      id="requester-kind"
-                      value={requesterKind}
-                      onChange={(event) =>
-                        setRequesterKind(event.target.value as Requester['kind'])
-                      }
-                    >
-                      <option value="staff">Staff</option>
-                      <option value="student">Student</option>
-                      <option value="role">Role or desk</option>
-                      <option value="unknown">Unspecified</option>
-                    </select>
-                  </Field>
-                  <Field
-                    label="Department or detail"
-                    htmlFor="requester-descriptor"
-                    optional
-                    className="form-grid-full"
-                    hint="Only what a technician needs to do the job."
+              {requesterMode === 'existing' ? (
+                <Field label="Requester type" htmlFor="requester-kind">
+                  <select
+                    id="requester-kind"
+                    value={requesterKind}
+                    onChange={(event) =>
+                      handleRequesterKindChange(event.target.value as RequesterKind)
+                    }
                   >
-                    <input
-                      id="requester-descriptor"
-                      type="text"
-                      value={requesterDescriptor}
-                      onChange={(event) => setRequesterDescriptor(event.target.value)}
-                      placeholder="Grade 6 ELA"
-                    />
-                  </Field>
-                </>
+                    <option value="staff">Staff</option>
+                    <option value="student">Student</option>
+                  </select>
+                </Field>
               ) : null}
+
+              {requesterMode === 'existing' ? (
+                <Field
+                  label={requesterSearchPrompt}
+                  htmlFor="requester-search"
+                  className="form-grid-full"
+                  error={requesterLookupError}
+                  hint={
+                    selectedRequester
+                      ? `Selected: ${requesterLabel(selectedRequester)}`
+                      : 'Type at least two characters to search.'
+                  }
+                >
+                  <SearchSelect<RequesterResult>
+                    id="requester-search"
+                    value={selectedRequester}
+                    query={requesterQuery}
+                    options={requesterResults}
+                    getOptionKey={(requester) => requester.id}
+                    getOptionLabel={requesterLabel}
+                    onQueryChange={handleRequesterQueryChange}
+                    onSelect={handleRequesterSelect}
+                    placeholder={requesterSearchPrompt}
+                    loading={requesterLoading}
+                    emptyText={
+                      requesterQuery.trim().length < 2
+                        ? 'Enter at least two characters.'
+                        : 'No matching requester.'
+                    }
+                  />
+                </Field>
+              ) : (
+                <p className="notice form-grid-full">
+                  No requester record will be attached to this ticket.
+                </p>
+              )}
 
               <Field
                 label="Location"
@@ -279,34 +547,23 @@ export default function NewTicketPage() {
                   id="location"
                   type="text"
                   value={location}
-                  disabled={isRemote}
                   onChange={(event) => setLocation(event.target.value)}
                   placeholder="Room 212"
                 />
               </Field>
 
-              <div className="field">
-                <span className="field-label">Remote</span>
-                <label className="checkbox-row small">
-                  <input
-                    type="checkbox"
-                    checked={isRemote}
-                    onChange={(event) => setIsRemote(event.target.checked)}
-                  />
-                  <span>No physical location — handled remotely</span>
-                </label>
-              </div>
-
               <Field
-                label="Short title"
+                label="Issue"
                 htmlFor="title"
                 error={errorFor('title')}
-                className="form-grid-full"
+                hint="A short description of what needs attention."
               >
                 <input
                   id="title"
                   type="text"
                   value={title}
+                  required
+                  maxLength={120}
                   aria-invalid={errorFor('title') ? 'true' : undefined}
                   onChange={(event) => setTitle(event.target.value)}
                   placeholder="Projector in Room 212 will not display"
@@ -314,15 +571,17 @@ export default function NewTicketPage() {
               </Field>
 
               <Field
-                label="Issue"
+                label="Notes"
                 htmlFor="issue"
-                error={errorFor('issue')}
+                optional
                 className="form-grid-full"
-                hint="What the requester reported, in their terms."
+                error={errorFor('issue')}
+                hint="Additional detail from the requester, if useful."
               >
                 <textarea
                   id="issue"
                   value={issue}
+                  maxLength={6000}
                   aria-invalid={errorFor('issue') ? 'true' : undefined}
                   onChange={(event) => setIssue(event.target.value)}
                   rows={4}
@@ -396,7 +655,7 @@ export default function NewTicketPage() {
                 <Field
                   label="Submission date"
                   htmlFor="submitted-on-fixed"
-                  hint="Walk-ins are dated today. Whether technicians may backdate is an open decision."
+                  hint="Walk-ins are dated today."
                 >
                   <input id="submitted-on-fixed" type="date" value={today} readOnly disabled />
                 </Field>
@@ -437,7 +696,7 @@ export default function NewTicketPage() {
                   <input
                     id="owner-fixed"
                     type="text"
-                    value={actor?.displayName ?? ''}
+                    value={actor.displayName}
                     readOnly
                     disabled
                   />
@@ -478,119 +737,235 @@ export default function NewTicketPage() {
         <div className="card">
           <div className="card-header">
             <h2>Devices (optional)</h2>
-            <button type="button" className="btn btn-sm" onClick={addDevice}>
+            <button type="button" className="btn btn-sm" onClick={addDevice} disabled={submitting}>
               Add device
             </button>
           </div>
           <div className="card-body">
+            {catalogLoading ? <p className="small subtle">Loading device catalog…</p> : null}
+            {catalogError ? (
+              <p className="flash flash-error" role="alert">
+                {catalogError}
+              </p>
+            ) : null}
+
+            {selectedRequester ? (
+              <div className="intake-assigned-devices">
+                <h3>Assigned to {selectedRequester.displayName}</h3>
+                {assignedLoading ? (
+                  <p className="small subtle">Loading assigned devices…</p>
+                ) : assignedError ? (
+                  <p className="field-error" role="alert">
+                    {assignedError}
+                  </p>
+                ) : assignedDevices.length === 0 ? (
+                  <p className="small subtle">No assigned inventory devices were found.</p>
+                ) : (
+                  <div className="stack-sm">
+                    {assignedDevices.map((inventoryDevice) => {
+                      const ready = Boolean(inventoryDevice.deviceType.trim() && inventoryDevice.manufacturer.trim() && inventoryDevice.model.trim() && inventoryDevice.serialNumber?.trim());
+                      const added = devices.some(
+                        (device) => device.inventoryDeviceId === inventoryDevice.id,
+                      );
+                      return (
+                        <div className="intake-assigned-device" key={inventoryDevice.id}>
+                          <div className="intake-assigned-device-main">
+                            <strong>
+                              {inventoryDevice.deviceType} · {inventoryDevice.manufacturer}{' '}
+                              {inventoryDevice.model}
+                            </strong>
+                            <span className="small subtle">
+                              Serial: {inventoryDevice.serialNumber ?? 'not recorded'}
+                              {inventoryDevice.assetTag
+                                ? ` · Asset: ${inventoryDevice.assetTag}`
+                                : ''}
+                            </span>
+                            {!ready ? <span className="small field-error">Required device details are missing from inventory.</span> : null}
+                          </div>
+                          <button
+                            type="button"
+                            className="btn btn-sm"
+                            disabled={added || submitting || !ready}
+                            onClick={() => addAssignedDevice(inventoryDevice)}
+                          >
+                            {added ? 'Added' : 'Add'}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : null}
+
             {devices.length === 0 ? (
-              <p className="small muted">
-                Device details are optional at intake and can be added while working. A room-wide
-                fault may have no device at all.
+              <p className="small muted intake-device-empty">
+                Device details are optional. Add a device from the inventory catalog when one is
+                part of the request.
               </p>
             ) : (
-              <div className="stack">
-                {devices.map((device, index) => (
-                  <fieldset key={device.key}>
-                    <legend>Device {index + 1}</legend>
-                    <div className="form-grid">
-                      <Field
-                        label="Device type"
-                        htmlFor={`device-type-${device.key}`}
-                        error={errorFor('deviceType')}
-                      >
-                        <input
-                          id={`device-type-${device.key}`}
-                          type="text"
-                          list="device-type-options"
-                          value={device.deviceType}
-                          onChange={(event) =>
-                            updateDevice(device.key, { deviceType: event.target.value })
-                          }
-                          placeholder="Laptop"
-                        />
-                      </Field>
-                      <Field label="Manufacturer and model" htmlFor={`device-model-${device.key}`} optional>
-                        <input
-                          id={`device-model-${device.key}`}
-                          type="text"
-                          value={device.model ?? ''}
-                          onChange={(event) => updateDevice(device.key, { model: event.target.value })}
-                          placeholder="Dell Latitude 3440"
-                        />
-                      </Field>
-                      <Field label="OS or firmware" htmlFor={`device-os-${device.key}`} optional>
-                        <input
-                          id={`device-os-${device.key}`}
-                          type="text"
-                          value={device.osVersion ?? ''}
-                          onChange={(event) =>
-                            updateDevice(device.key, { osVersion: event.target.value })
-                          }
-                          placeholder="Windows 11 23H2"
-                        />
-                      </Field>
-                      <Field
-                        label="Serial number"
-                        htmlFor={`device-serial-${device.key}`}
-                        optional
-                        hint="Leave blank when unknown."
-                      >
-                        <input
-                          id={`device-serial-${device.key}`}
-                          type="text"
-                          value={device.serialNumber ?? ''}
-                          disabled={device.identifiersNotApplicable}
-                          onChange={(event) =>
-                            updateDevice(device.key, { serialNumber: event.target.value })
-                          }
-                        />
-                      </Field>
-                      <Field label="Asset tag" htmlFor={`device-asset-${device.key}`} optional>
-                        <input
-                          id={`device-asset-${device.key}`}
-                          type="text"
-                          value={device.assetTag ?? ''}
-                          disabled={device.identifiersNotApplicable}
-                          onChange={(event) =>
-                            updateDevice(device.key, { assetTag: event.target.value })
-                          }
-                        />
-                      </Field>
-                      <div className="field">
-                        <span className="field-label">Identifiers</span>
-                        <label className="checkbox-row small">
+              <div className="stack intake-device-drafts">
+                {devices.map((device, index) => {
+                  const manufacturers = manufacturersByType.get(device.deviceType) ?? [];
+                  const models =
+                    modelsByTypeAndManufacturer.get(
+                      `${device.deviceType}\u0000${device.manufacturer}`,
+                    ) ?? [];
+                  const complete = isCompleteDevice(device);
+                  return (
+                    <fieldset
+                      key={device.key}
+                      className={complete ? undefined : 'intake-device-incomplete'}
+                    >
+                      <legend>Device {index + 1}</legend>
+                      {device.inventoryDeviceId ? <p className="small subtle">Inventory device — these details come from its inventory record.</p> : null}
+                      <div className="form-grid">
+                        <Field
+                          label="Device type"
+                          htmlFor={`device-type-${device.key}`}
+                          error={errorFor('deviceType')}
+                        >
+                          <SearchSelect<string>
+                            id={`device-type-${device.key}`}
+                            value={device.deviceType || null}
+                            query={device.deviceTypeQuery}
+                            options={catalogDeviceTypes}
+                            getOptionKey={(value) => value}
+                            getOptionLabel={(value) => value}
+                            onQueryChange={(query) =>
+                              handleCatalogQueryChange(device.key, 'deviceType', query)
+                            }
+                            onSelect={(value) =>
+                              handleCatalogSelect(device.key, 'deviceType', value)
+                            }
+                            placeholder="Search device type"
+                            disabled={catalogLoading || submitting || Boolean(device.inventoryDeviceId)}
+                            emptyText={catalogError ? 'Catalog unavailable.' : 'No matching type.'}
+                          />
+                        </Field>
+                        <Field
+                          label="Manufacturer"
+                          htmlFor={`device-manufacturer-${device.key}`}
+                          error={errorFor('manufacturer')}
+                        >
+                          <SearchSelect<string>
+                            id={`device-manufacturer-${device.key}`}
+                            value={device.manufacturer || null}
+                            query={device.manufacturerQuery}
+                            options={manufacturers}
+                            getOptionKey={(value) => value}
+                            getOptionLabel={(value) => value}
+                            onQueryChange={(query) =>
+                              handleCatalogQueryChange(device.key, 'manufacturer', query)
+                            }
+                            onSelect={(value) =>
+                              handleCatalogSelect(device.key, 'manufacturer', value)
+                            }
+                            placeholder={
+                              device.deviceType ? 'Search manufacturer' : 'Choose a type first'
+                            }
+                            disabled={!device.deviceType || catalogLoading || submitting || Boolean(device.inventoryDeviceId)}
+                            emptyText="No matching manufacturer."
+                          />
+                        </Field>
+                        <Field
+                          label="Model"
+                          htmlFor={`device-model-${device.key}`}
+                          error={errorFor('model')}
+                        >
+                          <SearchSelect<string>
+                            id={`device-model-${device.key}`}
+                            value={device.model || null}
+                            query={device.modelQuery}
+                            options={models}
+                            getOptionKey={(value) => value}
+                            getOptionLabel={(value) => value}
+                            onQueryChange={(query) =>
+                              handleCatalogQueryChange(device.key, 'model', query)
+                            }
+                            onSelect={(value) => handleCatalogSelect(device.key, 'model', value)}
+                            placeholder={
+                              device.manufacturer ? 'Search model' : 'Choose a manufacturer first'
+                            }
+                            disabled={!device.manufacturer || catalogLoading || submitting || Boolean(device.inventoryDeviceId)}
+                            emptyText="No matching model."
+                          />
+                        </Field>
+                        <Field
+                          label="Serial number"
+                          htmlFor={`device-serial-${device.key}`}
+                          error={errorFor('serialNumber')}
+                          hint="Required when recording a device at intake."
+                        >
                           <input
-                            type="checkbox"
-                            checked={device.identifiersNotApplicable === true}
+                            id={`device-serial-${device.key}`}
+                            type="text"
+                            value={device.serialNumber}
+                            readOnly={Boolean(device.inventoryDeviceId)}
+                            required
                             onChange={(event) =>
-                              updateDevice(device.key, {
-                                identifiersNotApplicable: event.target.checked,
-                              })
+                              updateDevice(device.key, { serialNumber: event.target.value })
                             }
                           />
-                          <span>Serial and asset tag not applicable</span>
-                        </label>
-                      </div>
-                      <div className="form-grid-full">
-                        <button
-                          type="button"
-                          className="btn btn-sm btn-danger"
-                          onClick={() => removeDevice(device.key)}
+                        </Field>
+                        <Field
+                          label="Asset tag"
+                          htmlFor={`device-asset-${device.key}`}
+                          optional
                         >
-                          Remove device {index + 1}
-                        </button>
+                          <input
+                            id={`device-asset-${device.key}`}
+                            type="text"
+                            value={device.assetTag}
+                            readOnly={Boolean(device.inventoryDeviceId)}
+                            onChange={(event) =>
+                              updateDevice(device.key, { assetTag: event.target.value })
+                            }
+                          />
+                        </Field>
+                        <Field
+                          label="OS version"
+                          htmlFor={`device-os-${device.key}`}
+                          optional
+                        >
+                          <input
+                            id={`device-os-${device.key}`}
+                            type="text"
+                            value={device.osVersion}
+                            readOnly={Boolean(device.inventoryDeviceId)}
+                            onChange={(event) =>
+                              updateDevice(device.key, { osVersion: event.target.value })
+                            }
+                          />
+                        </Field>
+                        <div className="form-grid-full intake-device-actions">
+                          <button
+                            type="button"
+                            className="btn btn-sm btn-danger"
+                            onClick={() => removeDevice(device.key)}
+                            disabled={submitting}
+                          >
+                            Remove device {index + 1}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  </fieldset>
-                ))}
+                    </fieldset>
+                  );
+                })}
               </div>
             )}
-            <datalist id="device-type-options">
-              {DEVICE_TYPE_SUGGESTIONS.map((suggestion) => (
-                <option key={suggestion} value={suggestion} />
-              ))}
-            </datalist>
+
+            {hasIncompleteDevice ? (
+              <p className="small subtle intake-device-incomplete-note">
+                Complete the type, manufacturer, model, and serial number before creating the
+                ticket.
+              </p>
+            ) : null}
+            {errorFor('devices') ? (
+              <p className="field-error" role="alert">
+                {errorFor('devices')}
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -601,7 +976,11 @@ export default function NewTicketPage() {
         ) : null}
 
         <div className="btn-row" style={{ marginTop: 16 }}>
-          <button type="submit" className="btn btn-primary" disabled={submitting}>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={submitting || hasIncompleteDevice}
+          >
             {submitting ? 'Saving…' : 'Create ticket'}
           </button>
           <button type="button" className="btn" onClick={() => router.back()} disabled={submitting}>

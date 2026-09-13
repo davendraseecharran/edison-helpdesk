@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { loadActor } from '@/lib/auth/session';
-import { loadCounts, loadDirectory, loadRequesters } from '@/lib/data/tickets';
+import { loadCounts, loadDirectory } from '@/lib/data/tickets';
 import { schoolToday } from '@/lib/format';
 import { AppRuntimeProvider } from '@/components/AppRuntime';
 import { AppShell } from '@/components/AppShell';
@@ -35,17 +35,15 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
     redirect(actor.reason === 'credential_action_pending' ? '/set-password' : '/restricted');
   }
 
-  const [counts, directory, requesters] = await Promise.all([
+  const [counts, directory] = await Promise.all([
     loadCounts(),
     loadDirectory(),
-    loadRequesters(),
   ]);
 
   return (
     <AppRuntimeProvider
       actor={actor.account}
       directory={directory}
-      requesters={requesters}
       today={schoolToday()}
     >
       <AppShell counts={counts}>{children}</AppShell>

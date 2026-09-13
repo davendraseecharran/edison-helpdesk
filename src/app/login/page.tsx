@@ -46,8 +46,8 @@ export default async function LoginPage({
 
   return (
     <div className="auth-page">
-      <div className="auth-main">
-        <div className="auth-wrap auth-wrap-single">
+      <div className="auth-main auth-main-signin">
+        <div className="auth-wrap auth-wrap-single auth-wrap-signin">
           <section className="auth-card" aria-labelledby="signin-heading">
             <div className="auth-head">
               <div className="brand" style={{ marginBottom: 14 }}>
@@ -77,11 +77,6 @@ export default async function LoginPage({
             <LoginForm />
 
             <div className="auth-meta stack-sm">
-              <p>
-                <strong>Forgot your password?</strong> Contact the helpdesk administrator in
-                person. They confirm your identity and issue a single-use recovery link directly —
-                the system sends no email.
-              </p>
               <p>
                 Accounts are created by the administrator. There is no public sign-up.
               </p>

@@ -74,8 +74,8 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
               </div>
               <div className="device-specs">
                 <div>
-                  <div className="device-spec-label">Model</div>
-                  <div>{device.model ?? 'Unknown'}</div>
+                  <div className="device-spec-label">Manufacturer / model</div>
+                  <div>{[device.manufacturer, device.model].filter(Boolean).join(' ') || 'Unknown'}</div>
                 </div>
                 <div>
                   <div className="device-spec-label">OS / firmware</div>

@@ -209,3 +209,26 @@ export async function setAccountStatusAction(
   revalidatePath('/', 'layout');
   return { ok: true, message: `Account is now ${status}.` };
 }
+
+export async function setAccountRoleAction(
+  accountId: string,
+  role: 'admin' | 'technician',
+): Promise<AccountActionResult> {
+  const gate = await requireAdminSession();
+  if (gate.ok !== true) return gate;
+
+  // Use the caller's session client so the RPC re-derives the live admin from
+  // auth.uid(). The service-role client is not needed for a role change.
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('app_set_account_role', {
+    p_account: accountId,
+    p_role: role,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath('/', 'layout');
+  return {
+    ok: true,
+    message: `Role changed to ${role === 'admin' ? 'administrator' : 'technician'}.`,
+  };
+}

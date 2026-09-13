@@ -1143,6 +1143,10 @@ table.tickets tbody tr:hover {
   padding: 32px 16px 56px;
 }
 
+.auth-main-signin {
+  place-items: center;
+}
+
 .auth-wrap {
   width: 100%;
   max-width: 980px;
@@ -1150,6 +1154,11 @@ table.tickets tbody tr:hover {
   grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
   gap: 24px;
   align-items: start;
+}
+
+.auth-wrap-signin {
+  max-width: 460px;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .auth-card {
@@ -1423,4 +1432,110 @@ table.tickets tbody tr:hover {
     margin-left: 0;
     padding-bottom: 0;
   }
+}
+
+/* --- Ticket intake lookups -------------------------------------------- */
+
+.intake-form .search-select {
+  position: relative;
+}
+
+.intake-form .search-select-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.intake-form .search-select-option {
+  display: block;
+  width: 100%;
+  padding: 8px 9px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.intake-form .search-select-option:hover,
+.intake-form .search-select-option-active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.intake-form .search-select-status {
+  padding: 8px 9px;
+  color: var(--text-subtle);
+  font-size: 12.5px;
+}
+
+.intake-assigned-devices {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-muted);
+}
+
+.intake-assigned-devices h3 {
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+.intake-assigned-device {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.intake-assigned-device:last-child {
+  border-bottom: 0;
+}
+
+.intake-assigned-device-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.intake-assigned-device-main strong {
+  overflow-wrap: anywhere;
+}
+
+.intake-device-empty {
+  padding-top: 2px;
+}
+
+.intake-device-drafts {
+  margin-top: 4px;
+}
+
+.intake-device-incomplete {
+  border-color: #e8d3a6;
+}
+
+.intake-device-incomplete-note {
+  margin-top: 10px;
+}
+
+.intake-device-actions {
+  display: flex;
+  justify-content: flex-end;
 }

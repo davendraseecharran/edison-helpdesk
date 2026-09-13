@@ -14,12 +14,13 @@ import {
   cancelCredentialActionAction,
   createTechnicianAccountAction,
   issueCredentialLinkAction,
+  setAccountRoleAction,
   setAccountStatusAction,
 } from '@/lib/data/account-actions';
 import { useRuntime } from '@/components/AppRuntime';
 import { formatDateTime } from '@/lib/format';
 import { Field } from '@/components/Primitives';
-import { AccountStatusBadge, RoleBadge } from '@/components/Badges';
+import { AccountStatusBadge } from '@/components/Badges';
 import type { AdminAccountView } from '@/lib/data/admin-view';
 
 interface IssuedLink {
@@ -42,6 +43,7 @@ export function AdministrationScreen({
   const [formError, setFormError] = useState<string | null>(null);
   const [issued, setIssued] = useState<IssuedLink | null>(null);
   const [copied, setCopied] = useState(false);
+  const [roleErrors, setRoleErrors] = useState<Record<string, string | undefined>>({});
 
   async function onCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -87,6 +89,20 @@ export function AdministrationScreen({
       const outcome = await setAccountStatusAction(account.id, status);
       return { ok: outcome.ok, error: outcome.error, message: outcome.message };
     });
+  }
+
+  async function onRole(account: AdminAccountView, role: 'admin' | 'technician') {
+    setRoleErrors((current) => ({ ...current, [account.id]: undefined }));
+    const result = await run(`role:${account.id}`, async () => {
+      const outcome = await setAccountRoleAction(account.id, role);
+      return { ok: outcome.ok, error: outcome.error, message: outcome.message };
+    });
+    if (!result.ok) {
+      setRoleErrors((current) => ({
+        ...current,
+        [account.id]: result.error ?? 'The role could not be changed.',
+      }));
+    }
   }
 
   async function onCancel(account: AdminAccountView) {
@@ -178,7 +194,23 @@ export function AdministrationScreen({
                       <span className="cell-sub">{account.email}</span>
                     </td>
                     <td data-label="Role">
-                      <RoleBadge role={account.role} />
+                      <select
+                        aria-label={`Role for ${account.displayName}`}
+                        value={account.role}
+                        disabled={busy}
+                        aria-invalid={roleErrors[account.id] ? 'true' : undefined}
+                        onChange={(event) =>
+                          void onRole(account, event.target.value as 'admin' | 'technician')
+                        }
+                      >
+                        <option value="technician">Technician</option>
+                        <option value="admin">Administrator</option>
+                      </select>
+                      {roleErrors[account.id] ? (
+                        <span className="field-error" role="alert">
+                          {roleErrors[account.id]}
+                        </span>
+                      ) : null}
                     </td>
                     <td data-label="Status">
                       <AccountStatusBadge status={account.status} />
@@ -347,7 +379,10 @@ export function AdministrationScreen({
                 Deactivation preserves authorship and history, and takes effect immediately for
                 sessions that are already open.
               </li>
-              <li>Roles are not editable here; they are set when the account is provisioned.</li>
+              <li>
+                Administrators can change roles. Pending and inactive accounts stay restricted
+                until setup or reactivation completes.
+              </li>
             </ul>
           </div>
         </div>
