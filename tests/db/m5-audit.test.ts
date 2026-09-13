@@ -108,7 +108,8 @@ describe('a technician is told when a ticket becomes theirs', () => {
     const notices = await noticesFor(identity('collaborator').id, ticketId);
     expect(notices).toHaveLength(1);
     expect(notices[0].kind).toBe('ticket_assigned');
-    expect(notices[0].title).toBe(`You were assigned ${number}`);
+    // The number nobody has memorised, and then what the ticket actually is.
+    expect(notices[0].title).toBe(`You were assigned ${number}: Docking station dead ${RUN}`);
     expect(notices[0].body).toContain(`Docking station dead ${RUN}`);
     expect(notices[0].href).toBe(`/tickets/${ticketId}`);
 
@@ -175,6 +176,36 @@ describe('the desk is told when a ticket comes back to the queue', () => {
 
     // Nobody is told about their own action.
     expect(await noticesFor(identity('owner').id, ticketId)).toHaveLength(0);
+  });
+
+  it('tells the other administrators but not the administrator who returned it', async () => {
+    // A second administrator, made one through the real RPC and put back
+    // afterwards, so the queue notice has somewhere to go that is not the actor.
+    await rpcOk(admin, 'app_admin_set_role', {
+      p_account: identity('unrelated').id,
+      p_role: 'admin',
+    });
+    try {
+      // Admin-owned from the start, so the person returning it is the owner AND
+      // an administrator: the one case the old code told about its own action.
+      const ticketId = await openTicket({
+        title: `Admin held cart ${RUN}`,
+        ownerId: identity('admin').id,
+      });
+      await rpcOk(admin, 'app_return_ticket_to_queue', { p_ticket: ticketId });
+
+      expect(await noticesFor(identity('admin').id, ticketId)).toHaveLength(0);
+
+      const forOther = await noticesFor(identity('unrelated').id, ticketId);
+      expect(forOther).toHaveLength(1);
+      expect(forOther[0].kind).toBe('ticket_returned');
+      expect(forOther[0].href).toBe(`/tickets/${ticketId}`);
+    } finally {
+      await rpcOk(admin, 'app_admin_set_role', {
+        p_account: identity('unrelated').id,
+        p_role: 'technician',
+      });
+    }
   });
 });
 

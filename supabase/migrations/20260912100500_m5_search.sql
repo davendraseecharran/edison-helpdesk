@@ -1,5 +1,16 @@
 -- M5 global lookup: one search box over tickets, people and devices.
 --
+-- SUPERSEDED IN PART by 20260912100510_m5_search_fixes.sql. The security design
+-- described below is unchanged and still current. The FUNCTION BODY in this file
+-- is not: review found that its one-OR-group-per-kind shape could not use any
+-- index, left people_search_trgm and devices_search_trgm unreachable, and
+-- returned `meta` as a raw status value for tickets while rendering it for
+-- devices. 100510 restructures each kind into a union of separately indexable
+-- arms, renders `meta` for every kind, and DROPS people_search_trgm and
+-- devices_search_trgm on the terms 20260912100200 set for them, with the
+-- measurement that decided it. Read 100510 for the current body; this file is
+-- kept as applied, with only its comments touched.
+--
 -- SECURITY INVOKER (the default), and that is the whole security design. The
 -- function runs with the CALLER'S privileges, so every row-level security policy
 -- already in force decides what it can return:
@@ -46,6 +57,10 @@
 -- a day the table is small enough that the extra branch costs a scan nobody
 -- notices. If that stops being true, the fix is an index here, not a change to
 -- the function.
+--
+-- It stopped being true in 20260912100510_m5_search_fixes.sql, which adds
+-- tickets_issue_trgm: once every other ticket arm became indexable, leaving this
+-- one to a scan would have made the whole branch a scan regardless.
 create index tickets_title_trgm
   on public.tickets using gin (title extensions.gin_trgm_ops);
 
