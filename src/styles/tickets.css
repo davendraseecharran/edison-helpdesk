@@ -1027,3 +1027,149 @@
   padding: 0;
   list-style: none;
 }
+
+/* --- Audit log ---------------------------------------------------------- */
+
+/* Like the queue's, the fields sit directly in the filter bar's flex row. */
+.audit-filters {
+  display: contents;
+}
+
+.audit-filters .field {
+  flex: 1 1 150px;
+  min-width: 140px;
+  max-width: 220px;
+}
+
+/* The segmented control sizes itself; a share of the row would clip "Their AI". */
+.audit-filters .audit-via {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: none;
+}
+
+/* Two controls per row on phones, so six filters stay scannable at 390px. */
+@media (max-width: 719.98px) {
+  .audit-filters .field {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+    max-width: none;
+  }
+
+  .audit-filters .audit-via {
+    flex-basis: 100%;
+  }
+}
+
+.audit[data-busy='true'] .data-table {
+  opacity: 0.6;
+  transition: opacity 120ms ease-out;
+}
+
+.audit .table td {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  vertical-align: top;
+}
+
+.audit-when {
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.audit-record {
+  overflow-wrap: anywhere;
+}
+
+.audit-record-link {
+  font-weight: 500;
+}
+
+/* Summary over its detail: the second line is quieter and wraps freely. */
+.audit-summary {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.audit-detail {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  overflow-wrap: anywhere;
+}
+
+/* Phone card: who and what on one line, the record and when on the next. */
+.audit-card-title,
+.audit-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
+.audit-card-kind {
+  color: var(--ink-2);
+  font-weight: 500;
+}
+
+/* --- Backups ------------------------------------------------------------ */
+
+.backup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  /* Matches .panel-body, so the rows sit inside the panel rather than on it. */
+  padding: 16px;
+  list-style: none;
+}
+
+.backup-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+}
+
+.backup-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.backup-name {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.backup-note {
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.backup-table {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.backup-end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  margin-left: auto;
+}
+
+.backup-rows {
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
