@@ -588,3 +588,217 @@ describe('AI conversations and messages', () => {
     expect(refused.error?.message).toMatch(/violates row-level security/i);
   });
 });
+
+/**
+ * The direct-write exception means the policies are the only thing standing
+ * between one account's chat and another's, so the UPDATE bindings get the same
+ * scrutiny the INSERT ones do. `using` decides which rows may be touched, and a
+ * row it hides is a silent no-op rather than an error — which is the right
+ * answer, because an error would confirm the row exists. `with check` decides
+ * what a row may become, and it is what stops a message being carried into
+ * somebody else's conversation.
+ */
+describe('updating a message cannot move it out of its conversation', () => {
+  it('refuses to re-point your own message at a conversation you do not own', async () => {
+    const { data: mineData } = await startConversation(owner, identity('owner').id, 'Mine');
+    const mine = mineData as Conversation;
+    const { data: theirsData } = await startConversation(
+      helper,
+      identity('collaborator').id,
+      'Theirs',
+    );
+    const theirs = theirsData as Conversation;
+
+    const { data: messageData, error: insertError } = await owner
+      .from('ai_messages')
+      .insert({
+        conversation_id: mine.id,
+        role: 'user',
+        content: { type: 'input_text', text: 'Stays where it was written.' },
+      })
+      .select()
+      .single();
+    expect(insertError).toBeNull();
+    const message = messageData as { id: string; conversation_id: string };
+
+    const moved = await owner
+      .from('ai_messages')
+      .update({ conversation_id: theirs.id })
+      .eq('id', message.id);
+
+    expect(moved.error?.message).toMatch(/violates row-level security/i);
+
+    const { data: stored } = await service
+      .from('ai_messages')
+      .select('conversation_id')
+      .eq('id', message.id)
+      .single();
+    expect((stored as { conversation_id: string }).conversation_id).toBe(mine.id);
+  });
+
+  it('changes nothing, and says nothing, when the message belongs to somebody else', async () => {
+    const { data: theirsData } = await startConversation(
+      helper,
+      identity('collaborator').id,
+      'Not yours to edit',
+    );
+    const theirs = theirsData as Conversation;
+
+    const { data: messageData } = await helper
+      .from('ai_messages')
+      .insert({
+        conversation_id: theirs.id,
+        role: 'user',
+        content: { type: 'input_text', text: 'The original turn.' },
+      })
+      .select()
+      .single();
+    const message = messageData as { id: string };
+
+    const attempt = await owner
+      .from('ai_messages')
+      .update({ content: { type: 'input_text', text: 'Rewritten by somebody else.' } })
+      .eq('id', message.id);
+
+    // No error: the policy hides the row rather than announcing that it exists.
+    expect(attempt.error).toBeNull();
+
+    const { data: stored } = await service
+      .from('ai_messages')
+      .select('content, conversation_id')
+      .eq('id', message.id)
+      .single();
+    const row = stored as { content: { text: string }; conversation_id: string };
+    expect(row.content.text).toBe('The original turn.');
+    expect(row.conversation_id).toBe(theirs.id);
+  });
+
+  it("also refuses to delete somebody else's message, silently", async () => {
+    const { data: theirsData } = await startConversation(
+      helper,
+      identity('collaborator').id,
+      'Still not yours',
+    );
+    const theirs = theirsData as Conversation;
+    const { data: messageData } = await helper
+      .from('ai_messages')
+      .insert({
+        conversation_id: theirs.id,
+        role: 'user',
+        content: { type: 'input_text', text: 'Survives the attempt.' },
+      })
+      .select()
+      .single();
+    const message = messageData as { id: string };
+
+    const attempt = await owner.from('ai_messages').delete().eq('id', message.id);
+    expect(attempt.error).toBeNull();
+
+    const { count } = await service
+      .from('ai_messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('id', message.id);
+    expect(count).toBe(1);
+  });
+});
+
+/**
+ * There is no RPC on these two tables, so "how many" and "how big" have to be
+ * constraints and triggers or they are not enforced at all.
+ */
+describe('bounds on conversations and messages', () => {
+  it('requires a conversation to be named, and keeps the name to a line', async () => {
+    const blank = await startConversation(owner, identity('owner').id, '   ');
+    expect(blank.error?.message).toMatch(/ai_conversations_title_length|check constraint/i);
+
+    const tooLong = await startConversation(owner, identity('owner').id, 'q'.repeat(201));
+    expect(tooLong.error?.message).toMatch(/ai_conversations_title_length|check constraint/i);
+
+    const justFits = await startConversation(owner, identity('owner').id, 'q'.repeat(200));
+    expect(justFits.error).toBeNull();
+
+    // A conversation started without a title gets the shipped one.
+    const { data, error } = await owner
+      .from('ai_conversations')
+      .insert({ account_id: identity('owner').id })
+      .select()
+      .single();
+    expect(error).toBeNull();
+    expect((data as Conversation).title).toBe('New conversation');
+  });
+
+  it('refuses a turn larger than 256 KiB and accepts one just under it', async () => {
+    const { data } = await startConversation(owner, identity('owner').id, 'Large turns');
+    const mine = data as Conversation;
+
+    const tooBig = await owner.from('ai_messages').insert({
+      conversation_id: mine.id,
+      role: 'user',
+      content: { type: 'input_text', text: 'a'.repeat(300_000) },
+    });
+    expect(tooBig.error?.message).toMatch(/ai_messages_content_size|check constraint/i);
+
+    const fits = await owner.from('ai_messages').insert({
+      conversation_id: mine.id,
+      role: 'user',
+      content: { type: 'input_text', text: 'a'.repeat(200_000) },
+    });
+    expect(fits.error).toBeNull();
+  });
+
+  it('stops one account at two hundred conversations, in words it can act on', async () => {
+    const account = identity('unrelated').id;
+    const existing = await service
+      .from('ai_conversations')
+      .select('*', { count: 'exact', head: true })
+      .eq('account_id', account);
+    expect(existing.count).toBe(0);
+
+    // 199 in one statement, which the row trigger lets through because rows from
+    // the same command are not visible to it — exactly the gap the statement
+    // trigger below is tested for.
+    const bulk = await service.from('ai_conversations').insert(
+      Array.from({ length: 199 }, (_, index) => ({
+        account_id: account,
+        title: `Filler ${index + 1}`,
+      })),
+    );
+    expect(bulk.error).toBeNull();
+
+    const twoHundredth = await startConversation(unrelated, account, 'The two hundredth');
+    expect(twoHundredth.error).toBeNull();
+
+    const overTheLimit = await startConversation(unrelated, account, 'One too many');
+    expect(overTheLimit.error?.message).toMatch(/200 conversations, which is the limit/i);
+    expect(overTheLimit.error?.message).toMatch(/delete one/i);
+
+    const { count } = await service
+      .from('ai_conversations')
+      .select('*', { count: 'exact', head: true })
+      .eq('account_id', account);
+    expect(count).toBe(200);
+  });
+
+  it('cannot be got around by sending many conversations in one insert', async () => {
+    const account = identity('unrelated').id;
+
+    const batch = await unrelated.from('ai_conversations').insert(
+      Array.from({ length: 5 }, (_, index) => ({
+        account_id: account,
+        title: `Batch ${index + 1}`,
+      })),
+    );
+
+    expect(batch.error?.message).toMatch(/200 conversations, which is the limit/i);
+
+    const { count } = await service
+      .from('ai_conversations')
+      .select('*', { count: 'exact', head: true })
+      .eq('account_id', account);
+    expect(count).toBe(200);
+
+    // Leave the account as the rest of the suite found it.
+    const cleared = await service.from('ai_conversations').delete().eq('account_id', account);
+    expect(cleared.error).toBeNull();
+  });
+});
