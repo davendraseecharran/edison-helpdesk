@@ -31,9 +31,11 @@ export function resolveTheme(pref: ThemePreference, systemDark: boolean): 'light
  * Inline script source: reads the stored preference and stamps data-theme
  * before first paint.
  *
- * It repeats the logic of `resolveTheme` and the media query literal rather
- * than importing them, because it is injected as a standalone string with no
- * module loader available. Every access is wrapped in try/catch: a browser that
- * blocks storage must still render, just in the light theme.
+ * It repeats the logic of `resolveTheme` rather than importing it, because it
+ * is injected as a standalone string with no module loader available. The
+ * storage key and the media query are interpolated from the constants above
+ * instead of being retyped, so the script cannot drift away from the provider
+ * that takes over after hydration. Every access is wrapped in try/catch: a
+ * browser that blocks storage must still render, just in the light theme.
  */
-export const THEME_BOOT_SCRIPT = `(function(){try{var k=${JSON.stringify(THEME_STORAGE_KEY)};var p=localStorage.getItem(k);var d=window.matchMedia('(prefers-color-scheme: dark)').matches;var t=(p==='dark'||p==='light')?p:(d?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`;
+export const THEME_BOOT_SCRIPT = `(function(){try{var k=${JSON.stringify(THEME_STORAGE_KEY)};var p=localStorage.getItem(k);var d=window.matchMedia(${JSON.stringify(DARK_MEDIA_QUERY)}).matches;var t=(p==='dark'||p==='light')?p:(d?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();`;
