@@ -1,6 +1,6 @@
 import { createDemoData } from '../src/lib/demo/fixtures';
 import { describe, expect, it } from 'vitest';
-import { formatClockTime, formatDateTime, toDateKey } from '../src/lib/format';
+import { ageLabel, formatClockTime, formatDateTime, toDateKey } from '../src/lib/format';
 
 describe('school-local dates', () => {
   it('keeps late evening requests on the correct school day across UTC midnight', () => {
@@ -23,4 +23,20 @@ describe('school-local dates', () => {
       expect(formatClockTime(ticket.createdAt)).toBe('7:52 AM');
     },
   );
+});
+
+describe('ticket age', () => {
+  it('labels ticket age compactly', () => {
+    const now = new Date('2026-09-12T15:00:00Z');
+    expect(ageLabel('2026-09-12T14:59:40Z', now)).toBe('just now');
+    expect(ageLabel('2026-09-12T14:30:00Z', now)).toBe('30m');
+    expect(ageLabel('2026-09-12T09:00:00Z', now)).toBe('6h');
+    expect(ageLabel('2026-09-09T15:00:00Z', now)).toBe('3d');
+    expect(ageLabel('2026-07-01T15:00:00Z', now)).toBe('10w');
+  });
+
+  it('never goes negative for a clock slightly ahead of the server', () => {
+    const now = new Date('2026-09-12T15:00:00Z');
+    expect(ageLabel('2026-09-12T15:00:30Z', now)).toBe('just now');
+  });
 });

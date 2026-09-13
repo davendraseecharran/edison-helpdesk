@@ -106,6 +106,24 @@ export function formatAge(iso: string, nowMs: number): string {
   return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
 }
 
+const WEEK = 7 * DAY;
+
+/**
+ * The one-token age shown in queue rows: "just now", "12m", "3h", "2d", "5w".
+ *
+ * Coarser than `formatAge` on purpose. A queue is scanned, not read, so the
+ * column holds a single unit and a number; hover on the cell gives the full
+ * timestamp. A clock slightly ahead of the server reads as "just now".
+ */
+export function ageLabel(createdAt: string, now: Date): string {
+  const elapsed = Math.max(0, now.getTime() - new Date(createdAt).getTime());
+  if (elapsed < MINUTE) return 'just now';
+  if (elapsed < HOUR) return `${Math.floor(elapsed / MINUTE)}m`;
+  if (elapsed < DAY) return `${Math.floor(elapsed / HOUR)}h`;
+  if (elapsed < WEEK) return `${Math.floor(elapsed / DAY)}d`;
+  return `${Math.floor(elapsed / WEEK)}w`;
+}
+
 /** Timeline wording: "4h ago". */
 export function formatRelative(iso: string, nowMs: number): string {
   const elapsed = nowMs - new Date(iso).getTime();
