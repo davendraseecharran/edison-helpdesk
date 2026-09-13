@@ -510,3 +510,185 @@ describe('the relay is not writable from a session', () => {
     expect(events.error?.message).toMatch(/permission denied/i);
   });
 });
+
+/**
+ * Hardening round. None of these are new behaviour the feature needs; they are
+ * the bounds and the housekeeping a channel published to Realtime has to have
+ * before it is left running unattended.
+ */
+
+/** Ages a session two days, past the sweeper's day of grace. */
+async function makeStale(sessionId: string, ended: boolean): Promise<void> {
+  const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await service
+    .from('scan_sessions')
+    .update({ expires_at: twoDaysAgo, ended_at: ended ? twoDaysAgo : null })
+    .eq('id', sessionId);
+  if (error) throw new Error(`Could not age session ${sessionId}: ${error.message}`);
+}
+
+describe('a session fills up', () => {
+  it('takes the five hundredth scan and refuses the five hundred and first', async () => {
+    const session = await startSession(owner, 'Filling up');
+
+    // 499 through the service role in one statement, which is arrangement: there
+    // is no insert grant for a session, so app_record_scan is still the only way
+    // a technician's row ever appears.
+    const filler = await service.from('scan_events').insert(
+      Array.from({ length: 499 }, (_, index) => ({
+        session_id: session.id,
+        code: `FILL-${String(index + 1).padStart(4, '0')}`,
+        format: 'code_128',
+      })),
+    );
+    expect(filler.error).toBeNull();
+
+    const lastAccepted = await recordScan(owner, session.id, 'THE-FIVE-HUNDREDTH');
+    expect(lastAccepted).toBeTruthy();
+    expect(await rawEvents(session.id)).toHaveLength(500);
+
+    const overflow = await rpcFails(owner, 'app_record_scan', {
+      p_session: session.id,
+      p_code: 'ONE-TOO-MANY',
+      p_format: null,
+    });
+    expect(overflow.code).toBe(REJECTED);
+    expect(overflow.message).toBe('This scanner session is full. Stop it and start a new one.');
+    expect(await rawEvents(session.id)).toHaveLength(500);
+  });
+
+  it('still hands back every scan it holds, because the read limit is the same number', async () => {
+    const session = await startSession(owner, 'Reading a full session');
+    // Explicit, increasing instants: one INSERT statement gives every row the
+    // same transaction timestamp, and the order would then fall to the uuid
+    // tiebreak — which is exactly what this test is checking is not happening.
+    const base = Date.now() - 600_000;
+    const filler = await service.from('scan_events').insert(
+      Array.from({ length: 500 }, (_, index) => ({
+        session_id: session.id,
+        code: `FULL-${String(index + 1).padStart(4, '0')}`,
+        format: null,
+        scanned_at: new Date(base + index).toISOString(),
+      })),
+    );
+    expect(filler.error).toBeNull();
+
+    // 500 stored, 500 returned: app_scan_events cannot silently drop a scan a
+    // session was allowed to accept.
+    const read = await scanEvents(owner, session.id);
+    expect(read).toHaveLength(500);
+    expect(read[0].code).toBe('FULL-0001');
+    expect(read[499].code).toBe('FULL-0500');
+  });
+});
+
+describe('clearing out finished sessions', () => {
+  it('removes what has been finished for over a day and nothing else', async () => {
+    const live = await startSession(owner, 'Still going');
+    const justStopped = await startSession(owner, 'Stopped a moment ago');
+    await rpcOk(owner, 'app_end_scan_session', { p_session: justStopped.id });
+    const justLapsed = await startSession(owner, 'Lapsed a moment ago');
+    await expire(justLapsed.id);
+
+    const longStopped = await startSession(owner, 'Stopped days ago');
+    await recordScan(owner, longStopped.id, 'DOE-LN1221779');
+    await makeStale(longStopped.id, true);
+    const longLapsed = await startSession(owner, 'Lapsed days ago');
+    await makeStale(longLapsed.id, false);
+
+    const removed = await rpcOk<number>(admin, 'app_sweep_scan_sessions');
+    expect(removed).toBe(2);
+
+    expect(await rawSession(longStopped.id)).toBeNull();
+    expect(await rawSession(longLapsed.id)).toBeNull();
+    // The scans went with the session they belonged to.
+    expect(await rawEvents(longStopped.id)).toHaveLength(0);
+
+    // A day of grace, so this morning's work is still there this afternoon.
+    expect(await rawSession(live.id)).not.toBeNull();
+    expect(await rawSession(justStopped.id)).not.toBeNull();
+    expect(await rawSession(justLapsed.id)).not.toBeNull();
+  });
+
+  it('is open to the service role, for the scheduled job it exists for', async () => {
+    const stale = await startSession(owner, 'Swept by the job');
+    await makeStale(stale.id, false);
+
+    const removed = await rpcOk<number>(service, 'app_sweep_scan_sessions');
+
+    expect(removed).toBe(1);
+    expect(await rawSession(stale.id)).toBeNull();
+  });
+
+  it('refuses a technician, an account awaiting setup, and an anonymous caller', async () => {
+    const stale = await startSession(owner, 'Not yours to sweep');
+    await makeStale(stale.id, false);
+
+    const technician = await rpcFails(owner, 'app_sweep_scan_sessions');
+    expect(technician.code).toBe(REFUSED);
+    expect(technician.message).toMatch(/only an administrator/i);
+
+    const notSetUp = await rpcFails(pending, 'app_sweep_scan_sessions');
+    expect(notSetUp.code).toBe(REFUSED);
+    expect(notSetUp.message).toMatch(/cannot access helpdesk records/i);
+
+    const anonymous = await rpcFails(anonClient(), 'app_sweep_scan_sessions');
+    expect(anonymous.message).toMatch(/permission denied|function|schema cache/i);
+
+    // Nothing was swept by any of them.
+    expect(await rawSession(stale.id)).not.toBeNull();
+    await rpcOk<number>(admin, 'app_sweep_scan_sessions');
+  });
+});
+
+describe('restricted and anonymous callers reach nothing', () => {
+  it('closes every scanner function to an anonymous caller', async () => {
+    const anon = anonClient();
+    for (const [fn, args] of [
+      ['app_scan_session', { p_session: NO_SUCH_SESSION }],
+      ['app_scan_events', { p_session: NO_SUCH_SESSION, p_after: null }],
+      ['app_record_scan', { p_session: NO_SUCH_SESSION, p_code: 'X', p_format: null }],
+      ['app_end_scan_session', { p_session: NO_SUCH_SESSION }],
+      ['app_start_scan_session', { p_label: null }],
+    ] as Array<[string, Record<string, unknown>]>) {
+      const failure = await rpcFails(anon, fn, args);
+      expect(failure.message, fn).toMatch(/permission denied|function|schema cache/i);
+    }
+  });
+
+  it('shows a denied account nothing and lets it record nothing', async () => {
+    const session = await startSession(owner, 'Private');
+    await recordScan(owner, session.id, 'DOE-LN1221779');
+
+    // The reads run under the caller's own privileges, so a denied account is not
+    // refused — it simply matches no rows, which is the same answer it would get
+    // for an id that does not exist.
+    expect(await sessionView(denied, session.id)).toHaveLength(0);
+    expect(await scanEvents(denied, session.id)).toHaveLength(0);
+
+    // The write re-derives the actor and refuses outright.
+    const write = await rpcFails(denied, 'app_record_scan', {
+      p_session: session.id,
+      p_code: 'FORGED',
+      p_format: null,
+    });
+    expect(write.code).toBe(REFUSED);
+    expect(write.message).toMatch(/cannot access helpdesk records/i);
+
+    expect(await rawEvents(session.id)).toHaveLength(1);
+  });
+});
+
+describe('stopping a session that already ran out', () => {
+  it('succeeds, so the desktop can tidy up after a pairing nobody closed', async () => {
+    const session = await startSession(owner, 'Lapsed then stopped');
+    await expire(session.id);
+
+    await rpcOk(owner, 'app_end_scan_session', { p_session: session.id });
+
+    const stored = await rawSession(session.id);
+    expect(stored?.ended_at).not.toBeNull();
+    const [view] = await sessionView(owner, session.id);
+    expect(view.active).toBe(false);
+  });
+});
