@@ -6,9 +6,9 @@ import {
 } from '@/components/ui/Skeleton';
 
 /**
- * The device list: header with an add action, a panel with search and three
- * filters, then rows of asset tag, model and three facts. Ready for the
- * devices route; harmless until it exists.
+ * The device list: header with export and add actions, a panel with search,
+ * three selects and the holder control, then rows of asset tag, model,
+ * status, holder, location and age.
  */
 export default function Loading() {
   return (

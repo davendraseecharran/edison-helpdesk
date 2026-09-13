@@ -53,7 +53,7 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
     <section className="panel" aria-labelledby={`devices-heading-${ticket.id}`}>
       <div className="panel-head">
         <h2 className="panel-title" id={`devices-heading-${ticket.id}`}>
-          Devices observed
+          Device details observed
         </h2>
         <div className="panel-head-end">
           <span className="panel-aside">

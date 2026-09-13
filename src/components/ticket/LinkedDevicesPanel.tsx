@@ -9,34 +9,25 @@
  * all. A link is a claim that a specific inventory record is involved, which is
  * what makes the machine's own page show this ticket.
  *
- * The search is a server action rather than a list handed to the browser: the
- * inventory is 7,500 machines, and shipping it to every ticket page would be
- * both slow and a copy of school data sitting in a client bundle.
+ * The search is `DevicePicker`, the same type-ahead the inventory uses: a
+ * server action rather than a list handed to the browser, because the
+ * inventory is 7,500 machines and shipping it to every ticket page would be
+ * both slow and a copy of school data sitting in a client bundle. Each linked
+ * machine links to its own page.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
+import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import type { TicketDetail } from '@/lib/domain/selectors';
 import { canContribute } from '@/lib/domain/permissions';
+import { deviceLabel } from '@/lib/domain/types';
 import { linkDeviceAction, unlinkDeviceAction } from '@/lib/data/actions';
-import { searchDevicesAction, type DeviceSearchResult } from '@/lib/data/device-actions';
 import { nameOf } from '@/lib/directory';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
-import { Field, TimeAgo } from '@/components/Primitives';
+import { TimeAgo } from '@/components/Primitives';
+import { DevicePicker } from '@/components/devices/DevicePicker';
 import { Button } from '@/components/ui/Button';
-
-/** Long enough that a technician has stopped typing, short enough to feel live. */
-const DEBOUNCE_MS = 200;
-
-function deviceLabel(device: {
-  assetTag: string | null;
-  serialNumber: string | null;
-  deviceId: string | null;
-}): string {
-  // The same order app_device_label uses in the database, so a machine reads the
-  // same way here as it does in the history this panel writes.
-  return device.assetTag ?? device.serialNumber ?? device.deviceId ?? 'Unlabelled device';
-}
 
 export function LinkedDevicesPanel({ detail }: { detail: TicketDetail }) {
   const { directory, pendingKey, run } = useRuntime();
@@ -45,39 +36,11 @@ export function LinkedDevicesPanel({ detail }: { detail: TicketDetail }) {
   const mayLink = canContribute(ticket, actor);
 
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState<DeviceSearchResult[]>([]);
-  /** The term `results` belongs to. Anything else on screen is stale. */
-  const [searched, setSearched] = useState('');
   const [error, setError] = useState<string | null>(null);
-  // Only the newest search may write to state: a slow early request must not
-  // overwrite the results of the one the operator is actually waiting for.
-  const searchId = useRef(0);
 
   const busy = pendingKey !== null;
   const count = detail.linkedDevices.length;
   const searchInputId = `link-device-${ticket.id}`;
-
-  useEffect(() => {
-    if (!open) return;
-    const term = query.trim();
-    if (term.length < 2) return;
-    const id = searchId.current + 1;
-    searchId.current = id;
-    const timer = setTimeout(() => {
-      void searchDevicesAction(term).then((found) => {
-        if (searchId.current !== id) return;
-        setResults(found);
-        setSearched(term);
-      });
-    }, DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [query, open]);
-
-  // Derived rather than stored, so nothing has to be cleared: a term the
-  // results do not belong to shows nothing, which is what "still typing" means.
-  const term = query.trim();
-  const shown = searched === term && term.length >= 2 ? results : [];
 
   const onLink = useCallback(
     async (deviceId: string) => {
@@ -85,14 +48,8 @@ export function LinkedDevicesPanel({ detail }: { detail: TicketDetail }) {
       const result = await run(`link-device:${ticket.id}`, () =>
         linkDeviceAction(ticket.id, deviceId),
       );
-      if (result.ok) {
-        setQuery('');
-        setResults([]);
-        setSearched('');
-        setOpen(false);
-      } else {
-        setError(result.error ?? 'That device could not be linked.');
-      }
+      if (result.ok) setOpen(false);
+      else setError(result.error ?? 'That device could not be linked.');
     },
     [run, ticket.id],
   );
@@ -144,7 +101,9 @@ export function LinkedDevicesPanel({ detail }: { detail: TicketDetail }) {
             {detail.linkedDevices.map((device) => (
               <li className="linked-device" key={device.id}>
                 <span className="person-text">
-                  <span className="person-name mono">{deviceLabel(device)}</span>
+                  <Link href={`/devices/${device.id}`} className="person-name mono">
+                    {deviceLabel(device)}
+                  </Link>
                   <span className="person-meta">
                     {device.type}
                     {device.model ? `, ${device.model}` : ''} — linked by{' '}
@@ -170,57 +129,15 @@ export function LinkedDevicesPanel({ detail }: { detail: TicketDetail }) {
         )}
 
         {open && mayLink ? (
-          <div className="picker">
-            <Field
-              label="Find a device"
-              htmlFor={searchInputId}
-              error={error}
-              hint="Search by asset tag, serial number or model."
-            >
-              <input
-                id={searchInputId}
-                type="search"
-                autoComplete="off"
-                value={query}
-                aria-invalid={error ? 'true' : undefined}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="DOE-LN1221779"
-              />
-            </Field>
-            <p className="picker-status" role="status">
-              {term.length < 2
-                ? 'Type at least two characters.'
-                : searched !== term
-                  ? 'Searching…'
-                  : `${shown.length} ${shown.length === 1 ? 'match' : 'matches'}`}
-            </p>
-            {shown.length > 0 ? (
-              <ul className="picker-results">
-                {shown.map((device) => {
-                  const already = linkedIds.has(device.id);
-                  return (
-                    <li key={device.id}>
-                      <button
-                        type="button"
-                        className="picker-option"
-                        disabled={already || busy}
-                        aria-disabled={already ? 'true' : undefined}
-                        onClick={() => void onLink(device.id)}
-                      >
-                        <span className="picker-option-name mono">{device.label}</span>
-                        <span className="picker-option-meta">
-                          {device.type}
-                          {device.model ? `, ${device.model}` : ''}
-                          {device.holderName ? ` — held by ${device.holderName}` : ''}
-                          {already ? ' — already linked' : ''}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : null}
-          </div>
+          <DevicePicker
+            id={searchInputId}
+            autoFocus
+            disabled={busy}
+            error={error}
+            onSelect={(device) => void onLink(device.id)}
+            excludeIds={[...linkedIds]}
+            excludeNote="already linked"
+          />
         ) : null}
 
         {error && !open ? (

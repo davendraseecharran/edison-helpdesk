@@ -7,8 +7,9 @@ import {
 } from '@/components/ui/Skeleton';
 
 /**
- * A device: asset tag, model and meta in the head, then its ticket history on
- * the left and specifications on the right, on the 2fr/1fr grid.
+ * A device: asset tag, model and meta in the head, then the holder and the
+ * loan history on the left and the identifiers on the right, on the 2fr/1fr
+ * grid.
  */
 export default function Loading() {
   return (
@@ -27,13 +28,14 @@ export default function Loading() {
 
         <div className="ticket-grid">
           <div className="ticket-column">
-            <SkeletonPanel title={112}>
-              <SkeletonRows rows={5} facts={2} />
+            <SkeletonPanel title={56} lines={2} />
+            <SkeletonPanel title={136}>
+              <SkeletonRows rows={4} facts={2} />
             </SkeletonPanel>
           </div>
           <div className="ticket-column">
             <SkeletonPanel title={104}>
-              <SkeletonFacts count={6} />
+              <SkeletonFacts count={9} />
             </SkeletonPanel>
             <SkeletonPanel title={64} lines={2} />
           </div>
