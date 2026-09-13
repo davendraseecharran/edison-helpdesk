@@ -15,6 +15,23 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { publicSupabaseConfig } from './config';
 
 export async function createClient(): Promise<SupabaseClient> {
+  return createClientWithHeaders();
+}
+
+/**
+ * The same cookie-bound client, with extra headers on every request it makes.
+ *
+ * This exists for one caller: the assistant's tool executor, which sends
+ * `x-edison-via: ai` and `x-edison-ai-model` so the database can record that a
+ * change was made through somebody's AI rather than by their hands. It is the
+ * SAME client in every other respect — same cookies, same JWT, same row-level
+ * security — because attribution must never become a way to widen access. The
+ * headers say how a change was made; the session still says who made it, and
+ * `app_request_via()` fails closed to 'user' for anything it does not recognise.
+ */
+export async function createClientWithHeaders(
+  headers: Record<string, string> = {},
+): Promise<SupabaseClient> {
   const { url, anonKey } = publicSupabaseConfig();
   const cookieStore = await cookies();
 
@@ -34,5 +51,6 @@ export async function createClient(): Promise<SupabaseClient> {
         }
       },
     },
+    ...(Object.keys(headers).length > 0 ? { global: { headers } } : {}),
   });
 }
