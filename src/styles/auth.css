@@ -22,6 +22,7 @@
   --auth-panel-bg: var(--ink);
   --auth-panel-fg: var(--paper);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   padding: 14px 20px;
   background: var(--auth-panel-bg);
@@ -58,8 +59,44 @@
   line-height: 1;
 }
 
-/* The tagline belongs to the full-height panel; the band has no room for it. */
-.auth-tagline {
+/* --- The hero ----------------------------------------------------------- */
+
+/*
+ * The panel's one job at 1024 and up is to say what this is, with the school's
+ * own numbers. Below that it is a band across the top of a phone, where the
+ * headline would be three lines of shouting: the band keeps the wordmark and
+ * one quiet line of counts, and drops the rest.
+ */
+.auth-hero {
+  display: contents;
+}
+
+/*
+ * In the band the counts sit on their own line under the wordmark, where the
+ * full width is theirs. Beside it they would have about half the row, and
+ * "4,278 devices. 3,709 people. One queue." would break in the middle of a
+ * sentence.
+ */
+.auth-headline {
+  flex: 1 0 100%;
+  margin-top: 4px;
+  font-size: var(--fs-1);
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--auth-panel-fg);
+  opacity: 0.82;
+  text-align: left;
+}
+
+/* In the band the three sentences run together on one line. */
+.auth-headline span {
+  display: inline;
+}
+
+/* Below 1024 only the counts are worth the height; everything else waits. */
+.auth-tagline,
+.auth-ledger,
+.auth-credit {
   display: none;
 }
 
@@ -269,14 +306,66 @@
     font-size: var(--fs-4);
   }
 
-  .auth-tagline {
+  /*
+   * The hero takes the middle of the panel, between the wordmark at the top
+   * and the credit at the foot. `display: block` here rather than `contents`,
+   * because the panel is a flex column and the hero's two lines belong to
+   * each other: the ledger hangs directly off the headline.
+   */
+  .auth-hero {
     display: block;
-    max-width: 22ch;
-    font-size: var(--fs-5);
+  }
+
+  /*
+   * The one display size in the product. Plex Sans sets loose up here, so it
+   * is tracked in; the measure is about sixteen characters, which is why the
+   * three sentences break where the copy means them to.
+   */
+  .auth-headline {
+    flex: none;
+    max-width: 14ch;
+    margin-top: 0;
+    font-size: var(--fs-7);
     font-weight: 600;
-    line-height: 1.25;
-    letter-spacing: -0.01em;
-    text-wrap: balance;
+    line-height: 1.12;
+    letter-spacing: var(--tracking-display);
+    font-variant-numeric: tabular-nums;
+    text-align: left;
+    opacity: 1;
+  }
+
+  /* One sentence to a line, so the copy breaks where it means to. */
+  .auth-headline span {
+    display: block;
+  }
+
+  /*
+   * One accessory on the whole panel: a brass rule down the left of the
+   * resolved count, lit along its top edge. It is the sign-in screen's share
+   * of the lamp, and it is pointing at the number that says the team finishes
+   * what it starts.
+   */
+  .auth-ledger {
+    display: block;
+    margin-top: 28px;
+    padding-left: 14px;
+    border-left: 3px solid var(--brass);
+    color: var(--auth-panel-fg);
+    font-size: var(--fs-2);
+    font-variant-numeric: tabular-nums;
+    opacity: 0.82;
+  }
+
+  .auth-credit {
+    display: block;
+    color: var(--auth-panel-fg);
+    font-size: var(--fs-1);
+    line-height: 1.5;
+    opacity: 0.6;
+  }
+
+  .auth-credit span {
+    display: block;
   }
 
   .auth-column {
