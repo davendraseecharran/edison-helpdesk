@@ -207,8 +207,10 @@ describe('rememberRecent', () => {
 describe('ticketStatusFromMeta', () => {
   it('reads the rendered label the search returns back to the status key', () => {
     expect(ticketStatusFromMeta('Open')).toBe('open');
+    expect(ticketStatusFromMeta('Assigned')).toBe('assigned');
     expect(ticketStatusFromMeta('In progress')).toBe('in_progress');
     expect(ticketStatusFromMeta('Waiting')).toBe('waiting');
+    expect(ticketStatusFromMeta('Resolved')).toBe('resolved');
     expect(ticketStatusFromMeta('Cancelled')).toBe('cancelled');
   });
 

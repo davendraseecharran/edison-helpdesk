@@ -45,7 +45,7 @@ export const SEARCH_DEBOUNCE_MS = 150;
 
 export const RECENT_STORAGE_KEY = 'edison.lookup.recent';
 
-export const RECENT_LIMIT = 8;
+export const RECENT_LIMIT = 5;
 
 const KINDS: ReadonlySet<string> = new Set<SearchKind>(['ticket', 'person', 'device']);
 

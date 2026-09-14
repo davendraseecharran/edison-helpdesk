@@ -57,9 +57,12 @@ export function useOptimisticReads(onOpened?: (item: NotificationView) => void):
 
   const open = useCallback(
     (item: NotificationView) => {
+      // Opening happens whether or not there was anything to mark: a click on
+      // an already-read row still has to navigate and close whatever surface
+      // it was opened from. Only the read-marking that follows is conditional.
+      onOpened?.(item);
       if (!isUnread(item)) return;
       setRead((previous) => new Set(previous).add(item.id));
-      onOpened?.(item);
       markReadAction([item.id])
         .then((result) => {
           if (!result.ok) {

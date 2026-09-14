@@ -44,7 +44,7 @@ import {
   recentNotificationsAction,
   refreshUnreadCountAction,
 } from '@/lib/data/notification-actions';
-import { bellLabel, unreadBadge, type NotificationView } from '@/lib/domain/notifications';
+import { bellLabel, isUnread, unreadBadge, type NotificationView } from '@/lib/domain/notifications';
 import '@/styles/notifications.css';
 
 /** How often the count is refetched while the tab is visible. */
@@ -94,14 +94,21 @@ export function NotificationsBell({ unread, showCount = true }: NotificationsBel
   useEffect(() => {
     if (!showCount) return;
     let alive = true;
+    // Refocusing a tab fires `focus` and `visibilitychange` within the same
+    // instant, both bound to this same function: without a guard, that is two
+    // requests in flight for one refocus rather than one.
+    let inFlight = false;
 
     async function refresh() {
-      if (document.visibilityState !== 'visible') return;
+      if (document.visibilityState !== 'visible' || inFlight) return;
+      inFlight = true;
       try {
         const next = await refreshUnreadCountAction();
         if (alive) setCount(next);
       } catch {
         // Keep what is on screen.
+      } finally {
+        inFlight = false;
       }
     }
 
@@ -145,10 +152,12 @@ export function NotificationsBell({ unread, showCount = true }: NotificationsBel
     void load();
   }
 
-  // Opening a notice closes the surface it was opened from and takes one off
-  // the count, in the same frame as the navigation starts.
-  const onOpened = useCallback(() => {
-    setCount((previous) => Math.max(0, previous - 1));
+  // Opening a notice closes the surface it was opened from, in the same frame
+  // as the navigation starts — whether or not the notice was unread. The
+  // count only comes off for one that actually was: a click on an
+  // already-read row must not double-count against it.
+  const onOpened = useCallback((item: NotificationView) => {
+    if (isUnread(item)) setCount((previous) => Math.max(0, previous - 1));
     setOpen(false);
   }, []);
   const { read, open: openItem } = useOptimisticReads(onOpened);
