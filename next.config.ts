@@ -11,9 +11,13 @@ const nextConfig: NextConfig = {
       // A Server Action's request body is capped at 1 MB by default, which the
       // admin import would hit on the master inventory: 7,500 machines is a
       // couple of megabytes of CSV, sent as an argument to a Server Action.
-      // The import refuses a file over 5 MB itself, with a sentence saying so;
-      // this is the ceiling that lets that refusal be the one the operator sees.
-      bodySizeLimit: '5mb',
+      // The import refuses a file over 5 MB itself (MAX_CSV_BYTES), with a
+      // sentence saying so; but the Server Action body is the CSV text PLUS
+      // the column-mapping JSON alongside it, so a body limit equal to
+      // MAX_CSV_BYTES would cut off a file already at the 5 MB cap before the
+      // import's own, more useful refusal ever ran. One megabyte of headroom
+      // for the mapping keeps the import's message the one the operator sees.
+      bodySizeLimit: '6mb',
     },
   },
 };

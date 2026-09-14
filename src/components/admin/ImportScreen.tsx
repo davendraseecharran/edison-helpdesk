@@ -115,14 +115,17 @@ export function ImportScreen() {
 
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   /**
-   * What the commit did, with the denominators the check used beside it: the
-   * rows that failed before the database saw them are not in the RPC's counts,
-   * and the result panel has to add up to the same file the check did.
+   * What the commit did, with the denominator the check used beside it: the
+   * rows that failed before the database saw them are not in the RPC's
+   * counts, and the result panel has to add up to the same file the check
+   * did. `problems` is the deduped row count `mergeProblems` produces (a row
+   * that was both malformed and unsavable is one row, not two), matching how
+   * the preview panel counts.
    */
   const [committed, setCommitted] = useState<{
     result: ImportRunResult;
     rowCount: number;
-    skipped: number;
+    problems: number;
   } | null>(null);
   const [confirming, setConfirming] = useState(false);
   /** The dry run's own busy flag; it does not go through `run()`. */
@@ -170,10 +173,7 @@ export function ImportScreen() {
   );
 
   const doneSummary = useMemo(
-    () =>
-      done
-        ? summariseImport(done.result, done.rowCount, done.skipped + done.result.errors.length)
-        : null,
+    () => (done ? summariseImport(done.result, done.rowCount, done.problems) : null),
     [done],
   );
 
@@ -351,8 +351,11 @@ export function ImportScreen() {
           setCommitted({
             result: result.result,
             rowCount: current?.rowCount ?? result.result.total,
-            skipped:
-              (current?.parseErrors.length ?? 0) + (current?.normalisedErrors.length ?? 0),
+            problems: mergeProblems(
+              current?.parseErrors ?? [],
+              current?.normalisedErrors ?? [],
+              result.result.errors,
+            ).length,
           });
           setCommittedSignature(at);
         }
