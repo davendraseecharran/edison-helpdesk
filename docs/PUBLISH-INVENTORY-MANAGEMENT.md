@@ -1,5 +1,7 @@
 # Publish inventory management
 
+**Released September14:** User approved staging; deployment `dpl_4UrHbFnFtT2TbFhjLjX4nbyJmvc3` was promoted to https://edison-helpdesk.vercel.app. Supabase migrations and enrichment are complete. The procedure below is retained for release history, not instructions to rerun imports.
+
 **September13 update:** Both inventory migrations (including `20260914010000_staff_directory_options.sql`) and private profile enrichment are now applied to hosted Supabase. Do not rerun the initial import. Use the latest staging URL in PROJECT_STATUS.md, review the pages, then continue at step5 for promotion. Earlier commands below are the historical release sequence.
 
 Run these steps from `/Users/davendraseecharran/edison-ticketing` on the reviewed branch `codex/inventory-management`. Stop if a command fails. This release keeps the existing intake release live until the staged application passes its checks.

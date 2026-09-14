@@ -1,13 +1,13 @@
 # Edison Helpdesk — resume here
 
-Updated September14,2026. **Inventory management, profile enrichment, and staff dropdowns are complete and staged. Final user review and promotion remain pending.** Do not repeat imports or migrations.
+Updated September14,2026. **Inventory management, profile enrichment, and staff dropdowns are LIVE. User reviewed staging and authorized final deployment.** Do not repeat imports or migrations.
 
 ## Current release
 
 - Reviewed feature commit `feb2c0c` on `codex/inventory-management` is pushed to GitHub (remote ref verified September14).
-- Latest staging: https://edison-helpdesk-ki3xsw3ga-thomas-edison-cte-high-school.vercel.app
-- Vercel deployment `dpl_4UrHbFnFtT2TbFhjLjX4nbyJmvc3`, verified Ready September14. Built with Production environment via `--prod --skip-domain`. User should review THIS URL for dropdowns; old staging9yiyt54px lacks that UI update.
-- Stable site https://edison-helpdesk.vercel.app remains on prior intake release; no promotion performed by root. Main sync follows promotion.
+- Released build: https://edison-helpdesk-ki3xsw3ga-thomas-edison-cte-high-school.vercel.app
+- Vercel deployment `dpl_4UrHbFnFtT2TbFhjLjX4nbyJmvc3`, verified Ready September14. Built with Production environment via `--prod --skip-domain`. Promoted September14 after user confirmed student and staff pages work.
+- Stable site https://edison-helpdesk.vercel.app promoted successfully to this deployment September14. GitHub main is being fast-forwarded to the reviewed feature plus release notes.
 - Hosted Supabase has19 migrations, including inventory_management and staff_directory_options. Profile enrichment successfully applied. No repeat initial import needed.
 
 ## Implemented and verified
@@ -16,7 +16,7 @@ Inventory sidebar category: Students, Staff, Master Inventory. Both active admin
 
 Database RPCs enforce live account authorization, validation, revision conflicts and append-only audit. Stable UUID links and old ticket device snapshots are preserved. No deletion feature or audit viewer requested. Student email overwriting OSIS bug fixed during prior review.
 
-Checks on final dropdown release: Node24.21.0 `npm run check` passes (typecheck, ESLint,85unit tests,17-route production build); clean `npm run test:db` passes147tests/16files; `scripts/review-inventory-management.cjs` passes against local PRODUCTION build on3002, including OSIS preservation, student edit, staff/device create, assignment, search, datalist/newoptions and mobile width. Synthetic screenshots visually reviewed earlier. Prior auth31tests and broader ticket browser checks passed before inventory work; not rerun for dropdown-only changes. Hosted authenticated UI review remains with the user; no available authenticated browser session was used by root.
+Checks on final dropdown release: Node24.21.0 `npm run check` passes (typecheck, ESLint,85unit tests,17-route production build); clean `npm run test:db` passes147tests/16files; `scripts/review-inventory-management.cjs` passes against local PRODUCTION build on3002, including OSIS preservation, student edit, staff/device create, assignment, search, datalist/newoptions and mobile width. Synthetic screenshots visually reviewed earlier. Prior auth31tests and broader ticket browser checks passed before inventory work; not rerun for dropdown-only changes. User confirmed both student and staff pages work on staging before authorizing promotion. Root did not use an authenticated hosted browser session.
 
 ## Hosted profile enrichment
 
@@ -26,9 +26,9 @@ Original import baseline remains3448students,261staff,4278devices,113catalog com
 
 Private mode0600 enrichment sources/SQL/report remain in `.private/`: inventory-profiles-source.json,inventory-notes-source.json,inventory-profiles.sql and its report. Generator scripts/prepare-inventory-profiles.mjs tracked. Fresh backups `.private/profile-enrichment-release-20260913/{schema,data}.sql`, private enrichment.log. Earlier backups `.private/inventory-staging-fix-20260913/{schema,data}.sql`. Never log/publish their contents. Git and Vercel exclude private files.
 
-## Exact next step
+## Release status and next work
 
-User reviews the latest staging link. All code, migration and enrichment work is complete. If accepted, promote that URL using `npx --yes vercel@59.16.0 promote <latest-staging-url> --yes`, smoke-check stable URL, then fast-forward main to codex/inventory-management and push. `docs/PUBLISH-INVENTORY-MANAGEMENT.md` step5 onward covers this. Earlier migration/import commands are historical and already completed. Do not reset hosted data or recreate resources/accounts.
+User approved release September14. Vercel promotion succeeded for dpl_4UrHbFnFtT2TbFhjLjX4nbyJmvc3. Supabase dry-run confirms up-to-date, zero pending migrations. Source and release checkpoint are synchronized to main for collaborators; no force push. Do not repeat imports or migrations. Future work starts from main and a new feature branch. GitHub may run a same-code build from main; the explicitly promoted build is the verified release.
 
 Error #441 was caused by staging calling missing app_list_people/app_inventory_statuses before migration. Root backed up and applied inventory_management, verified functions/counts and up-to-date migrations; user confirmed fixed. Later profile blanks were the unapplied enrichment, now completed. Department/role dropdowns required code plus staff_directory_options migration, both completed.
 
