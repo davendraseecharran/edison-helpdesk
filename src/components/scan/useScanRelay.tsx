@@ -35,7 +35,7 @@ import { browserClient } from '@/lib/supabase/browser';
 import { scanEventsAction, type ScanEventView } from '@/lib/data/scan-actions';
 
 /** While the channel has not reported SUBSCRIBED, the poll is the transport. */
-export const RELAY_POLL_MS = 2000;
+export const RELAY_POLL_MS = 500;
 /** Once it has, the poll is only a safety net. */
 export const RELAY_SAFETY_POLL_MS = 15000;
 
