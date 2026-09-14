@@ -16,9 +16,9 @@
 --
 -- Each function is restated from the migration that last defined it, with the
 -- guard added and nothing else changed:
---   app_claim_ticket      — 20260912101300_m5_row_attribution.sql
---   app_reassign_ticket   — 20260912101020_m5_notifications_fixes.sql
---   app_add_collaborator  — 20260912101000_m5_audit_notifications.sql
+--   app_claim_ticket      — 20260914101300_m5_row_attribution.sql
+--   app_reassign_ticket   — 20260914101020_m5_notifications_fixes.sql
+--   app_add_collaborator  — 20260914101000_m5_audit_notifications.sql
 --
 -- The owner-facing wording moves to NetRider with them, since these are
 -- sentences a person reads.

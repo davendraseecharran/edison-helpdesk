@@ -3,7 +3,7 @@
 --
 -- Three follow-ups from the P2-3 review:
 --
---   1. `app_admin_set_role(uuid, text)` (20260912100100_m5_account_states_
+--   1. `app_admin_set_role(uuid, text)` (20260914100100_m5_account_states_
 --      invites.sql:393) survived the move to a role set. It is still granted
 --      to authenticated, carries no last-usable-admin guard, and the two-way
 --      trigger (`app_derive_role_from_roles`) turns any `role` it writes into
@@ -26,8 +26,8 @@
 --      `app_lock_ticket(p_ticket, p_actor)` looked like a fourth: every
 --      SESSION-based caller passes it `v_actor` from its own
 --      `app_require_actor()`, so `p_actor.id = auth.uid()` there too. But
---      `app_trusted_register_attachment` and its kin (20260912100810,
---      20260912101300) build `v_actor` from an explicit `p_actor uuid`
+--      `app_trusted_register_attachment` and its kin (20260914100810,
+--      20260914101300) build `v_actor` from an explicit `p_actor uuid`
 --      parameter instead -- a service-role path with no session and no
 --      `auth.uid()` at all -- and call `app_lock_ticket` with THAT row.
 --      `app_has_role` would ask about `auth.uid()` regardless, find no row,
