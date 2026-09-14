@@ -12,7 +12,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,6 +29,45 @@ const EXTRA_PATHS = [
 function commandEnv(): NodeJS.ProcessEnv {
   const extras = EXTRA_PATHS.filter((entry) => existsSync(entry));
   return { ...process.env, PATH: [...extras, process.env.PATH ?? ''].join(path.delimiter) };
+}
+
+/**
+ * The Supabase project id this workspace's stack runs under.
+ *
+ * Every worktree gets its own stack, and each one names its containers after the
+ * `project_id` in its own `supabase/config.toml`. Reading it here (rather than
+ * hard-coding one worktree's name) keeps a suite run in one worktree from
+ * reaching into another worktree's database. `SUPABASE_PROJECT_ID` overrides it
+ * for the rare case where the config is not the authority.
+ */
+export function localProjectId(): string {
+  const fromEnv = process.env.SUPABASE_PROJECT_ID?.trim();
+  if (fromEnv) return fromEnv;
+
+  const configPath = path.join(PROJECT_ROOT, 'supabase', 'config.toml');
+  let raw: string;
+  try {
+    raw = readFileSync(configPath, 'utf8');
+  } catch {
+    throw new Error(
+      `Could not read ${configPath} to discover the Supabase project id. ` +
+        'Set SUPABASE_PROJECT_ID to name the stack explicitly.',
+    );
+  }
+
+  const match = /^[ \t]*project_id[ \t]*=[ \t]*"([^"]+)"/m.exec(raw);
+  if (!match) {
+    throw new Error(
+      `No project_id found in ${configPath}. ` +
+        'Set SUPABASE_PROJECT_ID to name the stack explicitly.',
+    );
+  }
+  return match[1];
+}
+
+/** The Postgres container of this workspace's local stack, for `docker exec`. */
+export function localDatabaseContainer(): string {
+  return `supabase_db_${localProjectId()}`;
 }
 
 export interface LocalStack {

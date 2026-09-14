@@ -10,7 +10,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PROJECT_ROOT, type LocalStack } from '../../db/support/local-only';
+import { PROJECT_ROOT, localDatabaseContainer, type LocalStack } from '../../db/support/local-only';
 
 const EXTRA_PATHS = [
   '/Applications/Docker.app/Contents/Resources/bin',
@@ -66,7 +66,7 @@ async function waitForSchemaCache(stack: LocalStack): Promise<void> {
 export async function installLocalAuthTestSupport(stack: LocalStack): Promise<void> {
   execFileSync(
     'docker',
-    ['exec', '-i', 'supabase_db_edison-ticketing', 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1'],
+    ['exec', '-i', localDatabaseContainer(), 'psql', '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1'],
     {
       cwd: PROJECT_ROOT,
       env: commandEnv(),
