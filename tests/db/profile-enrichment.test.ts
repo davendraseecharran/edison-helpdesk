@@ -1,0 +1,35 @@
+import { execFileSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { expect,it } from 'vitest';
+import { resolveLocalStack } from './support/local-only';
+// @ts-expect-error operator CLI is intentionally plain JavaScript
+import { prepareProfiles } from '../../scripts/prepare-inventory-profiles.mjs';
+it('enriches source profiles without replacing identities or overwriting edits, and safely skips a repeat',()=>{
+  resolveLocalStack();
+  const ns=`profile_review_${randomUUID().replaceAll('-','')}`;
+  const source={Staff:[['id','first','last','email'],['old-staff','Synthetic','Staff','new.staff@school.example'],['edited-staff','Edited','Staff','source@school.example']],Students:[Array(12).fill('header'),['009900123','Synthetic Graduate','Synthetic','Graduate','graduate@school.example',"O'Example Guardian",'555-123-4567','','GRAD','',"10 Example Street",'Source note']]};
+  const {sql,report}=prepareProfiles(source,[['id','notes'],['DEVICE-SYNTH','Original source device note']]);
+  expect(report.graduated).toBe(1);
+  const setup=`create schema ${ns};
+    create table ${ns}.app_accounts(id uuid default gen_random_uuid(),role text,status text,created_at timestamptz default now());
+    insert into ${ns}.app_accounts(role,status) values('admin','active');
+    create table ${ns}.requesters(like public.requesters including all);
+    create table ${ns}.inventory_devices(like public.inventory_devices including all);
+    create table ${ns}.inventory_events(like public.inventory_events including all);
+    create trigger revision before update on ${ns}.requesters for each row execute function public.app_inventory_revision();
+    create trigger revision before update on ${ns}.inventory_devices for each row execute function public.app_inventory_revision();
+    insert into ${ns}.requesters(display_name,kind,external_id,source_external_id,created_by) select 'Legacy Staff','staff','old-staff','old-staff',id from ${ns}.app_accounts;
+    insert into ${ns}.requesters(display_name,kind,external_id,source_external_id,email,version,created_by) select 'Edited Staff','staff','edited-staff','edited-staff','edited@school.example',2,id from ${ns}.app_accounts;
+    insert into ${ns}.requesters(display_name,kind,external_id,source_external_id,created_by) select 'Synthetic Graduate','student','009900123','009900123',id from ${ns}.app_accounts;
+    insert into ${ns}.inventory_devices(external_id,device_type,manufacturer,model,assigned_requester_id) select 'DEVICE-SYNTH','Laptop','Example','Book',id from ${ns}.requesters where external_id='old-staff';`;
+  const first=sql.replaceAll('public.',`${ns}.`).replace('begin;',`begin;${setup}`).replace('commit;','drop table enrichment_counts;');
+  const second=sql.replaceAll('public.',`${ns}.`).replace('begin;','').replace('commit;',`select 'repeat='||coalesce(sum(changed),0) from enrichment_counts;
+    select 'linked='||count(*) from ${ns}.inventory_devices d join ${ns}.requesters r on r.id=d.assigned_requester_id where r.external_id='new.staff';
+    select 'preserved='||count(*) from ${ns}.requesters where email='edited@school.example';
+    select 'graduate='||count(*) from ${ns}.requesters where student_status='graduated' and class_of is null and guardian_name='O''Example Guardian';
+    rollback;`);
+  const docker=existsSync('/Applications/Docker.app/Contents/Resources/bin/docker')?'/Applications/Docker.app/Contents/Resources/bin/docker':'docker';
+  const result=execFileSync(docker,['exec','-i','supabase_db_edison-ticketing','psql','-U','postgres','-d','postgres','-X','-qAt','-v','ON_ERROR_STOP=1'],{input:first+second,encoding:'utf8',timeout:15000,stdio:['pipe','pipe','pipe']});
+  for(const expected of ['repeat=0','linked=1','preserved=1','graduate=1'])expect(result).toContain(expected);
+});

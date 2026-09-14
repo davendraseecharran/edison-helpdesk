@@ -1,52 +1,45 @@
 # Edison Helpdesk — resume here
 
-Updated September13,2026. **Requested intake/sign-in/role updates are implemented and locally verified, awaiting publishing.** Existing live site remains https://edison-helpdesk.vercel.app on the previous release. No new hosted migrations, directory import, push or deployment has occurred for these updates.
+Updated September 13, 2026. **Inventory management is implemented, reviewed and locally verified; not yet published.** The user confirms the previous intake release is live and working, including its two migrations and initial directory/device import. Do not repeat the initial import.
 
-## Current work and ownership
+## Current source and ownership
 
-Branch `codex/intake-directory-updates`. Root completed helper review, fixes and verification; all helpers released. No active editing ownership. Preserve unrelated pre-existing `.claude/`; do not stage it. Local release commit records intended code/docs/tests only; inspect git log for its ID.
+Branch `codex/inventory-management` builds on `162319b` (prior intake release). The intended feature commit follows that commit; use `git log -1` for its ID. Main was still `e999242` at review; final sync follows publishing. Root completed final fixes and checks; all helpers released and no active editor ownership. Preserve unrelated `.claude/`. Private source data, SQL and backups remain ignored by Git and Vercel.
 
-Implemented: centered login; Email/Password labels without email placeholder or forgot-password section; admin role changes with audit/session revocation and last usable admin protection; existing staff/student or unknown requester; debounced name/OSIS lookup; assigned-device Add; required catalog type/manufacturer/model/serial; optional asset/OS; required Issue and optional Notes; no Remote intake. Linked inventory details are read-only authoritative snapshots. Requester changes remove linked drafts; incomplete assigned devices cannot be added. Historical incomplete observations remain readable; ticket-detail later-observation form retains earlier flexible rules.
+User decisions: new Inventory sidebar category with Students, Staff, Master Inventory; active administrators AND technicians can add/edit all directory and inventory records. Include student parent contacts, address and notes, and assigned devices. Valid emails, numeric OSIS with leading zeros, Staff ID derived from lower-case email prefix. No deletion feature requested.
 
-Root fixes during review: removed full requester loading from runtime, strengthened last-admin guard against unapproved credentials, made lookup selection invalidation and linked draft reset consistent, blocked incomplete inventory Add, disabled editing linked details, corrected stale browser selectors and order-dependent requester visibility fixture, repaired browser error redaction.
+Implemented: three searchable, paginated lists and edit/add forms; assigned-device lists and device reassignment; optional staff/student notes; parent/guardian and home phones; class/year and enrollment status; separate type/manufacturer/model suggestions; required device serial and optional asset tag. Authenticated database RPCs enforce access and validation, preserve stable UUID links, reject stale edits, retain ticket snapshots and append immutable before/after audit records. New catalog values become available for intake. Audit viewer is not part of this release.
 
-## Verification
+Root review fixes: student email no longer overwrites OSIS with staff ID calculation; phone inputs styled consistently; staff Notes enabled; search verification waits for actual filtered result; single-record count label corrected. Synthetic desktop and phone screenshots visually reviewed. No real source records were used in browser tests/screenshots.
 
-- `npm run check` under Node24.21.0: typecheck, lint,85 unit tests and production build pass (14 routes).
-- Clean `npm run test:db`:135 tests pass, including roles, directory searches, inventory snapshots, transaction rollback and existing authorization/concurrency.
-- Additional `tests/db/import-preparation.test.ts`:1test passes; actual generated import SQL executes against isolated local tables and rolls back, preserving person links and quoted names.
-- `npm run test:auth`:31 tests pass.
-- `scripts/review-m3.cjs`:browser login, protected routes, technician intake, notes, collaborators, return/reclaim/access loss, resolution, mobile view, account setup/recovery and old-session revocation pass.
-- `scripts/review-intake.cjs`:browser centered login, requester searches, assigned devices, snapshot detail, blank Notes, required fields, stale selection prevention, phone layout and actual admin-role promotion pass. Synthetic phone screenshot visually reviewed.
-- Hosted migration dry run lists exactly the two new migrations. No hosted mutations made.
+## Verified September 13
 
-Auth suite resets local DB and leaves additional admin fixtures: rerun last-admin tests via a clean `npm run test:db`, not a standalone DB test after auth/browser fixtures. No resets concurrently with browser scripts.
+- `npx --yes --package=node@24 -c 'node --version && npm run check'`: Node24.21.0, typecheck, ESLint,85 unit tests and production build pass;17 routes.
+- Clean `npm run test:db`:144 tests /15 files pass. Includes management access for both roles, validation, revision conflicts, stable links, preserved ticket observations, audit, and actual generated enrichment SQL executed twice against isolated local tables within rollback.
+- `scripts/review-inventory-management.cjs` with bundled Playwright and Chrome: technician navigation; student create/edit; staff/device creation; email/OSIS validation and staff ID derivation; device assignment; persisted notes; actual OSIS search; mobile width pass. Screenshots /tmp/edison-inventory-management/{desktop,mobile}.png.
+- `git diff --check` passes. Prior intake release auth31 tests and prior full ticket browser regression passed before this feature; not rerun this turn because auth implementation is unchanged.
 
-## Exact next step
+## Exact next step: publish this release
 
-Follow `docs/PUBLISH-INTAKE-UPDATE.md`:push branch; stage Vercel production build with --skip-domain; refresh private backups; apply reviewed migrations; import reviewed snapshot; promote staged deployment; verify live; fast-forward main. User explicitly requested direct publishing steps after verification. Do not claim the updates are live yet.
+Follow `docs/PUBLISH-INVENTORY-MANAGEMENT.md` in order: push reviewed branch; stage production deployment with `--skip-domain`; fresh private schema/data backups; dry-run/apply exactly ONE migration `20260913150000_inventory_management.sql`; run prepared private profile enrichment; inspect aggregate checks and staged pages; promote; smoke-check stable URL; fast-forward main and push for collaborators. No hosted mutation, deployment or push was performed for this feature during review.
 
-New migrations: `20260912210000_account_roles.sql`, `20260912220000_directory_inventory.sql`.
+The previous `docs/PUBLISH-INTAKE-UPDATE.md` is historical and already performed by the user. Do not rerun its import or migrations. Do not reset hosted data or recreate resources/accounts. Automatic Git deployment remains unverified; explicit Vercel CLI staging works.
 
-## Private directory/inventory copy
+## Private source enrichment
 
-Google workbook read-only September12. Used Staff,Students,DeviceSheet,Master_Inventory; excluded Audit,StudentOnly and raw helper/backup tabs. Snapshot `.private/inventory-source.json`. Import script `scripts/prepare-inventory-import.mjs` produces private `.private/inventory-import.sql` and row-number report. Source sheets unchanged; no automatic sync or authoritative AppSheet cutover.
+Ignored mode0600 files: `.private/inventory-profiles-source.json`, `.private/inventory-notes-source.json`, `.private/inventory-profiles.sql`, `.private/inventory-profiles.sql.report.json`. Generator `scripts/prepare-inventory-profiles.mjs` is tracked. No real data goes in Git, logs or screenshots.
 
-Prepared counts:261 staff,3,448 students,4,278 devices,113 catalog combinations.18 rows sharing9 conflicting device IDs excluded;29 unmatched assignments unlinked;12 retained incomplete devices blocked from assigned intake until corrected. Imported person fields only name/kind/external ID; no parent/address/email/freeform source notes. People records are NOT login accounts. If sheets changed since snapshot, refresh and review before import. SQL is atomic and refuses a repeat initial import.
+Prepared September13 source:3448 students,261 staff,1257 graduates,1 other class designation,38 staff without email,496 device notes. Preserve legacy IDs on staff missing emails until corrected; new staff require email.18 duplicate device-ID rows withheld, matching the prior import exclusions. Enrichment only updates untouched version-one rows, preserves later edits, UUIDs and assignments, and audits changes. Student GRAD maps to graduated; numeric class designation maps to year/current; ST maps to other with source designation retained in notes. No hosted enrichment applied yet.
 
-Both Git and .vercelignore exclude .private. Never log/publish real records. Existing private backups `.private/pre-intake-data.sql` (public+auth data) and `.private/pre-intake-schema.sql` (public schema), mode0600. Refresh before release. Restoration rehearsal remains uncompleted pilot work.
+Initial live import baseline:261 staff,3448 students,4278 devices,113 catalog combinations (may grow with normal use).18 conflicting device-ID rows excluded;29 unmatched assignments remain unlinked;12 incomplete devices require correction before ticket Add. Source sheets are unchanged. No automatic sync or AppSheet cutover is configured; choose a single operational source when releasing edits to avoid divergence.
 
-## Existing live resources
+## Existing resources and processes
 
-- Supabase `lfqlkngxgefoaijuuvvx`,us-east-1,PG17.15migrations deployed through hosted_bootstrap. Workspace is not linked. Last hosted read:1active admin,0tickets,0requesters (recheck before release).
-- Jessie Kalloo completed setup; do not use old bootstrap links. Existing accounts and passwords must be preserved.
-- GitHub private `davendraseecharran/edison-helpdesk`; prior app release13a1a19 on main, later docs e999242.
-- Vercel `thomas-edison-cte-high-school/edison-helpdesk`, project `prj_9NEP7fDNQMsXUpI9VQ4KSfKE7BwL`, team `team_OhQP0pKULim8YlcnUg27qSdX`. Existing deployment `dpl_6QFDhS871ZyDeizmf4cafnR8ALYD`. Node24,Next.js, npm ci/build. Production env configured.
-- GitHub login connected; private-repository automatic deployment not verified. Authenticated Vercel CLI deployment works. --prod --skip-domain verified supported before explicit promote.
-- Hosted operator env /tmp/edison-deploy/production.env is sensitive; never print. Local.env remains local. Local Supabase/Docker and next dev on3000 remain running with synthetic fixtures. No synthetic data on hosted project from these checks.
+- Stable site: https://edison-helpdesk.vercel.app. User promoted prior intake deployment https://edison-helpdesk-8qjd7xl7o-thomas-edison-cte-high-school.vercel.app.
+- Supabase `lfqlkngxgefoaijuuvvx`,us-east-1,PG17;17 migrations through directory_inventory applied by user. Local workspace deliberately unlinked; CLI uses explicit project ref for hosted operations. Preserve existing accounts/passwords; Jessie Kalloo completed setup.
+- Private GitHub `davendraseecharran/edison-helpdesk`; Vercel project `edison-helpdesk`, team `thomas-edison-cte-high-school`, Node24/Next.js/npm ci/build. Production environment configured; do not print credentials. Sensitive hosted env /tmp/edison-deploy/production.env.
+- Local Supabase/Docker running with synthetic fixtures from final clean DB suite. Fresh `npm run dev` session95722 on3000; stale PID91155 was stopped. No Claude writer active.
 
-## Continuity
+## Continuity and usage
 
-Latest Plus usage September13:16%five-hour,24%weekly; reset timestamps1789324883/1789838582. No credit redeemed. No automatic wakeup configured. User prefers small Luna-max helpers; this resumed turn finished locally without additional delegation.
-
-Short implementation overview:docs/INTAKE-DIRECTORY-UPDATE.md. Publishing:docs/PUBLISH-INTAKE-UPDATE.md. Older resume notes:docs/handoffs/INTAKE-DIRECTORY-RESUME.md (superseded by this verified checkpoint). Do not recreate resources or reset hosted data.
+Latest live Plus usage September13 ~20:52 EDT:41% five-hour used,44% weekly used; resets1789359906 /1789838582. No reset credits consumed. One fresh Luna-max helper wrote only release instructions; existing UI helper work reviewed locally. No automatic wakeup; user message resumes work. Update this checkpoint with actual push/deployment/migration results after release.

@@ -39,6 +39,12 @@ export function AppShell({ counts, children }: { counts: QueueCounts; children: 
     { href: '/admin', label: 'Administration' },
   ];
 
+  const inventoryItems: NavItem[] = [
+    { href: '/inventory/students', label: 'Students' },
+    { href: '/inventory/staff', label: 'Staff' },
+    { href: '/inventory/devices', label: 'Master Inventory' },
+  ];
+
   function navLink(item: NavItem) {
     const current = pathname === item.href;
     return (
@@ -94,6 +100,10 @@ export function AppShell({ counts, children }: { counts: QueueCounts; children: 
               {adminItems.map(navLink)}
             </div>
           ) : null}
+          <div className="nav-group">
+            <p className="nav-label">Inventory</p>
+            {inventoryItems.map(navLink)}
+          </div>
         </nav>
 
         <main className="main" id="main-content">
