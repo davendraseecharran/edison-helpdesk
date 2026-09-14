@@ -147,10 +147,10 @@ as $$
   -- MATERIALIZED is load-bearing, not decoration. app_can_view_ticket() is
   -- STABLE, so without the fence the planner pushes it down through the UNION
   -- into every arm and evaluates it per SCANNED row rather than per candidate.
-  -- Measured: 38.2 s and 3.2M buffer hits for a query with no ticket candidates
+  -- Measured: 38.8 s and 3.2M buffer hits for a query with no ticket candidates
   -- at all, because the two unindexed `number ilike` arms scanned 76,004 tickets
   -- each and called a four-join SECURITY DEFINER function on every one of them.
-  -- With the fence the same call is 0.15 s.
+  -- With the fence the same call is 0.13 s.
   ticket_ids as materialized (
     select tk.id from public.tickets tk cross join term t
     where tk.number ilike t.pattern || '%' escape '\'

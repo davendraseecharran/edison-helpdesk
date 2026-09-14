@@ -20,13 +20,20 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
+  anonClient,
   identity,
   openTicket,
   ownedTicket,
   rawTicket,
+  rpcFails,
   rpcOk,
   signIn,
 } from './support/harness';
+
+interface CandidateRow {
+  kind: 'ticket' | 'person' | 'device';
+  id: string;
+}
 
 interface SearchRow {
   kind: 'ticket' | 'person' | 'device';
@@ -85,6 +92,18 @@ async function search(
 
 function ofKind(rows: SearchRow[], kind: SearchRow['kind']): SearchRow[] {
   return rows.filter((row) => row.kind === kind);
+}
+
+/** The trusted id-only half, called directly rather than through app_search. */
+async function candidates(
+  client: SupabaseClient,
+  query: string,
+): Promise<CandidateRow[]> {
+  return rpcOk<CandidateRow[]>(client, 'app_search_candidates', { p_query: query });
+}
+
+function candidateIds(rows: CandidateRow[], kind: CandidateRow['kind']): string[] {
+  return rows.filter((row) => row.kind === kind).map((row) => row.id);
 }
 
 beforeAll(async () => {
@@ -319,6 +338,63 @@ describe('the query is text, not a pattern', () => {
     const underscores = await search(owner, TAG_PREFIX.replace(/-/g, '_'));
     expect(underscores.map((row) => row.id)).not.toContain(exactDeviceId);
     expect(underscores.map((row) => row.id)).not.toContain(shortQueryDeviceId);
+  });
+});
+
+describe('the trusted id-only half, called directly', () => {
+  // app_search_candidates has to be granted to `authenticated`, because
+  // app_search is SECURITY INVOKER and could not otherwise call it. So it is
+  // reachable from a session, and what it hands out is tested here rather than
+  // only through the wrapper.
+
+  it('does not hand a hidden ticket\u2019s id to an unrelated technician', async () => {
+    // The owner reaches it through the title arm, so the arm works.
+    expect(candidateIds(await candidates(owner, SECRET_TITLE), 'ticket')).toContain(
+      secretTicketId,
+    );
+    // The same call by someone with no claim on the ticket returns no id for it:
+    // a uuid would already answer "does a ticket matching this exist".
+    expect(candidateIds(await candidates(unrelated, SECRET_TITLE), 'ticket')).not.toContain(
+      secretTicketId,
+    );
+  });
+
+  it('returns nothing to an account that is not active', async () => {
+    for (const query of [TAG_PREFIX, OSIS, ticketNumber, SECRET_TITLE]) {
+      expect(await candidates(pending, query)).toHaveLength(0);
+    }
+  });
+
+  it('is not callable without a session at all', async () => {
+    const failure = await rpcFails(anonClient(), 'app_search_candidates', {
+      p_query: TAG_PREFIX,
+    });
+    expect(failure.message).toMatch(/permission denied/i);
+  });
+
+  it('treats the shared ticket-number prefix as no number at all', async () => {
+    // Every ticket number starts EDT-, so an ungated `number ilike 'EDT%'` arm
+    // matched the whole table and ran the visibility predicate once per row of
+    // it. A bare prefix now yields no number candidates.
+    const bare = candidateIds(await candidates(owner, 'EDT'), 'ticket');
+    for (const id of [ticketId, queuedTicketId, secretTicketId]) {
+      expect(bare).not.toContain(id);
+    }
+
+    // One digit is enough to make it a number search again, and every seeded
+    // ticket number is EDT-1xxx.
+    const withDigit = candidateIds(await candidates(owner, 'EDT-1'), 'ticket');
+    expect(withDigit).toContain(ticketId);
+    expect(withDigit).toContain(queuedTicketId);
+  });
+
+  it('caps what one call can enumerate', async () => {
+    // The cap is per kind and far above anything a real lookup returns; this
+    // asserts the bound exists rather than trying to exceed it.
+    const rows = await candidates(owner, 'EDT-1');
+    expect(candidateIds(rows, 'ticket').length).toBeLessThanOrEqual(200);
+    expect(candidateIds(rows, 'person').length).toBeLessThanOrEqual(200);
+    expect(candidateIds(rows, 'device').length).toBeLessThanOrEqual(200);
   });
 });
 
