@@ -318,3 +318,27 @@ describe('what a failed tool tells the model', () => {
     }
   });
 });
+
+describe('the CSV an assistant import accepts', () => {
+  const header = 'asset_tag,serial,model\n';
+
+  it('accepts a sheet that fits one conversation row', () => {
+    const csv = header + 'DOE-LN0000001,SER1,Chromebook\n'.repeat(1_000);
+    expect(csv.length).toBeLessThan(100_000);
+    const checked = validateArgs('import_csv', { kind: 'devices', csv_text: csv, mode: 'dry_run' });
+    expect(checked.ok).toBe(true);
+  });
+
+  it('refuses a sheet too large to store, and says where to import it', () => {
+    const csv = header + 'x'.repeat(100_001);
+    const checked = validateArgs('import_csv', { kind: 'devices', csv_text: csv, mode: 'dry_run' });
+    expect(checked.ok).toBe(false);
+    expect(checked.error).toMatch(/administration import screen/i);
+  });
+
+  it('says nothing about an import screen for an ordinary overlong field', () => {
+    const checked = validateArgs('add_note', { ticket: 'EDT-1042', note: 'x'.repeat(4_001) });
+    expect(checked.ok).toBe(false);
+    expect(checked.error).not.toMatch(/import screen/i);
+  });
+});

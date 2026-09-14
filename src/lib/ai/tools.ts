@@ -78,7 +78,25 @@ interface Field {
  * The one field that legitimately carries a file overrides it.
  */
 const MAX_TEXT = 4000;
-const MAX_CSV_TEXT = 5_000_000;
+
+/**
+ * The most CSV `import_csv` accepts in one call.
+ *
+ * It was five million characters, which no path could actually carry. A tool
+ * call made through the panel is stored TWICE in `ai_messages` — once as the
+ * assistant's `function_call` item, and again as the pending-approval row that
+ * holds the arguments until the operator answers, because an import commit
+ * always asks — and that column is capped at 256 KiB by
+ * `ai_messages_content_size`. So an AI import of anything larger than a quarter
+ * of a megabyte did not fail at the import: it failed at storing the turn, with
+ * a raw check-constraint message and before a single row was read.
+ *
+ * A hundred thousand characters is about 1,200 inventory rows, which is more
+ * than a model will compose into one call anyway, and it leaves the constraint
+ * room even for a sheet of entirely two-byte characters. Bigger files are what
+ * the administration import screen is for, and the refusal says so.
+ */
+const MAX_CSV_TEXT = 100_000;
 
 const PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
 const CATEGORIES = [
@@ -1357,7 +1375,15 @@ function checkField(name: string, field: Field, value: unknown): { value?: unkno
       }
       const limit = field.maxLength ?? MAX_TEXT;
       if (trimmed.length > limit) {
-        return { error: fieldError(name, `has to be ${limit.toLocaleString('en-GB')} characters or fewer.`) };
+        // The CSV field is the one a person can plausibly overshoot, and it has
+        // somewhere else to go, so its refusal says where.
+        const where =
+          field.maxLength === MAX_CSV_TEXT
+            ? ' Import a file this size on the administration import screen instead.'
+            : '';
+        return {
+          error: `${fieldError(name, `has to be ${limit.toLocaleString('en-GB')} characters or fewer.`)}${where}`,
+        };
       }
       return { value: trimmed };
     }
@@ -1493,9 +1519,10 @@ const DESCRIBE_LIMIT = 120;
 /**
  * One argument, as a card should show it.
  *
- * A pasted spreadsheet is named rather than quoted: `import_csv` carries up to
- * five megabytes, and the operator approving it wants to know how big it is, not
- * to scroll it. Every other long value is cut at a readable length.
+ * A pasted spreadsheet is named rather than quoted: `import_csv` carries a
+ * hundred thousand characters, and the operator approving it wants to know how
+ * big it is, not to scroll it. Every other long value is cut at a readable
+ * length.
  */
 function describeValue(key: string, value: unknown): string {
   if (Array.isArray(value)) {
