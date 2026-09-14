@@ -24,6 +24,7 @@ import {
   openLookup,
   readScanTarget,
 } from './LookupBar';
+import { canWorkTickets, landingPath } from '@/lib/auth/roles';
 import { navItems, RailNav } from './RailNav';
 import { TopBar } from './TopBar';
 
@@ -43,6 +44,8 @@ export function AppShell({
   const router = useRouter();
   const pathname = usePathname();
   const items = useMemo(() => navItems(actor.roles, counts), [actor.roles, counts]);
+  const ticketWorker = canWorkTickets(actor.roles);
+  const home = landingPath(actor.roles);
   const [lookupOpen, setLookupOpen] = useState(false);
   const showLookup = useCallback(() => setLookupOpen(true), []);
   const closeLookup = useCallback(() => setLookupOpen(false), []);
@@ -103,13 +106,18 @@ export function AppShell({
   /*
    * `n` opens the intake form.
    *
-   * The one action a technician at the desk repeats all day, and the reason
-   * the button beside it is the only primary in the top bar. Bound through
+   * The one action a NetRider at the desk repeats all day, and the reason the
+   * button beside it is the only primary in the top bar. Bound through
    * useShortcut, so it is ignored while anything editable has focus or a modal
-   * surface owns the keyboard; and not bound at all on the intake form itself,
-   * where it would reload a half-filled draft away.
+   * surface owns the keyboard; not bound on the intake form itself, where it
+   * would reload a half-filled draft away, and not bound for an account that
+   * does not work tickets.
    */
-  useShortcut('n', () => router.push('/tickets/new'), pathname !== '/tickets/new');
+  useShortcut(
+    'n',
+    () => router.push('/tickets/new'),
+    ticketWorker && pathname !== '/tickets/new',
+  );
 
   return (
     <div className="shell">
@@ -121,13 +129,15 @@ export function AppShell({
         notifyInApp={notifyInApp}
         onOpenLookup={showLookup}
         newTicketShortcut={pathname !== '/tickets/new'}
+        homeHref={home}
+        canCreateTickets={ticketWorker}
       />
       <RailNav items={items} />
       <main className="main" id="main-content" tabIndex={-1}>
         <Flash />
         {children}
       </main>
-      <BottomTabs items={items} onOpenLookup={showLookup} />
+      <BottomTabs items={items} onOpenLookup={showLookup} canCreateTickets={ticketWorker} />
       <LookupBar open={lookupOpen} onClose={closeLookup} />
       {/* The phone as a barcode scanner, for the palette. The first code
           closes it and searches: the code IS the search, and two modal

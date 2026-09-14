@@ -28,6 +28,8 @@ export function TopBar({
   notifyInApp = true,
   onOpenLookup,
   newTicketShortcut = true,
+  homeHref = '/queue',
+  canCreateTickets = true,
 }: {
   unreadNotifications: number;
   /** The account's `notify_in_app` setting. False hides the bell's count. */
@@ -37,10 +39,14 @@ export function TopBar({
    * `/tickets/new` itself, where the keycap would promise a key that does
    * nothing. */
   newTicketShortcut?: boolean;
+  /** Where the brand goes: the queue, or the directory for a skills officer. */
+  homeHref?: string;
+  /** False for an account that does not work tickets, which hides intake. */
+  canCreateTickets?: boolean;
 }) {
   return (
     <header className="topbar">
-      <Link href="/queue" className="brand" aria-label="Edison Helpdesk, go to the queue">
+      <Link href={homeHref} className="brand" aria-label="Edison Helpdesk, go to the start page">
         <span className="brand-mark" aria-hidden="true">
           E
         </span>
@@ -52,19 +58,23 @@ export function TopBar({
       </div>
 
       <div className="topbar-actions">
-        <ButtonLink href="/tickets/new" variant="primary" icon={Plus} collapseOnPhone>
-          New ticket
-          {/* The `n` shortcut AppShell binds, shown on the control it presses.
-              `collapseOnPhone` wraps these children in `.btn-label`, which is
-              visually hidden below 720px, so the keycap goes with the label on
-              a phone — where there is no hardware keyboard to press it. Hidden
-              on `/tickets/new` itself, where AppShell leaves `n` unbound. */}
-          {newTicketShortcut ? (
-            <kbd className="kbd kbd-in-button" aria-hidden="true">
-              n
-            </kbd>
-          ) : null}
-        </ButtonLink>
+        {/* Intake is ticket work. A skills officer gets no button for a form
+            they would be turned away from. */}
+        {canCreateTickets ? (
+          <ButtonLink href="/tickets/new" variant="primary" icon={Plus} collapseOnPhone>
+            New ticket
+            {/* The `n` shortcut AppShell binds, shown on the control it presses.
+                `collapseOnPhone` wraps these children in `.btn-label`, which is
+                visually hidden below 720px, so the keycap goes with the label on
+                a phone — where there is no hardware keyboard to press it. Hidden
+                on `/tickets/new` itself, where AppShell leaves `n` unbound. */}
+            {newTicketShortcut ? (
+              <kbd className="kbd kbd-in-button" aria-hidden="true">
+                n
+              </kbd>
+            ) : null}
+          </ButtonLink>
+        ) : null}
         <NotificationsBell unread={unreadNotifications} showCount={notifyInApp} />
         <AiToggle />
         <UserMenu />

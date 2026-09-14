@@ -4,6 +4,7 @@ import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Monitor, Moon, Settings, Sun } from 'lucide-react';
 import { useRuntime } from '@/components/AppRuntime';
+import { rolesLabel } from '@/lib/auth/roles';
 import { Avatar } from '@/components/Primitives';
 import { SignOutButton } from '@/components/auth/SignOutButton';
 import { Icon } from '@/components/ui/Icon';
@@ -30,7 +31,7 @@ function AccountPanel({ onNavigate }: { onNavigate: () => void }) {
         <Avatar name={actor.displayName} size="md" />
         <div className="account-identity-text">
           <p className="account-name">{actor.displayName}</p>
-          <p className="account-role">{actor.role === 'admin' ? 'Administrator' : 'Technician'}</p>
+          <p className="account-role">{rolesLabel(actor.roles)}</p>
         </div>
       </div>
       <Link href="/settings" className="menu-item" onClick={onNavigate}>
