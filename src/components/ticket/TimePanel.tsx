@@ -9,6 +9,7 @@ import { nameOf } from '@/lib/directory';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { formatDateKey, formatMinutes } from '@/lib/format';
 import { Field } from '@/components/Primitives';
+import { ActorLabel } from '@/components/ui/ActorLabel';
 import { Button } from '@/components/ui/Button';
 
 /**
@@ -92,7 +93,11 @@ export function TimePanel({ detail }: { detail: TicketDetail }) {
                   <li key={log.id} className="time-entry">
                     <span className="time-entry-date">{formatDateKey(log.workDate)}</span>
                     <span className="time-entry-minutes">{formatMinutes(log.minutes)}</span>
-                    <span>{nameOf(directory, log.contributorId)}</span>
+                    <ActorLabel
+                      name={nameOf(directory, log.contributorId)}
+                      via={log.performedVia}
+                      model={log.aiModel}
+                    />
                     {log.description ? (
                       <span className="time-entry-note">{log.description}</span>
                     ) : null}

@@ -522,3 +522,64 @@ export function holderLabel(holder: UnmatchedHolder['holder']): string {
   if (parts.length === 0) return holder.kind === 'staff' ? 'A member of staff' : 'A student';
   return parts.join(', ');
 }
+
+/* --- Import history ------------------------------------------------------ */
+
+/** One past import, as the history table reads it. */
+export interface ImportRunView {
+  id: string;
+  kind: 'people' | 'devices';
+  at: string;
+  actorName: string;
+  inserted: number;
+  updated: number;
+  unchanged: number;
+  errorCount: number;
+  /** Device imports that could not find the person a machine was held by. */
+  unmatched: number;
+  /** Defaults to `user` for runs written before attribution existed. */
+  performedVia: 'user' | 'ai';
+  /** Model that assisted, when `performedVia` is `ai`. */
+  aiModel: string | null;
+}
+
+/** One row of `app_admin_import_runs`, mapped to what the history table reads. */
+export interface ImportRunRow {
+  id: string;
+  kind: string;
+  at: string;
+  actor_name: string | null;
+  performed_via?: string | null;
+  ai_model?: string | null;
+  inserted: number;
+  updated: number;
+  unchanged: number;
+  error_count: number;
+  summary: { unmatched_holders?: unknown[] } | null;
+}
+
+/**
+ * `mapImportRun` lives here, and not beside the action that calls it, because
+ * `import-actions.ts` carries the `'use server'` directive: every function it
+ * exports becomes a Server Action and must be async, and this one is a plain
+ * synchronous mapper.
+ */
+export function mapImportRun(row: ImportRunRow): ImportRunView {
+  return {
+    id: row.id,
+    kind: row.kind === 'devices' ? 'devices' : 'people',
+    at: row.at,
+    actorName: row.actor_name ?? 'An administrator',
+    inserted: row.inserted,
+    updated: row.updated,
+    unchanged: row.unchanged,
+    errorCount: row.error_count,
+    unmatched: Array.isArray(row.summary?.unmatched_holders)
+      ? row.summary.unmatched_holders.length
+      : 0,
+    // The column is NOT NULL with a 'user' default in the database; the fallback
+    // covers a payload shaped before attribution existed.
+    performedVia: row.performed_via === 'ai' ? 'ai' : 'user',
+    aiModel: row.ai_model ?? null,
+  };
+}

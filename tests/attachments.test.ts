@@ -34,7 +34,7 @@ import {
   splitExtension,
   uniqueFilename,
 } from '../src/lib/attachments';
-import { registryMessage } from '../src/lib/data/attachments';
+import { mapAttachment, registryMessage, type AttachmentRow } from '../src/lib/data/attachments';
 import {
   asJpegName,
   fitWithin,
@@ -286,6 +286,40 @@ describe('asJpegName', () => {
     expect(asJpegName('IMG_0042.HEIC')).toBe('IMG_0042.jpg');
     expect(asJpegName('screenshot.png')).toBe('screenshot.jpg');
     expect(asJpegName('scan')).toBe('scan.jpg');
+  });
+});
+
+describe('mapAttachment', () => {
+  function row(over: Partial<AttachmentRow> = {}): AttachmentRow {
+    return {
+      id: 'att-1',
+      ticket_id: 'ticket-1',
+      device_id: null,
+      path: 'ticket/ticket-1/invoice.pdf',
+      filename: 'invoice.pdf',
+      mime: 'application/pdf',
+      bytes: 4096,
+      uploaded_by: 'acc-1',
+      uploaded_at: '2026-09-12T10:00:00Z',
+      ...over,
+    };
+  }
+
+  it('defaults to the person when the row carries no attribution', () => {
+    const attachment = mapAttachment(row());
+    expect(attachment.performedVia).toBe('user');
+    expect(attachment.aiModel).toBeNull();
+  });
+
+  it('carries the model when the row was stamped by an assistant', () => {
+    const attachment = mapAttachment(row({ performed_via: 'ai', ai_model: 'gpt-5.6-luna' }));
+    expect(attachment.performedVia).toBe('ai');
+    expect(attachment.aiModel).toBe('gpt-5.6-luna');
+  });
+
+  it('never treats an unrecognised value as AI', () => {
+    const attachment = mapAttachment(row({ performed_via: 'robot' }));
+    expect(attachment.performedVia).toBe('user');
   });
 });
 

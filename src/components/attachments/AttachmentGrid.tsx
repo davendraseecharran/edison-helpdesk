@@ -141,7 +141,11 @@ export function AttachmentGrid({ items, onDeleted }: AttachmentGridProps) {
                   {item.filename}
                 </span>
                 <span className="attachment-sub">
-                  <ActorLabel name={nameOf(directory, item.uploadedBy)} />
+                  <ActorLabel
+                    name={nameOf(directory, item.uploadedBy)}
+                    via={item.performedVia}
+                    model={item.aiModel}
+                  />
                   {', '}
                   <TimeAgo iso={item.uploadedAt} />
                 </span>

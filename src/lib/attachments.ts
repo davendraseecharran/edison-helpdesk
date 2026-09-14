@@ -55,6 +55,10 @@ export interface Attachment {
   bytes: number;
   uploadedBy: string;
   uploadedAt: string;
+  /** Defaults to `user` for rows written before attribution existed. */
+  performedVia?: 'user' | 'ai';
+  /** Model that assisted, when `performedVia` is `ai`. */
+  aiModel?: string | null;
 }
 
 export function isAllowedMime(mime: string): mime is AttachmentMime {

@@ -1,5 +1,6 @@
 import type { TicketDetailView } from '@/lib/data/tickets';
 import { TimeAgo } from '@/components/Primitives';
+import { ActorLabel } from '@/components/ui/ActorLabel';
 
 /**
  * The recorded outcome: the solution of a resolved ticket, the previous
@@ -20,7 +21,12 @@ export function SolutionPanel({ detail }: { detail: TicketDetailView }) {
         </h2>
         {resolved && detail.resolver ? (
           <span className="panel-aside">
-            Resolved by {detail.resolver.displayName}
+            Resolved by{' '}
+            <ActorLabel
+              name={detail.resolver.displayName}
+              via={ticket.resolvedVia}
+              model={ticket.resolvedAiModel}
+            />
             {ticket.resolvedAt ? (
               <>
                 {' '}

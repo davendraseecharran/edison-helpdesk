@@ -57,6 +57,8 @@ export interface TicketRow {
   solution: string | null;
   resolved_by: string | null;
   resolved_at: string | null;
+  resolved_via?: string | null;
+  resolved_ai_model?: string | null;
   cancel_reason: string | null;
   collaborator_ids?: string[] | null;
   /** Present on queue rows only; the detail payload carries the devices instead. */
@@ -90,6 +92,10 @@ export function mapTicket(row: TicketRow): Ticket {
     solution: row.solution,
     resolvedById: row.resolved_by,
     resolvedAt: row.resolved_at,
+    // The column is NOT NULL with a 'user' default in the database; the fallback
+    // covers a payload shaped before attribution existed.
+    resolvedVia: row.resolved_via === 'ai' ? 'ai' : 'user',
+    resolvedAiModel: row.resolved_ai_model ?? null,
     cancelReason: row.cancel_reason,
   };
 }
@@ -168,6 +174,8 @@ export function mapDevice(row: {
   identifiers_not_applicable: boolean;
   recorded_by: string;
   recorded_at: string;
+  performed_via?: string | null;
+  ai_model?: string | null;
 }): DeviceObservation {
   return {
     id: row.id,
@@ -180,6 +188,10 @@ export function mapDevice(row: {
     identifiersNotApplicable: row.identifiers_not_applicable,
     recordedById: row.recorded_by,
     recordedAt: row.recorded_at,
+    // The column is NOT NULL with a 'user' default in the database; the fallback
+    // covers a payload shaped before attribution existed.
+    performedVia: row.performed_via === 'ai' ? 'ai' : 'user',
+    aiModel: row.ai_model ?? null,
   };
 }
 
@@ -189,6 +201,8 @@ export function mapNote(row: {
   author_id: string;
   body: string;
   created_at: string;
+  performed_via?: string | null;
+  ai_model?: string | null;
 }): WorkNote {
   return {
     id: row.id,
@@ -196,6 +210,10 @@ export function mapNote(row: {
     authorId: row.author_id,
     body: row.body,
     createdAt: row.created_at,
+    // The column is NOT NULL with a 'user' default in the database; the fallback
+    // covers a payload shaped before attribution existed.
+    performedVia: row.performed_via === 'ai' ? 'ai' : 'user',
+    aiModel: row.ai_model ?? null,
   };
 }
 
@@ -207,6 +225,8 @@ export function mapWorkLog(row: {
   minutes: number;
   description: string | null;
   created_at: string;
+  performed_via?: string | null;
+  ai_model?: string | null;
 }): WorkLog {
   return {
     id: row.id,
@@ -216,6 +236,10 @@ export function mapWorkLog(row: {
     minutes: row.minutes,
     description: row.description,
     createdAt: row.created_at,
+    // The column is NOT NULL with a 'user' default in the database; the fallback
+    // covers a payload shaped before attribution existed.
+    performedVia: row.performed_via === 'ai' ? 'ai' : 'user',
+    aiModel: row.ai_model ?? null,
   };
 }
 

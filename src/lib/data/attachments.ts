@@ -38,7 +38,7 @@ export const ATTACHMENT_BUCKET = 'attachments';
  */
 export const SIGNED_URL_SECONDS = 60;
 
-interface AttachmentRow {
+export interface AttachmentRow {
   id: string;
   ticket_id: string | null;
   device_id: string | null;
@@ -48,9 +48,11 @@ interface AttachmentRow {
   bytes: number;
   uploaded_by: string;
   uploaded_at: string;
+  performed_via?: string | null;
+  ai_model?: string | null;
 }
 
-function mapAttachment(row: AttachmentRow): Attachment {
+export function mapAttachment(row: AttachmentRow): Attachment {
   return {
     id: row.id,
     ticketId: row.ticket_id,
@@ -61,6 +63,10 @@ function mapAttachment(row: AttachmentRow): Attachment {
     bytes: row.bytes,
     uploadedBy: row.uploaded_by,
     uploadedAt: row.uploaded_at,
+    // The column is NOT NULL with a 'user' default in the database; the fallback
+    // covers a payload shaped before attribution existed.
+    performedVia: row.performed_via === 'ai' ? 'ai' : 'user',
+    aiModel: row.ai_model ?? null,
   };
 }
 
@@ -116,7 +122,9 @@ export async function loadVisibleAttachment(id: string): Promise<Attachment | nu
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('attachments')
-    .select('id, ticket_id, device_id, path, filename, mime, bytes, uploaded_by, uploaded_at')
+    .select(
+      'id, ticket_id, device_id, path, filename, mime, bytes, uploaded_by, uploaded_at, performed_via, ai_model',
+    )
     .eq('id', id)
     .maybeSingle();
   if (error || !data) return null;

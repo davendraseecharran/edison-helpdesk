@@ -32,9 +32,12 @@ import {
   MAX_CSV_BYTES,
   MAX_IMPORT_ROWS,
   buildImportPlan,
+  mapImportRun,
   remapRunRows,
   type ImportMapping,
   type ImportRunResult,
+  type ImportRunRow,
+  type ImportRunView,
 } from '@/lib/data/import-plan';
 import type { RowError } from '@/lib/import';
 
@@ -62,18 +65,12 @@ export interface ImportCommit {
   result: ImportRunResult | null;
 }
 
-export interface ImportRunView {
-  id: string;
-  kind: 'people' | 'devices';
-  at: string;
-  actorName: string;
-  inserted: number;
-  updated: number;
-  unchanged: number;
-  errorCount: number;
-  /** Device imports that could not find the person a machine was held by. */
-  unmatched: number;
-}
+// `ImportRunView`/`ImportRunRow` and the mapping between them live in
+// `import-plan.ts`, not here: this file carries the `'use server'` directive,
+// which requires every exported function to be async, and `mapImportRun` is a
+// plain synchronous mapper. Re-exported so callers keep importing the types
+// from this module.
+export type { ImportRunRow, ImportRunView };
 
 const NO_SESSION = 'Your session is not able to import. Sign in again.';
 
@@ -261,32 +258,10 @@ export async function listImportRunsAction(limit = 20): Promise<{
   const { data, error } = await supabase.rpc('app_admin_import_runs', { p_limit: limit });
   if (error) return { runs: [], error: error.message };
 
-  const rows = (data ?? []) as Array<{
-    id: string;
-    kind: string;
-    at: string;
-    actor_name: string | null;
-    inserted: number;
-    updated: number;
-    unchanged: number;
-    error_count: number;
-    summary: { unmatched_holders?: unknown[] } | null;
-  }>;
+  const rows = (data ?? []) as ImportRunRow[];
 
   return {
-    runs: rows.map((row) => ({
-      id: row.id,
-      kind: row.kind === 'devices' ? 'devices' : 'people',
-      at: row.at,
-      actorName: row.actor_name ?? 'An administrator',
-      inserted: row.inserted,
-      updated: row.updated,
-      unchanged: row.unchanged,
-      errorCount: row.error_count,
-      unmatched: Array.isArray(row.summary?.unmatched_holders)
-        ? row.summary.unmatched_holders.length
-        : 0,
-    })),
+    runs: rows.map(mapImportRun),
     error: null,
   };
 }

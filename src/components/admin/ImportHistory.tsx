@@ -40,7 +40,7 @@ export function ImportHistory({
       header: 'Who',
       width: 200,
       hideOnPhone: true,
-      cell: (run) => <ActorLabel name={run.actorName} />,
+      cell: (run) => <ActorLabel name={run.actorName} via={run.performedVia} model={run.aiModel} />,
     },
     {
       key: 'kind',
@@ -114,7 +114,12 @@ export function ImportHistory({
         rowKey={(run) => run.id}
         caption="Imports that were committed, newest first"
         cardTitle={(run) => (run.kind === 'devices' ? 'Devices' : 'People')}
-        cardMeta={(run) => `${formatDateTime(run.at)}, by ${run.actorName}`}
+        cardMeta={(run) => (
+          <>
+            {formatDateTime(run.at)}, by{' '}
+            <ActorLabel name={run.actorName} via={run.performedVia} model={run.aiModel} />
+          </>
+        )}
         empty={
           <p className="muted">
             {loadError ? 'The import history is unavailable.' : 'No imports yet.'}

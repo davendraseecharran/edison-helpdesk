@@ -7,6 +7,7 @@ import { addNoteAction } from '@/lib/data/actions';
 import { nameOf } from '@/lib/directory';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Field, TimeAgo } from '@/components/Primitives';
+import { ActorLabel } from '@/components/ui/ActorLabel';
 import { Button } from '@/components/ui/Button';
 
 export function NotesPanel({ detail }: { detail: TicketDetail }) {
@@ -51,7 +52,12 @@ export function NotesPanel({ detail }: { detail: TicketDetail }) {
               <li className="note" key={note.id}>
                 <div className="note-head">
                   {/* Authorship stays attributed even if the author later loses access. */}
-                  <span className="note-author">{nameOf(directory, note.authorId)}</span>
+                  <ActorLabel
+                    className="note-author"
+                    name={nameOf(directory, note.authorId)}
+                    via={note.performedVia}
+                    model={note.aiModel}
+                  />
                   <span className="note-time">
                     <TimeAgo iso={note.createdAt} />
                   </span>

@@ -8,6 +8,7 @@ import { recordDeviceAction } from '@/lib/data/actions';
 import { nameOf } from '@/lib/directory';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Field, TimeAgo } from '@/components/Primitives';
+import { ActorLabel } from '@/components/ui/ActorLabel';
 import { Button } from '@/components/ui/Button';
 
 const EMPTY_DRAFT = {
@@ -84,7 +85,12 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
                 <div className="device-head">
                   <span className="device-type">{device.deviceType}</span>
                   <span className="device-meta">
-                    {nameOf(directory, device.recordedById)}, <TimeAgo iso={device.recordedAt} />
+                    <ActorLabel
+                      name={nameOf(directory, device.recordedById)}
+                      via={device.performedVia}
+                      model={device.aiModel}
+                    />
+                    , <TimeAgo iso={device.recordedAt} />
                   </span>
                 </div>
                 <dl className="device-specs">

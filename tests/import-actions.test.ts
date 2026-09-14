@@ -7,6 +7,7 @@ import {
   fieldsFor,
   findParseErrors,
   holderLabel,
+  mapImportRun,
   mergeProblems,
   prefillMapping,
   presetLabel,
@@ -15,6 +16,7 @@ import {
   resolvePreset,
   summariseImport,
   type ImportRunResult,
+  type ImportRunRow,
 } from '../src/lib/data/import-plan';
 import { PRESETS, parseCsv } from '../src/lib/import/index';
 import type { ColumnPreset } from '../src/lib/import/index';
@@ -403,5 +405,38 @@ describe('describeActionFailure', () => {
 
   it('falls back to something an operator can act on', () => {
     expect(describeActionFailure(new Error('fetch failed'))).toContain('Check your connection');
+  });
+});
+
+describe('mapImportRun', () => {
+  function row(over: Partial<ImportRunRow> = {}): ImportRunRow {
+    return {
+      id: 'run-1',
+      kind: 'people',
+      at: '2026-09-12T10:00:00Z',
+      actor_name: 'Pat Example',
+      inserted: 3,
+      updated: 1,
+      unchanged: 5,
+      error_count: 0,
+      summary: null,
+      ...over,
+    };
+  }
+
+  it('defaults to the person when the row carries no attribution', () => {
+    const run = mapImportRun(row());
+    expect(run.performedVia).toBe('user');
+    expect(run.aiModel).toBeNull();
+  });
+
+  it("carries the model when the import was run through the person's AI", () => {
+    const run = mapImportRun(row({ performed_via: 'ai', ai_model: 'gpt-5.6-luna' }));
+    expect(run.performedVia).toBe('ai');
+    expect(run.aiModel).toBe('gpt-5.6-luna');
+  });
+
+  it('never treats an unrecognised value as AI', () => {
+    expect(mapImportRun(row({ performed_via: 'robot' })).performedVia).toBe('user');
   });
 });

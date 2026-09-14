@@ -115,6 +115,10 @@ export interface DeviceObservation {
   identifiersNotApplicable?: boolean;
   recordedById: AccountId;
   recordedAt: string;
+  /** Defaults to `user` for records written before attribution existed. */
+  performedVia?: PerformedVia;
+  /** Model that assisted, when `performedVia` is `ai`. */
+  aiModel?: string | null;
 }
 
 /**
@@ -145,6 +149,10 @@ export interface WorkNote {
   authorId: AccountId;
   body: string;
   createdAt: string;
+  /** Defaults to `user` for records written before attribution existed. */
+  performedVia?: PerformedVia;
+  /** Model that assisted, when `performedVia` is `ai`. */
+  aiModel?: string | null;
 }
 
 /**
@@ -161,6 +169,10 @@ export interface WorkLog {
   minutes: number;
   description?: string | null;
   createdAt: string;
+  /** Defaults to `user` for records written before attribution existed. */
+  performedVia?: PerformedVia;
+  /** Model that assisted, when `performedVia` is `ai`. */
+  aiModel?: string | null;
 }
 
 export type ActivityKind =
@@ -268,6 +280,10 @@ export interface Ticket {
   solution: string | null;
   resolvedById: AccountId | null;
   resolvedAt: string | null;
+  /** How the resolution was made. Defaults to `user` for tickets resolved before attribution existed. */
+  resolvedVia?: PerformedVia;
+  /** Model that assisted the resolution, when `resolvedVia` is `ai`. */
+  resolvedAiModel?: string | null;
   cancelReason: string | null;
 }
 
