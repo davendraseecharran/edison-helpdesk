@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 import { loadActor } from '@/lib/auth/session';
@@ -106,41 +105,17 @@ export default async function LoginPage({
 
       <div className="auth-primary">
         <GoogleButton next={next} />
-        <p className="auth-hint">
-          Use the Google account your administrator invited. No invite yet? Sign in anyway and an
-          administrator will review your request.
-        </p>
       </div>
 
       <details className="auth-disclosure">
         <summary>
           <Icon icon={ChevronRight} size={16} />
-          Sign in with a password
+          Use a password
         </summary>
         <div className="auth-disclosure-body">
-          <p className="auth-hint">
-            Use your school email address and the separate app password you chose for the
-            helpdesk. This is not your Google password.
-          </p>
           <LoginForm next={next} />
         </div>
       </details>
-
-      <div className="auth-foot">
-        <p>
-          <strong>No invite?</strong> Signing in with Google still works: it creates a request an
-          administrator answers, and you can reach nothing until they do.
-        </p>
-        <p>
-          <strong>Password trouble?</strong> Passwords are only for people who cannot use a Google
-          account. Ask the helpdesk administrator in person; they confirm who you are and hand you
-          a single-use recovery link directly.
-        </p>
-        <p>
-          Need the administrator?{' '}
-          <Link href="/restricted">What the different account states mean</Link>
-        </p>
-      </div>
     </AuthFrame>
   );
 }
