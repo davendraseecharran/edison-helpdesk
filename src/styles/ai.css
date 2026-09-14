@@ -804,8 +804,10 @@
   cursor: pointer;
 }
 
-.ai-conversation-open:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .ai-conversation-open:hover {
+    background: var(--surface-2);
+  }
 }
 
 .ai-conversation-open .icon {

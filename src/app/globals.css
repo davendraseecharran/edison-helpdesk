@@ -66,10 +66,16 @@
   cursor: pointer;
 }
 
-.intake-form .search-select-option:hover,
 .intake-form .search-select-option-active {
   background: var(--brass-soft);
   color: var(--ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .intake-form .search-select-option:hover {
+    background: var(--brass-soft);
+    color: var(--ink);
+  }
 }
 
 .intake-form .search-select-status {
@@ -219,10 +225,17 @@
   border-bottom: 0;
 }
 
+/*
+ * The transition belongs to the row, not to the hovered state: declared only
+ * on `:hover` the fill fades in and snaps out, which reads as a glitch.
+ */
+.inventory-table tbody tr {
+  transition: background-color 100ms ease-out;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .inventory-table tbody tr:hover {
     background: var(--surface-2);
-    transition: background-color 100ms ease-out;
   }
 }
 
@@ -343,8 +356,10 @@
   cursor: pointer;
 }
 
-.inventory-row-select:hover {
-  text-decoration: underline;
+@media (hover: hover) and (pointer: fine) {
+  .inventory-row-select:hover {
+    text-decoration: underline;
+  }
 }
 
 .inventory-editor-card {
@@ -456,10 +471,16 @@
   cursor: pointer;
 }
 
-.inventory-manager .search-select-option:hover,
 .inventory-manager .search-select-option-active {
   background: var(--brass-soft);
   color: var(--ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .inventory-manager .search-select-option:hover {
+    background: var(--brass-soft);
+    color: var(--ink);
+  }
 }
 
 .inventory-manager .search-select-status {

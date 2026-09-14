@@ -61,8 +61,14 @@ a {
   text-decoration: none;
 }
 
-a:hover {
-  text-decoration: underline;
+/*
+ * The underline is a pointer affordance. On a touch screen it is left behind
+ * on whatever was tapped last, which reads as a link that is still "open".
+ */
+@media (hover: hover) and (pointer: fine) {
+  a:hover {
+    text-decoration: underline;
+  }
 }
 
 /* Identifiers only: ticket numbers, asset tags, serials. */

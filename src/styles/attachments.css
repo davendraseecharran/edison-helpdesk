@@ -115,9 +115,11 @@
   background: color-mix(in srgb, var(--surface) 88%, transparent);
 }
 
-.attachment-remove:hover:not(:disabled) {
-  border-color: var(--bad);
-  color: var(--bad);
+@media (hover: hover) and (pointer: fine) {
+  .attachment-remove:hover:not(:disabled) {
+    border-color: var(--bad);
+    color: var(--bad);
+  }
 }
 
 /* --- Adding ------------------------------------------------------------- */

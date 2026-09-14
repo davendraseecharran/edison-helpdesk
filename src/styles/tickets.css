@@ -358,8 +358,13 @@
 }
 
 @media (min-width: 1024px) {
-  .queue-cell-title:hover .queue-peek,
   .queue-cell-title:focus-within .queue-peek {
+    opacity: 1;
+  }
+}
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  .queue-cell-title:hover .queue-peek {
     opacity: 1;
   }
 }
@@ -1087,8 +1092,10 @@
   text-align: left;
   cursor: pointer;
 }
-.picker-option:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .picker-option:hover {
+    background: var(--surface-2);
+  }
 }
 .picker-option[aria-disabled='true'] {
   color: var(--ink-3);

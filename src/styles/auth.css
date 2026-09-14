@@ -192,8 +192,10 @@
   transition: transform 120ms ease-out;
 }
 
-.auth-disclosure > summary:hover .icon {
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .auth-disclosure > summary:hover .icon {
+    color: var(--ink);
+  }
 }
 
 .auth-disclosure[open] > summary .icon {

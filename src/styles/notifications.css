@@ -32,9 +32,11 @@
   text-align: left;
 }
 
-a.notification:hover {
-  background: var(--surface-2);
-  text-decoration: none;
+@media (hover: hover) and (pointer: fine) {
+  a.notification:hover {
+    background: var(--surface-2);
+    text-decoration: none;
+  }
 }
 
 .notification-glyph {
