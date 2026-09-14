@@ -152,8 +152,10 @@ describe('what each kind of account reaches', () => {
     const ticketId = await openTicket();
     const skills = await signIn('skillsOfficer');
 
-    expect((await rpcFails(skills, 'app_claim_ticket', { p_ticket: ticketId })).message).toMatch(
-      /not available to this account|not available to claim/i,
+    // The same sentence every unavailable ticket gets, so the claim endpoint
+    // still says nothing about what exists.
+    expect((await rpcFails(skills, 'app_claim_ticket', { p_ticket: ticketId })).message).toBe(
+      'That ticket is not available to claim.',
     );
     expect(
       (await rpcFails(skills, 'app_add_note', { p_ticket: ticketId, p_body: 'Synthetic note.' }))
@@ -241,6 +243,33 @@ describe('what each kind of account reaches', () => {
       },
     });
     expect(refused.message).toMatch(/netrider or an administrator/i);
+  });
+
+  it('refuses to hand ticket work to somebody who cannot see it', async () => {
+    const ticketId = await openTicket();
+    const admin = await signIn('admin');
+    const skillsId = identity('skillsOfficer').id;
+
+    const reassigned = await rpcFails(admin, 'app_reassign_ticket', {
+      p_ticket: ticketId,
+      p_new_owner: skillsId,
+    });
+    expect(reassigned.message).toMatch(/does not work tickets/i);
+
+    await rpcOk(admin, 'app_claim_ticket', { p_ticket: ticketId });
+    const collaborating = await rpcFails(admin, 'app_add_collaborator', {
+      p_ticket: ticketId,
+      p_account: skillsId,
+    });
+    expect(collaborating.message).toMatch(/does not work tickets/i);
+
+    // Somebody who holds netrider as well is a perfectly good owner.
+    expect(
+      await rpcOk(admin, 'app_reassign_ticket', {
+        p_ticket: ticketId,
+        p_new_owner: identity('netriderSkills').id,
+      }),
+    ).toBe(ticketId);
   });
 
   it('gives an account holding both roles the queue and the directory', async () => {
