@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import {
   Boxes,
   Briefcase,
-  ChartColumn,
   CircleCheck,
   ClipboardList,
   GraduationCap,
@@ -20,7 +19,7 @@ import { Icon, type LucideIcon } from '../ui/Icon';
 import { canWorkTickets, isAdmin, type AccountRole } from '../../lib/auth/roles';
 import type { QueueCounts } from '../../lib/data/tickets';
 
-export type NavGroup = 'Work' | 'Directory' | 'Inventory' | 'Insights' | 'Admin';
+export type NavGroup = 'Work' | 'Directory' | 'Inventory' | 'Admin';
 
 export interface NavItem {
   href: string;
@@ -37,17 +36,17 @@ export interface NavItem {
 }
 
 /** Rail order. Groups never interleave. */
-export const NAV_GROUPS: NavGroup[] = ['Work', 'Directory', 'Inventory', 'Insights', 'Admin'];
+export const NAV_GROUPS: NavGroup[] = ['Work', 'Directory', 'Inventory', 'Admin'];
 
 /**
  * The primary navigation for a role set, in rail order.
  *
  * Pure so the composition can be tested without rendering. NetRiders get Work,
- * Directory, Inventory and Insights; admins also get the Admin group, whose
+ * Directory and Inventory; admins also get the Admin group, whose
  * "All tickets" carries the total across every account.
  *
  * A skills officer who is neither gets the directory and the inventory and
- * nothing else — no Work group, no Insights, and no ticket route anywhere in
+ * nothing else — no Work group and no ticket route anywhere in
  * the rail. That is not the security boundary (the database refuses them every
  * ticket, and the routes redirect); it is what keeps the rail honest about the
  * work this person can actually do.
@@ -109,7 +108,6 @@ export function navItems(roles: readonly AccountRole[], counts: QueueCounts): Na
   );
 
   if (canWorkTickets(roles)) {
-    items.push({ href: '/insights', label: 'Insights', icon: ChartColumn, group: 'Insights' });
   }
 
   if (isAdmin(roles)) {

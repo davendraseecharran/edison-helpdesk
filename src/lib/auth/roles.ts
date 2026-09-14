@@ -100,7 +100,7 @@ export function isAdmin(roles: readonly AccountRole[]): boolean {
 }
 
 /**
- * Tickets, notes, work logs, attachments, the queue, insights and the scanner.
+ * Tickets, notes, work logs, attachments, the queue and the scanner.
  * An administrator works tickets too; a skills officer who is neither does not.
  */
 export function canWorkTickets(roles: readonly AccountRole[]): boolean {

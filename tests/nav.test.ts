@@ -4,7 +4,7 @@ import { navItems } from '../src/components/shell/RailNav';
 const counts = { openQueue: 3, myTickets: 1, collaborating: 0, closed: 9, all: 13 };
 
 describe('navItems', () => {
-  it('gives NetRiders work, directory, inventory and insights but no admin group', () => {
+  it('gives NetRiders work, directory and inventory but no admin group', () => {
     const items = navItems(['netrider'], counts);
     expect(items.map((i) => i.href)).toEqual([
       '/queue',
@@ -16,7 +16,6 @@ describe('navItems', () => {
       '/inventory/students',
       '/inventory/staff',
       '/inventory/devices',
-      '/insights',
     ]);
     expect(items.find((i) => i.href === '/queue')?.count).toBe(3);
   });
@@ -32,7 +31,7 @@ describe('navItems', () => {
     const items = navItems(['admin'], counts);
     const groups = items.map((i) => i.group);
     // Groups appear in rail order and never interleave.
-    expect([...new Set(groups)]).toEqual(['Work', 'Directory', 'Inventory', 'Insights', 'Admin']);
+    expect([...new Set(groups)]).toEqual(['Work', 'Directory', 'Inventory', 'Admin']);
     expect(items.every((i) => i.label.length > 0 && i.icon)).toBe(true);
   });
 
