@@ -296,6 +296,16 @@ project URL and the anon key, which is public by design.
     first. Read the counts and the skipped rows before committing. Students,
     then staff, then devices, so device holders match.
 
+**Attachments, periodically.** Deleting a ticket or a device leaves its
+uploaded files in the private `attachments` bucket: the cascade removes the
+registry rows inside the database, which has no way to reach storage. The
+bytes are unreachable (the bucket is private and carries no policies, and a
+signed URL is only ever minted for a path the registry returned), so this is
+storage cost rather than exposure. To reclaim it, list `storage.objects` in
+the `attachments` bucket, left-join `public.attachments` on `name = path`, and
+delete the objects with no match. Safe at any time: a registered attachment's
+row is committed before its bytes are referenced.
+
 `supabase/config.toml` configures the **local** stack only; changing it does not
 configure the hosted project. The values committed there are the defaults
 (54321 API, 54322 database, 54323 Studio); a local developer may run on other
@@ -340,7 +350,8 @@ non-loopback Supabase URL and a linked project.
   `attachments` rows by cascade but not the bytes in the bucket. Nothing can
   read them — there are no policies on `storage.objects` and no signed URL is
   issued for a row that no longer exists — but they occupy storage until
-  something sweeps them.
+  something sweeps them. See the runbook's "Attachments, periodically" note
+  for the reclamation procedure.
 - **The scan sweeper needs an external scheduler.** See runbook step 9.
 - **The Codex endpoint is unofficial** and may change without notice. The
   assistant is gated behind `AI_TOKEN_KEY` so the rest of the application is
@@ -348,7 +359,11 @@ non-loopback Supabase URL and a linked project.
 - **`authUserExists` pages the first 1000 auth users.** Past that, the check an
   administrator's invite screen makes before creating an account can miss an
   existing identity. The school is far below that number, and the unique
-  constraint on `app_accounts.email` is the real protection.
+  constraint on `app_accounts.email` is the real protection. The fifty-request
+  cap on the sign-in waiting list does not help here: it bounds
+  `app_accounts`, not `auth.users`, and GoTrue creates the Auth user before
+  the RPC that enforces the cap ever runs, so a flood of uninvited Google
+  accounts still grows `auth.users` without limit and degrades this check.
 - **The conversation cap on the assistant is soft.** Concurrent inserts can
   exceed it briefly before it settles.
 - **Realtime is optional but noticeably better.** Without it the phone scanner

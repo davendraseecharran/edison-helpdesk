@@ -8,7 +8,7 @@ Google sign-in with invites and an approval queue, a people directory and a devi
 
 Per-task briefs, reports and review rounds are in `.superpowers/sdd/2026-09-12-platform-overhaul/`; `progress.md` there is the ledger of what was implemented, reviewed and ruled on.
 
-The branch adds migrations `20260912100000_m5_*` through `20260912101300_m5_row_attribution.sql`. They are additive and have been applied to the local stack only. `supabase/config.toml` on this machine carries an **uncommitted** local port patch (55321/2/3); the committed values are the defaults (54321/2/3). Never stage that file.
+The branch adds migrations `20260912100000_m5_*` through `20260912101400_m5_access_request_cap.sql`. They are additive and have been applied to the local stack only. `supabase/config.toml` on this machine carries an **uncommitted** local port patch (55321/2/3); the committed values are the defaults (54321/2/3). Never stage that file.
 
 ## Live resources (M4, unchanged)
 
