@@ -64,7 +64,7 @@ describe('momentForTool', () => {
   });
 
   it('treats every get_ and list_ tool as a read', () => {
-    for (const name of ['get_ticket', 'get_person', 'get_device', 'get_insights', 'list_queue', 'list_my_tickets', 'list_people', 'list_devices', 'list_notifications']) {
+    for (const name of ['get_ticket', 'get_person', 'get_device', 'list_queue', 'list_my_tickets', 'list_people', 'list_devices', 'list_notifications']) {
       expect(momentForTool(name)).toBe('reading');
     }
   });

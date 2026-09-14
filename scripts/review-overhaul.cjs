@@ -141,7 +141,6 @@ function routes(seed) {
     { slug: 'person', path: `/people/${seed.student}`, title: 'Person — Edison Helpdesk' },
     { slug: 'devices', path: '/devices', title: 'Devices — Edison Helpdesk' },
     { slug: 'device', path: `/devices/${seed.chromebook}`, title: 'Device — Edison Helpdesk' },
-    { slug: 'insights', path: '/insights', title: 'Insights — Edison Helpdesk' },
     { slug: 'admin-access', path: '/admin', title: 'Administration — Edison Helpdesk' },
     { slug: 'admin-audit', path: '/admin/audit', title: 'Audit log — Edison Helpdesk' },
     { slug: 'settings', path: '/settings', title: 'Settings — Edison Helpdesk' },
@@ -329,7 +328,7 @@ async function shoot(page, theme, viewport, slug) {
   ok(await admin.rpc('app_add_note', { p_ticket: worked, p_body: 'Charger tested on a second machine; the machine is the problem.' }));
   ok(await admin.rpc('app_log_work', { p_ticket: worked, p_minutes: 25, p_work_date: null, p_description: 'Battery report and charge test.' }));
 
-  // One resolved ticket, so the Resolved view and the insights have something.
+  // One resolved ticket, so the Resolved view has something.
   const resolved = ok(
     await admin.rpc('app_create_ticket', {
       p_title: 'Printer queue stuck in the main office',

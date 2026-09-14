@@ -69,7 +69,6 @@ describe('tool classification', () => {
       'log_work',
       'get_ticket',
       'list_queue',
-      'get_insights',
     ]) {
       expect(names).not.toContain(name);
     }
@@ -95,7 +94,6 @@ describe('tool classification', () => {
       'list_devices',
       'get_device',
       'list_notifications',
-      'get_insights',
     ]) {
       expect(READ_TOOLS).toContain(name);
     }

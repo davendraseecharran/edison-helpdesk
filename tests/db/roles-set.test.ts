@@ -172,12 +172,9 @@ describe('what each kind of account reaches', () => {
     expect(intake.message).toMatch(/netrider or an administrator/i);
   });
 
-  it('refuses a skills officer the insights report and the admin RPCs', async () => {
+  it('refuses a skills officer the admin RPCs', async () => {
     const skills = await signIn('skillsOfficer');
 
-    expect((await rpcFails(skills, 'app_insights', { p_days: 30 })).message).toMatch(
-      /netrider or an administrator/i,
-    );
     expect((await rpcFails(skills, 'app_admin_list_invites')).message).toMatch(
       /only an administrator/i,
     );
@@ -327,7 +324,6 @@ describe('what each kind of account reaches', () => {
 
     const netrider = await signIn('owner');
     expect(await rpcOk<boolean>(netrider, 'app_can_view_ticket', { p_ticket: ticketId })).toBe(true);
-    expect(await rpcOk(netrider, 'app_insights', { p_days: 7 })).toBeTruthy();
     expect((await rpcFails(netrider, 'app_admin_list_invites')).message).toMatch(
       /only an administrator/i,
     );

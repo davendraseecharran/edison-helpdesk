@@ -16,11 +16,11 @@
 --      of the person-facing copy. Restated verbatim otherwise, from
 --      20260914120000_m5_create_ticket_merged.sql.
 --   3. `app_has_role(text)`, added by 20260914140000, was granted and never
---      called -- a door left unlocked and unused. It is wired into the three
+--      called -- a door left unlocked and unused. It is wired into the two
 --      guards that test the CALLER's own roles, always reached only through
 --      `app_require_actor()` reading `auth.uid()` into the variable the guard
 --      then tests, in place of the inline `roles && array[...]` test:
---      `app_insights`, `app_save_inventory_device` and `app_claim_ticket`
+--      `app_save_inventory_device` and `app_claim_ticket`
 --      (20260914140100_m5_roles_ticket_targets.sql).
 --
 --      `app_lock_ticket(p_ticket, p_actor)` looked like a fourth: every
@@ -352,31 +352,12 @@ to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- app_has_role wired into the guards that test the caller's own roles.
--- Restated from 20260914140000 (app_insights, app_save_inventory_device) and
--- 20260914140100 (app_claim_ticket), each with exactly one line changed: the
--- inline `roles && array[...]` becomes the two app_has_role calls it is
--- equivalent to for these callers. Nothing else in any of the three bodies
--- changes. app_lock_ticket is NOT restated here: see the header comment for
--- why its inline form stays.
+-- Restated from 20260914140000 (app_save_inventory_device) and 20260914140100
+-- (app_claim_ticket), each with exactly one line changed: the inline
+-- `roles && array[...]` becomes the two app_has_role calls it is equivalent to
+-- for these callers. Nothing else in either body changes. app_lock_ticket is
+-- NOT restated here: see the header comment for why its inline form stays.
 -- ---------------------------------------------------------------------------
-
-create or replace function public.app_insights(p_days integer default 30)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_actor public.app_accounts;
-begin
-  v_actor := public.app_require_actor();
-  if not (public.app_has_role('admin') or public.app_has_role('netrider')) then
-    raise exception 'Only a NetRider or an administrator can read insights.'
-      using errcode = 'insufficient_privilege';
-  end if;
-  return public.app_insights_report(p_days);
-end;
-$$;
 
 create or replace function public.app_save_inventory_device(p_id uuid, p_version integer, p_data jsonb)
 returns uuid
