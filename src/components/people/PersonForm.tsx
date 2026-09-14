@@ -323,7 +323,7 @@ export function PersonForm({
           htmlFor="person-notes"
           optional
           className="form-grid-full"
-          hint="Read by every technician. Not the place for anything a parent would not want them to read."
+          hint="Read by every NetRider. Not the place for anything a parent would not want them to read."
         >
           <textarea
             id="person-notes"

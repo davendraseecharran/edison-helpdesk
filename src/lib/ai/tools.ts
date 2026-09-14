@@ -1166,8 +1166,25 @@ const TOOLS: Record<string, ToolSpec> = {
       },
     },
     run: async (args, ctx) => {
+      // Checked before anything is resolved, and against ROLES rather than
+      // through normalizeRoles: that helper is for display, where an
+      // unreadable value quietly becomes netrider, and a hallucinated role
+      // name here must be an error the operator sees named, not a silent
+      // netrider grant.
+      const tokens = String(args.roles)
+        .split(',')
+        .map((token) => token.trim().toLowerCase())
+        .filter((token) => token.length > 0);
+      if (tokens.length === 0) {
+        throw new ToolError('Name at least one role: admin, netrider or skills_officer.');
+      }
+      const unknown = tokens.find((token) => !(ROLES as readonly string[]).includes(token));
+      if (unknown !== undefined) {
+        throw new ToolError(`"${unknown}" is not a role. Choose from: ${ROLES.join(', ')}.`);
+      }
+
       const account = await resolveAccount(ctx, String(args.account));
-      const roles = normalizeRoles(String(args.roles).split(','));
+      const roles = normalizeRoles(tokens);
       await rpc(ctx, 'app_set_account_roles', { p_account: account.id, p_roles: roles });
       return outcome({ id: account.id }, `Made ${account.name} ${rolesLabel(roles)}`);
     },
