@@ -18,7 +18,7 @@ import 'server-only';
  */
 
 import { createClient } from '@/lib/supabase/server';
-import type { PersonDetail, PersonKind } from '@/lib/domain/types';
+import { ACTIVE_STATUSES, type PersonDetail, type PersonKind } from '@/lib/domain/types';
 import {
   mapInventoryDevice,
   mapInventoryPage,
@@ -47,6 +47,47 @@ export interface PeoplePage {
   total: number;
   page: number;
   pageCount: number;
+  /**
+   * How many tickets of this person's are still live, by person id, for the
+   * people on this page. Absent from the map means none — or none this viewer
+   * is allowed to know about, which is the same answer as far as the list is
+   * concerned.
+   */
+  openTickets: Record<string, number>;
+}
+
+/**
+ * The live ticket count for a page of people.
+ *
+ * A separate read rather than a column on `app_list_people`, and deliberately:
+ * that function is SECURITY DEFINER and would have to decide for itself which
+ * tickets a viewer may count. This runs as the signed-in user, so the ticket
+ * policy answers — a skills officer, who may read the roster and no tickets at
+ * all, gets an empty map and a directory with no counts in it, which is the
+ * truth for them.
+ *
+ * One query for the page, not one per row, and a failure is not an error: the
+ * directory's job is the roster, and a count that could not be fetched is a
+ * count that is not shown.
+ */
+async function loadOpenTicketCounts(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ids: string[],
+): Promise<Record<string, number>> {
+  if (ids.length === 0) return {};
+  const { data, error } = await supabase
+    .from('tickets')
+    .select('requester_id')
+    .in('requester_id', ids)
+    .in('status', ACTIVE_STATUSES);
+  if (error || !data) return {};
+
+  const counts: Record<string, number> = {};
+  for (const row of data as { requester_id: string | null }[]) {
+    if (!row.requester_id) continue;
+    counts[row.requester_id] = (counts[row.requester_id] ?? 0) + 1;
+  }
+  return counts;
 }
 
 export async function loadPeople(filters: PeopleFilters): Promise<PeoplePage> {
@@ -68,11 +109,17 @@ export async function loadPeople(filters: PeopleFilters): Promise<PeoplePage> {
   // the first page rather than showing a false zero with no way back.
   if (mapped.rows.length === 0 && page > 1) return loadPeople({ ...filters, page: 1 });
 
+  const openTickets = await loadOpenTicketCounts(
+    supabase,
+    mapped.rows.map((person) => person.id),
+  );
+
   return {
     people: mapped.rows,
     total: mapped.total,
     page,
     pageCount: Math.max(1, Math.ceil(mapped.total / (mapped.pageSize || PEOPLE_PAGE_SIZE))),
+    openTickets,
   };
 }
 

@@ -89,7 +89,7 @@ export function PeopleList({ page }: { page: PeoplePage }) {
     return params ? `${pathname}?${params}` : pathname;
   }
 
-  const { people, total, pageCount } = page;
+  const { people, total, pageCount, openTickets } = page;
   const busy = navigating;
   const isStudent = current.kind === 'student';
 
@@ -128,6 +128,26 @@ export function PeopleList({ page }: { page: PeoplePage }) {
       width: 96,
       cell: (person) =>
         person.deviceCount > 0 ? person.deviceCount : <span className="dir-quiet">0</span>,
+    },
+    {
+      /*
+       * Tickets still waiting on an answer. It is the question somebody scans
+       * this list for — who is stuck — and until now it took opening each
+       * record to find out. A zero is set quiet, so the column reads as the
+       * few names that have something open rather than as a wall of noughts;
+       * an account that may read the roster but no tickets sees every row
+       * quiet, which is the truth for them.
+       */
+      key: 'open',
+      header: 'Open',
+      align: 'right',
+      width: 88,
+      cell: (person) => {
+        const count = openTickets[person.id] ?? 0;
+        // Not a link: the name in the same row already goes to the record, and
+        // that record is where the tickets are listed.
+        return count > 0 ? count : <span className="dir-quiet">0</span>;
+      },
     },
   ];
 
