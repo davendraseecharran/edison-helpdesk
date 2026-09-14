@@ -3,20 +3,32 @@
 /**
  * Add or correct one inventory record.
  *
- * Identifiers first, because one of them is what a technician has in their
- * hand; the database wants at least one and upper-cases all three. Status is
- * on the form for a machine nobody holds; a deployed one is deployed because
- * somebody holds it, so the select is locked and points at Return instead.
+ * The four the database insists on come first — type, manufacturer, model and
+ * serial number — and the first three cascade off `app_device_catalog()`:
+ * choosing a type narrows the manufacturers, choosing a manufacturer narrows
+ * the models. New values are allowed in all three, because saving one adds it
+ * to the catalogue.
+ *
+ * The inventory id is not a field: `app_save_inventory_device` generates it.
+ * Status is free text from `app_inventory_statuses()`, and Assigned is not
+ * offered here — a machine is Assigned because somebody is holding it, which
+ * is what assigning and returning are for.
+ *
+ * `version` is round-tripped, so a save against a record somebody else has
+ * changed is refused with the database's own words rather than overwriting it.
  */
 
-import { useState, type FormEvent, type ReactNode } from 'react';
-import { saveDeviceAction, type DeviceFields } from '@/lib/data/device-actions';
+import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { saveDeviceAction } from '@/lib/data/device-actions';
 import type { ActionResult } from '@/lib/data/actions';
 import { deviceErrorField } from '@/lib/domain/records';
 import {
-  DEVICE_STATUS_LABELS,
-  MANUAL_DEVICE_STATUSES,
+  ASSIGNED_STATUS,
+  AVAILABLE_STATUS,
+  SEED_DEVICE_STATUSES,
   type Device,
+  type DeviceCatalogEntry,
+  type DeviceInput,
   type DeviceStatus,
 } from '@/lib/domain/types';
 import { useRuntime } from '@/components/AppRuntime';
@@ -24,32 +36,20 @@ import { Field } from '@/components/Primitives';
 import { ScanTargetButton } from '@/components/scan/ScanTargetButton';
 import { Button } from '@/components/ui/Button';
 
-const TYPE_SUGGESTIONS = [
-  'Laptop',
-  'Chromebook',
-  'Desktop',
-  'Tablet',
-  'Projector',
-  'Interactive panel',
-  'Printer',
-  'Phone',
-  'Network equipment',
-];
-
-type Draft = Required<DeviceFields>;
+type Draft = DeviceInput;
 
 function draftFrom(device?: Device): Draft {
   return {
-    device_id: device?.deviceId ?? '',
-    serial_number: device?.serialNumber ?? '',
-    asset_tag: device?.assetTag ?? '',
-    type: device?.type ?? 'Laptop',
+    deviceType: device?.deviceType ?? '',
     manufacturer: device?.manufacturer ?? '',
     model: device?.model ?? '',
-    os: device?.os ?? '',
-    status: device?.status ?? 'in_stock',
+    osVersion: device?.osVersion ?? '',
+    serialNumber: device?.serialNumber ?? '',
+    assetTag: device?.assetTag ?? '',
+    status: device?.status ?? AVAILABLE_STATUS,
     location: device?.location ?? '',
     notes: device?.notes ?? '',
+    assignedRequesterId: device?.assignedRequesterId ?? null,
   };
 }
 
@@ -57,10 +57,11 @@ export const DEVICE_FORM_ID = 'device-form';
 
 export interface DeviceFormProps {
   device?: Device;
-  /** Somebody is holding it, so its status is not the form's to change. */
-  held?: boolean;
-  types: string[];
-  locations: string[];
+  /** The type, manufacturer and model tuples already in the catalogue. */
+  catalog: DeviceCatalogEntry[];
+  /** The statuses in use, from app_inventory_statuses. */
+  statuses: string[];
+  locations?: string[];
   onSaved: (id: string) => void;
   actions?: ReactNode;
   formId?: string;
@@ -68,9 +69,9 @@ export interface DeviceFormProps {
 
 export function DeviceForm({
   device,
-  held = false,
-  types,
-  locations,
+  catalog,
+  statuses,
+  locations = [],
   onSaved,
   actions,
   formId = DEVICE_FORM_ID,
@@ -79,6 +80,7 @@ export function DeviceForm({
   const [draft, setDraft] = useState<Draft>(() => draftFrom(device));
   const [error, setError] = useState<{ field: string | null; message: string } | null>(null);
   const key = device ? `save-device:${device.id}` : 'save-device';
+  const held = draft.assignedRequesterId !== null;
 
   function set<K extends keyof Draft>(field: K, value: Draft[K]) {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -91,10 +93,9 @@ export function DeviceForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    const fields: DeviceFields & { id?: string } = { ...draft, id: device?.id };
-    // A held device keeps its status; sending it would only invite a refusal.
-    if (held) delete fields.status;
-    const result: ActionResult = await run(key, () => saveDeviceAction(fields));
+    const result: ActionResult = await run(key, () =>
+      saveDeviceAction({ ...draft, id: device?.id ?? null, version: device?.version ?? null }),
+    );
     if (result.ok) {
       onSaved(result.id ?? device?.id ?? '');
     } else {
@@ -103,121 +104,150 @@ export function DeviceForm({
     }
   }
 
-  const typeSuggestions = Array.from(new Set([...types, ...TYPE_SUGGESTIONS]));
-  const identifierError = errorFor('asset_tag') ?? errorFor('serial_number') ?? errorFor('device_id');
-  const identifierHint = 'At least one of the three. Stored in capitals.';
+  // The catalogue, cascading. Changing a type clears a manufacturer that no
+  // longer belongs to it, so the three fields can never disagree about which
+  // machine they describe.
+  const types = useMemo(
+    () => [...new Set(catalog.map((entry) => entry.deviceType))].sort(),
+    [catalog],
+  );
+  const manufacturers = useMemo(
+    () =>
+      [
+        ...new Set(
+          catalog
+            .filter((entry) => !draft.deviceType || entry.deviceType === draft.deviceType)
+            .map((entry) => entry.manufacturer),
+        ),
+      ].sort(),
+    [catalog, draft.deviceType],
+  );
+  const models = useMemo(
+    () =>
+      [
+        ...new Set(
+          catalog
+            .filter(
+              (entry) =>
+                (!draft.deviceType || entry.deviceType === draft.deviceType) &&
+                (!draft.manufacturer || entry.manufacturer === draft.manufacturer),
+            )
+            .map((entry) => entry.model),
+        ),
+      ].sort(),
+    [catalog, draft.deviceType, draft.manufacturer],
+  );
+
+  const offeredStatuses = (statuses.length ? statuses : SEED_DEVICE_STATUSES).filter(
+    (value) => value !== ASSIGNED_STATUS,
+  );
 
   return (
     <form id={formId} className="form device-form" onSubmit={submit} noValidate>
       <div className="form-grid">
-        <Field
-          label="Asset tag"
-          htmlFor="device-asset-tag"
-          optional
-          error={errorFor('asset_tag')}
-          hint={identifierError ? undefined : identifierHint}
-        >
-          {/* The tag is printed on a sticker on the lid. A technician holding
-              the laptop reads it with the phone in their other hand rather
-              than typing thirteen characters twice. */}
-          <div className="field-with-scan">
-            <input
-              id="device-asset-tag"
-              type="text"
-              className="mono"
-              value={draft.asset_tag}
-              autoComplete="off"
-              spellCheck={false}
-              aria-invalid={errorFor('asset_tag') ? 'true' : undefined}
-              onChange={(event) => set('asset_tag', event.target.value)}
-              placeholder="DOE-LN0000001"
-              data-autofocus
-            />
-            <ScanTargetButton label="Asset tag" onScan={(code) => set('asset_tag', code)} />
-          </div>
+        <Field label="Type" htmlFor="device-type" error={errorFor('deviceType')} hint="New values are allowed.">
+          <input
+            id="device-type"
+            type="text"
+            list="device-type-options"
+            value={draft.deviceType}
+            autoComplete="off"
+            aria-invalid={errorFor('deviceType') ? 'true' : undefined}
+            onChange={(event) =>
+              setDraft((current) => ({
+                ...current,
+                deviceType: event.target.value,
+                manufacturer: '',
+                model: '',
+              }))
+            }
+            placeholder="Chromebook"
+            data-autofocus
+          />
+          <datalist id="device-type-options">
+            {types.map((type) => (
+              <option key={type} value={type} />
+            ))}
+          </datalist>
         </Field>
-        <Field label="Serial number" htmlFor="device-serial" optional error={errorFor('serial_number')}>
+        <Field label="Manufacturer" htmlFor="device-manufacturer" error={errorFor('manufacturer')}>
+          <input
+            id="device-manufacturer"
+            type="text"
+            list="device-manufacturer-options"
+            value={draft.manufacturer}
+            autoComplete="off"
+            aria-invalid={errorFor('manufacturer') ? 'true' : undefined}
+            onChange={(event) =>
+              setDraft((current) => ({ ...current, manufacturer: event.target.value, model: '' }))
+            }
+            placeholder="Lenovo"
+          />
+          <datalist id="device-manufacturer-options">
+            {manufacturers.map((manufacturer) => (
+              <option key={manufacturer} value={manufacturer} />
+            ))}
+          </datalist>
+        </Field>
+        <Field label="Model" htmlFor="device-model" error={errorFor('model')}>
+          <input
+            id="device-model"
+            type="text"
+            list="device-model-options"
+            value={draft.model}
+            autoComplete="off"
+            aria-invalid={errorFor('model') ? 'true' : undefined}
+            onChange={(event) => set('model', event.target.value)}
+            placeholder="13w Yoga"
+          />
+          <datalist id="device-model-options">
+            {models.map((model) => (
+              <option key={model} value={model} />
+            ))}
+          </datalist>
+        </Field>
+        <Field label="Serial number" htmlFor="device-serial" error={errorFor('serialNumber')}>
+          {/* A technician holding the laptop reads the label with the phone in
+              their other hand rather than typing thirteen characters twice. */}
           <div className="field-with-scan">
             <input
               id="device-serial"
               type="text"
               className="mono"
-              value={draft.serial_number}
+              value={draft.serialNumber}
               autoComplete="off"
               spellCheck={false}
-              aria-invalid={errorFor('serial_number') ? 'true' : undefined}
-              onChange={(event) => set('serial_number', event.target.value)}
+              aria-invalid={errorFor('serialNumber') ? 'true' : undefined}
+              onChange={(event) => set('serialNumber', event.target.value)}
               placeholder="PF3HK2QJ"
             />
-            <ScanTargetButton
-              label="Serial number"
-              onScan={(code) => set('serial_number', code)}
-            />
+            <ScanTargetButton label="Serial number" onScan={(code) => set('serialNumber', code)} />
           </div>
         </Field>
-        <Field
-          label="Device ID"
-          htmlFor="device-device-id"
-          optional
-          error={errorFor('device_id')}
-          hint="The managed-device id, for Windows machines."
-        >
-          <input
-            id="device-device-id"
-            type="text"
-            className="mono"
-            value={draft.device_id}
-            autoComplete="off"
-            spellCheck={false}
-            aria-invalid={errorFor('device_id') ? 'true' : undefined}
-            onChange={(event) => set('device_id', event.target.value)}
-            placeholder="PW0FYJ9B-WIN"
-          />
-        </Field>
-        <Field label="Type" htmlFor="device-type">
-          <input
-            id="device-type"
-            type="text"
-            list="device-type-suggestions"
-            value={draft.type}
-            autoComplete="off"
-            onChange={(event) => set('type', event.target.value)}
-            placeholder="Laptop"
-          />
-          <datalist id="device-type-suggestions">
-            {typeSuggestions.map((type) => (
-              <option key={type} value={type} />
-            ))}
-          </datalist>
-        </Field>
-        <Field label="Manufacturer" htmlFor="device-manufacturer" optional>
-          <input
-            id="device-manufacturer"
-            type="text"
-            value={draft.manufacturer}
-            autoComplete="off"
-            onChange={(event) => set('manufacturer', event.target.value)}
-            placeholder="Lenovo"
-          />
-        </Field>
-        <Field label="Model" htmlFor="device-model" optional>
-          <input
-            id="device-model"
-            type="text"
-            value={draft.model}
-            autoComplete="off"
-            onChange={(event) => set('model', event.target.value)}
-            placeholder="13w Yoga"
-          />
+        <Field label="Asset tag" htmlFor="device-asset-tag" optional error={errorFor('assetTag')}>
+          <div className="field-with-scan">
+            <input
+              id="device-asset-tag"
+              type="text"
+              className="mono"
+              value={draft.assetTag}
+              autoComplete="off"
+              spellCheck={false}
+              aria-invalid={errorFor('assetTag') ? 'true' : undefined}
+              onChange={(event) => set('assetTag', event.target.value)}
+              placeholder="DOE-LN0000001"
+            />
+            <ScanTargetButton label="Asset tag" onScan={(code) => set('assetTag', code)} />
+          </div>
         </Field>
         <Field label="OS" htmlFor="device-os" optional>
           <input
             id="device-os"
             type="text"
-            value={draft.os}
+            value={draft.osVersion}
             autoComplete="off"
-            onChange={(event) => set('os', event.target.value)}
-            placeholder="Windows 11"
+            onChange={(event) => set('osVersion', event.target.value)}
+            placeholder="ChromeOS 126"
           />
         </Field>
         <Field
@@ -226,38 +256,46 @@ export function DeviceForm({
           error={errorFor('status')}
           hint={
             held
-              ? 'Deployed while somebody holds it. Return the device to change it.'
-              : 'Deployed is set by assigning the device to a person.'
+              ? 'Assigned while somebody holds it. Return the device to change it.'
+              : 'Assigned is set by giving the device to a person.'
           }
         >
           {held ? (
-            <input id="device-status" type="text" value={DEVICE_STATUS_LABELS.deployed} readOnly disabled />
+            <input id="device-status" type="text" value={ASSIGNED_STATUS} readOnly disabled />
           ) : (
-            <select
+            <input
               id="device-status"
+              type="text"
+              list="device-status-options"
               value={draft.status}
+              autoComplete="off"
               aria-invalid={errorFor('status') ? 'true' : undefined}
               onChange={(event) => set('status', event.target.value as DeviceStatus)}
-            >
-              {MANUAL_DEVICE_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {DEVICE_STATUS_LABELS[status]}
-                </option>
-              ))}
-            </select>
+            />
           )}
+          <datalist id="device-status-options">
+            {offeredStatuses.map((status) => (
+              <option key={status} value={status} />
+            ))}
+          </datalist>
         </Field>
-        <Field label="Location" htmlFor="device-location" optional hint="A room, a cart or a shelf.">
+        <Field
+          label="Location"
+          htmlFor="device-location"
+          optional
+          error={errorFor('location')}
+          hint="A room, a cart or a shelf."
+        >
           <input
             id="device-location"
             type="text"
-            list="device-location-suggestions"
+            list="device-location-options"
             value={draft.location}
             autoComplete="off"
             onChange={(event) => set('location', event.target.value)}
             placeholder="Cart 4"
           />
-          <datalist id="device-location-suggestions">
+          <datalist id="device-location-options">
             {locations.map((location) => (
               <option key={location} value={location} />
             ))}

@@ -385,7 +385,7 @@ export function AiDemo() {
   }, [prompt, scenario]);
 
   return (
-    <AppRuntimeProvider actor={ACTOR} directory={[]} requesters={[]} today="2026-09-13">
+    <AppRuntimeProvider actor={ACTOR} directory={[]} today="2026-09-13">
       <div className="shell">
         <header className="topbar">
           <Link href="/queue" className="brand" aria-label="Edison Helpdesk">

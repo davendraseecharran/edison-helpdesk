@@ -6,11 +6,9 @@
  * that person is refused by the database, and a device with another holder
  * is taken back from them first, which the history records on both sides.
  *
- * The note is offered for one device only: `app_bulk_update_devices` calls
- * `app_assign_device` with no note at all, so a bulk handover has nothing to
- * send it to. `allowNote` is what the caller uses to say so; without it, a
- * selection of exactly one device from the bulk bar would still show the
- * field and quietly throw away whatever was typed into it.
+ * The note is offered for one device only. A handover is one machine and one
+ * person at a time, with its own note and its own history, which is why
+ * app_bulk_update_inventory does not do assignment at all.
  */
 
 import { useState, type FormEvent } from 'react';
@@ -87,8 +85,8 @@ export function AssignDeviceDialog({
       title={`Assign ${subject}`}
       description={
         count === 1
-          ? 'The device is marked deployed and the loan starts now.'
-          : 'Every selected device is marked deployed and its loan starts now.'
+          ? 'The device is marked Assigned and the loan starts now.'
+          : 'Every selected device is marked Assigned and its loan starts now.'
       }
       footer={
         <>

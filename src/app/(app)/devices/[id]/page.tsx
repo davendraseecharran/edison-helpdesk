@@ -1,4 +1,4 @@
-import { loadDevice, loadDeviceFacets } from '@/lib/data/devices';
+import { loadDevice, loadDeviceCatalog, loadDeviceStatuses } from '@/lib/data/devices';
 import { EmptyState } from '@/components/Primitives';
 import { ButtonLink } from '@/components/ui/Button';
 import { DeviceDetail } from '@/components/devices/DeviceDetail';
@@ -7,7 +7,11 @@ export const metadata = { title: 'Device — Edison Helpdesk' };
 
 export default async function DevicePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [detail, facets] = await Promise.all([loadDevice(id), loadDeviceFacets()]);
+  const [detail, statuses, catalog] = await Promise.all([
+    loadDevice(id),
+    loadDeviceStatuses(),
+    loadDeviceCatalog(),
+  ]);
 
   if (!detail) {
     // Identical whether the record is missing or not visible to this account.
@@ -24,5 +28,5 @@ export default async function DevicePage({ params }: { params: Promise<{ id: str
     );
   }
 
-  return <DeviceDetail detail={detail} facets={facets} />;
+  return <DeviceDetail detail={detail} statuses={statuses} catalog={catalog} />;
 }

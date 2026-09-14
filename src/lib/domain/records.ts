@@ -17,23 +17,28 @@ import { PERSON_KIND_LABELS, type PersonKind } from './types';
  */
 export function personErrorField(message: string): string | null {
   const text = message.toLowerCase();
-  if (text.includes('osis')) return 'osis';
-  if (text.includes('staff id')) return 'staff_id';
-  if (text.includes('email') || text.includes('address ')) return 'email';
+  if (text.includes('osis')) return 'externalId';
+  if (text.includes('staff id')) return 'email';
+  if (text.includes('email')) return 'email';
+  if (text.includes('guardian phone') || text.includes('home phone')) return 'guardianPhone';
+  if (text.includes('class of') || text.includes('four-digit')) return 'classOf';
   if (text.includes('student or staff')) return 'kind';
-  if (text.includes("person's name") || text.includes('enter this person')) return 'first_name';
+  if (text.includes('display name') || text.includes("person's name")) return 'displayName';
+  // The optimistic lock is about the whole record, not one field.
+  if (text.includes('changed since you opened it')) return null;
   return null;
 }
 
 /** The form field a device-record message belongs next to. */
 export function deviceErrorField(message: string): string | null {
   const text = message.toLowerCase();
-  if (text.includes('device id')) return 'device_id';
-  if (text.includes('serial number')) return 'serial_number';
-  if (text.includes('asset tag')) return 'asset_tag';
-  if (text.includes('status') || text.includes('deployed') || text.includes('assigned to someone')) {
-    return 'status';
-  }
+  if (text.includes('serial number')) return 'serialNumber';
+  if (text.includes('asset tag')) return 'assetTag';
+  if (text.includes('device type')) return 'deviceType';
+  if (text.includes('manufacturer')) return 'manufacturer';
+  if (text.includes('model')) return 'model';
+  if (text.includes('status')) return 'status';
+  if (text.includes('location')) return 'location';
   return null;
 }
 
@@ -68,7 +73,7 @@ export function personSubtitle(person: {
   officialClass?: string | null;
   classOf?: string | null;
   department?: string | null;
-  roleTitle?: string | null;
+  staffRole?: string | null;
 }): string {
   const parts = [PERSON_KIND_LABELS[person.kind]];
   if (person.kind === 'student') {
@@ -76,7 +81,7 @@ export function personSubtitle(person: {
     else if (person.classOf) parts.push(`class of ${person.classOf}`);
   } else {
     if (person.department) parts.push(person.department);
-    else if (person.roleTitle) parts.push(person.roleTitle);
+    else if (person.staffRole) parts.push(person.staffRole);
   }
   return parts.join(', ');
 }
@@ -87,7 +92,7 @@ export function personPlacement(person: {
   officialClass?: string | null;
   classOf?: string | null;
   department?: string | null;
-  roleTitle?: string | null;
+  staffRole?: string | null;
 }): string {
   const parts: string[] = [];
   if (person.kind === 'student') {
@@ -95,7 +100,7 @@ export function personPlacement(person: {
     if (person.classOf) parts.push(`class of ${person.classOf}`);
   } else {
     if (person.department) parts.push(person.department);
-    if (person.roleTitle) parts.push(person.roleTitle);
+    if (person.staffRole) parts.push(person.staffRole);
   }
   return parts.join(', ');
 }
@@ -131,28 +136,28 @@ export const RECORD_FIELD_LABELS: Record<string, string> = {
   last_name: 'last name',
   display_name: 'display name',
   email: 'email',
-  osis: 'OSIS',
-  staff_id: 'staff ID',
+  external_id: 'OSIS or staff ID',
+  source_external_id: 'source ID',
   school_dbn: 'school DBN',
   department: 'department',
-  role_title: 'role',
+  staff_role: 'role',
   official_class: 'official class',
   class_of: 'class of',
-  parent_name: 'parent or guardian',
-  parent_phone: 'parent phone',
+  student_status: 'enrolment status',
+  guardian_name: 'parent or guardian',
+  guardian_phone: 'guardian phone',
   home_phone: 'home phone',
   address: 'address',
   notes: 'notes',
-  source: 'source',
-  device_id: 'device ID',
+  device_type: 'type',
   serial_number: 'serial number',
   asset_tag: 'asset tag',
-  type: 'type',
   manufacturer: 'manufacturer',
   model: 'model',
-  os: 'OS',
+  os_version: 'OS',
   status: 'status',
   location: 'location',
+  assigned_requester_id: 'assignment',
 };
 
 /**

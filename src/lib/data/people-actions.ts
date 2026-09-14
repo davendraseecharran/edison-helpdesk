@@ -8,38 +8,42 @@
  * POST-only server action rather than a route that returns the roster to
  * anyone who asks for it.
  *
- * Every mutation calls one of the reviewed M5 RPCs with the signed-in user's
- * own JWT, so the database re-derives identity from auth.uid() and applies the
- * same authorization and audit rules it applies to any other caller. Nothing
- * here trusts an actor id or role from the browser.
- *
- * `app_list_people_m5` is SECURITY INVOKER, so the row policy decides what comes
- * back: an account that is not active gets an empty list rather than an error,
- * because the directory holds children's home addresses and parents' phone
- * numbers and is hidden by the database rather than by this file.
+ * Every mutation calls the owner's `app_save_person` with the signed-in user's
+ * own JWT, so the database re-derives identity from auth.uid(), validates the
+ * profile, enforces the optimistic lock and writes its own audit row. Nothing
+ * here trusts an actor id or a role from the browser, and nothing here
+ * pre-empts a rule the database will apply anyway.
  */
 
 import { createClient } from '@/lib/supabase/server';
 import { loadActor } from '@/lib/auth/session';
 import type { ActionResult } from '@/lib/data/actions';
 import { callRpc } from '@/lib/data/rpc';
-import type { PersonKind } from '@/lib/domain/types';
+import type { PersonInput, PersonKind } from '@/lib/domain/types';
 
 export interface PersonSearchResult {
   id: string;
   displayName: string;
   kind: PersonKind;
-  /** OSIS for a student, department or role for staff. Whatever identifies them. */
+  /** OSIS or staff id: what tells two people of the same name apart. */
+  identifier: string | null;
+  /** The same thing again, for a picker that shows one quiet second line. */
   descriptor: string | null;
   email: string | null;
-  /** The identifier a picker shows in mono: OSIS for a student, staff id for staff. */
-  identifier: string | null;
 }
 
-/** How many results a type-ahead shows before an operator should narrow the term. */
-const SEARCH_LIMIT = 8;
-
-export async function searchPeopleAction(query: string): Promise<PersonSearchResult[]> {
+/**
+ * One search, both kinds.
+ *
+ * The owner's `app_search_requesters` takes exactly one kind and caps at
+ * twenty, so a picker that offers students and staff together asks twice and
+ * interleaves the answers. Two round trips against an indexed lookup is
+ * cheaper than one query that would have to scan the whole directory.
+ */
+export async function searchPeopleAction(
+  query: string,
+  kind?: PersonKind,
+): Promise<PersonSearchResult[]> {
   const term = query.trim();
   if (term.length < 2) return [];
 
@@ -47,92 +51,70 @@ export async function searchPeopleAction(query: string): Promise<PersonSearchRes
   if (actor.kind !== 'active') return [];
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc('app_list_people_m5', {
-    p_query: term,
-    p_limit: SEARCH_LIMIT,
-  });
-  if (error) return [];
+  const kinds: PersonKind[] = kind ? [kind] : ['student', 'staff'];
 
-  return ((data ?? []) as Array<{
-    id: string;
-    kind: string;
-    display_name: string;
-    email: string | null;
-    osis: string | null;
-    staff_id: string | null;
-    department: string | null;
-    role_title: string | null;
-    official_class: string | null;
-  }>).map((row) => ({
-    id: row.id,
-    displayName: row.display_name,
-    kind: row.kind === 'student' ? 'student' : 'staff',
-    // What tells two people of the same name apart, in the order a technician
-    // would use to do it: a student by their OSIS or class, staff by what they
-    // do and where.
-    descriptor:
-      row.kind === 'student'
-        ? (row.osis ?? row.official_class)
-        : (row.department ?? row.role_title),
-    email: row.email,
-    identifier: row.kind === 'student' ? row.osis : row.staff_id,
-  }));
+  const answers = await Promise.all(
+    kinds.map(async (one) => {
+      const { data, error } = await supabase.rpc('app_search_requesters', {
+        p_kind: one,
+        p_query: term,
+      });
+      if (error) return [];
+      return ((data ?? []) as Array<{ id: string; display_name: string; external_id: string | null }>).map(
+        (row) => ({
+          id: row.id,
+          displayName: row.display_name,
+          kind: one,
+          identifier: row.external_id,
+          descriptor: row.external_id,
+          email: null,
+        }),
+      );
+    }),
+  );
+
+  return answers.flat();
 }
 
 /**
- * The fields a form may send. Keys are the database's own column names, so
- * the object goes to `app_upsert_person` as it is: an absent key is left
- * alone and an empty one clears the column. `active` is not here on purpose;
- * archiving is `setPersonActiveAction`, and the database refuses it here.
+ * Save one person.
+ *
+ * `p_version` is the row the form was opened on. The database refuses a stale
+ * one with "This record changed since you opened it", which is the message the
+ * form shows: two people editing the same student is a real Monday morning,
+ * and the second one has to be told rather than silently overwrite the first.
  */
-export interface PersonFields {
-  kind: PersonKind;
-  first_name?: string;
-  last_name?: string;
-  display_name?: string;
-  email?: string;
-  osis?: string;
-  staff_id?: string;
-  school_dbn?: string;
-  department?: string;
-  role_title?: string;
-  official_class?: string;
-  class_of?: string;
-  parent_name?: string;
-  parent_phone?: string;
-  home_phone?: string;
-  address?: string;
-  notes?: string;
-}
-
-const PERSON_KEYS: Array<keyof PersonFields> = [
-  'kind', 'first_name', 'last_name', 'display_name', 'email', 'osis', 'staff_id',
-  'school_dbn', 'department', 'role_title', 'official_class', 'class_of',
-  'parent_name', 'parent_phone', 'home_phone', 'address', 'notes',
-];
-
 export async function savePersonAction(
-  fields: PersonFields & { id?: string },
+  input: PersonInput & { id?: string | null; version?: number | null },
 ): Promise<ActionResult & { id?: string }> {
-  // Only the known keys go through, so a stray `active` or anything else a
-  // browser might add cannot reach the database under this action's name.
-  const person: Record<string, unknown> = {};
-  for (const key of PERSON_KEYS) {
-    if (fields[key] !== undefined) person[key] = fields[key];
-  }
-  if (fields.id) person.id = fields.id;
-  return callRpc(
-    'app_upsert_person',
-    { p_person: person },
-    fields.id ? 'Person saved.' : 'Person added to the directory.',
-  );
-}
+  const { id, version, ...fields } = input;
+  const data: Record<string, unknown> = {
+    kind: fields.kind,
+    displayName: fields.displayName,
+    externalId: fields.externalId,
+    firstName: fields.firstName,
+    lastName: fields.lastName,
+    email: fields.email,
+    notes: fields.notes,
+  };
 
-/** Administrator only; the database refuses anyone else. */
-export async function setPersonActiveAction(id: string, active: boolean): Promise<ActionResult> {
+  if (fields.kind === 'student') {
+    data.classOf = fields.classOf;
+    data.officialClass = fields.officialClass;
+    data.studentStatus = fields.studentStatus;
+    data.guardianName = fields.guardianName;
+    data.guardianPhone = fields.guardianPhone;
+    data.homePhone = fields.homePhone;
+    data.address = fields.address;
+  } else {
+    data.schoolDbn = fields.schoolDbn;
+    data.department = fields.department;
+    data.staffRole = fields.staffRole;
+  }
+
   return callRpc(
-    'app_set_person_active',
-    { p_person: id, p_active: active },
-    active ? 'Person restored to the directory.' : 'Person archived.',
+    'app_save_person',
+    { p_id: id ?? null, p_version: version ?? null, p_data: data },
+    id ? 'Person saved.' : 'Person added to the directory.',
   );
 }

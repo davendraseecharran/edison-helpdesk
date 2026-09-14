@@ -1,6 +1,5 @@
 import { loadInsights, OPEN_STATUSES, PRIORITIES_BY_SEVERITY } from '@/lib/data/insights';
 import {
-  DEVICE_STATUSES,
   TICKET_CATEGORY_LABELS,
   type TicketCategory,
 } from '@/lib/domain/types';
@@ -62,10 +61,10 @@ export default async function InsightsPage({
     value: row.count,
   }));
 
-  const inventoryStatusRows: BarRow[] = DEVICE_STATUSES.map((status) => ({
-    key: status,
-    label: <DeviceStatusBadge status={status} />,
-    value: insights.inventory.byStatus[status],
+  const inventoryStatusRows: BarRow[] = insights.inventory.byStatus.map((row) => ({
+    key: row.status,
+    label: <DeviceStatusBadge status={row.status} />,
+    value: row.count,
   }));
 
   const inventoryTypeRows: BarRow[] = insights.inventory.byType.map((row) => ({

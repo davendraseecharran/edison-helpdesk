@@ -3,19 +3,32 @@
 /**
  * Add or correct one directory record.
  *
- * Kind comes first because it decides which fields follow: a student has an
- * OSIS, a class and a parent to call; a member of staff has a staff id, a
- * department and a role. Every value is sent, blank ones included, so a
- * cleared field really clears; the database does the normalising (case,
- * separators) and the validating, and its message lands beside the field it
- * names when it names one.
+ * Kind decides which fields follow: a student has an OSIS, a class, an
+ * enrolment status and a guardian to call; a member of staff has an email that
+ * their staff ID is derived from, a department and a role. It is chosen once,
+ * when the record is made, and is not offered afterwards — a student does not
+ * become a member of staff, and `app_save_person` refuses the change anyway.
+ *
+ * Every value is sent, blank ones included, so a cleared field really clears.
+ * The database validates (`app_validate_profile`), derives the staff ID from
+ * the email, and enforces the optimistic lock; its message lands beside the
+ * field it names when it names one, and at the foot of the form when it is
+ * about the whole record — which "This record changed since you opened it" is.
  */
 
 import { useState, type FormEvent, type ReactNode } from 'react';
-import { savePersonAction, type PersonFields } from '@/lib/data/people-actions';
+import { savePersonAction } from '@/lib/data/people-actions';
 import type { ActionResult } from '@/lib/data/actions';
 import { personErrorField } from '@/lib/domain/records';
-import { PERSON_KIND_LABELS, type Person, type PersonKind } from '@/lib/domain/types';
+import {
+  PERSON_KIND_LABELS,
+  STUDENT_STATUSES,
+  STUDENT_STATUS_LABELS,
+  type Person,
+  type PersonInput,
+  type PersonKind,
+  type StudentStatus,
+} from '@/lib/domain/types';
 import { useRuntime } from '@/components/AppRuntime';
 import { Field } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
@@ -26,28 +39,33 @@ const KIND_OPTIONS: { value: PersonKind; label: string }[] = [
   { value: 'staff', label: PERSON_KIND_LABELS.staff },
 ];
 
-type Draft = Required<Omit<PersonFields, 'kind'>> & { kind: PersonKind };
+type Draft = PersonInput;
 
-function draftFrom(person?: Person): Draft {
+function draftFrom(person: Person | undefined, kind: PersonKind): Draft {
   return {
-    kind: person?.kind ?? 'student',
-    first_name: person?.firstName ?? '',
-    last_name: person?.lastName ?? '',
-    display_name: person?.displayName ?? '',
+    kind: person?.kind ?? kind,
+    displayName: person?.displayName ?? '',
+    externalId: person?.externalId ?? '',
+    firstName: person?.firstName ?? '',
+    lastName: person?.lastName ?? '',
     email: person?.email ?? '',
-    osis: person?.osis ?? '',
-    staff_id: person?.staffId ?? '',
-    school_dbn: person?.schoolDbn ?? '',
+    schoolDbn: person?.schoolDbn ?? '',
     department: person?.department ?? '',
-    role_title: person?.roleTitle ?? '',
-    official_class: person?.officialClass ?? '',
-    class_of: person?.classOf ?? '',
-    parent_name: person?.parentName ?? '',
-    parent_phone: person?.parentPhone ?? '',
-    home_phone: person?.homePhone ?? '',
+    staffRole: person?.staffRole ?? '',
+    classOf: person?.classOf ?? '',
+    studentStatus: person?.studentStatus ?? 'current',
+    officialClass: person?.officialClass ?? '',
+    guardianName: person?.guardianName ?? '',
+    guardianPhone: person?.guardianPhone ?? '',
+    homePhone: person?.homePhone ?? '',
     address: person?.address ?? '',
     notes: person?.notes ?? '',
   };
+}
+
+/** The staff ID the database will derive, shown live as the email is typed. */
+export function staffIdFrom(email: string): string {
+  return email.trim().split('@')[0] ?? '';
 }
 
 export const PERSON_FORM_ID = 'person-form';
@@ -55,8 +73,11 @@ export const PERSON_FORM_ID = 'person-form';
 export interface PersonFormProps {
   /** Absent for a new record. */
   person?: Person;
-  /** Known departments, offered as suggestions. */
+  /** Which list a new record joins. Ignored when editing. */
+  kind?: PersonKind;
+  /** Known departments and roles, offered as suggestions. New values are allowed. */
   departments: string[];
+  roles?: string[];
   /** Called with the record id after a successful save. */
   onSaved: (id: string) => void;
   /** Rendered after the fields; the sheet variant puts its buttons in the footer instead. */
@@ -66,13 +87,15 @@ export interface PersonFormProps {
 
 export function PersonForm({
   person,
+  kind = 'student',
   departments,
+  roles = [],
   onSaved,
   actions,
   formId = PERSON_FORM_ID,
 }: PersonFormProps) {
   const { run } = useRuntime();
-  const [draft, setDraft] = useState<Draft>(() => draftFrom(person));
+  const [draft, setDraft] = useState<Draft>(() => draftFrom(person, kind));
   const [error, setError] = useState<{ field: string | null; message: string } | null>(null);
   const key = person ? `save-person:${person.id}` : 'save-person';
 
@@ -87,26 +110,9 @@ export function PersonForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    const student = draft.kind === 'student';
-    // The other kind's fields go as blanks: changing a student into staff
-    // means their OSIS and parent details no longer apply, and a blank is how
-    // the database clears a column.
-    const fields: PersonFields & { id?: string } = {
-      ...draft,
-      osis: student ? draft.osis : '',
-      official_class: student ? draft.official_class : '',
-      class_of: student ? draft.class_of : '',
-      parent_name: student ? draft.parent_name : '',
-      parent_phone: student ? draft.parent_phone : '',
-      home_phone: student ? draft.home_phone : '',
-      address: student ? draft.address : '',
-      staff_id: student ? '' : draft.staff_id,
-      department: student ? '' : draft.department,
-      role_title: student ? '' : draft.role_title,
-      school_dbn: student ? '' : draft.school_dbn,
-      id: person?.id,
-    };
-    const result: ActionResult = await run(key, () => savePersonAction(fields));
+    const result: ActionResult = await run(key, () =>
+      savePersonAction({ ...draft, id: person?.id ?? null, version: person?.version ?? null }),
+    );
     if (result.ok) {
       onSaved(result.id ?? person?.id ?? '');
     } else {
@@ -116,66 +122,57 @@ export function PersonForm({
   }
 
   const student = draft.kind === 'student';
-  const nameHint = draft.display_name.trim()
+  const nameHint = draft.displayName.trim()
     ? undefined
-    : 'Shown everywhere. Left blank, it is the first and last name together.';
+    : 'Shown everywhere: on tickets, on devices and in the lookup bar.';
 
   return (
     <form id={formId} className="form person-form" onSubmit={submit} noValidate>
-      <div className="field">
-        <span className="field-label">Kind</span>
-        <SegmentedControl
-          label="Kind"
-          value={draft.kind}
-          options={KIND_OPTIONS}
-          onChange={(value) => set('kind', value)}
-        />
-        {errorFor('kind') ? (
-          <span className="field-error" role="alert">
-            {errorFor('kind')}
-          </span>
-        ) : null}
-      </div>
+      {person ? null : (
+        <div className="field">
+          <span className="field-label">Kind</span>
+          <SegmentedControl
+            label="Kind"
+            value={draft.kind}
+            options={KIND_OPTIONS}
+            onChange={(value) => set('kind', value)}
+          />
+          {errorFor('kind') ? (
+            <span className="field-error" role="alert">
+              {errorFor('kind')}
+            </span>
+          ) : null}
+        </div>
+      )}
 
       <div className="form-grid">
-        <Field label="First name" htmlFor="person-first-name" error={errorFor('first_name')}>
-          <input
-            id="person-first-name"
-            type="text"
-            value={draft.first_name}
-            autoComplete="off"
-            aria-invalid={errorFor('first_name') ? 'true' : undefined}
-            onChange={(event) => set('first_name', event.target.value)}
-            data-autofocus
-          />
-        </Field>
-        <Field label="Last name" htmlFor="person-last-name">
-          <input
-            id="person-last-name"
-            type="text"
-            value={draft.last_name}
-            autoComplete="off"
-            onChange={(event) => set('last_name', event.target.value)}
-          />
-        </Field>
-        <Field label="Display name" htmlFor="person-display-name" optional hint={nameHint}>
+        <Field label="Display name" htmlFor="person-display-name" error={errorFor('displayName')} hint={nameHint}>
           <input
             id="person-display-name"
             type="text"
-            value={draft.display_name}
+            value={draft.displayName}
             autoComplete="off"
-            onChange={(event) => set('display_name', event.target.value)}
+            aria-invalid={errorFor('displayName') ? 'true' : undefined}
+            onChange={(event) => set('displayName', event.target.value)}
+            data-autofocus
           />
         </Field>
-        <Field label="Email" htmlFor="person-email" optional error={errorFor('email')}>
+        <Field label="First name" htmlFor="person-first-name" optional>
           <input
-            id="person-email"
-            type="email"
-            value={draft.email}
+            id="person-first-name"
+            type="text"
+            value={draft.firstName}
             autoComplete="off"
-            aria-invalid={errorFor('email') ? 'true' : undefined}
-            onChange={(event) => set('email', event.target.value)}
-            placeholder={student ? 'awhitfield@edison.example' : 'rcalloway@edison.example'}
+            onChange={(event) => set('firstName', event.target.value)}
+          />
+        </Field>
+        <Field label="Last name" htmlFor="person-last-name" optional>
+          <input
+            id="person-last-name"
+            type="text"
+            value={draft.lastName}
+            autoComplete="off"
+            onChange={(event) => set('lastName', event.target.value)}
           />
         </Field>
 
@@ -184,68 +181,98 @@ export function PersonForm({
             <Field
               label="OSIS"
               htmlFor="person-osis"
-              optional
-              error={errorFor('osis')}
-              hint="6 to 12 digits. Spaces and commas are removed."
+              error={errorFor('externalId')}
+              hint="Numbers only. Leading zeros are kept."
             >
               <input
                 id="person-osis"
                 type="text"
                 inputMode="numeric"
                 className="mono"
-                value={draft.osis}
+                value={draft.externalId}
                 autoComplete="off"
-                aria-invalid={errorFor('osis') ? 'true' : undefined}
-                onChange={(event) => set('osis', event.target.value)}
+                aria-invalid={errorFor('externalId') ? 'true' : undefined}
+                onChange={(event) => set('externalId', event.target.value)}
                 placeholder="240000123"
+              />
+            </Field>
+            <Field label="Email" htmlFor="person-email" optional error={errorFor('email')}>
+              <input
+                id="person-email"
+                type="email"
+                value={draft.email}
+                autoComplete="off"
+                aria-invalid={errorFor('email') ? 'true' : undefined}
+                onChange={(event) => set('email', event.target.value)}
+                placeholder="awhitfield@edison.example"
               />
             </Field>
             <Field label="Official class" htmlFor="person-official-class" optional>
               <input
                 id="person-official-class"
                 type="text"
-                value={draft.official_class}
+                value={draft.officialClass}
                 autoComplete="off"
-                onChange={(event) => set('official_class', event.target.value)}
+                onChange={(event) => set('officialClass', event.target.value)}
                 placeholder="9A"
               />
             </Field>
-            <Field label="Class of" htmlFor="person-class-of" optional>
+            <Field label="Class of" htmlFor="person-class-of" optional error={errorFor('classOf')} hint="Four digits.">
               <input
                 id="person-class-of"
                 type="text"
                 inputMode="numeric"
-                value={draft.class_of}
+                value={draft.classOf}
                 autoComplete="off"
-                onChange={(event) => set('class_of', event.target.value)}
+                aria-invalid={errorFor('classOf') ? 'true' : undefined}
+                onChange={(event) => set('classOf', event.target.value)}
                 placeholder="2029"
               />
             </Field>
-            <Field label="Parent or guardian" htmlFor="person-parent-name" optional>
+            <Field label="Enrolment status" htmlFor="person-student-status">
+              <select
+                id="person-student-status"
+                value={draft.studentStatus}
+                onChange={(event) => set('studentStatus', event.target.value as StudentStatus)}
+              >
+                {STUDENT_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {STUDENT_STATUS_LABELS[status]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Parent or guardian" htmlFor="person-guardian-name" optional>
               <input
-                id="person-parent-name"
+                id="person-guardian-name"
                 type="text"
-                value={draft.parent_name}
+                value={draft.guardianName}
                 autoComplete="off"
-                onChange={(event) => set('parent_name', event.target.value)}
+                onChange={(event) => set('guardianName', event.target.value)}
               />
             </Field>
-            <Field label="Parent phone" htmlFor="person-parent-phone" optional>
+            <Field
+              label="Guardian phone"
+              htmlFor="person-guardian-phone"
+              optional
+              error={errorFor('guardianPhone')}
+            >
               <input
-                id="person-parent-phone"
+                id="person-guardian-phone"
                 type="tel"
-                value={draft.parent_phone}
+                value={draft.guardianPhone}
                 autoComplete="off"
-                onChange={(event) => set('parent_phone', event.target.value)}
+                aria-invalid={errorFor('guardianPhone') ? 'true' : undefined}
+                onChange={(event) => set('guardianPhone', event.target.value)}
               />
             </Field>
             <Field label="Home phone" htmlFor="person-home-phone" optional>
               <input
                 id="person-home-phone"
                 type="tel"
-                value={draft.home_phone}
+                value={draft.homePhone}
                 autoComplete="off"
-                onChange={(event) => set('home_phone', event.target.value)}
+                onChange={(event) => set('homePhone', event.target.value)}
               />
             </Field>
             <Field label="Address" htmlFor="person-address" optional className="form-grid-full">
@@ -261,24 +288,32 @@ export function PersonForm({
         ) : (
           <>
             <Field
-              label="Staff ID"
-              htmlFor="person-staff-id"
-              optional
-              error={errorFor('staff_id')}
-              hint="Stored in capitals."
+              label="Email"
+              htmlFor="person-email"
+              error={errorFor('email')}
+              hint="The staff ID is taken from the part before the @."
             >
+              <input
+                id="person-email"
+                type="email"
+                value={draft.email}
+                autoComplete="off"
+                aria-invalid={errorFor('email') ? 'true' : undefined}
+                onChange={(event) => set('email', event.target.value)}
+                placeholder="rcalloway@edison.example"
+              />
+            </Field>
+            <Field label="Staff ID" htmlFor="person-staff-id" hint="Taken from the email.">
               <input
                 id="person-staff-id"
                 type="text"
                 className="mono"
-                value={draft.staff_id}
-                autoComplete="off"
-                aria-invalid={errorFor('staff_id') ? 'true' : undefined}
-                onChange={(event) => set('staff_id', event.target.value)}
-                placeholder="EMP-4021"
+                value={staffIdFrom(draft.email) || draft.externalId}
+                readOnly
+                tabIndex={-1}
               />
             </Field>
-            <Field label="Department" htmlFor="person-department" optional>
+            <Field label="Department" htmlFor="person-department" optional hint="New values are allowed.">
               <input
                 id="person-department"
                 type="text"
@@ -294,24 +329,30 @@ export function PersonForm({
                 ))}
               </datalist>
             </Field>
-            <Field label="Role" htmlFor="person-role" optional>
+            <Field label="Role" htmlFor="person-role" optional hint="New values are allowed.">
               <input
                 id="person-role"
                 type="text"
-                value={draft.role_title}
+                list="person-role-options"
+                value={draft.staffRole}
                 autoComplete="off"
-                onChange={(event) => set('role_title', event.target.value)}
+                onChange={(event) => set('staffRole', event.target.value)}
                 placeholder="Teacher"
               />
+              <datalist id="person-role-options">
+                {roles.map((role) => (
+                  <option key={role} value={role} />
+                ))}
+              </datalist>
             </Field>
             <Field label="School DBN" htmlFor="person-dbn" optional>
               <input
                 id="person-dbn"
                 type="text"
                 className="mono"
-                value={draft.school_dbn}
+                value={draft.schoolDbn}
                 autoComplete="off"
-                onChange={(event) => set('school_dbn', event.target.value)}
+                onChange={(event) => set('schoolDbn', event.target.value)}
                 placeholder="31R445"
               />
             </Field>

@@ -1,4 +1,4 @@
-import { loadDeviceFacets, loadDevices } from '@/lib/data/devices';
+import { loadDevices, loadDeviceStatuses } from '@/lib/data/devices';
 import { PageHeader } from '@/components/Primitives';
 import { DeviceList } from '@/components/devices/DeviceList';
 import { DevicesHeaderActions } from '@/components/devices/DevicesHeaderActions';
@@ -12,7 +12,7 @@ export default async function DevicesPage({
   searchParams: Promise<DeviceSearchParams>;
 }) {
   const filters = toDeviceFilters(await searchParams);
-  const [page, facets] = await Promise.all([loadDevices(filters), loadDeviceFacets()]);
+  const [page, statuses] = await Promise.all([loadDevices(filters), loadDeviceStatuses()]);
 
   return (
     <>
@@ -21,7 +21,7 @@ export default async function DevicesPage({
         description="Every machine the school lends out: where it is, who has it, and what state it is in."
         actions={<DevicesHeaderActions />}
       />
-      <DeviceList page={page} facets={facets} />
+      <DeviceList page={page} statuses={statuses} />
     </>
   );
 }

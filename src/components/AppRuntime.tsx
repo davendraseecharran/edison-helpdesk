@@ -31,7 +31,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
-import type { Account, Requester } from '@/lib/domain/types';
+import type { Account } from '@/lib/domain/types';
 import type { ActorAccount } from '@/lib/auth/session';
 import type { AccountRole } from '@/lib/auth/roles';
 import type { ActionResult } from '@/lib/data/actions';
@@ -48,7 +48,6 @@ export interface AppRuntime {
   /** Minimal labels only: id, name, role, status. Never another account's email. */
   directory: Account[];
   /** Minimal requester records, for recording a walk-in. Not a directory. */
-  requesters: Requester[];
   /** School-local (America/New_York) date, computed on the server. */
   today: string;
   pendingKey: string | null;
@@ -69,13 +68,11 @@ const ToastContext = createContext<ToastStore | null>(null);
 export function AppRuntimeProvider({
   actor,
   directory,
-  requesters,
   today,
   children,
 }: {
   actor: ActorAccount;
   directory: Account[];
-  requesters: Requester[];
   today: string;
   children: ReactNode;
 }) {
@@ -124,8 +121,8 @@ export function AppRuntimeProvider({
   );
 
   const value = useMemo<AppRuntime>(
-    () => ({ actor, directory, requesters, today, pendingKey, notify, run }),
-    [actor, directory, requesters, today, pendingKey, notify, run],
+    () => ({ actor, directory, today, pendingKey, notify, run }),
+    [actor, directory, today, pendingKey, notify, run],
   );
   const toastStore = useMemo<ToastStore>(() => ({ toasts, dispatchToast }), [toasts]);
 

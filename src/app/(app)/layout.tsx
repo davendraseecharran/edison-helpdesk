@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { loadActor } from '@/lib/auth/session';
 import { loadUnreadCount } from '@/lib/data/notifications';
 import { loadPreferences } from '@/lib/data/preferences';
-import { loadCounts, loadDirectory, loadRequesters } from '@/lib/data/tickets';
+import { loadCounts, loadDirectory } from '@/lib/data/tickets';
 import { schoolToday } from '@/lib/format';
 import { AppRuntimeProvider } from '@/components/AppRuntime';
 import { AppShell } from '@/components/shell/AppShell';
@@ -43,10 +43,9 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
     redirect(actor.reason === 'denied' ? '/restricted?reason=denied' : '/restricted');
   }
 
-  const [counts, directory, requesters, preferences, unreadNotifications] = await Promise.all([
+  const [counts, directory, preferences, unreadNotifications] = await Promise.all([
     loadCounts(),
     loadDirectory(),
-    loadRequesters(),
     loadPreferences(),
     loadUnreadCount(),
   ]);
@@ -55,7 +54,6 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
     <AppRuntimeProvider
       actor={actor.account}
       directory={directory}
-      requesters={requesters}
       today={schoolToday()}
     >
       {/* The account's stored theme, handed up to the provider in the root

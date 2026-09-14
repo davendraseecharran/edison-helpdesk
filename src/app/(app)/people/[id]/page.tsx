@@ -1,4 +1,5 @@
-import { loadPeopleFacets, loadPerson } from '@/lib/data/people';
+import { loadPerson, loadStaffDirectoryOptions } from '@/lib/data/people';
+import { loadDeviceStatuses } from '@/lib/data/devices';
 import { EmptyState } from '@/components/Primitives';
 import { ButtonLink } from '@/components/ui/Button';
 import { PersonDetail } from '@/components/people/PersonDetail';
@@ -7,7 +8,11 @@ export const metadata = { title: 'Person — Edison Helpdesk' };
 
 export default async function PersonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [detail, facets] = await Promise.all([loadPerson(id), loadPeopleFacets()]);
+  const [detail, options, statuses] = await Promise.all([
+    loadPerson(id),
+    loadStaffDirectoryOptions(),
+    loadDeviceStatuses(),
+  ]);
 
   if (!detail) {
     // Identical whether the record is missing or not visible to this account.
@@ -24,5 +29,12 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  return <PersonDetail detail={detail} departments={facets.departments} />;
+  return (
+    <PersonDetail
+      detail={detail}
+      departments={options.departments}
+      roles={options.roles}
+      statuses={statuses}
+    />
+  );
 }

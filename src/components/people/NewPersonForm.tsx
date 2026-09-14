@@ -6,15 +6,26 @@
 
 import { useRouter } from 'next/navigation';
 import { useRuntime } from '@/components/AppRuntime';
+import type { PersonKind } from '@/lib/domain/types';
 import { Button } from '@/components/ui/Button';
 import { PersonForm, PersonFormSubmit } from './PersonForm';
 
-export function NewPersonForm({ departments }: { departments: string[] }) {
+export function NewPersonForm({
+  kind,
+  departments,
+  roles,
+}: {
+  kind: PersonKind;
+  departments: string[];
+  roles: string[];
+}) {
   const router = useRouter();
   const { pendingKey } = useRuntime();
   return (
     <PersonForm
+      kind={kind}
       departments={departments}
+      roles={roles}
       onSaved={(id) => router.push(`/people/${id}`)}
       actions={
         <>

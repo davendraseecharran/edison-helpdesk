@@ -18,12 +18,7 @@ import 'server-only';
 
 import { textOf } from '@/lib/guards';
 import { createClient } from '@/lib/supabase/server';
-import {
-  DEVICE_STATUSES,
-  type DeviceStatus,
-  type Priority,
-  type TicketCategory,
-} from '@/lib/domain/types';
+import { type Priority, type TicketCategory } from '@/lib/domain/types';
 
 /** The statuses a ticket can be in while it is still somebody's problem. */
 export const OPEN_STATUSES = ['open', 'assigned', 'in_progress', 'waiting'] as const;
@@ -45,6 +40,11 @@ export interface CategoryCount {
 
 export interface TypeCount {
   type: string;
+  count: number;
+}
+
+export interface StatusCount {
+  status: string;
   count: number;
 }
 
@@ -71,7 +71,12 @@ export interface Insights {
   technicians: InsightsTechnician[];
   deviceTypesInTickets: TypeCount[];
   inventory: {
-    byStatus: Record<DeviceStatus, number>;
+    /**
+     * Every status the inventory reports, in the order the database sorted
+     * them. Not a fixed vocabulary: `inventory_devices.status` is free text,
+     * so a status the district invents appears here rather than being dropped.
+     */
+    byStatus: StatusCount[];
     byType: TypeCount[];
     total: number;
   };
@@ -159,11 +164,22 @@ export async function loadInsights(days: number): Promise<Insights> {
       .filter((row) => row.accountId !== ''),
     deviceTypesInTickets: typeCounts(payload.device_types_in_tickets),
     inventory: {
-      byStatus: countsByKey(record(payload.inventory).by_status, DEVICE_STATUSES),
+      byStatus: statusCounts(record(payload.inventory).by_status),
       byType: typeCounts(record(payload.inventory).by_type),
       total: count(record(payload.inventory).total),
     },
   };
+}
+
+/**
+ * `{ "Available": 12, "In repair": 3 }` as rows, largest first and the name
+ * breaking ties, so the chart reads the same way twice running.
+ */
+function statusCounts(value: unknown): StatusCount[] {
+  return Object.entries(record(value))
+    .map(([status, value]) => ({ status, count: count(value) }))
+    .filter((row) => row.status !== '')
+    .sort((a, b) => b.count - a.count || a.status.localeCompare(b.status));
 }
 
 function typeCounts(value: unknown): TypeCount[] {
