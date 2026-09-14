@@ -97,6 +97,16 @@ export function UserMenu() {
           ref={panelRef}
           id={panelId}
           role="dialog"
+          /*
+           * Modal, and it has to SAY so. The panel keeps focus (useFocusTrap),
+           * closes on Escape and on a press outside, so a screen reader
+           * announcing it as modal is honest — and the shell's Ctrl+K guard
+           * looks for exactly `[role="dialog"][aria-modal="true"]`. Without
+           * this attribute the command palette opened on top of an open
+           * account menu, which is two focus traps fighting over the same
+           * keyboard. The bell popover next to it already carried it.
+           */
+          aria-modal="true"
           aria-label="Account"
           className="popover popover-end"
           tabIndex={-1}
