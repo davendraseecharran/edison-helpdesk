@@ -84,20 +84,25 @@ video {
 }
 
 /*
- * A hairline inside the edge of every photograph, so an attachment sits at
- * the same depth as the bordered things around it and a light screenshot on
- * a light card still has an edge. Pure black on paper and pure white on navy,
+ * A hairline inside the edge of a photograph, so an attachment sits at the
+ * same depth as the bordered things around it and a light screenshot on a
+ * light card still has an edge. Pure black on paper and pure white on navy,
  * never a tinted neutral: a tinted ring picks up the surface under the image
  * and reads as dirt along the edge. `outline` takes no space at any offset,
  * and the negative offset draws it just inside, so it follows the radius.
+ *
+ * Named, not `img`: the bare selector also rang logos, avatars and any inline
+ * mark, which are shapes rather than photographs and have their own edges.
  */
-img {
-  outline: 1px solid rgba(0, 0, 0, 0.1);
+.attachment-thumb,
+.lightbox-image {
+  outline: 1px solid var(--outline-image-light);
   outline-offset: -1px;
 }
 
-:root[data-theme='dark'] img {
-  outline-color: rgba(255, 255, 255, 0.1);
+:root[data-theme='dark'] .attachment-thumb,
+:root[data-theme='dark'] .lightbox-image {
+  outline-color: var(--outline-image-dark);
 }
 
 button,

@@ -129,7 +129,7 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
           {speech ? (
             <button
               type="button"
-              className="ai-mic"
+              className="ai-mic pressable"
               aria-label={speech.listening ? 'Stop listening' : 'Start listening'}
               aria-pressed={speech.listening}
               title="Press to talk. On a touch screen, hold."

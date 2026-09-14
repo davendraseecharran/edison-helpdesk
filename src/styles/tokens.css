@@ -36,6 +36,15 @@
   --focus: 0 0 0 3px rgba(212, 167, 44, 0.55);
 
   /*
+   * The hairline inside the edge of a photograph. Both values live in both
+   * themes because neither is theme-dependent: they are pure black and pure
+   * white, and the rule that uses them picks by theme. A tinted neutral would
+   * pick up the surface under the image and read as dirt along the edge.
+   */
+  --outline-image-light: oklch(0 0 0 / 0.1);
+  --outline-image-dark: oklch(1 0 0 / 0.1);
+
+  /*
    * The bench lamp: the one lit element on a screen.
    *
    * Brass stopped being a highlighter and became a light source. Four layers
