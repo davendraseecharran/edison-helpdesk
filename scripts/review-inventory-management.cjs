@@ -65,7 +65,11 @@ const checked = (result) => {
   await page.locator('#person-notes').fill('Updated synthetic contact note');await page.getByRole('button',{name:'Save changes',exact:true}).click();await page.getByText('Student record saved.',{exact:true}).waitFor();
   stage='staff creation';await page.getByRole('link',{name:'Staff',exact:true}).click();await page.getByRole('button',{name:'Add staff',exact:true}).first().click();
   await page.locator('#person-display-name').fill(staffName);const prefix='staff.'+runId.slice(0,8);await page.locator('#person-email').fill(prefix+'@school.example');assert.equal(await page.locator('#person-external-id').inputValue(),prefix);
-  await page.getByRole('button',{name:'Add record',exact:true}).click();await page.getByText('Staff record saved.',{exact:true}).waitFor();
+  await page.locator('#person-department').fill('Synthetic Browser Department');await page.locator('#person-staff-role').fill('Synthetic Browser Role');
+  assert.ok(await page.locator('#person-department').getAttribute('list'));assert.ok(await page.locator('#person-staff-role').getAttribute('list'));
+  await page.getByRole('button',{name:'Add record',exact:true}).click();await page.getByText('Staff record saved.',{exact:true}).waitFor();await page.getByRole('heading',{name:'Edit staff',exact:true}).waitFor();
+  await page.waitForFunction(()=>Array.from(document.querySelectorAll('datalist option')).some(o=>o.value==='Synthetic Browser Department')&&Array.from(document.querySelectorAll('datalist option')).some(o=>o.value==='Synthetic Browser Role'));
+
   stage='device creation and assignment';await page.getByRole('link',{name:'Master Inventory',exact:true}).click();await page.getByRole('button',{name:'Add device',exact:true}).first().click();
   for(const [id,value] of [['device-type','Browser Tablet'],['device-manufacturer','Example'],['device-model','Browser Model'],['device-serial','BROWSER-'+runId],['device-location','Synthetic Lab']])await page.locator('#'+id).fill(value);
   await page.locator('#device-assignment-kind').selectOption('student');await page.locator('#device-assignment-search').fill(osis);await page.getByRole('option',{name:new RegExp(osis)}).click();

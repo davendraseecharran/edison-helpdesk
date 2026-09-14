@@ -293,6 +293,8 @@ export function InventoryManager({ section }: { section: InventorySection }) {
 
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
+  const [staffDepartments, setStaffDepartments] = useState<string[]>([]);
+  const [staffRoles, setStaffRoles] = useState<string[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [optionsError, setOptionsError] = useState<string | null>(null);
 
@@ -340,6 +342,8 @@ export function InventoryManager({ section }: { section: InventorySection }) {
         if (!active || sequence !== optionsSequence.current) return;
         setCatalog(options.catalog);
         setStatuses(options.statuses);
+        setStaffDepartments(options.staffDepartments);
+        setStaffRoles(options.staffRoles);
         setOptionsError(null);
       })
       .catch((error: unknown) => {
@@ -638,6 +642,10 @@ export function InventoryManager({ section }: { section: InventorySection }) {
       return;
     }
 
+    if (input.kind === 'staff') {
+      setStaffDepartments((current) => uniqueSorted([...current, input.department]));
+      setStaffRoles((current) => uniqueSorted([...current, input.staffRole]));
+    }
     refreshList();
     const savedId = result.id ?? personDraft.id;
     if (savedId) selectPerson(savedId, 1);
@@ -801,6 +809,8 @@ export function InventoryManager({ section }: { section: InventorySection }) {
               busy={busy}
               error={editorError ?? detailError}
               optionsError={optionsError}
+              staffDepartments={staffDepartments}
+              staffRoles={staffRoles}
               onChange={updatePerson}
               onSave={onSavePerson}
               onClose={resetEditorState}
@@ -980,6 +990,8 @@ function PersonEditor({
   busy,
   error,
   optionsError,
+  staffDepartments,
+  staffRoles,
   onChange,
   onSave,
   onClose,
@@ -992,6 +1004,8 @@ function PersonEditor({
   busy: boolean;
   error: string | null;
   optionsError: string | null;
+  staffDepartments: string[];
+  staffRoles: string[];
   onChange: (patch: Partial<PersonDraft>) => void;
   onSave: (event: FormEvent<HTMLFormElement>) => void;
   onClose: () => void;
@@ -1003,6 +1017,10 @@ function PersonEditor({
   const student = draft.kind === 'student';
   const staff = draft.kind === 'staff';
   const displayedStaffId = draft.email.trim() ? staffExternalId(draft.email) : draft.externalId;
+  const departmentOptions = uniqueSorted([...staffDepartments, draft.department]);
+  const roleOptions = uniqueSorted([...staffRoles, draft.staffRole]);
+  const departmentDatalistId = 'staff-directory-departments';
+  const roleDatalistId = 'staff-directory-roles';
 
   return (
     <>
@@ -1192,23 +1210,31 @@ function PersonEditor({
                   onChange={(event) => onChange({ schoolDbn: event.target.value })}
                 />
               </Field>
-              <Field label="Department" htmlFor="person-department" optional>
+              <Field label="Department" htmlFor="person-department" optional hint="New values are allowed.">
                 <input
                   id="person-department"
                   type="text"
+                  list={departmentDatalistId}
                   value={draft.department}
                   disabled={busy}
                   onChange={(event) => onChange({ department: event.target.value })}
                 />
+                <datalist id={departmentDatalistId}>
+                  {departmentOptions.map((value) => <option key={value} value={value} />)}
+                </datalist>
               </Field>
-              <Field label="Staff role" htmlFor="person-staff-role" optional>
+              <Field label="Staff role" htmlFor="person-staff-role" optional hint="New values are allowed.">
                 <input
                   id="person-staff-role"
                   type="text"
+                  list={roleDatalistId}
                   value={draft.staffRole}
                   disabled={busy}
                   onChange={(event) => onChange({ staffRole: event.target.value })}
                 />
+                <datalist id={roleDatalistId}>
+                  {roleOptions.map((value) => <option key={value} value={value} />)}
+                </datalist>
               </Field>
             </>
           ) : null}

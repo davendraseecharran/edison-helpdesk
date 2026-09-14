@@ -1,6 +1,14 @@
 # Edison Helpdesk — resume here
 
-Updated September 13, 2026. **Inventory management is staged; its hosted migration is now applied. Profile enrichment and promotion remain pending.** The user confirms the previous intake release is live and working, including its two migrations and initial directory/device import. Do not repeat the initial import.
+Updated September 13, 2026. **Inventory management is staged; its hosted migration is now applied. Profile enrichment is now applied; staff dropdown update is in progress and promotion remains pending.** The user confirms the previous intake release is live and working, including its two migrations and initial directory/device import. Do not repeat the initial import.
+
+## Latest verified follow-up — resume here first
+
+Profile enrichment APPLIED and verified; available names, class/contact/address fields and staff email/DBN/department/role now populated. Source omissions remain blank. Staff Department/Role searchable datalists implemented and verified against local PRODUCTION build on3002. Node24 check (85unit/build) passes; clean DB147tests passes; browser suite including datalist/newoptions passes. New migration20260914010000_staff_directory_options.sql APPLIED hosted after dryrun listed only it. Both new migrations and enrichment are complete. Root reviewed Luna helper; all editing ownership released.
+
+Next bounded task: commit/push changes and stage Vercel with --prod --skip-domain; record new deployment URL. Do NOT promote yet. Old staging9yiyt54px already shows enriched profiles; updated staging needed for dropdown UI. No rerun of enrichment/import required. Runbook steps1–4 are complete once new staging is recorded. Main sync still follows final promotion.
+
+Local production server session17983 port3002 running; dev3000 and Supabase also remain. Latest Plus quota95%five-hour /52%weekly, resets1789359906/1789838582. No new large task or delegation. No credits consumed. Checkpoint before stopping.
 
 ## Current source and ownership
 
@@ -25,6 +33,16 @@ Follow `docs/PUBLISH-INVENTORY-MANAGEMENT.md` in order: push reviewed branch; st
 
 The previous `docs/PUBLISH-INTAKE-UPDATE.md` is historical and already performed by the user. Do not rerun its import or migrations. Do not reset hosted data or recreate resources/accounts. Automatic Git deployment remains unverified; explicit Vercel CLI staging works.
 
+## Current follow-up: complete profile fields and staff dropdowns
+
+User confirmed staging works after #441 fix, then reported missing profile fields and requested Staff Role/Department dropdowns. Root verified all3709 original profile rows stillversion1, regenerated SQL in memory and matched reviewed private file exactly, took fresh schema/data backups `.private/profile-enrichment-release-20260913/{schema,data}.sql`, then applied `.private/inventory-profiles.sql` successfully (private enrichment.log).
+
+Hosted aggregate verification:3448/3448 student first/last names and official classes;3447 emails;3442 parent names;2768 parent phones;3441 addresses;2190 numeric class years (1257 graduates plus1 other designation intentionally have no numeric year). Staff261/261 first/last names, departments and roles;223emails,260DBNs. Remaining blanks match source omissions. Device notes were included in the same transaction. No initial import repeated and no record IDs/assignments replaced.
+
+Root owns verification/release/checkpoint. Luna helper `staff_dropdowns` owns InventoryManager, inventory-management-actions, new migration20260914010000_staff_directory_options.sql and tests/db/staff-options.test.ts. It is adding source-derived searchable Department/Staff Role dropdowns for all staff records, not only first page, with active actor authorization. Next: review helper, run checks, apply new options migration, commit/push and stage updated app without promotion. No other editors.
+
+Latest live Plus usage at follow-up start65%five-hour /48%weekly; reset timestamps unchanged. Reduce delegation/checkpoint at70%. One bounded Luna helper active.
+
 ## Staging error #441 fixed — September 13
 
 Staging deployment: https://edison-helpdesk-9yiyt54px-thomas-edison-cte-high-school.vercel.app (production environment, unpromoted). Vercel also created Preview fd5tqeceq, confirming GitHub-triggered preview deployment works.
@@ -37,7 +55,7 @@ Next release action is step4 (prepared private enrichment) in `docs/PUBLISH-INVE
 
 Ignored mode0600 files: `.private/inventory-profiles-source.json`, `.private/inventory-notes-source.json`, `.private/inventory-profiles.sql`, `.private/inventory-profiles.sql.report.json`. Generator `scripts/prepare-inventory-profiles.mjs` is tracked. No real data goes in Git, logs or screenshots.
 
-Prepared September13 source:3448 students,261 staff,1257 graduates,1 other class designation,38 staff without email,496 device notes. Preserve legacy IDs on staff missing emails until corrected; new staff require email.18 duplicate device-ID rows withheld, matching the prior import exclusions. Enrichment only updates untouched version-one rows, preserves later edits, UUIDs and assignments, and audits changes. Student GRAD maps to graduated; numeric class designation maps to year/current; ST maps to other with source designation retained in notes. No hosted enrichment applied yet.
+Prepared September13 source:3448 students,261 staff,1257 graduates,1 other class designation,38 staff without email,496 device notes. Preserve legacy IDs on staff missing emails until corrected; new staff require email.18 duplicate device-ID rows withheld, matching the prior import exclusions. Enrichment only updates untouched version-one rows, preserves later edits, UUIDs and assignments, and audits changes. Student GRAD maps to graduated; numeric class designation maps to year/current; ST maps to other with source designation retained in notes. Hosted enrichment applied and verified in current follow-up.
 
 Initial live import baseline:261 staff,3448 students,4278 devices,113 catalog combinations (may grow with normal use).18 conflicting device-ID rows excluded;29 unmatched assignments remain unlinked;12 incomplete devices require correction before ticket Add. Source sheets are unchanged. No automatic sync or AppSheet cutover is configured; choose a single operational source when releasing edits to avoid divergence.
 
