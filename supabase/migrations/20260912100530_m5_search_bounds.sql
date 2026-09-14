@@ -70,6 +70,17 @@ as $$
       q.raw,
       -- Backslash is escaped first, or it would escape the escapes added after
       -- it. The result is a LIKE pattern that matches the typed text literally.
+      --
+      -- This is the SAME three replaces app_search does (20260912100520, the
+      -- `escaped` CTE there), and the duplication is deliberate rather than
+      -- missed. A shared SQL function would be a third object to grant, revoke
+      -- and keep in step, and — because it would sit inside the predicate of
+      -- every arm below — one the planner has to inline for the trigram and
+      -- text_pattern_ops indexes to stay usable at all. Two copies of five
+      -- lines are cheaper than that, and neither copy is reachable from a
+      -- session except through the two functions that hold it. If either is
+      -- ever changed, change both: they have to produce the same pattern or
+      -- app_search would rank rows its own predicates would not have matched.
       pg_catalog.replace(
         pg_catalog.replace(
           pg_catalog.replace(q.raw, '\', '\\'),
