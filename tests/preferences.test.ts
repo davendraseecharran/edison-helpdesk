@@ -160,20 +160,31 @@ describe('preferencePatch', () => {
 
 describe('nextThemeAfterSave', () => {
   it('keeps the new theme when the save landed', () => {
-    expect(nextThemeAfterSave('dark', 'light', true)).toBe('light');
-    expect(nextThemeAfterSave('light', 'system', true)).toBe('system');
+    expect(nextThemeAfterSave('dark', 'light', true, 'light')).toBe('light');
+    expect(nextThemeAfterSave('light', 'system', true, 'system')).toBe('system');
   });
 
   it('puts the old theme back when the save was refused', () => {
     // The reader would otherwise carry on in a theme their account does not
     // have, and watch the next reload undo it.
-    expect(nextThemeAfterSave('dark', 'light', false)).toBe('dark');
-    expect(nextThemeAfterSave('system', 'dark', false)).toBe('system');
+    expect(nextThemeAfterSave('dark', 'light', false, 'light')).toBe('dark');
+    expect(nextThemeAfterSave('system', 'dark', false, 'dark')).toBe('system');
+  });
+
+  it('does not revert when a newer choice is in place', () => {
+    // Dark to light is still failing when the palette picks system. The stale
+    // failure must settle nothing: system is what the reader asked for last.
+    expect(nextThemeAfterSave('dark', 'light', false, 'system')).toBe('system');
+    expect(nextThemeAfterSave('dark', 'light', false, 'dark')).toBe('dark');
+  });
+
+  it('does not re-apply a choice a newer one replaced, even when it saved', () => {
+    expect(nextThemeAfterSave('dark', 'light', true, 'system')).toBe('system');
   });
 
   it('is a no-op when the choice did not change', () => {
-    expect(nextThemeAfterSave('dark', 'dark', true)).toBe('dark');
-    expect(nextThemeAfterSave('dark', 'dark', false)).toBe('dark');
+    expect(nextThemeAfterSave('dark', 'dark', true, 'dark')).toBe('dark');
+    expect(nextThemeAfterSave('dark', 'dark', false, 'dark')).toBe('dark');
   });
 });
 

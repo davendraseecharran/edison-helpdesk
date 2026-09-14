@@ -182,17 +182,26 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     // A theme the database did not accept must not stay on the screen: the
     // reader would carry on in a theme their account does not have, and see it
-    // undone by the next reload.
+    // undone by the next reload. `settle` reads what is showing when the save
+    // comes back rather than assuming it is still this call's choice: the
+    // command palette changes the theme without waiting on anything, so a slow
+    // failure here must not stomp a newer choice.
+    function settle(saved: boolean): void {
+      const current = getStoredTheme();
+      const settled = nextThemeAfterSave(previous, next, saved, current);
+      if (settled !== current) writeStoredTheme(settled);
+    }
+
     let result: ActionResult;
     try {
       result = await updatePreferencesAction({ theme: next });
     } catch (error) {
-      writeStoredTheme(nextThemeAfterSave(previous, next, false));
+      settle(false);
       // The runtime turns a thrown action into its own message; nothing is
       // added here beyond putting the theme back.
       throw error;
     }
-    writeStoredTheme(nextThemeAfterSave(previous, next, result.ok));
+    settle(result.ok);
     return result;
   }, []);
 

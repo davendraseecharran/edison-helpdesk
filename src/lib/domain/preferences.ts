@@ -158,12 +158,21 @@ export function preferencePatch(patch: PreferencePatch): PatchResult {
  * repaint would be worse than the rare undo. If the database refuses it, the
  * one the account actually has is what belongs on screen: leaving the new one
  * would have the reader working in a theme their next reload takes away.
+ *
+ * `current` is what is showing at the moment the save came back, and it is
+ * what makes this safe to call late. Nothing about a theme choice is queued —
+ * the command palette changes it without waiting on anything — so a slow save
+ * can land after a newer choice has replaced it. A save only settles the
+ * choice it was made for: if something newer is in place, that one stands,
+ * whether this save succeeded or failed.
  */
 export function nextThemeAfterSave(
   previous: ThemeChoice,
   next: ThemeChoice,
   saved: boolean,
+  current: ThemeChoice,
 ): ThemeChoice {
+  if (current !== next) return current;
   return saved ? next : previous;
 }
 
