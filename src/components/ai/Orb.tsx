@@ -11,7 +11,8 @@
  *
  * Two sizes exist, and they are different drawings rather than one scaled:
  * 64 for the panel header and the welcome, 20 for anything inline (a chip,
- * the thinking line, the top-bar toggle).
+ * the thinking line, the top-bar toggle). The library tunes its dot count per
+ * size and knows only these two; anything else throws.
  */
 
 import { ThinkingOrb } from 'thinking-orbs';

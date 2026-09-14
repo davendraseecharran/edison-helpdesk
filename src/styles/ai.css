@@ -93,7 +93,7 @@
 
 .ai-head {
   flex: 0 0 auto;
-  padding: 12px 10px 10px 16px;
+  padding: 10px 10px 10px 16px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -112,10 +112,18 @@
   min-width: 0;
 }
 
+/*
+ * The orb is 64px and the library draws only that size or 20; beside a 16px
+ * title it was four times the type it stood next to and read as a decoration
+ * that had wandered into a header. The title takes the next step up instead,
+ * so the pair is in proportion and the header reads as the product's, which
+ * is what the orb is there to say.
+ */
 .ai-title {
-  font-size: var(--fs-3);
+  font-size: var(--fs-4);
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.2;
+  letter-spacing: var(--tracking-heading);
 }
 
 .ai-model {
@@ -165,8 +173,10 @@
   cursor: pointer;
 }
 
-.ai-menu-switch:hover:not(:disabled) {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .ai-menu-switch:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
 }
 
 .ai-menu-switch:disabled {
@@ -213,12 +223,23 @@
 
 /* --- Body --------------------------------------------------------------- */
 
+/*
+ * A flex column, so an empty panel can centre what little it has to say
+ * instead of hanging it from the top of four hundred pixels of nothing. A
+ * conversation still starts at the top, because `.ai-turns` takes the space.
+ */
 .ai-body {
+  display: flex;
   flex: 1 1 auto;
+  flex-direction: column;
   min-height: 0;
-  padding: 16px;
+  padding: 16px 16px 20px;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.ai-body > .ai-turns {
+  flex: 1 1 auto;
 }
 
 .ai-note {
@@ -239,10 +260,12 @@
 
 .ai-welcome {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 20px;
-  padding: 40px 8px 16px;
+  padding: 24px 8px;
   text-align: center;
 }
 
@@ -281,10 +304,12 @@
     color 120ms ease-out;
 }
 
-.ai-example:hover:not(:disabled) {
-  border-color: var(--line-2);
-  background: var(--surface);
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .ai-example:hover:not(:disabled) {
+    border-color: var(--line-2);
+    background: var(--surface);
+    color: var(--ink);
+  }
 }
 
 .ai-example:disabled {
@@ -294,10 +319,15 @@
 
 /* --- Turns -------------------------------------------------------------- */
 
+/*
+ * Rhythm: 12px inside a turn and 20px between turns, so the chips, the
+ * thinking line and the reply read as one person speaking and the gap to the
+ * next turn is unmistakably bigger than the gaps inside it.
+ */
 .ai-turns {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 20px;
 }
 
 .ai-turn-user {
@@ -305,10 +335,14 @@
   justify-content: flex-end;
 }
 
+/*
+ * The person's words. The tint is what separates the bubble from the panel, so
+ * the outline round it was saying the same thing twice; the one square corner
+ * points back at whoever said it.
+ */
 .ai-bubble {
   max-width: 85%;
   padding: 8px 12px;
-  border: 1px solid var(--line);
   border-radius: var(--radius-3) var(--radius-3) var(--radius-1) var(--radius-3);
   background: var(--surface-2);
   white-space: pre-wrap;
@@ -319,7 +353,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 8px;
+  gap: 12px;
 }
 
 .ai-pending {
@@ -435,8 +469,10 @@
   display: none;
 }
 
-.ai-thinking-summary:hover {
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .ai-thinking-summary:hover {
+    color: var(--ink);
+  }
 }
 
 .ai-thinking-summary:focus-visible {
@@ -456,6 +492,10 @@
   max-width: 100%;
 }
 
+/*
+ * What the assistant is doing, said the way a colleague would say it. Not a
+ * control, so no outline: the tint is enough to make it a chip.
+ */
 .ai-chip {
   display: inline-flex;
   align-items: center;
@@ -463,7 +503,6 @@
   max-width: 100%;
   min-height: 28px;
   padding: 3px 12px 3px 6px;
-  border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface-2);
   color: var(--ink-2);
@@ -488,7 +527,6 @@
 }
 
 .ai-chip[data-status='failed'] {
-  border-color: color-mix(in srgb, var(--bad) 45%, var(--line));
   background: var(--bad-soft);
   color: var(--bad);
 }
@@ -499,16 +537,22 @@
 
 /* --- Approval card ------------------------------------------------------ */
 
+/* The beam traces the card's own edge, so it carries the card's radius. */
 .ai-approval-beam {
   width: 100%;
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-3);
 }
 
+/*
+ * The one thing on the panel that stops and asks. It carries the lamp, because
+ * while it is open it is the only thing on the screen that needs a decision,
+ * and its radius is concentric with the 8px inset around its own controls.
+ */
 .ai-approval {
   padding: 12px 14px 14px;
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-3);
   background: var(--surface);
+  box-shadow: var(--edge-light);
 }
 
 .ai-approval-head {
@@ -647,6 +691,11 @@
   gap: 2px;
 }
 
+/*
+ * Push to talk: held down rather than toggled, so the press state has to be
+ * unmistakable while the finger is on it. It scales like every other pressable
+ * and then holds the brass while it listens.
+ */
 .ai-mic {
   display: grid;
   place-items: center;
@@ -660,15 +709,20 @@
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
-  transition:
-    background-color 120ms ease-out,
-    border-color 120ms ease-out,
-    color 120ms ease-out;
+  transition-property: background-color, border-color, color, scale;
+  transition-duration: var(--dur-hover), var(--dur-hover), var(--dur-hover), var(--dur-press);
+  transition-timing-function: ease-out;
 }
 
-.ai-mic:hover:not(:disabled) {
-  background: var(--surface-3);
-  color: var(--ink);
+.ai-mic:active:not(:disabled) {
+  scale: 0.96;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ai-mic:hover:not(:disabled) {
+    background: var(--surface-3);
+    color: var(--ink);
+  }
 }
 
 .ai-mic[aria-pressed='true'] {
