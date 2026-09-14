@@ -92,18 +92,27 @@
   width: calc(var(--rail-w) - 16px);
 }
 
-.brand-mark {
-  display: grid;
-  flex: 0 0 auto;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-2);
-  background: var(--brass);
-  color: var(--brass-ink);
-  font-size: var(--fs-3);
-  font-weight: 600;
-  line-height: 1;
+/*
+ * The mark is the name.
+ *
+ * It replaces a brass square holding a capital E — a boxed initial is the
+ * house style of every generated product, and it was the loudest coloured
+ * object in the chrome. The wordmark says the same thing in the interface's
+ * own typeface: "Edison" in medium, "Helpdesk" in regular, one size, tracked
+ * in. No colour: the name is not a status.
+ */
+.brand-name {
+  display: inline-flex;
+  gap: 0.34em;
+  color: var(--ink);
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  white-space: nowrap;
+}
+
+.brand-name-tail {
+  font-weight: 400;
+  color: var(--ink-2);
 }
 
 .topbar-lookup {
@@ -515,10 +524,10 @@
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: var(--brass);
-  color: var(--brass-ink);
+  background: var(--ink);
+  color: var(--bg);
   font-size: var(--fs-0);
-  font-weight: 600;
+  font-weight: 500;
   line-height: 18px;
   text-align: center;
 }
@@ -661,9 +670,9 @@
   border-radius: var(--radius-2);
   color: var(--ink-2);
   font-weight: 500;
-  transition-property: background-color, color;
-  transition-duration: 100ms;
-  transition-timing-function: ease-out;
+  transition-property: background-color, color, border-color;
+  transition-duration: var(--dur-hover);
+  transition-timing-function: ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -707,11 +716,11 @@
 }
 
 /*
- * Brass here is reserved for the one count that is a call to action: the open
- * queue, where somebody is waiting and nobody has picked it up. My tickets,
- * Collaborating, Resolved and All tickets are quantities of your own work and
- * are set quiet — five brass pills down one rail is a highlighter, not a
- * signal, and it costs the lamp its meaning.
+ * A count is a quantity, not an alarm. Every pill in the rail is neutral — a
+ * surface step, secondary text and a hairline — because the accent is spent on
+ * focus rings, links and the one action a screen is asking for. The open queue
+ * still reads first: it is the count that is usually not zero, and it sits at
+ * the top of the rail.
  */
 .count-pill {
   display: inline-flex;
@@ -722,18 +731,20 @@
   height: 20px;
   padding: 0 6px;
   border-radius: 999px;
-  background: var(--brass);
-  color: var(--brass-ink);
+  border: 1px solid var(--line);
+  background: var(--surface-3);
+  color: var(--ink-2);
   font-size: var(--fs-0);
-  font-weight: 600;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
+/* Your own tally rather than work waiting: quieter still, and no border. */
 .count-pill-quiet {
-  background: var(--surface-3);
+  border-color: transparent;
+  background: transparent;
   color: var(--ink-3);
-  font-weight: 500;
 }
 
 .rail-link[aria-current='page'] .count-pill-quiet {
@@ -818,10 +829,10 @@
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: var(--brass);
-  color: var(--brass-ink);
+  background: var(--ink);
+  color: var(--bg);
   font-size: var(--fs-0);
-  font-weight: 600;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
   line-height: 18px;
   text-align: center;

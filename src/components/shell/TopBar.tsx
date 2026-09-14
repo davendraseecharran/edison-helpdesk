@@ -47,10 +47,9 @@ export function TopBar({
   return (
     <header className="topbar">
       <Link href={homeHref} className="brand" aria-label="Edison Helpdesk, go to the start page">
-        <span className="brand-mark" aria-hidden="true">
-          E
+        <span className="brand-name" aria-hidden="true">
+          Edison<span className="brand-name-tail">Helpdesk</span>
         </span>
-        <span className="brand-name">Edison Helpdesk</span>
       </Link>
 
       <div className="topbar-lookup">

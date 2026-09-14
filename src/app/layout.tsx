@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { ThemeProvider } from '@/components/shell/ThemeProvider';
 import { THEME_BOOT_SCRIPT } from '@/components/shell/theme-script';
-import { plexMono, plexSans } from './fonts';
+import { mono, sans } from './fonts';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -30,8 +30,8 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f3f5f8' },
-    { media: '(prefers-color-scheme: dark)', color: '#0d1526' },
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#000000' },
   ],
 };
 
@@ -51,7 +51,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
       lang="en"
-      className={`${plexSans.variable} ${plexMono.variable}`}
+      className={`${sans.variable} ${mono.variable}`}
       suppressHydrationWarning
     >
       <head>

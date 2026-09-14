@@ -1,39 +1,132 @@
 /*
  * Design tokens — the only place in the codebase that names a colour.
  *
+ * The palette is neutral: near-black grounds in the dark theme, near-white in
+ * the light one, hairline borders, text in three steps, one blue accent, and
+ * semantic colours kept muted. There is no brand colour on a surface. Colour
+ * is information here, so the only things that get to be coloured are a focus
+ * ring, a link, the one primary action on a screen, and a status. The school's
+ * navy and brass are retired.
+ *
  * Every token is defined for both themes. The dark set overrides the light one
  * on `:root[data-theme="dark"]`, which the blocking boot script stamps before
- * first paint, so a dark-theme reload never flashes light. Rules elsewhere use
- * `var(--token)` only; that is what makes the whole application follow the
- * theme without a second stylesheet.
+ * first paint — and dark is what a first visit gets, so the dark set is the
+ * design's home and the light one keeps the same discipline inverted.
+ *
+ * Names outlive values. Everything downstream says `var(--token)`, which is
+ * what let the whole palette change without touching a screen; the old accent
+ * names (`--brass*`, `--signal*`) survive as aliases pointing at the new
+ * accent for exactly that reason.
  */
 
 :root {
   color-scheme: light;
-  --ink: #0f1f3d;
-  --ink-2: #33415c;
-  --ink-3: #5b6780;
-  --paper: #f3f5f8;
+
+  /* --- Ground and surfaces --------------------------------------------- */
+
+  /*
+   * Four steps, all neutral. `--bg` is the page, `--surface` a resting card,
+   * `--surface-2` a panel or menu floating above it, `--surface-3` a row under
+   * the pointer or a selected one. The steps are small on purpose: at this
+   * density the hairline does the separating and the surface only whispers.
+   * `--paper` is the older name for the page and still points at it.
+   */
+  --bg: #fbfbfc;
+  --paper: var(--bg);
   --surface: #ffffff;
-  --surface-2: #f7f8fb;
-  --surface-3: #eef1f6;
-  --line: #d9dee7;
-  --line-2: #c5ccd8;
-  --brass: #d4a72c;
-  --brass-2: #b98d1c;
-  --brass-soft: #fbf3d9;
-  --brass-ink: #0f1f3d;
-  --signal: #2457b6;
-  --signal-soft: #e6eefb;
-  --ok: #1f6b45;
-  --ok-soft: #e4f2ea;
-  --warn: #8a5a08;
-  --warn-soft: #fbf1da;
-  --bad: #9c2b2b;
-  --bad-soft: #fbe9e9;
-  --slate: #5b6780;
-  --slate-soft: #eceff4;
-  --focus: 0 0 0 3px rgba(212, 167, 44, 0.55);
+  --surface-2: #f6f6f7;
+  --surface-3: #efeff1;
+  --overlay: #ffffff;
+
+  /* --- Lines ------------------------------------------------------------ */
+
+  /*
+   * Structure, never depth. `--line` separates two things, `--line-strong`
+   * outlines a control, `--line-focus` is the edge a field takes while it has
+   * the keyboard. `--line-2` is the older name for the strong one.
+   */
+  --line: #e6e6ea;
+  --line-strong: #d3d3d8;
+  --line-2: var(--line-strong);
+  --line-focus: #1b1b1f;
+
+  /* --- Text ------------------------------------------------------------- */
+
+  /* Three steps: what you read, what you glance at, what is only a label. */
+  --ink: #1b1b1f;
+  --ink-2: #62626a;
+  --ink-3: #8c8c94;
+
+  /* --- Accent ----------------------------------------------------------- */
+
+  /*
+   * One blue, rationed: the focus ring, a link, the single call to action on a
+   * screen, the 2px marker on a selected row. Never a fill on a card, never a
+   * whole panel. The default primary button is ink on paper, not blue — the
+   * accent is kept for the one action a screen is actually asking for.
+   */
+  --accent: #0070f3;
+  --accent-hover: #0761d1;
+  --accent-soft: rgb(0 112 243 / 0.12);
+  --accent-ink: #ffffff;
+
+  /*
+   * The retired brass and signal names, pointed at the accent. Every rule that
+   * still says `--brass` means "the accent", and that is what carries the
+   * whole application onto one palette instead of leaving two.
+   */
+  --brass: var(--accent);
+  --brass-2: var(--accent-hover);
+  --brass-soft: var(--accent-soft);
+  --brass-ink: var(--accent-ink);
+  --signal: var(--accent);
+  --signal-soft: var(--accent-soft);
+
+  /* --- Semantic --------------------------------------------------------- */
+
+  /*
+   * Muted, so a table of statuses is not a fruit bowl. Each has a 12% wash for
+   * the chip it sits in. `--info` is Linear's violet and belongs to the
+   * assistant alone. `--ok` and `--good` are one colour under two names,
+   * because the screens already say `--ok`.
+   */
+  --good: #17875b;
+  --good-soft: rgb(23 135 91 / 0.12);
+  --ok: var(--good);
+  --ok-soft: var(--good-soft);
+  --warn: #a86b08;
+  --warn-soft: rgb(168 107 8 / 0.12);
+  --bad: #d0343a;
+  --bad-soft: rgb(208 52 58 / 0.12);
+  --info: #4b55b8;
+  --info-soft: rgb(75 85 184 / 0.12);
+
+  /* Neutral status: a thing that is simply not remarkable. */
+  --slate: var(--ink-2);
+  --slate-soft: var(--surface-3);
+
+  /*
+   * Focus: a 2px accent ring held 2px off the control, drawn as two shadows so
+   * it reads on a control that already has a border and takes no layout space.
+   */
+  --focus:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--accent);
+
+  /*
+   * The bench lamp, now a lift rather than a light.
+   *
+   * Exactly one element wears it at a time — the current rail item, the row the
+   * keyboard is on, the panel that is asking — and that rule is the identity;
+   * it survives the palette change. What changed is the colour: none. A ring a
+   * step stronger than the hairline, a whisper of light along the inside edge
+   * and a soft drop, so the lit element reads as raised out of the page rather
+   * than painted a different colour. Who holds it is decided in `lamp.css`.
+   */
+  --edge-light:
+    0 0 0 1px var(--line-strong),
+    inset 0 0 0 1px rgb(255 255 255 / 0.8),
+    0 8px 24px -12px rgb(0 0 0 / 0.18);
 
   /*
    * The hairline inside the edge of a photograph. Both values live in both
@@ -45,51 +138,24 @@
   --outline-image-dark: oklch(1 0 0 / 0.1);
 
   /*
-   * The bench lamp: the one lit element on a screen.
-   *
-   * Brass stopped being a highlighter and became a light source. Four layers
-   * read as a lamp hung above and to the left — a bright hairline along the
-   * top edge, a dimmer one down the left, a thin ring so the shape is closed,
-   * and a warm bloom falling below. Exactly one element wears it at a time
-   * (the current rail item, the row the keyboard is on, the panel that has
-   * focus), which is what makes it mean "you are here" rather than "this is
-   * decorated".
-   */
-  --edge-light:
-    inset 0 1px 0 0 rgba(212, 167, 44, 0.9),
-    inset 1px 0 0 0 rgba(212, 167, 44, 0.32),
-    0 0 0 1px rgba(212, 167, 44, 0.3),
-    0 6px 16px -8px rgba(212, 167, 44, 0.45);
-
-  /*
    * Radii, concentric. Outer = inner + the padding between them, so a 4px
-   * control inside 12px of card padding needs a 16px card. Past 24px of
-   * padding the layers stop reading as nested and each picks its own.
+   * control inside 8px of padding needs a 12px card. Small, in the way that
+   * reads as precise rather than friendly: 4 on a chip or an inner input, 6 on
+   * a button or a field, 8 on a card or a menu, 12 on a dialog or a sheet.
    */
   --radius-1: 4px;
-  --radius-2: 8px;
-  --radius-3: 12px;
-  --radius-4: 16px;
+  --radius-2: 6px;
+  --radius-3: 8px;
+  --radius-4: 12px;
 
   /*
-   * Three elevations, layered and transparent, so they sit correctly on any
-   * ground. `1` is a resting card, `2` a menu or popover, `3` a dialog or
-   * sheet. Every layer is pure black: a tinted shadow picks up the surface
-   * under it and reads as dirt. Borders are for structure — dividers, table
-   * rules, input outlines — and never for depth.
+   * Depth is faint, because the borders do the work. `1` is a resting card,
+   * `2` a menu or popover, `3` a dialog or sheet. Every layer is pure black: a
+   * tinted shadow picks up the surface under it and reads as dirt.
    */
-  --shadow-1:
-    0 0 0 1px rgba(0, 0, 0, 0.06),
-    0 1px 2px -1px rgba(0, 0, 0, 0.08),
-    0 2px 4px 0 rgba(0, 0, 0, 0.04);
-  --shadow-2:
-    0 0 0 1px rgba(0, 0, 0, 0.07),
-    0 4px 8px -4px rgba(0, 0, 0, 0.1),
-    0 12px 24px -8px rgba(0, 0, 0, 0.1);
-  --shadow-3:
-    0 0 0 1px rgba(0, 0, 0, 0.08),
-    0 8px 16px -8px rgba(0, 0, 0, 0.14),
-    0 24px 48px -12px rgba(0, 0, 0, 0.16);
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.06);
+  --shadow-2: 0 4px 12px -4px rgb(0 0 0 / 0.1);
+  --shadow-3: 0 16px 40px -12px rgb(0 0 0 / 0.14);
 
   /*
    * Motion. The built-in curves are too weak to read as deliberate; these are
@@ -99,12 +165,17 @@
    */
   --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
-  --dur-hover: 120ms;
+  /*
+   * Hover is the one state that must not snap. 150ms is long enough that a row
+   * or a button warms up and cools down rather than flicking between two
+   * colours, and short enough that it never feels like waiting.
+   */
+  --dur-hover: 150ms;
   --dur-press: 160ms;
   --dur-surface: 200ms;
 
-  --rail-w: 232px;
-  --topbar-h: 56px;
+  --rail-w: 240px;
+  --topbar-h: 48px;
   --tabs-h: 60px;
   --fs-0: 12px;
   --fs-1: 13px;
@@ -113,62 +184,60 @@
   --fs-4: 20px;
   --fs-5: 26px;
   --fs-6: 34px;
-  /* Display. One size, one place: the sign-in hero. */
+  /* Display. One size, one place: the sign-in screen. */
   --fs-7: 44px;
 
   /*
-   * Optical tracking. Plex Sans sets loose above 20px, so the larger sizes
-   * are pulled in; body text and below are left alone.
+   * Optical tracking. Geist sets loose above 20px, so the larger sizes are
+   * pulled in; body text and below are left alone.
    */
   --tracking-display: -0.022em;
   --tracking-title: -0.014em;
   --tracking-heading: -0.008em;
+
+  /*
+   * The typefaces, under the names the stylesheets use. `next/font` defines
+   * `--font-geist-*` on the html element; nothing else in the application
+   * needs to know that.
+   */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --ink: #e8ecf3;
-  --ink-2: #b7c0d0;
-  --ink-3: #8b96aa;
-  --paper: #0d1526;
-  --surface: #131d31;
-  --surface-2: #182440;
-  --surface-3: #1e2c4c;
-  --line: #27365a;
-  --line-2: #34466f;
-  --brass: #e2b93f;
-  --brass-2: #f0c95a;
-  --brass-soft: #3a3116;
-  --brass-ink: #0d1526;
-  --signal: #7aa2ec;
-  --signal-soft: #1a2a4d;
-  --ok: #6fcf97;
-  --ok-soft: #14301f;
-  --warn: #e6b45a;
-  --warn-soft: #3a2c10;
-  --bad: #ef8a8a;
-  --bad-soft: #3b1717;
-  --slate: #9aa6bb;
-  --slate-soft: #202c46;
-  --focus: 0 0 0 3px rgba(226, 185, 63, 0.55);
 
-  /* The same lamp, dimmer: brass on navy carries further than brass on paper. */
+  --bg: #0f0f10;
+  --surface: #141415;
+  --surface-2: #1a1a1c;
+  --surface-3: #212124;
+  --overlay: #1a1a1c;
+
+  --line: #26262a;
+  --line-strong: #333338;
+  --line-focus: #f2f2f3;
+
+  --ink: #f2f2f3;
+  --ink-2: #a3a3a8;
+  --ink-3: #6e6e75;
+
+  /* The same blue: it was chosen to hold on both grounds. */
+  --accent: #0070f3;
+  --accent-hover: #3291ff;
+
+  --good: #29a36a;
+  --warn: #d29922;
+  --bad: #e5484d;
+  --info: #5e6ad2;
+
+  /* Dark leans on its borders; the shadows are only a darkening. */
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.6);
+  --shadow-2: 0 4px 12px -4px rgb(0 0 0 / 0.7);
+  --shadow-3: 0 16px 40px -12px rgb(0 0 0 / 0.8);
+
+  /* The same lift, drawn the other way up: the inner edge lights, not darkens. */
   --edge-light:
-    inset 0 1px 0 0 rgba(226, 185, 63, 0.72),
-    inset 1px 0 0 0 rgba(226, 185, 63, 0.26),
-    0 0 0 1px rgba(226, 185, 63, 0.22),
-    0 8px 22px -10px rgba(226, 185, 63, 0.42);
-
-  /*
-   * Dark: layered black depth is invisible on a dark ground, so elevation is
-   * carried by a white ring that brightens as a surface rises, with a black
-   * drop under the two that genuinely float.
-   */
-  --shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.08);
-  --shadow-2:
-    0 0 0 1px rgba(255, 255, 255, 0.11),
-    0 8px 24px rgba(0, 0, 0, 0.5);
-  --shadow-3:
-    0 0 0 1px rgba(255, 255, 255, 0.14),
-    0 16px 48px rgba(0, 0, 0, 0.6);
+    0 0 0 1px var(--line-strong),
+    inset 0 0 0 1px rgb(242 242 243 / 0.06),
+    0 8px 24px -12px rgb(0 0 0 / 0.8);
 }
