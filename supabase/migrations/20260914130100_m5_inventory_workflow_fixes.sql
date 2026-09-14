@@ -578,3 +578,108 @@ grant execute on function
   public.app_backup_rows(text, integer, integer)
 to authenticated;
 
+-- ---------------------------------------------------------------------------
+-- An observation can name the machine it was made about.
+--
+-- public.device_observations has carried inventory_device_id since
+-- 20260912220000 and src/lib/data/mapping.ts has mapped it since this
+-- milestone, but no writer ever set it: app_record_device took seven arguments
+-- and none of them was the inventory id, so a technician who picked the machine
+-- out of the inventory and then described what they saw left two rows that
+-- never referred to each other.
+--
+-- The parameter list changes, so the seven-argument signature is dropped first
+-- rather than overloaded: PostgREST tells overloads apart by the argument NAMES
+-- a call sends, and a call naming only the seven they share would match both.
+-- Grants are restated after the create, because a dropped function takes its
+-- grants with it.
+--
+-- Body from 20260914101300_m5_row_attribution.sql, with the new argument, its
+-- existence check, and the column it fills. Nothing else changes.
+-- ---------------------------------------------------------------------------
+
+drop function if exists public.app_record_device(uuid, text, text, text, text, text, boolean);
+
+create function public.app_record_device(
+  p_ticket uuid,
+  p_device_type text,
+  p_model text default null,
+  p_os_version text default null,
+  p_serial_number text default null,
+  p_asset_tag text default null,
+  p_identifiers_not_applicable boolean default false,
+  p_inventory_device_id uuid default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor public.app_accounts;
+  v_ticket public.tickets;
+  v_device_id uuid;
+begin
+  v_actor := public.app_require_actor();
+  v_ticket := public.app_lock_ticket(p_ticket, v_actor);
+  perform public.app_require_contributor(v_ticket, v_actor);
+
+  if pg_catalog.length(pg_catalog.btrim(coalesce(p_device_type, ''))) = 0 then
+    raise exception 'Each device entry needs a device type.' using errcode = 'check_violation';
+  end if;
+
+  -- An id that names no machine is a caller that is wrong, and storing it would
+  -- fail the foreign key with a message nobody can act on.
+  if p_inventory_device_id is not null
+     and not exists (
+       select 1 from public.inventory_devices d where d.id = p_inventory_device_id
+     ) then
+    raise exception 'That device is not in the inventory. Search for it again.'
+      using errcode = 'no_data_found';
+  end if;
+
+  -- Unknown serial and asset tag stay null; they never block the record.
+  insert into public.device_observations (
+    ticket_id, device_type, model, os_version, serial_number, asset_tag,
+    identifiers_not_applicable, inventory_device_id, recorded_by,
+    performed_via, ai_model
+  )
+  values (
+    v_ticket.id, pg_catalog.btrim(p_device_type),
+    nullif(pg_catalog.btrim(coalesce(p_model, '')), ''),
+    nullif(pg_catalog.btrim(coalesce(p_os_version, '')), ''),
+    nullif(pg_catalog.btrim(coalesce(p_serial_number, '')), ''),
+    nullif(pg_catalog.btrim(coalesce(p_asset_tag, '')), ''),
+    coalesce(p_identifiers_not_applicable, false),
+    p_inventory_device_id,
+    v_actor.id,
+    public.app_request_via(), public.app_request_ai_model()
+  )
+  returning id into v_device_id;
+
+  if v_ticket.status = 'assigned' then
+    update public.tickets set status = 'in_progress' where id = v_ticket.id;
+    perform public.app_log_event(
+      v_ticket.id, 'status_changed', v_actor.id, v_actor.display_name || ' started work'
+    );
+  end if;
+
+  perform public.app_log_event(
+    v_ticket.id, 'device_recorded', v_actor.id,
+    v_actor.display_name || ' recorded a device: ' || pg_catalog.btrim(p_device_type)
+  );
+
+  return v_device_id;
+end;
+$$;
+
+comment on function public.app_record_device(uuid, text, text, text, text, text, boolean, uuid) is
+  'Records what a technician saw about one machine on one ticket. p_inventory_device_id is optional and names the inventory record the observation was made about, when it was chosen from the picker rather than typed; an observation about a machine the district does not own still works without it.';
+
+revoke execute on function
+  public.app_record_device(uuid, text, text, text, text, text, boolean, uuid)
+from public, anon;
+
+grant execute on function
+  public.app_record_device(uuid, text, text, text, text, text, boolean, uuid)
+to authenticated;

@@ -1,28 +1,57 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import Link from 'next/link';
+import { Plus, X } from 'lucide-react';
 import type { TicketDetail } from '@/lib/domain/selectors';
 import { canContribute } from '@/lib/domain/permissions';
 import { recordDeviceAction } from '@/lib/data/actions';
 import { nameOf } from '@/lib/directory';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Field, TimeAgo } from '@/components/Primitives';
+import { DevicePicker, type DeviceSearchResult } from '@/components/devices/DevicePicker';
 import { ActorLabel } from '@/components/ui/ActorLabel';
 import { Button } from '@/components/ui/Button';
 
-const EMPTY_DRAFT = {
+interface DeviceDraft {
+  deviceType: string;
+  model: string;
+  osVersion: string;
+  serialNumber: string;
+  assetTag: string;
+  identifiersNotApplicable: boolean;
+  /** Set only when the machine was chosen from the inventory, never when typed. */
+  inventoryDeviceId: string | null;
+  /** How the chosen machine is named, for the line that says which one it is. */
+  inventoryLabel: string | null;
+}
+
+const EMPTY_DRAFT: DeviceDraft = {
   deviceType: '',
   model: '',
   osVersion: '',
   serialNumber: '',
   assetTag: '',
   identifiersNotApplicable: false,
+  inventoryDeviceId: null,
+  inventoryLabel: null,
 };
 
 /**
  * Device observations recorded at service time. Unknown serials and asset tags
  * are allowed: the plan requires that missing identifiers never block the record.
+ *
+ * The form opens with the inventory picker above the fields, because most of
+ * what the desk sees is the district's own equipment. Choosing a machine fills
+ * the identifiers AND names the inventory record the observation is about —
+ * `device_observations.inventory_device_id`, a column that has existed since
+ * 20260912220000 and that nothing ever wrote, so an observation and the machine
+ * it was made about never referred to each other.
+ *
+ * Choosing is optional and stays optional. A parent's laptop, a projector
+ * nobody ever tagged and a machine on loan from another school are still
+ * described by hand in the fields below, which is the whole reason an
+ * observation is a different thing from a link.
  */
 export function DevicePanel({ detail }: { detail: TicketDetail }) {
   const { directory, pendingKey, run } = useRuntime();
@@ -37,6 +66,32 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
   const saving = pendingKey === key;
   const count = detail.devices.length;
   const formId = `device-form-${ticket.id}`;
+
+  /*
+   * Choosing from the inventory fills the form and remembers WHICH record was
+   * chosen. The fields stay editable afterwards: the inventory's idea of a
+   * machine's model can be out of date, and what the technician is holding is
+   * the more recent fact. Correcting one of them does not unpick the choice —
+   * the observation is still about that machine, which is the whole point of
+   * naming it.
+   */
+  function chooseFromInventory(device: DeviceSearchResult) {
+    setError(null);
+    setDraft((current) => ({
+      ...current,
+      deviceType: device.type,
+      model: device.model ?? '',
+      serialNumber: device.serialNumber ?? '',
+      assetTag: device.assetTag ?? '',
+      identifiersNotApplicable: false,
+      inventoryDeviceId: device.id,
+      inventoryLabel: device.label,
+    }));
+  }
+
+  function clearInventoryChoice() {
+    setDraft((current) => ({ ...current, inventoryDeviceId: null, inventoryLabel: null }));
+  }
 
   async function onSubmit(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
@@ -122,6 +177,16 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
                         : (device.assetTag ?? 'Unknown')}
                     </dd>
                   </div>
+                  {device.inventoryDeviceId ? (
+                    <div>
+                      <dt>In the inventory</dt>
+                      <dd>
+                        <Link href={`/devices/${device.inventoryDeviceId}`}>
+                          Open this machine
+                        </Link>
+                      </dd>
+                    </div>
+                  ) : null}
                 </dl>
               </li>
             ))}
@@ -132,6 +197,27 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
           <form id={formId} onSubmit={onSubmit} className="form">
             <fieldset className="draft">
               <legend>New device</legend>
+              {draft.inventoryDeviceId ? (
+                <p className="panel-aside">
+                  From the inventory: <span className="mono">{draft.inventoryLabel}</span>{' '}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={X}
+                    aria-label="Do not name an inventory machine"
+                    title="Do not name an inventory machine"
+                    onClick={clearInventoryChoice}
+                  />
+                </p>
+              ) : (
+                <DevicePicker
+                  id={`observe-device-${ticket.id}`}
+                  label="Find it in the inventory"
+                  hint="Optional. Choosing one fills the details below and records which machine this is about."
+                  onSelect={chooseFromInventory}
+                  disabled={pendingKey !== null}
+                />
+              )}
               <div className="form-grid">
                 <Field label="Device type" htmlFor={`add-device-type-${ticket.id}`} error={error}>
                   <input

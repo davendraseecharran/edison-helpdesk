@@ -33,6 +33,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   adminServiceClient,
   identity,
+  ownedTicket,
   rawDevice,
   rawInventoryEvents,
   rawRecordEvents,
@@ -590,5 +591,62 @@ describe('backing up the district tables', () => {
     const wrong = await rpcFails(admin, 'app_backup_rows', { p_table: 'app_accounts' });
     expect(wrong.code).toBe(REJECTED);
     expect(wrong.message).toContain('not a table this screen can export');
+  });
+});
+
+/**
+ * An observation can name the machine it was made about.
+ *
+ * `device_observations.inventory_device_id` has existed since 20260912220000
+ * and `src/lib/data/mapping.ts` has mapped it all milestone, but
+ * `app_record_device` took seven arguments and none of them was the inventory
+ * id, so nothing ever wrote it. 20260914130100 adds the eighth.
+ */
+describe('an observation that names an inventory machine', () => {
+  it('stores the id when the machine was chosen from the picker', async () => {
+    const device = await seedInventoryDevice();
+    const { ticketId } = await ownedTicket();
+
+    const observationId = await rpcOk<string>(netrider, 'app_record_device', {
+      p_ticket: ticketId,
+      p_device_type: 'Chromebook',
+      p_serial_number: device.serialNumber,
+      p_inventory_device_id: device.id,
+    });
+
+    const { data, error } = await adminServiceClient()
+      .from('device_observations')
+      .select('*')
+      .eq('id', observationId)
+      .single();
+    if (error) throw new Error(`Could not read the observation: ${error.message}`);
+    expect((data as Record<string, unknown>).inventory_device_id).toBe(device.id);
+  });
+
+  it('still records a machine the district does not own, with no id at all', async () => {
+    const { ticketId } = await ownedTicket();
+
+    const observationId = await rpcOk<string>(netrider, 'app_record_device', {
+      p_ticket: ticketId,
+      p_device_type: 'Projector',
+    });
+
+    const { data } = await adminServiceClient()
+      .from('device_observations')
+      .select('inventory_device_id')
+      .eq('id', observationId)
+      .single();
+    expect((data as Record<string, unknown>).inventory_device_id).toBeNull();
+  });
+
+  it('refuses an id that names no machine rather than failing on the foreign key', async () => {
+    const { ticketId } = await ownedTicket();
+
+    const refused = await rpcFails(netrider, 'app_record_device', {
+      p_ticket: ticketId,
+      p_device_type: 'Chromebook',
+      p_inventory_device_id: '00000000-0000-4000-8000-000000000000',
+    });
+    expect(refused.message).toContain('not in the inventory');
   });
 });
