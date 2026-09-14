@@ -14,8 +14,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Tickets, people and devices for the NetRiders IT team.',
     start_url: '/queue',
     display: 'standalone',
-    background_color: '#0d1526',
-    theme_color: '#0f1f3d',
+    background_color: '#000000',
+    theme_color: '#000000',
     icons: [
       {
         src: '/icons/icon-192.png',

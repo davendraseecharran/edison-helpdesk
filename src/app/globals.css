@@ -230,7 +230,9 @@
  * on `:hover` the fill fades in and snaps out, which reads as a glitch.
  */
 .inventory-table tbody tr {
-  transition: background-color 100ms ease-out;
+  transition:
+    background-color var(--dur-hover) ease,
+    color var(--dur-hover) ease;
 }
 
 @media (hover: hover) and (pointer: fine) {

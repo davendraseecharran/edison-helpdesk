@@ -13,6 +13,7 @@ import {
   type SearchHit,
   type SearchKind,
 } from '@/lib/data/search';
+import { recognitionHeading, targetKind, type Recognition } from '@/lib/lookup/recognise';
 
 const KIND_ICON: Record<SearchKind, LucideIcon> = {
   ticket: Ticket,
@@ -123,24 +124,40 @@ export function HitItem({ hit, onSelect }: { hit: SearchHit; onSelect: (hit: Sea
   );
 }
 
-/** The three record groups, each rendered only when it has something to show. */
+/**
+ * The three record groups, each rendered only when it has something to show.
+ *
+ * When the text was recognised as an identifier, the group it points at is
+ * headed with what the palette read rather than with the generic noun: paste a
+ * sticker and the heading says "Asset tag A-93542614", which is the one line
+ * that tells you the paste landed, that it was read as a tag rather than a
+ * serial, and that the rows underneath are the answer to it. The other two
+ * groups keep their plain headings, because they are not what was asked for.
+ */
 export function HitGroups({
   groups,
+  recognition,
   onSelect,
 }: {
   groups: GroupedHits;
+  /** What the query was read as. Omitted where nothing was recognised. */
+  recognition?: Recognition;
   onSelect: (hit: SearchHit) => void;
 }) {
-  const sections: Array<[string, SearchHit[]]> = [
-    ['Tickets', groups.tickets],
-    ['People', groups.people],
-    ['Devices', groups.devices],
+  const named = recognition ? targetKind(recognition.kind) : null;
+  const sections: Array<[SearchKind, string, SearchHit[]]> = [
+    ['ticket', 'Tickets', groups.tickets],
+    ['person', 'People', groups.people],
+    ['device', 'Devices', groups.devices],
   ];
   return (
     <>
-      {sections.map(([heading, hits]) =>
+      {sections.map(([kind, heading, hits]) =>
         hits.length > 0 ? (
-          <Command.Group key={heading} heading={heading}>
+          <Command.Group
+            key={heading}
+            heading={kind === named && recognition ? recognitionHeading(recognition) : heading}
+          >
             {hits.map((hit) => (
               <HitItem key={hitValue(hit)} hit={hit} onSelect={onSelect} />
             ))}

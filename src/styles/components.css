@@ -56,7 +56,7 @@
 .pressable {
   transition-property: background-color, border-color, color, scale;
   transition-duration: var(--dur-hover), var(--dur-hover), var(--dur-hover), var(--dur-press);
-  transition-timing-function: ease-out;
+  transition-timing-function: ease, ease, ease, ease-out;
 }
 
 .btn:active:not(:disabled):not([aria-disabled='true']):not(.btn-static),
@@ -760,6 +760,9 @@ p.flash {
   font: 500 var(--fs-2) / 1.4 var(--font-sans);
   text-align: left;
   cursor: pointer;
+  transition:
+    background-color var(--dur-hover) ease,
+    color var(--dur-hover) ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -987,7 +990,9 @@ p.flash {
  * pointer crosses.
  */
 .table tbody tr {
-  transition: background-color 100ms ease-out;
+  transition:
+    background-color var(--dur-hover) ease,
+    color var(--dur-hover) ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
