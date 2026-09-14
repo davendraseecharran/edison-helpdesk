@@ -1,0 +1,133 @@
+/*
+ * The voice's two pieces of presentation: the mark a rare win gets, and the
+ * bench lamp that warms up while the application loads.
+ *
+ * Both are rationed. The mark plays for a queue that hit zero and a ticket that
+ * closed — moments that happen a handful of times a day — and for nothing that
+ * happens a hundred times. The lamp plays once per document load and never on
+ * an in-app navigation, because it lives in the authenticated layout, which
+ * mounts on a real page load and stays mounted while you move around inside it.
+ *
+ * Tokens only, no colour of its own. The lamp is `--edge-light`: whatever that
+ * token is, this is the application announcing itself in the same terms as the
+ * one lit element on every screen.
+ */
+
+/* --- A win, marked once ------------------------------------------------- */
+
+/*
+ * Opacity and eight pixels, over 300ms, once. Emil's rule decides what may
+ * wear this at all: a rare moment can afford an entrance, and a frequent one
+ * cannot. The animation is a one-shot keyframe rather than a transition
+ * because nothing interrupts it — it plays when the line appears and never
+ * plays again.
+ */
+.voice-mark {
+  animation: voice-mark-in 300ms var(--ease-out) both;
+}
+
+@keyframes voice-mark-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The line itself: a remark, set quietly beside whatever it is about. */
+.voice-line {
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+}
+
+/* --- The bench lamp ----------------------------------------------------- */
+
+/*
+ * A full-page moment at the start of a session: the wordmark on the page's own
+ * ground with the lamp's ring drawing itself around it, then both go. One
+ * second end to end, and it takes no pointer events at any point, so a fast
+ * connection is never a page you cannot click.
+ *
+ * Pure CSS on purpose. A script that removes it could fail to run and leave a
+ * sheet over the application; `animation-fill-mode: forwards` cannot.
+ */
+.boot-lamp {
+  position: fixed;
+  z-index: 200;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+  pointer-events: none;
+  animation: boot-lamp-out 1000ms var(--ease-out) forwards;
+}
+
+.boot-lamp-mark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28em;
+  padding: 14px 20px;
+  border-radius: var(--radius-3);
+  color: var(--ink);
+  font-size: var(--fs-4);
+  letter-spacing: var(--tracking-heading);
+  animation: boot-lamp-warm 1000ms var(--ease-out) forwards;
+}
+
+.boot-lamp-mark b {
+  font-weight: 500;
+}
+
+.boot-lamp-mark span {
+  color: var(--ink-2);
+  font-weight: 400;
+}
+
+/* The lamp coming up to temperature: the ring arrives, holds, and goes out. */
+@keyframes boot-lamp-warm {
+  0% {
+    box-shadow: none;
+    opacity: 0;
+  }
+  35% {
+    box-shadow: var(--edge-light);
+    opacity: 1;
+  }
+  70% {
+    box-shadow: var(--edge-light);
+    opacity: 1;
+  }
+  100% {
+    box-shadow: none;
+    opacity: 0;
+  }
+}
+
+@keyframes boot-lamp-out {
+  0%,
+  70% {
+    opacity: 1;
+    visibility: visible;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+/*
+ * Reduced motion takes the moment away entirely rather than freezing it. A
+ * static sheet over the application is not a gentler animation, it is a bug.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .voice-mark {
+    animation: none;
+  }
+
+  .boot-lamp {
+    display: none;
+  }
+}
