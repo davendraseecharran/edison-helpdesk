@@ -60,18 +60,16 @@ export function TopBar({
         {/* Intake is ticket work. A skills officer gets no button for a form
             they would be turned away from. */}
         {canCreateTickets ? (
-          <ButtonLink href="/tickets/new" variant="primary" icon={Plus} collapseOnPhone>
+          <ButtonLink
+            href="/tickets/new"
+            variant="primary"
+            icon={Plus}
+            collapseOnPhone
+            // The `n` shortcut AppShell binds lives in the tooltip, not inside the
+            // button: a keycap in a primary control is one more thing to read.
+            title={newTicketShortcut ? 'New ticket (press n)' : undefined}
+          >
             New ticket
-            {/* The `n` shortcut AppShell binds, shown on the control it presses.
-                `collapseOnPhone` wraps these children in `.btn-label`, which is
-                visually hidden below 720px, so the keycap goes with the label on
-                a phone — where there is no hardware keyboard to press it. Hidden
-                on `/tickets/new` itself, where AppShell leaves `n` unbound. */}
-            {newTicketShortcut ? (
-              <kbd className="kbd kbd-in-button" aria-hidden="true">
-                n
-              </kbd>
-            ) : null}
           </ButtonLink>
         ) : null}
         <NotificationsBell unread={unreadNotifications} showCount={notifyInApp} />
