@@ -5,7 +5,8 @@
  * no page logs a browser error.
  *
  * It creates its own synthetic administrator and technician through the LOCAL
- * Supabase admin API, seeds a handful of people, devices and tickets through
+ * Supabase admin API, seeds a handful of directory records, machines and
+ * tickets through
  * the ordinary RPCs (so row-level security is exercised rather than bypassed),
  * signs in with the password form, and then walks every route at three widths
  * on both themes.
@@ -136,12 +137,12 @@ function routes(seed) {
     { slug: 'ticket-new', path: '/tickets/new' },
     { slug: 'my-tickets', path: '/my-tickets', title: 'My tickets — Edison Helpdesk' },
     { slug: 'people', path: '/people', title: 'People — Edison Helpdesk' },
+    { slug: 'people-staff', path: '/people?kind=staff', title: 'People — Edison Helpdesk' },
     { slug: 'person', path: `/people/${seed.student}`, title: 'Person — Edison Helpdesk' },
     { slug: 'devices', path: '/devices', title: 'Devices — Edison Helpdesk' },
     { slug: 'device', path: `/devices/${seed.chromebook}`, title: 'Device — Edison Helpdesk' },
     { slug: 'insights', path: '/insights', title: 'Insights — Edison Helpdesk' },
     { slug: 'admin-access', path: '/admin', title: 'Administration — Edison Helpdesk' },
-    { slug: 'admin-import', path: '/admin/import', title: 'Import — Edison Helpdesk' },
     { slug: 'admin-audit', path: '/admin/audit', title: 'Audit log — Edison Helpdesk' },
     { slug: 'settings', path: '/settings', title: 'Settings — Edison Helpdesk' },
     { slug: 'notifications', path: '/notifications', title: 'Notifications — Edison Helpdesk' },
@@ -185,57 +186,81 @@ async function shoot(page, theme, viewport, slug) {
   const admin = await sessionFor('admin');
   const tech = await sessionFor('tech');
 
+  // The district's own directory and inventory, through the owner's writers.
+  // Both take the whole record and a version, and both write their own audit.
   const student = ok(
-    await admin.rpc('app_upsert_person', {
-      p_person: {
+    await admin.rpc('app_save_person', {
+      p_id: null,
+      p_version: null,
+      p_data: {
         kind: 'student',
-        first_name: 'Nia',
-        last_name: 'Okonkwo',
-        osis: runOsis,
-        official_class: '9A',
-        class_of: '2029',
-        department: 'Grade 9',
+        displayName: 'Nia Okonkwo',
+        firstName: 'Nia',
+        lastName: 'Okonkwo',
+        externalId: runOsis,
+        officialClass: '9A',
+        classOf: '2029',
+        studentStatus: 'current',
+        guardianName: 'Adaeze Okonkwo',
+        guardianPhone: '555 0100',
       },
     }),
   );
   const staff = ok(
-    await admin.rpc('app_upsert_person', {
-      p_person: {
+    await admin.rpc('app_save_person', {
+      p_id: null,
+      p_version: null,
+      p_data: {
         kind: 'staff',
-        first_name: 'Marcus',
-        last_name: 'Ellery',
+        displayName: 'Marcus Ellery',
+        firstName: 'Marcus',
+        lastName: 'Ellery',
         email: `marcus.ellery-${runId}@edison.example`,
-        staff_id: `S-${runId}`,
         department: 'Science',
-        role_title: 'Teacher',
+        staffRole: 'Teacher',
+        schoolDbn: '31R445',
       },
     }),
   );
   const chromebook = ok(
-    await admin.rpc('app_upsert_device', {
-      p_device: {
-        device_id: `TAEHS-CB-${runId}`,
-        serial_number: `5CD${runId}`,
-        asset_tag: `A-${runId}`,
-        type: 'Chromebook',
+    await admin.rpc('app_save_inventory_device', {
+      p_id: null,
+      p_version: null,
+      p_data: {
+        serialNumber: `5CD${runId}`,
+        assetTag: `A-${runId}`,
+        deviceType: 'Chromebook',
         manufacturer: 'HP',
         model: 'Fortis 14 G10',
-        os: 'ChromeOS 128',
-        status: 'in_stock',
+        osVersion: 'ChromeOS 128',
+        status: 'Available',
         location: 'Room 214',
       },
     }),
   );
   ok(
-    await admin.rpc('app_upsert_device', {
-      p_device: {
-        asset_tag: `A-${runId}-B`,
-        type: 'Laptop',
+    await admin.rpc('app_save_inventory_device', {
+      p_id: null,
+      p_version: null,
+      p_data: {
+        serialNumber: `5CD${runId}B`,
+        assetTag: `A-${runId}-B`,
+        deviceType: 'Laptop',
         manufacturer: 'Dell',
         model: 'Latitude 3540',
-        status: 'in_repair',
+        status: 'In repair',
         location: 'Repair bench',
       },
+    }),
+  );
+
+  // One machine in a student's hands, so the person page, the device page and
+  // the return flow all have something real to show.
+  ok(
+    await admin.rpc('app_assign_inventory_device', {
+      p_device: chromebook,
+      p_requester: student,
+      p_note: 'Loaner while the family laptop is repaired.',
     }),
   );
 
@@ -247,7 +272,7 @@ async function shoot(page, theme, viewport, slug) {
       p_channel: 'phone_call',
       p_category: 'projector_display',
       p_priority: 'high',
-      p_person_id: staff,
+      p_requester_id: staff,
       p_location: 'Room 118',
     }),
   );
@@ -259,7 +284,7 @@ async function shoot(page, theme, viewport, slug) {
       p_issue: 'Battery drops to zero within an hour of unplugging.',
       p_channel: 'walk_in',
       p_category: 'chromebook',
-      p_person_id: student,
+      p_requester_id: student,
       p_owner_id: people.admin.id,
       p_device_ids: [chromebook],
       p_location: 'Room 214',
@@ -276,8 +301,7 @@ async function shoot(page, theme, viewport, slug) {
       p_channel: 'email',
       p_category: 'printer',
       p_owner_id: people.admin.id,
-      p_requester_name: 'Front office',
-      p_requester_kind: 'staff',
+      p_requester_id: staff,
       p_location: 'Main office',
     }),
   );

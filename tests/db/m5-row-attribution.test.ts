@@ -17,8 +17,8 @@
  *      argument. A request that declares `x-edison-via: ai` is recorded as the
  *      account's assistant; anything else is recorded as the person.
  *   2. The read RPCs hand those columns to the screens that render them —
- *      `app_ticket_detail`, `app_list_attachments` and `app_admin_import_runs` —
- *      without losing a key any existing caller reads.
+ *      `app_ticket_detail` and `app_list_attachments` — without losing a key
+ *      any existing caller reads.
  *   3. Attribution never widens or narrows access. A forged header cannot make
  *      an AI action look like a person's, a forged value cannot be stored at
  *      all, and none of these rows became readable to anyone who could not
@@ -33,11 +33,11 @@ import {
   identity,
   openTicket,
   ownedTicket,
-  rpcFails,
   rpcOk,
   signIn,
   signInWithHeaders,
   stack,
+  seedRequester,
 } from './support/harness';
 
 /** The model an assistant declares, and the two headers it sends with it. */
@@ -58,15 +58,6 @@ let unrelated: SupabaseClient;
 /** The same account, signed in through a client that declares an assistant. */
 let aiOwner: SupabaseClient;
 let aiAdmin: SupabaseClient;
-
-/** Fresh identifiers per run, so the suite survives a re-run without a reset. */
-const RUN_TAG = String(Math.floor(Math.random() * 9000) + 1000);
-let sequence = 0;
-
-function nextTag(): string {
-  sequence += 1;
-  return `${RUN_TAG}${String(sequence).padStart(4, '0')}`;
-}
 
 beforeAll(async () => {
   service = adminServiceClient();
@@ -112,30 +103,6 @@ interface TicketDetail {
 
 async function detail(client: SupabaseClient, ticketId: string): Promise<TicketDetail> {
   return rpcOk<TicketDetail>(client, 'app_ticket_detail', { p_ticket: ticketId });
-}
-
-/** A student row in the shape src/lib/import/normalize.ts produces. */
-function personRow(): Record<string, unknown> {
-  const tag = nextTag();
-  return {
-    kind: 'student',
-    first_name: 'Ada',
-    last_name: `Quill ${tag}`,
-    display_name: `Ada Quill ${tag}`,
-    email: null,
-    osis: `9${tag}`,
-    staff_id: null,
-    school_dbn: null,
-    department: null,
-    role_title: null,
-    official_class: null,
-    class_of: null,
-    parent_name: null,
-    parent_phone: null,
-    home_phone: null,
-    address: null,
-    notes: null,
-  };
 }
 
 async function registerAttachment(
@@ -268,13 +235,16 @@ describe('device observations', () => {
    * for the same reason the ones added later do.
    */
   it('marks the machines an assistant described at intake', async () => {
+    const requester = await seedRequester('staff', { display_name: 'Ms. Calloway' });
     const ticketId = await rpcOk<string>(aiAdmin, 'app_create_ticket', {
       p_title: 'Projector will not display',
       p_issue: 'Reported during first period; podium laptop shows no signal.',
       p_channel: 'walk_in',
       p_priority: 'normal',
-      p_requester_name: 'Ms. Calloway',
+      p_requester_id: requester.id,
       p_location: 'Room 212',
+      // No manufacturer, so this is a free-text observation of something the
+      // inventory does not hold rather than a claim about a catalogued machine.
       p_devices: [{ deviceType: 'Projector', model: 'Epson EB-2250U' }],
     });
 
@@ -414,56 +384,11 @@ describe('claims', () => {
   });
 });
 
-describe('import runs', () => {
-  it('records an ordinary import as the administrator, with no model', async () => {
-    const result = await rpcOk<{ run_id: string }>(admin, 'app_admin_import', {
-      p_kind: 'people',
-      p_rows: [personRow()],
-      p_mode: 'commit',
-    });
-
-    const run = await rawRow('import_runs', result.run_id);
-    expect(run.performed_via).toBe('user');
-    expect(run.ai_model).toBeNull();
-  });
-
-  it('records the assistant and its model when the request declares one', async () => {
-    const result = await rpcOk<{ run_id: string }>(aiAdmin, 'app_admin_import', {
-      p_kind: 'people',
-      p_rows: [personRow()],
-      p_mode: 'commit',
-    });
-
-    const run = await rawRow('import_runs', result.run_id);
-    expect(run.performed_via).toBe('ai');
-    expect(run.ai_model).toBe(MODEL);
-    expect(run.actor_id).toBe(identity('admin').id);
-  });
-
-  it('hands the import history both facts, and everything it already read', async () => {
-    const result = await rpcOk<{ run_id: string }>(aiAdmin, 'app_admin_import', {
-      p_kind: 'people',
-      p_rows: [personRow()],
-      p_mode: 'commit',
-    });
-
-    const runs = await rpcOk<Array<Record<string, unknown>>>(admin, 'app_admin_import_runs', {
-      p_limit: 5,
-    });
-    const run = runs.find((entry) => entry.id === result.run_id);
-    expect(run).toBeDefined();
-    expect(run?.performed_via).toBe('ai');
-    expect(run?.ai_model).toBe(MODEL);
-    expect(run?.actor_id).toBe(identity('admin').id);
-    expect(run?.actor_name).toBe(identity('admin').displayName);
-    expect(run?.kind).toBe('people');
-    expect(run?.mode).toBe('commit');
-    expect(run?.row_count).toBe(1);
-    expect(run?.inserted).toBe(1);
-    expect(run?.error_count).toBe(0);
-    expect(run?.summary).toBeTruthy();
-  });
-});
+// Import runs used to be attributed here too. The in-app CSV importer is gone
+// with the tables it wrote: the district's directory arrives through the
+// owner's one-time preparation scripts, and every later change to it goes
+// through app_save_person or app_save_inventory_device, which write their own
+// audit rows into public.inventory_events.
 
 describe('what attribution cannot do', () => {
   it('treats any header other than "ai" as the person acting', async () => {
@@ -531,10 +456,5 @@ describe('what attribution cannot do', () => {
     const anon = anonClient();
     const { data } = await anon.from('notes').select('*').eq('ticket_id', ticketId);
     expect(data ?? []).toEqual([]);
-  });
-
-  it('still keeps the import history to administrators', async () => {
-    const failure = await rpcFails(owner, 'app_admin_import_runs', { p_limit: 5 });
-    expect(failure.message).toContain('Only an administrator can see the import history.');
   });
 });

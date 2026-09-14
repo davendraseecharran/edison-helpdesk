@@ -30,6 +30,7 @@ import {
   rpcOk,
   schoolToday,
   signIn,
+  seedInventoryDevice,
 } from './support/harness';
 
 /** insufficient_privilege, as PostgREST reports it. */
@@ -43,14 +44,12 @@ let denied: SupabaseClient;
 
 const ACTIVE_STATUSES = ['assigned', 'in_progress', 'open', 'waiting'];
 const PRIORITIES = ['high', 'low', 'normal', 'urgent'];
-const DEVICE_STATUSES = [
-  'deployed',
-  'in_repair',
-  'in_stock',
-  'lost',
-  'retired',
-  'surplus',
-];
+/**
+ * The five statuses app_inventory_statuses() seeds. It is NOT a closed list:
+ * `inventory_devices.status` is free text, so the chart's buckets are whatever
+ * is in use plus these, and 'No status' for a machine that carries none.
+ */
+const SEEDED_STATUSES = ['Assigned', 'Available', 'In repair', 'Lost', 'Retired'];
 
 interface SeriesPoint {
   date: string;
@@ -129,7 +128,7 @@ async function createTicket(
     p_issue: 'Synthetic request used to prove an aggregate moves.',
     p_channel: 'phone_call',
     p_priority: options.priority ?? 'normal',
-    p_requester_name: 'Ms. Calloway',
+    p_requester_unknown: true,
     p_location: 'Room 212',
     p_category: options.category ?? 'other',
   });
@@ -361,24 +360,43 @@ describe('devices', () => {
     expect(after.device_types_in_tickets.length).toBeLessThanOrEqual(8);
   });
 
-  it('summarises the inventory, with every status present even at zero', async () => {
+  it('summarises the inventory, with every seeded status present even at zero', async () => {
     const before = await insights(owner);
-    expect(Object.keys(before.inventory.by_status).sort()).toEqual(DEVICE_STATUSES);
+    // Every seeded status is a bucket whether or not a machine is in it, so a
+    // chart never loses a row between one reading and the next.
+    for (const status of SEEDED_STATUSES) {
+      expect(Object.keys(before.inventory.by_status)).toContain(status);
+    }
 
     sequence += 1;
     const kind = `Visualiser ${RUN_TAG}`;
-    await rpcOk(owner, 'app_upsert_device', {
-      p_device: {
-        serial_number: `IN${RUN_TAG}${String(sequence).padStart(4, '0')}`,
-        type: kind,
-        model: 'ThinkPad L13',
-      },
+    await seedInventoryDevice({
+      serial_number: `IN${RUN_TAG}${String(sequence).padStart(4, '0')}`,
+      device_type: kind,
+      model: 'ThinkPad L13',
+      status: 'Available',
     });
 
     const after = await insights(owner);
     expect(after.inventory.total).toBe(before.inventory.total + 1);
-    expect(after.inventory.by_status.in_stock).toBe(before.inventory.by_status.in_stock + 1);
+    expect(after.inventory.by_status.Available).toBe(before.inventory.by_status.Available + 1);
     expect(typeCount(after.inventory.by_type, kind)).toBe(1);
     expect(after.inventory.by_type.length).toBeLessThanOrEqual(10);
+  });
+
+  it('counts a status the district invented rather than dropping the machine', async () => {
+    sequence += 1;
+    const invented = `Awaiting parts ${RUN_TAG}`;
+    const before = await insights(owner);
+    expect(before.inventory.by_status[invented] ?? 0).toBe(0);
+
+    await seedInventoryDevice({
+      serial_number: `IV${RUN_TAG}${String(sequence).padStart(4, '0')}`,
+      status: invented,
+    });
+
+    const after = await insights(owner);
+    expect(after.inventory.by_status[invented]).toBe(1);
+    expect(after.inventory.total).toBe(before.inventory.total + 1);
   });
 });

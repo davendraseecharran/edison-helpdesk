@@ -223,6 +223,39 @@ as $$
   );
 $$;
 
+-- ---------------------------------------------------------------------------
+-- Naming an account in a record's history
+--
+-- A record event names the account that caused it, and the screen that renders
+-- one has to turn that uuid into a name. It cannot join app_accounts: that
+-- table's policy shows a technician only their own row, so a plain join would
+-- render every other technician's action as if nobody had performed it.
+--
+-- SECURITY DEFINER, with exactly app_directory()'s rule and for exactly
+-- app_directory()'s reason. A deactivated colleague stays nameable: their name
+-- is on historical work and has to render. Somebody waiting for, or refused, an
+-- access decision has no history to attribute, so naming them would turn this
+-- into a name-for-uuid oracle over precisely the accounts that are meant to
+-- stay invisible.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.app_account_label(p_account uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select a.display_name
+  from public.app_accounts a
+  where a.id = p_account
+    and a.status not in ('pending_approval', 'denied')
+    and public.app_active_account_id() is not null;
+$$;
+
+comment on function public.app_account_label(uuid) is
+  'One account''s display name, for attribution in a record''s history. NULL for an unknown account, an account awaiting or refused an access decision, or a caller who is not active. Exposes no more than app_directory() does.';
+
 create or replace function public.app_notify(
   p_account uuid,
   p_kind text,
@@ -415,12 +448,14 @@ from public, anon, authenticated, service_role;
 -- Reads and the one notification mutation are for signed-in accounts; anon gets
 -- nothing.
 revoke execute on function
+  public.app_account_label(uuid),
   public.app_notifications(integer, boolean),
   public.app_unread_notification_count(),
   public.app_mark_notifications_read(uuid[])
 from public, anon;
 
 grant execute on function
+  public.app_account_label(uuid),
   public.app_notifications(integer, boolean),
   public.app_unread_notification_count(),
   public.app_mark_notifications_read(uuid[])

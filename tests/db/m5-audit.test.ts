@@ -33,6 +33,8 @@ import {
   rpcOk,
   signIn,
   signInWithHeaders,
+  seedInventoryDevice,
+  seedRequester,
 } from './support/harness';
 
 /** insufficient_privilege, as PostgREST reports it. */
@@ -302,27 +304,30 @@ describe('what the audit log shows', () => {
   });
 
   it('labels a record event with the record it is about', async () => {
-    const personId = await rpcOk<string>(admin, 'app_upsert_person', {
-      p_person: {
-        kind: 'staff',
-        first_name: 'Imani',
-        last_name: `Okonkwo-${RUN}`,
-        display_name: `Imani Okonkwo-${RUN}`,
-        department: 'Science',
-      },
+    // Handing a machine to somebody writes one record event on each of them,
+    // which is the pair the audit screen has to be able to name.
+    const person = await seedRequester('staff', {
+      display_name: `Imani Okonkwo-${RUN}`,
+      department: 'Science',
     });
-    const deviceId = await rpcOk<string>(admin, 'app_upsert_device', {
-      p_device: { asset_tag: `DOE-AU${RUN}1`, model: 'Latitude 3540', type: 'Laptop' },
+    const device = await seedInventoryDevice({
+      asset_tag: `DOE-AU${RUN}1`,
+      model: 'Latitude 3540',
+      device_type: 'Laptop',
+    });
+    await rpcOk(admin, 'app_assign_inventory_device', {
+      p_device: device.id,
+      p_requester: person.id,
     });
 
-    const people = await auditLog(admin, { p_entity: 'person', p_limit: 200 });
-    const person = people.find((row) => row.entity_id === personId);
-    expect(person?.source).toBe('record');
-    expect(person?.entity_label).toBe(`Imani Okonkwo-${RUN}`);
+    const people = await auditLog(admin, { p_entity: 'requester', p_limit: 200 });
+    const personRow = people.find((row) => row.entity_id === person.id);
+    expect(personRow?.source).toBe('record');
+    expect(personRow?.entity_label).toBe(`Imani Okonkwo-${RUN}`);
 
-    const devices = await auditLog(admin, { p_entity: 'device', p_limit: 200 });
-    const device = devices.find((row) => row.entity_id === deviceId);
-    expect(device?.entity_label).toBe(`DOE-AU${RUN}1`);
+    const devices = await auditLog(admin, { p_entity: 'inventory_device', p_limit: 200 });
+    const deviceRow = devices.find((row) => row.entity_id === device.id);
+    expect(deviceRow?.entity_label).toBe(`DOE-AU${RUN}1`);
   });
 });
 
