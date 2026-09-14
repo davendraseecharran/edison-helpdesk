@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   ADMIN_TOOLS,
-  ALWAYS_CONFIRM,
   describeCall,
   executeTool,
   isWriteCall,
@@ -227,6 +226,19 @@ describe('requiresApproval', () => {
     }
   });
 
+  it('asks for every administrator tool with confirmations off', () => {
+    const admin = toolsFor('admin')
+      .map((tool) => tool.name)
+      .filter((name) => ADMIN_TOOLS.includes(name));
+    expect(admin.sort()).toEqual([...ADMIN_TOOLS].sort());
+    for (const name of admin) {
+      // `import_csv` is the one call that is a write only when it commits.
+      const args = name === 'import_csv' ? { mode: 'commit' } : {};
+      expect(requiresApproval(name, args, false)).toBe(true);
+      expect(requiresApproval(name, args, true)).toBe(true);
+    }
+  });
+
   it('asks before an import commits, and not for a dry run', () => {
     expect(requiresApproval('import_csv', { mode: 'commit' }, false)).toBe(true);
     expect(requiresApproval('import_csv', { mode: 'dry_run' }, true)).toBe(false);
@@ -245,9 +257,11 @@ describe('requiresApproval', () => {
     }
   });
 
-  it('lists only tools that exist', () => {
+  it('leaves ordinary writes to the setting, and reads out of it entirely', () => {
     const known = new Set([...READ_TOOLS, ...WRITE_TOOLS, ...ADMIN_TOOLS]);
-    for (const name of ALWAYS_CONFIRM) expect(known.has(name)).toBe(true);
+    for (const name of ADMIN_TOOLS) expect(known.has(name)).toBe(true);
+    for (const name of WRITE_TOOLS) expect(requiresApproval(name, {}, false)).toBe(false);
+    for (const name of READ_TOOLS) expect(requiresApproval(name, {}, false)).toBe(false);
   });
 });
 

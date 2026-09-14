@@ -1239,10 +1239,6 @@ export const WRITE_TOOLS: string[] = namesIn('write');
 export const ADMIN_TOOLS: string[] = namesIn('admin');
 
 /**
- * Whether a call changes anything. Administrator tools count: they are changes
- * with a higher bar, not reads.
- */
-/**
  * The only way a tool is looked up.
  *
  * `TOOLS[name]` alone answers for `toString`, `constructor` and `__proto__`,
@@ -1254,35 +1250,34 @@ function specFor(name: string): ToolSpec | undefined {
   return Object.hasOwn(TOOLS, name) ? TOOLS[name] : undefined;
 }
 
+/**
+ * Whether a call changes anything. Administrator tools count: they are changes
+ * with a higher bar, not reads.
+ */
 export function isWriteTool(name: string): boolean {
   const spec = specFor(name);
   return spec !== undefined && spec.group !== 'read';
 }
 
 /**
- * Changes an administrator must confirm however their settings are set
- * (Ruling 23). Addendum 4 turns confirmations off by default for ordinary work;
- * these five are not ordinary work. Granting a role, inviting somebody, deciding
- * an access request, cancelling a ticket and committing an import are each hard
- * or impossible to take back, and each is the kind of thing a prompt buried in a
- * ticket body would try to talk the assistant into.
+ * Whether this specific call has to be put to the operator before it runs.
+ *
+ * Every administrator tool asks, however the setting is set (Ruling 23).
+ * Addendum 4 turns confirmations off by default for ordinary work; nothing in
+ * the administrator group is ordinary work. Granting a role, inviting somebody,
+ * deciding an access request, cancelling, reassigning or reopening a ticket and
+ * committing an import are each hard or impossible to take back, and each is the
+ * kind of thing a prompt buried in a ticket body would try to talk the assistant
+ * into. Asking on the group rather than on a list means a tool added to the group
+ * later is covered the day it lands.
  */
-export const ALWAYS_CONFIRM: string[] = [
-  'set_role',
-  'create_invite',
-  'review_access_request',
-  'cancel_ticket',
-  'import_csv',
-];
-
-/** Whether this specific call has to be put to the operator before it runs. */
 export function requiresApproval(
   name: string,
   args: Record<string, unknown>,
   confirmChanges: boolean,
 ): boolean {
   if (!isWriteCall(name, args)) return false;
-  if (ALWAYS_CONFIRM.includes(name)) return true;
+  if (specFor(name)?.group === 'admin') return true;
   return confirmChanges;
 }
 
