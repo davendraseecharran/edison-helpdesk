@@ -28,7 +28,7 @@ export default async function MyTicketsPage({
         now={requestTime()}
         emptyTitle="You do not own any active tickets"
         emptyBody="Claim something from the queue, or record a walk-in that is assigned to you."
-        emptyAction={<ButtonLink href="/queue">Go to the queue</ButtonLink>}
+        emptyAction={<ButtonLink href="/queue">Open the queue</ButtonLink>}
       />
     </>
   );

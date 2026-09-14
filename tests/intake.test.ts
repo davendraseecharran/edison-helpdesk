@@ -171,7 +171,7 @@ describe('intake validation', () => {
           submittedOn: toDateKey(NOW),
         }),
       ),
-    ).toMatch(/title is required/i);
+    ).toMatch(/give the ticket a short title/i);
 
     expect(
       expectFail(

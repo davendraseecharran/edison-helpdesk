@@ -252,7 +252,7 @@ export function createTicket(
   }
 
   const title = trimmed(input.title);
-  if (!title) return fail('A short title is required.', 'title');
+  if (!title) return fail('Give the ticket a short title.', 'title');
   if (title.length > 120) return fail('Keep the title under 120 characters.', 'title');
 
   const issue = trimmed(input.issue);
@@ -267,7 +267,7 @@ export function createTicket(
   const category: TicketCategory = input.category ?? 'other';
 
   if (!isValidDateKey(input.submittedOn)) {
-    return fail('Enter a valid submission date.', 'submittedOn');
+    return fail('Enter the date the request came in.', 'submittedOn');
   }
   if (input.submittedOn > context.today) {
     return fail('The submission date cannot be in the future.', 'submittedOn');
@@ -745,7 +745,7 @@ export function logWork(
     return fail('Only participants can record time on this ticket.');
   }
   if (!isValidDateKey(input.workDate)) {
-    return fail('Enter a valid work date.', 'workDate');
+    return fail('Enter the date the work was done.', 'workDate');
   }
   if (input.workDate > context.today) {
     return fail('The work date cannot be in the future.', 'workDate');

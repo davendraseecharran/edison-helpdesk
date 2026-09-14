@@ -460,27 +460,38 @@ p.flash {
   border-left-color: var(--bad);
 }
 
+/*
+ * An empty screen is an invitation to act, so it is given the room of a small
+ * page rather than the height of a missing row: the title carries real weight,
+ * the sentence under it says what to do next, and the action is the thing the
+ * eye lands on. Nothing decorates it.
+ */
 .empty {
-  padding: 40px 20px;
+  padding: 56px 24px;
   color: var(--ink-2);
   text-align: center;
 }
 
 .empty-title {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   color: var(--ink);
+  font-size: var(--fs-3);
   font-weight: 600;
+  letter-spacing: var(--tracking-heading);
 }
 
 .empty-body {
   max-width: 48ch;
   margin: 0 auto;
+  text-wrap: pretty;
 }
 
 .empty-action {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  margin-top: 16px;
+  gap: 8px;
+  margin-top: 20px;
 }
 
 .skeleton {
@@ -920,14 +931,15 @@ p.flash {
   vertical-align: middle;
 }
 
+/* The outer columns line up with the panel's own 12px inset. */
 .table th:first-child,
 .table td:first-child {
-  padding-left: 16px;
+  padding-left: 12px;
 }
 
 .table th:last-child,
 .table td:last-child {
-  padding-right: 16px;
+  padding-right: 12px;
 }
 
 .table thead th {
@@ -944,6 +956,15 @@ p.flash {
 
 .table td {
   height: 44px;
+}
+
+/*
+ * The last row's rule would cut across the panel's bottom corners now that
+ * they are a 16px radius. Where a pagination bar follows, its own top border
+ * is the rule; where nothing follows, the panel's edge is.
+ */
+.table tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 /*
@@ -973,8 +994,12 @@ p.flash {
 }
 
 .row-card {
-  padding: 12px 16px;
+  padding: 12px;
   border-bottom: 1px solid var(--line);
+}
+
+.row-cards li:last-child .row-card {
+  border-bottom: 0;
 }
 
 .row-card-title {
@@ -1023,6 +1048,17 @@ p.flash {
 }
 
 /*
+ * A sticky header inside a rounded panel has to stop at the panel's edge, or
+ * the first row scrolls out through the corner. `clip` clips without creating
+ * a scroll container, so the header still sticks to the page rather than to
+ * this box.
+ */
+.panel > .data-table:last-child {
+  border-radius: 0 0 var(--radius-4) var(--radius-4);
+  overflow: clip;
+}
+
+/*
  * Between the phone cards and the full-width desktop the table may be wider
  * than the main column, so the wrapper scrolls sideways instead of the page.
  * A scrolling box clips outside it, so the wrapper keeps a little padding at
@@ -1057,7 +1093,7 @@ p.flash {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 12px;
   border-top: 1px solid var(--line);
 }
 
@@ -1072,7 +1108,7 @@ p.flash {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 12px;
   min-height: 64px;
   border-bottom: 1px solid var(--line);
 }
