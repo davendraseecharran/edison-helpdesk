@@ -431,6 +431,7 @@ begin
     v_ticket.id, 'claimed', v_actor.id, v_actor.display_name || ' claimed the ticket'
   );
 
+  -- Fix round 1 (Ruling 30): unreachable while claiming requires an unowned ticket, so `v_previous` is always NULL here; kept for the day a previous-owner column exists.
   if v_previous is not null and v_previous <> v_actor.id then
     perform public.app_notify(
       v_previous,
@@ -453,11 +454,19 @@ $$;
 -- Trusted attachment registration.
 --
 -- Body from 20260912100810_m5_attachments_trusted.sql; only the registry insert
--- changes. That file already said attribution would arrive in the request
--- headers rather than as arguments, and it does: the upload endpoint builds its
--- service-role client with `x-edison-via` / `x-edison-ai-model` when the write
--- came through somebody's assistant, so `app_request_via()` reads them here
--- exactly as it does in a signed-in session.
+-- changes. The column is stamped from `app_request_via()`, exactly like every
+-- other row this migration attributes: the function reads whatever headers the
+-- request carried, and does not care that this call comes through
+-- `adminClient()` rather than a signed-in session's client.
+--
+-- Fix round 1 (Ruling 30): no caller sets those headers on this path today.
+-- `registerAttachment` (`src/lib/data/attachments.ts`) builds its service-role
+-- client with `adminClient()`, which sends none, and the assistant has no
+-- upload tool to send a write through in the first place. So an attachment
+-- reads `performed_via = 'user'` in practice, always, whichever door the
+-- upload came through. If an AI upload tool is ever added, forward
+-- `x-edison-via` and `x-edison-ai-model` on the client `registerAttachment`
+-- uses, the same way the ticket and record RPCs already do for a session.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.app_trusted_register_attachment(
@@ -598,11 +607,16 @@ begin
   end if;
 
   -- The attachment tile names the uploader; these two say whether they chose
-  -- the file themselves or their assistant did. The upload endpoint forwards
-  -- `x-edison-via` and `x-edison-ai-model` on the service-role client it builds
-  -- for this call (src/lib/data/attachments.ts), so the same request headers
-  -- that attribute the history row attribute the registry row, and attribution
-  -- still never arrives as an argument.
+  -- the file themselves or their assistant did, read from `app_request_via()`
+  -- and `app_request_ai_model()` like every other row this migration
+  -- attributes. Attribution never arrives as an argument here either.
+  --
+  -- Fix round 1 (Ruling 30): today, always 'user'. The upload endpoint's
+  -- service-role client (`adminClient()` in `src/lib/data/attachments.ts`)
+  -- sends neither header, and the assistant has no upload tool that could ask
+  -- it to. If one is added, forward `x-edison-via` and `x-edison-ai-model` on
+  -- the client `registerAttachment` builds, and this row starts reading 'ai'
+  -- exactly as a ticket event already does.
   insert into public.attachments (
     ticket_id, device_id, path, filename, mime, bytes, uploaded_by,
     performed_via, ai_model
