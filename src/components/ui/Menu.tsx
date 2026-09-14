@@ -172,7 +172,7 @@ export function Menu({ trigger, items, label, align = 'end' }: MenuProps) {
               .trim();
             const content = (
               <>
-                {entry.icon ? <Icon icon={entry.icon} size={16} /> : null}
+                {entry.icon ? <Icon icon={entry.icon} size={16} weight="medium" /> : null}
                 <span>{entry.label}</span>
               </>
             );

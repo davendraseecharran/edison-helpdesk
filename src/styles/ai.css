@@ -710,14 +710,14 @@
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
-  transition-property: background-color, border-color, color, scale;
-  transition-duration: var(--dur-hover), var(--dur-hover), var(--dur-hover), var(--dur-press);
-  transition-timing-function: ease-out;
 }
 
-.ai-mic:active:not(:disabled) {
-  scale: 0.96;
-}
+/*
+ * The press and the colour transitions come from `.pressable` in
+ * components.css, which is why nothing here declares a transition: a second
+ * `transition-property` on the same element would replace that list rather
+ * than add to it.
+ */
 
 @media (hover: hover) and (pointer: fine) {
   .ai-mic:hover:not(:disabled) {

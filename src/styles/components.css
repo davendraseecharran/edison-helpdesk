@@ -37,19 +37,30 @@
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
+}
+
+/*
+ * Press feedback: the control gives under the finger and comes back. A
+ * transition rather than a keyframe, so letting go halfway returns smoothly
+ * instead of snapping. `scale`, not `transform`, so a control that is also
+ * translated (the collapsed phone button, the FAB satellites) keeps its
+ * place. `.btn-static` switches it off where the motion would distract.
+ *
+ * Both halves — the 0.96 and the 160ms that carries it — are declared once,
+ * here. Anything pressable that is not a `.btn` (the assistant's push-to-talk
+ * microphone) wears `.pressable` and gets the same contract, rather than
+ * copying the numbers into another stylesheet where the next pressable would
+ * copy whichever of the two it found first.
+ */
+.btn,
+.pressable {
   transition-property: background-color, border-color, color, scale;
   transition-duration: var(--dur-hover), var(--dur-hover), var(--dur-hover), var(--dur-press);
   transition-timing-function: ease-out;
 }
 
-/*
- * Press feedback: the button gives under the finger and comes back. A
- * transition rather than a keyframe, so letting go halfway returns smoothly
- * instead of snapping. `scale`, not `transform`, so a control that is also
- * translated (the collapsed phone button, the FAB satellites) keeps its
- * place. `.btn-static` switches it off where the motion would distract.
- */
-.btn:active:not(:disabled):not([aria-disabled='true']):not(.btn-static) {
+.btn:active:not(:disabled):not([aria-disabled='true']):not(.btn-static),
+.pressable:active:not(:disabled):not([aria-disabled='true']) {
   scale: 0.96;
 }
 

@@ -35,7 +35,7 @@ function AccountPanel({ onNavigate }: { onNavigate: () => void }) {
         </div>
       </div>
       <Link href="/settings" className="menu-item" onClick={onNavigate}>
-        <Icon icon={Settings} size={16} />
+        <Icon icon={Settings} size={16} weight="medium" />
         <span>Settings</span>
       </Link>
       <div className="account-theme">
