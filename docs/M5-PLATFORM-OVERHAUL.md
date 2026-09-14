@@ -118,7 +118,9 @@ Fifty access requests may be outstanding at once. Beyond that a new uninvited
 sign-in is refused and told to come back, no account row is created and no
 administrator is notified, so nobody can bury the waiting list under thousands
 of rows; answering any request frees the slot immediately. An invite is never
-affected by the cap.
+affected by the cap. GoTrue creates the Auth user before the RPC runs, so a
+refused attempt still leaves an Auth user behind with no account row; the
+bound is on the waiting list, not on how many Auth users can be created.
 
 Password sign-in is the break-glass path. Accounts for it are created by an
 administrator, who issues a single-use setup or recovery link and hands it over
