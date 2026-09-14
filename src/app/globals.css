@@ -4,10 +4,17 @@
  * The design system lives in the imports below: tokens, element defaults, the
  * primitives, the shell, the auth screens, the ticket screens, the directory
  * and inventory screens, and the skeletons and toasts that carry the motion
- * layer. What follows
- * is the short list of text utilities that more than one of those screens
- * shares. Nothing else belongs here.
+ * layer. What follows is the short list of text utilities that more than one
+ * of those screens shares. Nothing else belongs here.
+ *
+ * Tailwind sits underneath all of it, and `tokens.css` still owns every colour
+ * in the product: the `@theme inline` block below only gives Tailwind — and
+ * through it every shadcn component — names for tokens that already exist. No
+ * hex is typed here, and none is typed in a component.
  */
+
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @import '../styles/tokens.css';
 @import '../styles/base.css';
@@ -18,6 +25,62 @@
 @import '../styles/directory.css';
 @import '../styles/motion.css';
 @import '../styles/lamp.css';
+
+/*
+ * Dark is an attribute the boot script stamps on `<html>`, not a media query
+ * and not a `.dark` class, because the theme is a preference this application
+ * stores rather than something the operating system decides. Tailwind's `dark:`
+ * variant is pointed at the same attribute so a utility and a stylesheet rule
+ * can never disagree about which theme is painted.
+ */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/*
+ * The bridge: shadcn's vocabulary, in our tokens.
+ *
+ * Every name on the left is one a shadcn component asks for; every value on
+ * the right is a token from `tokens.css`. That is what lets a component the
+ * CLI generated follow this product's monochrome ladder, its radii and its
+ * typefaces without a single value being restated — and what makes a change to
+ * the ladder reach the generated components too.
+ */
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--ink);
+  --color-card: var(--surface-2);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--overlay);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-ink);
+  --color-secondary: var(--surface-3);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--surface-3);
+  --color-muted-foreground: var(--ink-2);
+  --color-accent: var(--surface-3);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--bad);
+  --color-destructive-foreground: var(--accent-ink);
+  --color-border: var(--line);
+  --color-input: var(--line);
+  --color-ring: var(--accent);
+  --color-sidebar: var(--surface);
+  --color-sidebar-foreground: var(--ink);
+  --color-sidebar-border: var(--line);
+  --color-sidebar-accent: var(--surface-3);
+  --color-sidebar-accent-foreground: var(--ink);
+  --color-sidebar-primary: var(--accent);
+  --color-sidebar-primary-foreground: var(--accent-ink);
+  --color-sidebar-ring: var(--accent);
+
+  --radius-sm: var(--radius-1);
+  --radius-md: var(--radius-2);
+  --radius-lg: var(--radius-3);
+  --radius-xl: var(--radius-4);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
 
 /* --- Text utilities ----------------------------------------------------- */
 
