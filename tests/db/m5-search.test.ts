@@ -52,6 +52,10 @@ const PERSON_NAME = `Wren Calloway-${RUN}`;
 /** A two-character query nobody else in the fixtures answers to. */
 const SHORT_TAG_PREFIX = 'ZQ';
 const OWNED_TITLE = `Smartboard pen missing ${RUN}`;
+/** One owned ticket, distinctive on every arm the lookup searches. */
+const SECRET_TITLE = `Confidential swap ${RUN}`;
+const SECRET_ISSUE = `Chassis cracked along the hinge, reported quietly ${RUN}.`;
+const SECRET_REQUESTER = `Marisol Ferreira-${RUN}`;
 
 let admin: SupabaseClient;
 let owner: SupabaseClient;
@@ -66,6 +70,8 @@ let ticketId: string;
 let ticketNumber: string;
 let queuedTicketId: string;
 let queuedTicketNumber: string;
+let secretTicketId: string;
+let secretTicketNumber: string;
 
 async function search(
   client: SupabaseClient,
@@ -133,6 +139,13 @@ beforeAll(async () => {
   // may see.
   queuedTicketId = await openTicket({ title: `Queued cable tidy ${RUN}` });
   queuedTicketNumber = String((await rawTicket(queuedTicketId)).number);
+
+  ({ ticketId: secretTicketId } = await ownedTicket({
+    title: SECRET_TITLE,
+    issue: SECRET_ISSUE,
+    requesterName: SECRET_REQUESTER,
+  }));
+  secretTicketNumber = String((await rawTicket(secretTicketId)).number);
 });
 
 describe('what the lookup finds', () => {
@@ -223,6 +236,30 @@ describe('the lookup returns only what the caller could already read', () => {
     expect(theirs.map((row) => row.id)).not.toContain(ticketId);
   });
 
+  it('hides an owned ticket through every arm the lookup searches', async () => {
+    // Candidate ids are found without RLS, by design, and the rows are fetched
+    // back through the policies. That only holds if EVERY arm is covered, so
+    // each one is tried separately: the number, the title, the issue text and
+    // the requester's name are four different subqueries.
+    const arms: Array<[string, string]> = [
+      ['number', secretTicketNumber],
+      ['bare digits', secretTicketNumber.replace('EDT-', '')],
+      ['title', SECRET_TITLE],
+      ['issue', SECRET_ISSUE],
+      ['requester name', SECRET_REQUESTER],
+    ];
+
+    for (const [arm, query] of arms) {
+      // The owner finds their own ticket through this arm, so the arm is known
+      // to work before the negative below means anything.
+      const mine = ofKind(await search(owner, query), 'ticket');
+      expect(mine.map((row) => row.id), `owner via ${arm}`).toContain(secretTicketId);
+
+      const theirs = ofKind(await search(unrelated, query), 'ticket');
+      expect(theirs.map((row) => row.id), `unrelated via ${arm}`).not.toContain(secretTicketId);
+    }
+  });
+
   it('shows an Open Queue ticket to every active technician', async () => {
     // The Open Queue is shared work: tickets_select_visible lets any active
     // account see an open, unowned ticket, so the lookup must too.
@@ -269,17 +306,19 @@ describe('the query is text, not a pattern', () => {
     expect(await search(owner, '%_%')).toHaveLength(0);
     expect(await search(owner, '___')).toHaveLength(0);
 
-    // A query that merely contains metacharacters is still answered as text.
-    // `%` does not widen it to the whole inventory and `_` does not match any
-    // character: a machine with nothing in common with what was typed stays out,
-    // where an unescaped pattern would have swept it up.
+    // The discriminating pair. `%DOE-SR1234%` and `DOE_SR1234` are each one
+    // metacharacter away from the query that finds DOE-SR12347 above, and
+    // neither finds it: `%` does not stand for the rest of the tag and `_` does
+    // not stand for the hyphen. No trigram arm covers a device identifier — the
+    // only device trigram arm is over `model` — so there is nothing else for
+    // these to match on either.
     const wildcards = await search(owner, `%${TAG_PREFIX}%`);
+    expect(wildcards.map((row) => row.id)).not.toContain(exactDeviceId);
     expect(wildcards.map((row) => row.id)).not.toContain(shortQueryDeviceId);
-    expect(wildcards.map((row) => row.id)).not.toContain(personId);
 
     const underscores = await search(owner, TAG_PREFIX.replace(/-/g, '_'));
+    expect(underscores.map((row) => row.id)).not.toContain(exactDeviceId);
     expect(underscores.map((row) => row.id)).not.toContain(shortQueryDeviceId);
-    expect(underscores.map((row) => row.id)).not.toContain(personId);
   });
 });
 

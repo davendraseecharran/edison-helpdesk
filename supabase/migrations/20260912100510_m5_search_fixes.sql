@@ -71,14 +71,15 @@
 -- rather than only in the code, and `staff_id` is folded with upper() on both
 -- sides of both comparisons, as the device identifiers already were.
 --
--- One property of the trigram arms is worth stating plainly, because a test
--- reads as if it contradicted it. The escaping rule is about LIKE: `%` and `_`
--- never widen a pattern. It is not, and cannot be, a rule that a query
--- containing them matches nothing — a trigram arm compares text to text, so
--- `%DOE-SR12347%` still finds DOE-SR12347, the way a misspelled name still finds
--- its person. What the escaping guarantees is that the wildcards add nothing: a
--- query made only of metacharacters matches no row at all, rather than every row
--- of three tables.
+-- CORRECTED by 20260912100520_m5_search_indexes.sql. This paragraph said that
+-- `%DOE-SR12347%` would still find DOE-SR12347 through a trigram arm, and that
+-- was written while the concatenated devices_search_trgm arm still existed. That
+-- arm is dropped above, and no trigram arm covers a device IDENTIFIER any more:
+-- the only device trigram arm is over `model`. So a metacharacter-laden query
+-- for an asset tag matches nothing at all, and the test asserts exactly that.
+-- The escaping rule itself is unchanged and is about LIKE: `%` and `_` are
+-- literal text, and a query made only of metacharacters matches no row rather
+-- than every row of three tables.
 
 -- ---------------------------------------------------------------------------
 -- Indexes
