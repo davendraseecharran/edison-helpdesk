@@ -430,6 +430,7 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
         onClose={() => setDialog(null)}
         subject={subject}
         count={selected.size}
+        allowNote={false}
         pending={bulkPending}
         onSubmit={({ person }) => bulk({ personId: person.id })}
       />
@@ -455,6 +456,7 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
         onClose={() => setDialog(null)}
         subject={subject}
         count={selected.size}
+        allowNote={false}
         pending={bulkPending}
         onSubmit={({ status }) => bulk({ return: true, status })}
       />

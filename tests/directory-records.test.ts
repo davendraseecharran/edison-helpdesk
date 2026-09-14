@@ -16,6 +16,7 @@ import {
 } from '../src/lib/domain/records';
 import { deviceLabel, DEVICE_STATUSES, MANUAL_DEVICE_STATUSES } from '../src/lib/domain/types';
 import { toPeopleFilters } from '../src/app/(app)/people/search-params';
+import { pickerGateOpen, PICKER_MIN_CHARS } from '../src/components/directory/SearchPicker';
 
 describe('personErrorField', () => {
   it('lands each database message beside the field it names', () => {
@@ -140,5 +141,22 @@ describe('describeFieldList', () => {
     expect(describeFieldList('Charger missing; screen scratched')).toBeNull();
     expect(describeFieldList(null)).toBeNull();
     expect(describeFieldList('')).toBeNull();
+  });
+});
+
+describe('pickerGateOpen', () => {
+  it('stays shut below the minimum, and below it once trimmed', () => {
+    expect(PICKER_MIN_CHARS).toBe(2);
+    expect(pickerGateOpen('')).toBe(false);
+    expect(pickerGateOpen('a')).toBe(false);
+    expect(pickerGateOpen('  a  ')).toBe(false);
+    expect(pickerGateOpen('  ')).toBe(false);
+  });
+
+  it('opens at the minimum and beyond', () => {
+    expect(pickerGateOpen('ab')).toBe(true);
+    expect(pickerGateOpen('  ab  ')).toBe(true);
+    expect(pickerGateOpen('Whitfield')).toBe(true);
+    expect(pickerGateOpen('240000123')).toBe(true);
   });
 });

@@ -31,6 +31,16 @@ export const PICKER_DEBOUNCE_MS = 150;
 /** Below this the search would return half the school. */
 export const PICKER_MIN_CHARS = 2;
 
+/**
+ * The gate a typed term has to clear before it is searched, or before stale
+ * results are shown for it: trimmed length at or above `PICKER_MIN_CHARS`.
+ * Pulled out so the rule itself — not the debounce it sits behind — has a
+ * name and can be asserted on its own.
+ */
+export function pickerGateOpen(term: string): boolean {
+  return term.trim().length >= PICKER_MIN_CHARS;
+}
+
 export interface PickerGroup<T> {
   key: string;
   label: string;
@@ -106,7 +116,7 @@ export function SearchPicker<T>({
   const term = query.trim();
 
   useEffect(() => {
-    if (term.length < PICKER_MIN_CHARS) return;
+    if (!pickerGateOpen(term)) return;
     const current = searchId.current + 1;
     searchId.current = current;
     const timer = setTimeout(() => {
@@ -129,7 +139,7 @@ export function SearchPicker<T>({
 
   // Derived rather than stored, so nothing has to be cleared: a term the
   // results do not belong to shows nothing, which is what "still typing" means.
-  const shown = searched === term && term.length >= PICKER_MIN_CHARS ? results : [];
+  const shown = searched === term && pickerGateOpen(term) ? results : [];
   const grouped: PickerGroup<T>[] = groups
     ? groups(shown)
     : [{ key: 'all', label: '', items: shown }];
@@ -247,7 +257,7 @@ export function SearchPicker<T>({
           field
         )}
       </Field>
-      {term.length >= PICKER_MIN_CHARS ? (
+      {pickerGateOpen(term) ? (
         <p className="picker-status" role="status">
           {searched !== term
             ? 'Searching…'

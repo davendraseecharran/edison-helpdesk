@@ -493,6 +493,17 @@ export const MANUAL_DEVICE_STATUSES: DeviceStatus[] = DEVICE_STATUSES.filter(
   (status) => status !== 'deployed',
 );
 
+/**
+ * No database check constrains `device_assignments.note`; it is `text`,
+ * unbounded. The nearest real ceiling is the one the assistant's own
+ * `assign_device`/`return_device` tools already enforce on this same
+ * argument before it ever reaches `app_assign_device`/`app_return_device`
+ * (`MAX_TEXT` in `src/lib/ai/tools.ts`). The form uses the same number so a
+ * note a person types is never longer than one the assistant is allowed to
+ * send on their behalf.
+ */
+export const DEVICE_NOTE_MAX = 4000;
+
 /** One inventory record, as `public.devices` stores it. */
 export interface Device {
   id: string;

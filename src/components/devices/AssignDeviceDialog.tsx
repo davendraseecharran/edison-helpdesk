@@ -6,13 +6,16 @@
  * that person is refused by the database, and a device with another holder
  * is taken back from them first, which the history records on both sides.
  *
- * The note is offered for one device only: `app_bulk_update_devices` keeps a
- * reason for a status change and nothing else, and a field whose text is
- * thrown away would promise history that is never written.
+ * The note is offered for one device only: `app_bulk_update_devices` calls
+ * `app_assign_device` with no note at all, so a bulk handover has nothing to
+ * send it to. `allowNote` is what the caller uses to say so; without it, a
+ * selection of exactly one device from the bulk bar would still show the
+ * field and quietly throw away whatever was typed into it.
  */
 
 import { useState, type FormEvent } from 'react';
 import type { ActionResult } from '@/lib/data/actions';
+import { DEVICE_NOTE_MAX } from '@/lib/domain/types';
 import { Field } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
@@ -32,6 +35,7 @@ export function AssignDeviceDialog({
   onClose,
   subject,
   count = 1,
+  allowNote = true,
   pending,
   currentHolderId,
   onSubmit,
@@ -41,6 +45,8 @@ export function AssignDeviceDialog({
   /** What is being assigned: "DOE-LN0000001" or "12 devices". */
   subject: string;
   count?: number;
+  /** False when the caller cannot send a note anywhere, whatever `count` is. */
+  allowNote?: boolean;
   pending: boolean;
   /** Shown but not choosable: they have it already. */
   currentHolderId?: string | null;
@@ -112,12 +118,13 @@ export function AssignDeviceDialog({
             error={person ? null : error}
           />
         )}
-        {count === 1 ? (
+        {count === 1 && allowNote ? (
           <Field label="Note" htmlFor="assign-note" optional hint="Kept on the device's and the person's history.">
             <textarea
               id="assign-note"
               value={note}
               rows={3}
+              maxLength={DEVICE_NOTE_MAX}
               onChange={(event) => setNote(event.target.value)}
               placeholder="Loaner while the screen is repaired"
             />

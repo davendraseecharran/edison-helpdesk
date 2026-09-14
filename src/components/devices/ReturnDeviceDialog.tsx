@@ -5,11 +5,18 @@
  * in. In stock is the default because that is what a return usually is; the
  * other choices are for a machine that came back broken, or did not come
  * back at all. `deployed` is not offered: it means having a holder.
+ *
+ * The note is offered for one device only, and only when the caller can
+ * actually send it: `app_bulk_update_devices` calls `app_return_device` with
+ * no note at all, so a bulk return has nothing to send it to. `allowNote` is
+ * what a bulk caller sets to false so the field never promises history that
+ * is never written.
  */
 
 import { useState, type FormEvent } from 'react';
 import type { ActionResult } from '@/lib/data/actions';
 import {
+  DEVICE_NOTE_MAX,
   DEVICE_STATUS_LABELS,
   MANUAL_DEVICE_STATUSES,
   type DeviceStatus,
@@ -28,6 +35,7 @@ export function ReturnDeviceDialog({
   onClose,
   subject,
   count = 1,
+  allowNote = true,
   pending,
   onSubmit,
 }: {
@@ -36,6 +44,8 @@ export function ReturnDeviceDialog({
   /** What is being returned: "DOE-LN0000001" or "12 devices". */
   subject: string;
   count?: number;
+  /** False when the caller cannot send a note anywhere, whatever `count` is. */
+  allowNote?: boolean;
   pending: boolean;
   onSubmit: (values: ReturnDeviceValues) => Promise<ActionResult>;
 }) {
@@ -90,12 +100,13 @@ export function ReturnDeviceDialog({
             ))}
           </select>
         </Field>
-        {count === 1 ? (
+        {count === 1 && allowNote ? (
           <Field label="Note" htmlFor="return-note" optional hint="Kept on the device's and the person's history.">
             <textarea
               id="return-note"
               value={note}
               rows={3}
+              maxLength={DEVICE_NOTE_MAX}
               onChange={(event) => setNote(event.target.value)}
               placeholder="Charger missing; screen scratched on the left"
             />
