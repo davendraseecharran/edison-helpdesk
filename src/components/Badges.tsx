@@ -19,6 +19,7 @@ import {
   PRIORITY_LABELS,
   TICKET_STATUS_LABELS,
 } from '@/lib/domain/types';
+import { ACCOUNT_ROLES, ROLE_LABELS, type AccountRole } from '@/lib/auth/roles';
 
 export function StatusBadge({ status }: { status: TicketStatus }) {
   return (
@@ -47,10 +48,31 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
   );
 }
 
+/**
+ * One chip for the derived single-value role, where that is all a record
+ * carries — a ticket's owner, for instance. `technician` is the internal
+ * spelling of NetRider and is never shown as itself.
+ */
 export function RoleBadge({ role }: { role: Role }) {
   return (
     <span className={role === 'admin' ? 'badge badge-chip badge-role' : 'badge badge-chip'}>
-      {role === 'admin' ? 'Administrator' : 'Technician'}
+      {role === 'admin' ? ROLE_LABELS.admin : ROLE_LABELS.netrider}
+    </span>
+  );
+}
+
+/** Every role an account holds, in a fixed order so a row never reshuffles. */
+export function RoleBadges({ roles }: { roles: readonly AccountRole[] }) {
+  return (
+    <span className="role-badges">
+      {ACCOUNT_ROLES.filter((role) => roles.includes(role)).map((role) => (
+        <span
+          key={role}
+          className={role === 'admin' ? 'badge badge-chip badge-role' : 'badge badge-chip'}
+        >
+          {ROLE_LABELS[role]}
+        </span>
+      ))}
     </span>
   );
 }

@@ -15,20 +15,18 @@
  */
 
 import { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
-import { reviewAccessRequestAction, setRoleAction } from '@/lib/data/access-actions';
+import { reviewAccessRequestAction, setRolesAction } from '@/lib/data/access-actions';
 import { setAccountStatusAction } from '@/lib/data/account-actions';
 import { useRuntime } from '@/components/AppRuntime';
-import { AccountStatusBadge, RoleBadge } from '@/components/Badges';
+import { AccountStatusBadge, RoleBadges } from '@/components/Badges';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Dialog } from '@/components/ui/Dialog';
-import { Menu } from '@/components/ui/Menu';
-import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { RolePicker } from '@/components/ui/RolePicker';
 import { AccessRequestsPanel } from './AccessRequestsPanel';
 import { InvitesPanel } from './InvitesPanel';
 import { PasswordAccountsPanel } from './PasswordAccountsPanel';
-import type { AccountRole } from '@/lib/auth/session';
+import { sameRoles, type AccountRole } from '@/lib/auth/roles';
 import type { AdminAccountView, InviteView } from '@/lib/data/admin-view';
 
 export function AccessScreen({
@@ -44,7 +42,10 @@ export function AccessScreen({
 }) {
   const { pendingKey, run } = useRuntime();
   const [approving, setApproving] = useState<AdminAccountView | null>(null);
-  const [approveRole, setApproveRole] = useState<AccountRole>('technician');
+  const [approveRoles, setApproveRoles] = useState<AccountRole[]>(['netrider']);
+  // Which account's role chips are open, and what has been ticked in them.
+  // Held here rather than in the cell so the table can rerender freely.
+  const [editing, setEditing] = useState<{ id: string; roles: AccountRole[] } | null>(null);
 
   const busy = pendingKey !== null;
   const requests = accounts.filter((account) => account.status === 'pending_approval');
@@ -52,17 +53,18 @@ export function AccessScreen({
   async function onReview(
     account: AdminAccountView,
     decision: 'approve' | 'deny',
-    role: AccountRole = 'technician',
+    roles: readonly AccountRole[] = ['netrider'],
   ) {
     await run(`review:${account.id}`, async () => {
-      const outcome = await reviewAccessRequestAction(account.id, decision, role);
+      const outcome = await reviewAccessRequestAction(account.id, decision, roles);
       return { ok: outcome.ok, error: outcome.error, message: outcome.message };
     });
   }
 
-  async function onRole(account: AdminAccountView, role: AccountRole) {
+  async function onRoles(account: AdminAccountView, roles: readonly AccountRole[]) {
     await run(`role:${account.id}`, async () => {
-      const outcome = await setRoleAction(account.id, role);
+      const outcome = await setRolesAction(account.id, roles);
+      if (outcome.ok) setEditing(null);
       return { ok: outcome.ok, error: outcome.error, message: outcome.message };
     });
   }
@@ -75,7 +77,7 @@ export function AccessScreen({
   }
 
   function startApprove(account: AdminAccountView) {
-    setApproveRole('technician');
+    setApproveRoles(['netrider']);
     setApproving(account);
   }
 
@@ -93,46 +95,59 @@ export function AccessScreen({
     },
     {
       key: 'role',
-      header: 'Role',
-      width: 190,
+      header: 'Roles',
+      width: 260,
       cell: (account) => {
         const isSelf = account.id === currentAccountId;
-        // A role is chosen by approving, so an account waiting for or refused a
+        // Roles are chosen by approving, so an account waiting for or refused a
         // decision has none yet — showing the stored default would read as a
         // role somebody already holds. Nobody changes their own.
         if (account.status === 'pending_approval' || account.status === 'denied') {
           return <span className="muted">Set on approval</span>;
         }
-        if (isSelf) return <RoleBadge role={account.role} />;
+        if (isSelf) return <RoleBadges roles={account.roles} />;
+
+        const open = editing?.id === account.id;
+        if (!open) {
+          return (
+            <div className="btn-row admin-actions">
+              <RoleBadges roles={account.roles} />
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                onClick={() => setEditing({ id: account.id, roles: account.roles })}
+              >
+                Change
+              </Button>
+            </div>
+          );
+        }
+
+        const chosen = editing.roles;
         return (
-          <div className="btn-row admin-actions">
-            <RoleBadge role={account.role} />
-            <Menu
-              label={`Role for ${account.displayName}`}
-              trigger={
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={ChevronDown}
-                  aria-label={`Change the role for ${account.displayName}`}
-                  disabled={busy}
-                />
-              }
-              items={[
-                {
-                  key: 'technician',
-                  label: 'Make technician',
-                  disabled: account.role === 'technician',
-                  onSelect: () => void onRole(account, 'technician'),
-                },
-                {
-                  key: 'admin',
-                  label: 'Make administrator',
-                  disabled: account.role === 'admin',
-                  onSelect: () => void onRole(account, 'admin'),
-                },
-              ]}
+          <div className="stack-xs">
+            <RolePicker
+              label={`Roles for ${account.displayName}`}
+              idPrefix={`role-${account.id}`}
+              value={chosen}
+              disabled={busy}
+              onChange={(roles) => setEditing({ id: account.id, roles })}
             />
+            <div className="btn-row">
+              <Button
+                variant="primary"
+                size="sm"
+                loading={pendingKey === `role:${account.id}`}
+                disabled={busy || sameRoles(chosen, account.roles)}
+                onClick={() => void onRoles(account, chosen)}
+              >
+                Save roles
+              </Button>
+              <Button size="sm" disabled={busy} onClick={() => setEditing(null)}>
+                Cancel
+              </Button>
+            </div>
           </div>
         );
       },
@@ -228,10 +243,10 @@ export function AccessScreen({
   return (
     <div className="stack">
       <p className="callout">
-        People sign in with Google. An invite decides the role an address gets the first time it
+        People sign in with Google. An invite decides the roles an address gets the first time it
         is used; anyone else who signs in lands in access requests and can reach nothing until you
-        answer. Deactivation preserves authorship and history and takes effect immediately for
-        sessions that are already open.
+        answer. An account can hold more than one role. Deactivation preserves authorship and
+        history and takes effect immediately for sessions that are already open.
       </p>
 
       <AccessRequestsPanel
@@ -255,7 +270,7 @@ export function AccessScreen({
           columns={columns}
           rows={accounts}
           rowKey={(account) => account.id}
-          caption="Helpdesk accounts, their role and their access state"
+          caption="Helpdesk accounts, their roles and their access state"
           cardTitle={(account) => account.displayName}
           cardMeta={(account) => account.email}
         />
@@ -285,7 +300,7 @@ export function AccessScreen({
                 // Stay open while the database decides, so the spinner is on
                 // the button that was pressed; close either way afterwards, and
                 // the flash behind carries the outcome.
-                await onReview(approving, 'approve', approveRole);
+                await onReview(approving, 'approve', approveRoles);
                 setApproving(null);
               }}
             >
@@ -295,19 +310,18 @@ export function AccessScreen({
         }
       >
         <div className="field">
-          <span className="field-label">Role</span>
-          <SegmentedControl
-            label="Role"
-            value={approveRole}
-            options={[
-              { value: 'technician', label: 'Technician' },
-              { value: 'admin', label: 'Administrator' },
-            ]}
-            onChange={setApproveRole}
+          <span className="field-label">Roles</span>
+          <RolePicker
+            label="Roles"
+            idPrefix="approve"
+            value={approveRoles}
+            disabled={busy}
+            onChange={setApproveRoles}
           />
           <span className="field-hint">
-            Technicians work tickets. Administrators also manage accounts, invites and access. You
-            can change this later.
+            NetRiders work tickets. Skills officers work the student and staff directory and see no
+            tickets. Administrators also manage accounts, invites and access. Pick more than one if
+            somebody does more than one job; you can change this later.
           </span>
         </div>
       </Dialog>

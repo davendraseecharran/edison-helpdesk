@@ -17,6 +17,10 @@ import 'server-only';
 import { cache } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
+import { canWorkTickets, normalizeRoles } from '@/lib/auth/roles';
+import type { AccountRole, DerivedRole } from '@/lib/auth/roles';
+
+export type { AccountRole, DerivedRole };
 
 export type AccountStatus =
   | 'active'
@@ -26,13 +30,19 @@ export type AccountStatus =
   | 'pending_approval'
   /** An administrator reviewed that request and said no. */
   | 'denied';
-export type AccountRole = 'admin' | 'technician';
 
 export interface ActorAccount {
   id: string;
   displayName: string;
   email: string;
-  role: AccountRole;
+  /**
+   * The derived single-value column. Kept because every gate written before
+   * roles became a set reads it, and it still means exactly what it meant:
+   * `admin` when the set holds admin. Prefer `roles` for anything new.
+   */
+  role: DerivedRole;
+  /** What this account may do. Never empty. */
+  roles: AccountRole[];
   status: AccountStatus;
   credentialActionPending: boolean;
   sessionIsCurrent: boolean;
@@ -83,7 +93,8 @@ export const loadActor = cache(async (): Promise<ActorState> => {
     id: string;
     display_name: string;
     email: string;
-    role: AccountRole;
+    role: DerivedRole;
+    roles: string[] | null;
     status: AccountStatus;
     credential_action_pending: boolean;
     session_is_current: boolean;
@@ -94,6 +105,7 @@ export const loadActor = cache(async (): Promise<ActorState> => {
     displayName: row.display_name,
     email: row.email,
     role: row.role,
+    roles: normalizeRoles(row.roles),
     status: row.status,
     credentialActionPending: row.credential_action_pending,
     sessionIsCurrent: row.session_is_current,
@@ -133,4 +145,10 @@ export async function activeAccount(): Promise<ActorAccount | null> {
 export async function isAdmin(): Promise<boolean> {
   const account = await activeAccount();
   return account?.role === 'admin';
+}
+
+/** Whether the caller may reach tickets at all. False for a pure skills officer. */
+export async function actorCanWorkTickets(): Promise<boolean> {
+  const account = await activeAccount();
+  return account ? canWorkTickets(account.roles) : false;
 }

@@ -35,6 +35,7 @@ const ACTOR: ActorAccount = {
   displayName: 'Priya Raman',
   email: 'priya.raman@edison.example',
   role: 'technician',
+  roles: ['netrider'],
   status: 'active',
   credentialActionPending: false,
   sessionIsCurrent: true,

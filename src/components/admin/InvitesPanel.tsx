@@ -3,7 +3,7 @@
 /**
  * Invites.
  *
- * An invite is a pre-authorization, not a credential: it says what role the
+ * An invite is a pre-authorization, not a credential: it says what roles the
  * address gets when somebody proves to Google that they own it. Nothing here is
  * secret, which is why the message can safely be copied and sent by hand when
  * the server has no mail configured.
@@ -17,11 +17,11 @@ import { createInviteAction, revokeInviteAction } from '@/lib/data/invite-action
 import { useRuntime } from '@/components/AppRuntime';
 import { formatDateTime } from '@/lib/format';
 import { Field } from '@/components/Primitives';
-import { RoleBadge } from '@/components/Badges';
+import { RoleBadges } from '@/components/Badges';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
-import { SegmentedControl } from '@/components/ui/SegmentedControl';
-import type { AccountRole } from '@/lib/auth/session';
+import { RolePicker } from '@/components/ui/RolePicker';
+import type { AccountRole } from '@/lib/auth/roles';
 import type { InviteState, InviteView } from '@/lib/data/admin-view';
 
 const INVITE_STATE_TONE: Record<InviteState, string> = {
@@ -57,7 +57,7 @@ export function InvitesPanel({
 }) {
   const { pendingKey, run } = useRuntime();
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<AccountRole>('technician');
+  const [roles, setRoles] = useState<AccountRole[]>(['netrider']);
   const [name, setName] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [unsent, setUnsent] = useState<{ email: string; text: string } | null>(null);
@@ -77,7 +77,7 @@ export function InvitesPanel({
     const target = email.trim().toLowerCase();
 
     const result = await run('create-invite', async () => {
-      const outcome = await createInviteAction(email, role, name);
+      const outcome = await createInviteAction(email, roles, name);
       emailed = outcome.emailed === true;
       text = outcome.inviteText;
       return { ok: outcome.ok, error: outcome.error, message: outcome.message };
@@ -89,7 +89,7 @@ export function InvitesPanel({
     }
     setEmail('');
     setName('');
-    setRole('technician');
+    setRoles(['netrider']);
     // Mail is a convenience: when it did not go out, the administrator sends
     // the same words themselves rather than the invite being lost.
     if (!emailed && text) setUnsent({ email: target, text });
@@ -116,9 +116,9 @@ export function InvitesPanel({
     },
     {
       key: 'role',
-      header: 'Role',
-      width: 132,
-      cell: (invite) => <RoleBadge role={invite.role} />,
+      header: 'Roles',
+      width: 190,
+      cell: (invite) => <RoleBadges roles={invite.roles} />,
     },
     {
       key: 'state',
@@ -210,18 +210,17 @@ export function InvitesPanel({
           </Field>
 
           <div className="field">
-            <span className="field-label">Role</span>
-            <SegmentedControl
-              label="Role"
-              value={role}
-              options={[
-                { value: 'technician', label: 'Technician' },
-                { value: 'admin', label: 'Administrator' },
-              ]}
-              onChange={setRole}
+            <span className="field-label">Roles</span>
+            <RolePicker
+              label="Roles"
+              idPrefix="invite"
+              value={roles}
+              disabled={busy}
+              onChange={setRoles}
             />
             <span className="field-hint">
-              Technicians work tickets. Administrators also manage accounts, invites and access.
+              NetRiders work tickets. Skills officers work the student and staff directory and see
+              no tickets. Administrators also manage accounts, invites and access.
             </span>
           </div>
 

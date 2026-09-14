@@ -23,7 +23,7 @@ import { appOrigin } from '@/lib/supabase/config';
 import { loadActor } from '@/lib/auth/session';
 import { sendMail } from '@/lib/email/resend';
 import { SCHOOL_TIME_ZONE } from '@/lib/format';
-import type { AccountRole } from '@/lib/auth/session';
+import { canonicalRoles, rolesLabel, type AccountRole } from '@/lib/auth/roles';
 
 export interface InviteActionResult {
   ok: boolean;
@@ -43,26 +43,27 @@ const INVITE_DATE = new Intl.DateTimeFormat('en-US', {
   year: 'numeric',
 });
 
-function roleWording(role: AccountRole): string {
-  return role === 'admin' ? 'an administrator' : 'a technician';
+function roleWording(roles: readonly AccountRole[]): string {
+  const label = rolesLabel(roles);
+  return /^[AEIOU]/.test(label) ? `an ${label}` : `a ${label}`;
 }
 
 /** Not exported: a `'use server'` module may only export async functions. */
 function inviteMessage({
   name,
   invitedBy,
-  role,
+  roles,
   email,
   expiresAt,
 }: {
   name: string;
   invitedBy: string;
-  role: AccountRole;
+  roles: readonly AccountRole[];
   email: string;
   expiresAt: string;
 }): string {
   return (
-    `Hi ${name}, ${invitedBy} invited you to Edison Helpdesk as ${roleWording(role)}. ` +
+    `Hi ${name}, ${invitedBy} invited you to Edison Helpdesk as ${roleWording(roles)}. ` +
     `Sign in with Google using ${email} at ${appOrigin()}. ` +
     `This invite expires on ${INVITE_DATE.format(new Date(expiresAt))}.`
   );
@@ -70,12 +71,17 @@ function inviteMessage({
 
 export async function createInviteAction(
   email: string,
-  role: AccountRole,
+  roles: readonly AccountRole[],
   displayName: string,
 ): Promise<InviteActionResult> {
   const actor = await loadActor();
   if (actor.kind !== 'active' || actor.account.role !== 'admin') {
     return { ok: false, error: 'Only a signed-in administrator can send an invite.' };
+  }
+
+  const chosen = canonicalRoles(roles);
+  if (chosen.length === 0) {
+    return { ok: false, error: 'Choose at least one role for the invite.' };
   }
 
   const supabase = await createClient();
@@ -84,7 +90,7 @@ export async function createInviteAction(
 
   const { data: inviteId, error } = await supabase.rpc('app_admin_create_invite', {
     p_email: normalisedEmail,
-    p_role: role,
+    p_roles: chosen,
     p_display_name: name === '' ? null : name,
   });
   if (error || typeof inviteId !== 'string') {
@@ -102,7 +108,7 @@ export async function createInviteAction(
   const inviteText = inviteMessage({
     name: name === '' ? 'there' : name,
     invitedBy: actor.account.displayName,
-    role,
+    roles: chosen,
     email: normalisedEmail,
     expiresAt,
   });

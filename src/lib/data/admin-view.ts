@@ -5,18 +5,21 @@ import 'server-only';
  *
  * Read with the admin's own client, so row-level security is what permits the
  * full account list: `app_accounts` is readable in full only by an active admin.
- * A technician reaching this code would see just their own row, and the invite
+ * Anyone else reaching this code would see just their own row, and the invite
  * RPC would refuse them outright rather than quietly returning nothing.
  */
 
 import { createClient } from '@/lib/supabase/server';
-import type { AccountRole, AccountStatus } from '@/lib/auth/session';
+import type { AccountStatus, DerivedRole } from '@/lib/auth/session';
+import { normalizeRoles, type AccountRole } from '@/lib/auth/roles';
 
 export interface AdminAccountView {
   id: string;
   displayName: string;
   email: string;
-  role: AccountRole;
+  /** The derived single-value column; `roles` is what the screen shows. */
+  role: DerivedRole;
+  roles: AccountRole[];
   status: AccountStatus;
   credentialActionPending: boolean;
   lastCredentialActionAt: string | null;
@@ -30,7 +33,7 @@ export type InviteState = 'pending' | 'accepted' | 'expired' | 'revoked';
 export interface InviteView {
   id: string;
   email: string;
-  role: AccountRole;
+  roles: AccountRole[];
   displayName: string | null;
   invitedByName: string | null;
   createdAt: string;
@@ -53,7 +56,7 @@ export async function loadAdminAccounts(): Promise<AdminAccountView[]> {
   const { data: accounts, error } = await supabase
     .from('app_accounts')
     .select(
-      'id, display_name, email, role, status, credential_action_pending, last_credential_action_at, last_credential_action_kind, created_at',
+      'id, display_name, email, role, roles, status, credential_action_pending, last_credential_action_at, last_credential_action_kind, created_at',
     )
     .order('display_name');
   if (error || !accounts) return [];
@@ -76,7 +79,8 @@ export async function loadAdminAccounts(): Promise<AdminAccountView[]> {
     id: row.id as string,
     displayName: row.display_name as string,
     email: row.email as string,
-    role: row.role as AccountRole,
+    role: row.role as DerivedRole,
+    roles: normalizeRoles(row.roles),
     status: row.status as AccountStatus,
     credentialActionPending: row.credential_action_pending as boolean,
     lastCredentialActionAt: row.last_credential_action_at as string | null,
@@ -100,7 +104,7 @@ export interface InvitesResult {
  * invited" invites an administrator to send one, while "this could not be
  * read" means a second invite for an address that already has one is about to
  * be created. The RPC raises for anyone who is not an active administrator, so
- * a technician who somehow reached this code sees the refusal, not a blank.
+ * anyone who somehow reached this code sees the refusal, not a blank.
  */
 export async function loadInvites(): Promise<InvitesResult> {
   const supabase = await createClient();
@@ -115,7 +119,7 @@ export async function loadInvites(): Promise<InvitesResult> {
   const invites = (data as Record<string, unknown>[]).map((row) => ({
     id: row.id as string,
     email: row.email as string,
-    role: row.role as AccountRole,
+    roles: normalizeRoles(row.roles),
     displayName: (row.display_name as string | null) ?? null,
     invitedByName: (row.invited_by_name as string | null) ?? null,
     createdAt: row.created_at as string,

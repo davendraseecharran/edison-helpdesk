@@ -1058,3 +1058,63 @@ p.flash {
     opacity: 1;
   }
 }
+
+/* --- Role chips --------------------------------------------------------- */
+
+/*
+ * A role is a set, so the control is a group of checkboxes. The chip is the
+ * visible control and the input itself is the checkbox the keyboard and the
+ * screen reader use, which is why the focus ring is drawn from :has() on the
+ * label rather than on the box.
+ */
+
+.role-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.role-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: 500 var(--fs-1) / 1 var(--font-sans);
+  cursor: pointer;
+}
+
+.role-chip input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--brass);
+}
+
+.role-chip:has(input:checked) {
+  border-color: var(--line-2);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.role-chip:has(input:focus-visible) {
+  box-shadow: var(--focus);
+}
+
+.role-chip:has(input:disabled) {
+  cursor: default;
+}
+
+.role-chip:has(input:disabled):not(:has(input:checked)) {
+  opacity: 0.6;
+}
