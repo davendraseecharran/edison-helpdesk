@@ -8,7 +8,6 @@ import { useToasts } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
 import { useReducedMotion } from '@/components/ui/media';
 import { AnimatePresence, EASE_IN_FAST, EASE_OUT, INSTANT, motion } from '@/components/ui/Motion';
-import { LoadingRegion, Skeleton } from '@/components/ui/Skeleton';
 import { nextDeadline, type Toast, type ToastAction, type ToastHold } from '@/components/ui/toast';
 import { useNow } from '@/lib/useNow';
 import { formatAge, formatDateTime, formatRelative, initialsOf } from '@/lib/format';
@@ -57,23 +56,6 @@ export function EmptyState({
       {children ? <p className="empty-body">{children}</p> : null}
       {action ? <div className="empty-action">{action}</div> : null}
     </div>
-  );
-}
-
-export function TableSkeleton({ rows = 5 }: { rows?: number }) {
-  return (
-    <LoadingRegion label="Loading tickets">
-      <div className="skeleton-rows">
-        {Array.from({ length: rows }, (_, index) => (
-          <div key={index} className="skeleton-row">
-            <Skeleton width={72} />
-            <Skeleton width="min(360px, 45%)" />
-            <Skeleton width={88} />
-            <Skeleton width={64} />
-          </div>
-        ))}
-      </div>
-    </LoadingRegion>
   );
 }
 

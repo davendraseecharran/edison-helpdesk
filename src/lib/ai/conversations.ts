@@ -28,6 +28,7 @@
  * that does hold the service role, `connections.ts`, keeps its `server-only`.
  */
 
+import { isRecord } from '@/lib/guards';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { InputItem } from './responses-client';
 import { titleFromMessage } from './prompt';
@@ -53,9 +54,6 @@ export interface LoadedConversation {
 
 type MessageRole = 'user' | 'assistant' | 'tool' | 'system';
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
 
 function isPending(content: unknown): content is PendingCall {
   return isRecord(content) && content.pending === true && isRecord(content.call);

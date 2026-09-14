@@ -21,6 +21,7 @@
  */
 
 import { cookies } from 'next/headers';
+import { isRecord, textOf } from '@/lib/guards';
 import { activeAccount } from '@/lib/auth/session';
 import { appOrigin } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
@@ -32,7 +33,7 @@ import {
   sealDeviceAuth,
 } from './device-cookie';
 import { pollDeviceAuth, startDeviceAuth, type DeviceAuthStart } from './codex-auth';
-import { disconnect, loadConnection, saveConnection } from './connections';
+import { disconnect, saveConnection } from './connections';
 import {
   deleteConversation,
   listConversations,
@@ -282,19 +283,6 @@ export async function deleteConversationAction(id: string): Promise<AiActionResu
 }
 
 /**
- * Whether this account can start a chat right now, and why not when it cannot.
- * The chat route answers the same question with a status code; the panel asks
- * here so it can show the Connect button instead of a failed request.
- */
-export async function aiReadyAction(): Promise<{ ready: boolean; reason?: 'disabled' | 'not_connected' }> {
-  if (!aiEnabled()) return { ready: false, reason: 'disabled' };
-  const account = await activeAccount();
-  if (!account) return { ready: false, reason: 'not_connected' };
-  const connection = await loadConnection(account.id);
-  return connection === null ? { ready: false, reason: 'not_connected' } : { ready: true };
-}
-
-/**
  * A stored conversation, reduced to what the panel can show.
  *
  * The rows hold Responses API items — messages, function calls, their
@@ -314,13 +302,6 @@ export interface ConversationTranscriptResult extends AiActionResult {
   pending: PendingCall['call'][];
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function textOf(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
 
 export async function loadConversationAction(id: string): Promise<ConversationTranscriptResult> {
   const empty = { title: null, items: [], pending: [] };

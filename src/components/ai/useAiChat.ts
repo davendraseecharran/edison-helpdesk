@@ -23,6 +23,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { isRecord, textOf } from '@/lib/guards';
 import { isBusyMoment, momentForTool, type Moment } from './orb-state';
 import type { PageContext } from './page-context';
 
@@ -135,29 +136,22 @@ function newId(): string {
   return `t-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function text(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
 
 /** Applies one stream line to the parts of the turn being written. */
 export function applyLine(parts: TurnPart[], line: Record<string, unknown>): TurnPart[] {
-  const type = text(line.type);
+  const type = textOf(line.type);
   const last = parts[parts.length - 1];
 
   switch (type) {
     case 'reasoning': {
-      const delta = text(line.text);
+      const delta = textOf(line.text);
       if (last?.type === 'reasoning' && last.live) {
         return [...parts.slice(0, -1), { ...last, text: last.text + delta }];
       }
       return [...settle(parts), { type: 'reasoning', text: delta, live: true }];
     }
     case 'delta': {
-      const delta = text(line.text);
+      const delta = textOf(line.text);
       if (last?.type === 'text') {
         return [...parts.slice(0, -1), { ...last, text: last.text + delta }];
       }
@@ -166,10 +160,10 @@ export function applyLine(parts: TurnPart[], line: Record<string, unknown>): Tur
     case 'tool_call': {
       const part: ToolPart = {
         type: 'tool',
-        callId: text(line.callId),
-        name: text(line.name),
+        callId: textOf(line.callId),
+        name: textOf(line.name),
         args: isRecord(line.args) ? line.args : {},
-        summary: text(line.summary),
+        summary: textOf(line.summary),
         needsApproval: line.needsApproval === true,
         status: line.needsApproval === true ? 'pending' : 'running',
         result: null,
@@ -177,9 +171,9 @@ export function applyLine(parts: TurnPart[], line: Record<string, unknown>): Tur
       return [...settle(parts), part];
     }
     case 'tool_result': {
-      const callId = text(line.callId);
+      const callId = textOf(line.callId);
       const ok = line.ok === true;
-      const summary = text(line.summary);
+      const summary = textOf(line.summary);
       let found = false;
       const next = parts.map((part) => {
         if (part.type !== 'tool' || part.callId !== callId) return part;
@@ -209,7 +203,7 @@ export function applyLine(parts: TurnPart[], line: Record<string, unknown>): Tur
       ];
     }
     case 'error': {
-      return [...settle(parts), { type: 'error', message: text(line.message) || 'Something went wrong.' }];
+      return [...settle(parts), { type: 'error', message: textOf(line.message) || 'Something went wrong.' }];
     }
     default:
       return parts;
@@ -227,7 +221,7 @@ function settle(parts: TurnPart[]): TurnPart[] {
 
 /** The moment a stream line puts the panel in, or null when it says nothing about that. */
 export function momentForLine(line: Record<string, unknown>): Moment | null {
-  switch (text(line.type)) {
+  switch (textOf(line.type)) {
     case 'phase':
       // `tool` says a tool is coming, not which one. The `tool_call` that
       // follows names it, and that is what the orb should show: guessing
@@ -238,7 +232,7 @@ export function momentForLine(line: Record<string, unknown>): Moment | null {
     case 'delta':
       return 'writing';
     case 'tool_call':
-      return line.needsApproval === true ? 'approval' : momentForTool(text(line.name));
+      return line.needsApproval === true ? 'approval' : momentForTool(textOf(line.name));
     case 'tool_result':
       return 'sending';
     default:
@@ -422,8 +416,8 @@ export function useAiChat({
           try {
             const problem: unknown = await response.json();
             if (isRecord(problem)) {
-              message = text(problem.message) || message;
-              code = text(problem.error);
+              message = textOf(problem.message) || message;
+              code = textOf(problem.error);
             }
           } catch {
             // No body; the status is the message.
@@ -473,9 +467,9 @@ export function useAiChat({
             return;
           }
           if (!isRecord(line)) return;
-          const type = text(line.type);
+          const type = textOf(line.type);
           if (type === 'conversation') {
-            const id = text(line.id);
+            const id = textOf(line.id);
             if (id !== '') {
               conversationRef.current = id;
               setConversationId(id);

@@ -28,6 +28,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isRecord, isUuid, textOf } from '@/lib/guards';
 import { parseCsv } from '@/lib/import/csv';
 import { detectPreset } from '@/lib/import/presets';
 import { toDeviceRows, toPersonRows } from '@/lib/import/normalize';
@@ -176,12 +177,6 @@ export type ValidationResult =
 // Small helpers
 // ---------------------------------------------------------------------------
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-function isUuid(value: string): boolean {
-  return UUID.test(value.trim());
-}
-
 /**
  * "EDT-1042", "edt1042" and "1042" are the same ticket to a technician, so they
  * are the same ticket here. Anything else returns null and is treated as a
@@ -191,14 +186,6 @@ export function normaliseTicketNumber(value: string): string | null {
   const text = value.trim().toUpperCase().replace(/\s+/g, '');
   const match = /^(?:EDT-?)?(\d{1,12})$/.exec(text);
   return match === null ? null : `EDT-${match[1]}`;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function text(value: unknown): string {
-  return typeof value === 'string' ? value : '';
 }
 
 function rows(data: unknown): Record<string, unknown>[] {
@@ -262,19 +249,20 @@ interface TicketRef {
 }
 
 async function resolveTicket(ctx: ToolContext, value: string): Promise<TicketRef> {
-  if (isUuid(value)) {
-    const detail = await rpc(ctx, 'app_ticket_detail', { p_ticket: value.trim() });
+  const trimmed = value.trim();
+  if (isUuid(trimmed)) {
+    const detail = await rpc(ctx, 'app_ticket_detail', { p_ticket: trimmed });
     const ticket = isRecord(detail) && isRecord(detail.ticket) ? detail.ticket : null;
     if (ticket === null) throw new ToolError('There is no ticket with that id, or you cannot see it.');
-    return { id: value.trim(), number: text(ticket.number), title: text(ticket.title) };
+    return { id: trimmed, number: textOf(ticket.number), title: textOf(ticket.title) };
   }
 
   const number = normaliseTicketNumber(value);
-  const query = number ?? value.trim();
+  const query = number ?? trimmed;
   if (query === '') throw new ToolError('Name the ticket by its number, such as EDT-1042.');
 
   const hits = rows(await rpc(ctx, 'app_search', { p_query: query, p_limit: 8 })).filter(
-    (row) => text(row.kind) === 'ticket',
+    (row) => textOf(row.kind) === 'ticket',
   );
   if (hits.length === 0) {
     throw new ToolError(`No ticket matches "${value.trim()}". Search first rather than guessing a number.`);
@@ -282,17 +270,17 @@ async function resolveTicket(ctx: ToolContext, value: string): Promise<TicketRef
 
   // `title` arrives as "EDT-1042 Projector will not wake". An exact number match
   // wins outright; otherwise a single hit is accepted and a tie is refused.
-  const exact = number === null ? undefined : hits.find((row) => text(row.title).startsWith(`${number} `));
+  const exact = number === null ? undefined : hits.find((row) => textOf(row.title).startsWith(`${number} `));
   const chosen = exact ?? (hits.length === 1 ? hits[0] : undefined);
   if (chosen === undefined) {
-    const options = hits.slice(0, 5).map((row) => text(row.title)).join('; ');
+    const options = hits.slice(0, 5).map((row) => textOf(row.title)).join('; ');
     throw new ToolError(`"${value.trim()}" matches more than one ticket: ${options}. Say which one.`);
   }
 
-  const combined = text(chosen.title);
+  const combined = textOf(chosen.title);
   const space = combined.indexOf(' ');
   return {
-    id: text(chosen.id),
+    id: textOf(chosen.id),
     number: space === -1 ? combined : combined.slice(0, space),
     title: space === -1 ? '' : combined.slice(space + 1),
   };
@@ -304,7 +292,7 @@ interface DeviceRef {
 }
 
 function deviceLabel(row: Record<string, unknown>): string {
-  return text(row.asset_tag) || text(row.serial_number) || text(row.device_id) || 'that device';
+  return textOf(row.asset_tag) || textOf(row.serial_number) || textOf(row.device_id) || 'that device';
 }
 
 async function resolveDevice(ctx: ToolContext, value: string): Promise<DeviceRef> {
@@ -323,7 +311,7 @@ async function resolveDevice(ctx: ToolContext, value: string): Promise<DeviceRef
 
   const folded = query.toUpperCase();
   const exact = found.find((row) =>
-    [text(row.device_id), text(row.serial_number), text(row.asset_tag)]
+    [textOf(row.device_id), textOf(row.serial_number), textOf(row.asset_tag)]
       .map((candidate) => candidate.toUpperCase())
       .includes(folded),
   );
@@ -332,7 +320,7 @@ async function resolveDevice(ctx: ToolContext, value: string): Promise<DeviceRef
     const options = found.map(deviceLabel).join(', ');
     throw new ToolError(`"${query}" matches more than one device: ${options}. Say which one.`);
   }
-  return { id: text(chosen.id), label: deviceLabel(chosen) };
+  return { id: textOf(chosen.id), label: deviceLabel(chosen) };
 }
 
 interface PersonRef {
@@ -348,7 +336,7 @@ async function resolvePerson(ctx: ToolContext, value: string): Promise<PersonRef
     const detail = await rpc(ctx, 'app_person_detail', { p_person: query });
     const person = isRecord(detail) && isRecord(detail.person) ? detail.person : null;
     if (person === null) throw new ToolError('There is no directory record with that id.');
-    return { id: query, name: text(person.display_name) };
+    return { id: query, name: textOf(person.display_name) };
   }
 
   const found = rows(await rpc(ctx, 'app_list_people', { p_query: query, p_limit: 5 }));
@@ -356,16 +344,16 @@ async function resolvePerson(ctx: ToolContext, value: string): Promise<PersonRef
 
   const folded = query.toLowerCase();
   const exact = found.find((row) =>
-    [text(row.display_name), text(row.email), text(row.osis), text(row.staff_id)]
+    [textOf(row.display_name), textOf(row.email), textOf(row.osis), textOf(row.staff_id)]
       .map((candidate) => candidate.toLowerCase())
       .includes(folded),
   );
   const chosen = exact ?? (found.length === 1 ? found[0] : undefined);
   if (chosen === undefined) {
-    const options = found.map((row) => text(row.display_name)).join(', ');
+    const options = found.map((row) => textOf(row.display_name)).join(', ');
     throw new ToolError(`"${query}" matches more than one person: ${options}. Say which one.`);
   }
-  return { id: text(chosen.id), name: text(chosen.display_name) };
+  return { id: textOf(chosen.id), name: textOf(chosen.display_name) };
 }
 
 interface AccountRef {
@@ -379,21 +367,21 @@ async function resolveAccount(ctx: ToolContext, value: string): Promise<AccountR
 
   const directory = rows(await rpc(ctx, 'app_directory', {}));
   if (isUuid(query)) {
-    const row = directory.find((entry) => text(entry.id) === query);
+    const row = directory.find((entry) => textOf(entry.id) === query);
     if (row === undefined) throw new ToolError('There is no helpdesk account with that id.');
-    return { id: query, name: text(row.display_name) };
+    return { id: query, name: textOf(row.display_name) };
   }
 
   const folded = query.toLowerCase();
-  const exact = directory.filter((entry) => text(entry.display_name).toLowerCase() === folded);
-  const partial = directory.filter((entry) => text(entry.display_name).toLowerCase().includes(folded));
+  const exact = directory.filter((entry) => textOf(entry.display_name).toLowerCase() === folded);
+  const partial = directory.filter((entry) => textOf(entry.display_name).toLowerCase().includes(folded));
   const candidates = exact.length > 0 ? exact : partial;
   if (candidates.length === 0) throw new ToolError(`No helpdesk account matches "${query}".`);
   if (candidates.length > 1) {
-    const options = candidates.map((entry) => text(entry.display_name)).join(', ');
+    const options = candidates.map((entry) => textOf(entry.display_name)).join(', ');
     throw new ToolError(`"${query}" matches more than one colleague: ${options}. Say which one.`);
   }
-  return { id: text(candidates[0].id), name: text(candidates[0].display_name) };
+  return { id: textOf(candidates[0].id), name: textOf(candidates[0].display_name) };
 }
 
 // ---------------------------------------------------------------------------
@@ -699,7 +687,7 @@ const TOOLS: Record<string, ToolSpec> = {
       });
       const detail = await rpc(ctx, 'app_ticket_detail', { p_ticket: id });
       const ticket = isRecord(detail) && isRecord(detail.ticket) ? detail.ticket : {};
-      const number = text(ticket.number) || 'the ticket';
+      const number = textOf(ticket.number) || 'the ticket';
       return outcome({ id, number }, `Opened ${number}: ${String(args.title)}`);
     },
   },
@@ -911,7 +899,7 @@ const TOOLS: Record<string, ToolSpec> = {
     run: async (args, ctx) => {
       const payload = { kind: args.kind, ...pick(args, Object.keys(PERSON_FIELDS)) };
       const id = await rpc(ctx, 'app_upsert_person', { p_person: payload });
-      const name = text(args.display_name) || `${text(args.first_name)} ${text(args.last_name)}`.trim();
+      const name = textOf(args.display_name) || `${textOf(args.first_name)} ${textOf(args.last_name)}`.trim();
       return outcome({ id }, `Added ${name || 'a new directory record'}`);
     },
   },
@@ -943,7 +931,7 @@ const TOOLS: Record<string, ToolSpec> = {
         throw new ToolError('Give at least an inventory id, serial number or asset tag.');
       }
       const id = await rpc(ctx, 'app_upsert_device', { p_device: payload });
-      const name = text(args.asset_tag) || text(args.serial_number) || text(args.device_id);
+      const name = textOf(args.asset_tag) || textOf(args.serial_number) || textOf(args.device_id);
       return outcome({ id }, `Added ${name || 'a new device'} to the inventory`);
     },
   },

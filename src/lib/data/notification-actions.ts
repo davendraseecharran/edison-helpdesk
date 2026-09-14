@@ -21,6 +21,8 @@
  */
 
 import { revalidatePath } from 'next/cache';
+// A malformed id is dropped before the trip; the RPC still decides ownership.
+import { isUuid } from '@/lib/guards';
 import { createClient } from '@/lib/supabase/server';
 import { loadActor } from '@/lib/auth/session';
 import type { ActionResult } from '@/lib/data/actions';
@@ -30,9 +32,6 @@ import {
   loadNotifications,
   loadUnreadCount,
 } from '@/lib/data/notifications';
-
-/** A uuid as PostgREST will accept it. A malformed id is dropped before the trip. */
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Marks notices read. `null` marks every unread notice the caller has.
@@ -50,7 +49,7 @@ export async function markReadAction(ids: string[] | null): Promise<ActionResult
 
   let selected: string[] | null = null;
   if (ids !== null) {
-    selected = Array.isArray(ids) ? ids.filter((id) => typeof id === 'string' && UUID.test(id)) : [];
+    selected = Array.isArray(ids) ? ids.filter((id) => typeof id === 'string' && isUuid(id)) : [];
     if (selected.length === 0) return { ok: true };
   }
 

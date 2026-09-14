@@ -37,6 +37,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { activeAccount } from '@/lib/auth/session';
 import { createClient, createClientWithHeaders } from '@/lib/supabase/server';
 import { schoolToday } from '@/lib/format';
+import { isRecord } from '@/lib/guards';
 import { aiEnabled } from '@/lib/ai/crypto';
 import { loadConnection, touchUsed } from '@/lib/ai/connections';
 import {
@@ -95,9 +96,6 @@ interface ChatBody {
   page?: { kind: PageKind; id: string; label: string };
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
 
 function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];

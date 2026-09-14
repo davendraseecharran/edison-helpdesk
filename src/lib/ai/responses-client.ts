@@ -32,6 +32,7 @@
  * without notice, and the feature is therefore gated behind AI_TOKEN_KEY.
  */
 
+import { isRecord, textOf } from '@/lib/guards';
 import type { CodexTokens } from './codex-auth';
 import { CODEX_ORIGINATOR, CODEX_USER_AGENT } from './codex-auth';
 import type { ToolDef } from './tools';
@@ -88,13 +89,6 @@ export interface StreamRequest {
   signal?: AbortSignal;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-function textOf(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
 
 /**
  * Turns one decoded SSE frame into the events the caller cares about.

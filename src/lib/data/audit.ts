@@ -17,6 +17,7 @@ import 'server-only';
  * desk where nothing has happened.
  */
 
+import { isUuid } from '@/lib/guards';
 import { createClient } from '@/lib/supabase/server';
 // School-local day bounds live in `format.ts` with the rest of the calendar
 // rules: they are pure, and a helper this easy to get wrong belongs where the
@@ -69,8 +70,6 @@ export interface AuditLogPage {
   pageCount: number;
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 function asVia(value: string | undefined): AuditVia | null {
   return value === 'user' || value === 'ai' ? value : null;
 }
@@ -80,7 +79,7 @@ function asEntity(value: string | undefined): AuditEntity | null {
 }
 
 function asActor(value: string | undefined): string | null {
-  return value && UUID.test(value) ? value : null;
+  return value && isUuid(value) ? value : null;
 }
 
 function asKind(value: string | undefined): string | null {

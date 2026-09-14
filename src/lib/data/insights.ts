@@ -16,6 +16,7 @@ import 'server-only';
  * with it.
  */
 
+import { textOf } from '@/lib/guards';
 import { createClient } from '@/lib/supabase/server';
 import {
   DEVICE_STATUSES,
@@ -102,9 +103,6 @@ function hours(value: unknown): number | null {
   return number;
 }
 
-function text(value: unknown): string {
-  return typeof value === 'string' ? value : '';
-}
 
 function countsByKey<Key extends string>(value: unknown, keys: readonly Key[]): Record<Key, number> {
   const source = record(value);
@@ -130,7 +128,7 @@ export async function loadInsights(days: number): Promise<Insights> {
     series: list(payload.series).map((entry) => {
       const point = record(entry);
       return {
-        date: text(point.date),
+        date: textOf(point.date),
         opened: count(point.opened),
         resolved: count(point.resolved),
       };
@@ -140,7 +138,7 @@ export async function loadInsights(days: number): Promise<Insights> {
     byCategory: list(payload.by_category)
       .map((entry) => {
         const row = record(entry);
-        return { category: text(row.category), count: count(row.count) };
+        return { category: textOf(row.category), count: count(row.count) };
       })
       .filter((row) => row.category !== ''),
     resolution: {
@@ -152,8 +150,8 @@ export async function loadInsights(days: number): Promise<Insights> {
       .map((entry) => {
         const row = record(entry);
         return {
-          accountId: text(row.account_id),
-          name: text(row.name) || 'Unknown',
+          accountId: textOf(row.account_id),
+          name: textOf(row.name) || 'Unknown',
           resolved: count(row.resolved),
           minutes: count(row.minutes),
           open: count(row.open),
@@ -173,7 +171,7 @@ function typeCounts(value: unknown): TypeCount[] {
   return list(value)
     .map((entry) => {
       const row = record(entry);
-      return { type: text(row.type), count: count(row.count) };
+      return { type: textOf(row.type), count: count(row.count) };
     })
     .filter((row) => row.type !== '');
 }

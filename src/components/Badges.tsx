@@ -9,13 +9,11 @@
 import {
   type AccountStatus,
   type DeviceStatus,
-  type IntakeChannel,
   type PersonKind,
   type Priority,
   type Role,
   type TicketStatus,
   ACCOUNT_STATUS_LABELS,
-  CHANNEL_LABELS,
   DEVICE_STATUS_LABELS,
   PERSON_KIND_LABELS,
   PRIORITY_LABELS,
@@ -49,10 +47,6 @@ export function PriorityBadge({ priority }: { priority: Priority }) {
   );
 }
 
-export function ChannelBadge({ channel }: { channel: IntakeChannel }) {
-  return <span className="badge badge-chip">{CHANNEL_LABELS[channel]}</span>;
-}
-
 export function RoleBadge({ role }: { role: Role }) {
   return (
     <span className={role === 'admin' ? 'badge badge-chip badge-role' : 'badge badge-chip'}>
@@ -78,10 +72,6 @@ export function AccountStatusBadge({ status }: { status: AccountStatus }) {
       {ACCOUNT_STATUS_LABELS[status]}
     </span>
   );
-}
-
-export function SimulatedBadge({ children = 'Simulated' }: { children?: string }) {
-  return <span className="badge badge-chip badge-simulated">{children}</span>;
 }
 
 /**

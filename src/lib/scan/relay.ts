@@ -32,7 +32,9 @@ const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
  * Everything that reaches the database or a redirect goes through here first.
  * Uppercase is refused rather than folded: every id this application produces
  * comes from `gen_random_uuid()` and is lowercase, so an uppercase one was
- * typed by somebody, and there is no reason to be helpful about that.
+ * typed by somebody, and there is no reason to be helpful about that. That is
+ * why this keeps its own pattern instead of calling `isUuid` from `lib/guards`,
+ * which folds case for the ids people and the assistant type.
  */
 export function isSessionId(value: unknown): value is string {
   return typeof value === 'string' && SESSION_ID.test(value);

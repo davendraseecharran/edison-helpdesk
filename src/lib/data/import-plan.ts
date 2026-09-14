@@ -117,11 +117,6 @@ export interface ImportPlan {
   csv: ParsedCsv;
 }
 
-/** The presets that can describe a file of this kind. */
-export function presetsFor(kind: ImportKind): ColumnPreset[] {
-  return PRESETS.filter((preset) => preset.kind === kind);
-}
-
 /** Every target field a mapping table for this kind offers. */
 export function fieldsFor(kind: ImportKind): readonly string[] {
   // `kind` is the operator's choice for a people file, not a column, so it is

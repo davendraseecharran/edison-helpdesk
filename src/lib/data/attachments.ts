@@ -109,15 +109,6 @@ export async function loadAttachments(target: AttachmentTarget): Promise<Attachm
   return ((data ?? []) as AttachmentRow[]).map(mapAttachment);
 }
 
-/** One attachment the caller may see, or null. Used before minting a link. */
-export async function loadAttachment(
-  id: string,
-  target: AttachmentTarget,
-): Promise<Attachment | null> {
-  const rows = await loadAttachments(target);
-  return rows.find((row) => row.id === id) ?? null;
-}
-
 /**
  * The visible attachment with this id, found without being told which record it
  * belongs to.
