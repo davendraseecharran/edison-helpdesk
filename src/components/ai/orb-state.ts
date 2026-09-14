@@ -70,7 +70,7 @@ const STATE_FOR: Record<Moment, OrbState> = {
   connecting: 'shaping',
   // The same animation as the ChatGPT pairing, and for the same reason: two
   // devices are being introduced to each other and neither has spoken yet.
-  pairing: 'shaping',
+  pairing: 'searching',
   // Frozen (see `orbAppearanceFor`): a still ring, tinted, reads as "stopped".
   error: 'breathing',
 };
