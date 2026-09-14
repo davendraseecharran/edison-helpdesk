@@ -29,6 +29,13 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isRecord, isUuid, textOf } from '@/lib/guards';
+import {
+  canWorkTickets,
+  normalizeRoles,
+  roleLabel,
+  rolesLabel,
+  type AccountRole,
+} from '@/lib/auth/roles';
 import { parseCsv } from '@/lib/import/csv';
 import { detectPreset } from '@/lib/import/presets';
 import { toDeviceRows, toPersonRows } from '@/lib/import/normalize';
@@ -116,7 +123,7 @@ const TICKET_SCOPES = ['open_queue', 'mine', 'collaborating', 'closed', 'all'] a
 const TICKET_STATUSES = ['open', 'assigned', 'in_progress', 'waiting', 'resolved', 'cancelled'] as const;
 const DEVICE_STATUSES = ['in_stock', 'deployed', 'in_repair', 'retired', 'lost', 'surplus'] as const;
 const PERSON_KINDS = ['student', 'staff'] as const;
-const ROLES = ['admin', 'technician'] as const;
+const ROLES = ['admin', 'netrider', 'skills_officer'] as const;
 const IMPORT_KINDS = ['people', 'devices'] as const;
 const IMPORT_MODES = ['dry_run', 'commit'] as const;
 
@@ -144,16 +151,17 @@ export class ToolError extends Error {
 }
 
 /**
- * Declared here rather than imported from the session module, which is
- * `server-only` and would drag a request context into the unit suite. It is the
- * same vocabulary `app_accounts.role` holds.
+ * The role vocabulary, from the one module that owns it. `roles.ts` is a pure
+ * module with no server-only import, so this does not drag a request context
+ * into the unit suite.
  */
-export type ToolRole = 'admin' | 'technician';
+export type ToolRole = AccountRole;
 
 export interface ToolActor {
   id: string;
   displayName: string;
-  role: ToolRole;
+  /** What this person may do. Never empty. */
+  roles: AccountRole[];
 }
 
 export interface ToolContext {
@@ -510,7 +518,7 @@ const TOOLS: Record<string, ToolSpec> = {
 
   list_my_tickets: {
     group: 'read',
-    description: 'The tickets this technician owns right now.',
+    description: 'The tickets this NetRider owns right now.',
     fields: {
       limit: { type: 'integer', description: 'How many to return. Default 25, at most 100.' },
     },
@@ -601,7 +609,7 @@ const TOOLS: Record<string, ToolSpec> = {
 
   list_notifications: {
     group: 'read',
-    description: "This technician's own notifications, newest first.",
+    description: "This NetRider's own notifications, newest first.",
     fields: {
       unread_only: { type: 'boolean', description: 'Only the ones not yet read.' },
       limit: { type: 'integer', description: 'How many to return. Default 20, at most 100.' },
@@ -705,7 +713,7 @@ const TOOLS: Record<string, ToolSpec> = {
 
   add_note: {
     group: 'write',
-    description: 'Add a work note to a ticket. Notes are permanent and are attributed to this technician.',
+    description: 'Add a work note to a ticket. Notes are permanent and are attributed to this NetRider.',
     fields: {
       ticket: { type: 'string', required: true, description: 'Ticket number or id.' },
       body: { type: 'string', required: true, description: 'What to record.' },
@@ -1113,14 +1121,14 @@ const TOOLS: Record<string, ToolSpec> = {
     fields: {
       account: { type: 'string', required: true, description: 'The waiting account, by name or id.' },
       decision: { type: 'string', required: true, description: 'approve or deny.', choices: ['approve', 'deny'] },
-      role: { type: 'string', description: 'The role to grant on approval. Default technician.', choices: ROLES },
+      role: { type: 'string', description: 'The role to grant on approval. Default netrider.', choices: ROLES },
     },
     run: async (args, ctx) => {
       const account = await resolveAccount(ctx, String(args.account));
       await rpc(ctx, 'app_admin_review_access_request', {
         p_account: account.id,
         p_decision: args.decision,
-        p_role: args.role ?? 'technician',
+        p_roles: [args.role ?? 'netrider'],
       });
       const verb = args.decision === 'approve' ? 'Approved' : 'Declined';
       return outcome({ id: account.id }, `${verb} access for ${account.name}`);
@@ -1138,24 +1146,30 @@ const TOOLS: Record<string, ToolSpec> = {
     run: async (args, ctx) => {
       const id = await rpc(ctx, 'app_admin_create_invite', {
         p_email: args.email,
-        p_role: args.role,
+        p_roles: [args.role],
         p_display_name: args.name ?? null,
       });
-      return outcome({ id }, `Invited ${String(args.email)} as ${String(args.role)}`);
+      return outcome({ id }, `Invited ${String(args.email)} as ${roleLabel(args.role as AccountRole)}`);
     },
   },
 
-  set_role: {
+  set_roles: {
     group: 'admin',
-    description: "Change a colleague's role.",
+    description:
+      "Set a colleague's roles. This REPLACES what they hold, so name every role they should keep.",
     fields: {
       account: { type: 'string', required: true, description: 'The colleague, by name or account id.' },
-      role: { type: 'string', required: true, description: 'The new role.', choices: ROLES },
+      roles: {
+        type: 'string',
+        required: true,
+        description: 'The complete new set, comma separated: admin, netrider, skills_officer.',
+      },
     },
     run: async (args, ctx) => {
       const account = await resolveAccount(ctx, String(args.account));
-      await rpc(ctx, 'app_admin_set_role', { p_account: account.id, p_role: args.role });
-      return outcome({ id: account.id }, `Made ${account.name} ${String(args.role) === 'admin' ? 'an administrator' : 'a technician'}`);
+      const roles = normalizeRoles(String(args.roles).split(','));
+      await rpc(ctx, 'app_set_account_roles', { p_account: account.id, p_roles: roles });
+      return outcome({ id: account.id }, `Made ${account.name} ${rolesLabel(roles)}`);
     },
   },
 
@@ -1323,9 +1337,39 @@ function defFor(name: string, spec: ToolSpec): ToolDef {
   };
 }
 
-export function toolsFor(role: ToolRole): ToolDef[] {
+/**
+ * Everything a skills officer who is neither a NetRider nor an administrator
+ * may reach: the student and staff directory, the device inventory read-only,
+ * and their own notifications.
+ *
+ * An allow-list rather than a rule over the groups, because "write" holds both
+ * halves of the job — create_person is directory work and add_note is ticket
+ * work — and a list that has to be edited when a tool is added is exactly the
+ * property worth having here.
+ *
+ * search_records stays: it runs under the caller's own row-level security, so
+ * for this account it can only ever return directory and device rows.
+ */
+const DIRECTORY_TOOLS = [
+  'search_records',
+  'list_people',
+  'get_person',
+  'list_devices',
+  'get_device',
+  'list_notifications',
+  'create_person',
+  'update_person',
+] as const;
+
+export function toolsFor(roles: readonly AccountRole[]): ToolDef[] {
+  const admin = roles.includes('admin');
+  const ticketWorker = canWorkTickets(roles);
   return Object.entries(TOOLS)
-    .filter(([, spec]) => spec.group !== 'admin' || role === 'admin')
+    .filter(([name, spec]) => {
+      if (spec.group === 'admin') return admin;
+      if (ticketWorker) return true;
+      return (DIRECTORY_TOOLS as readonly string[]).includes(name);
+    })
     .map(([name, spec]) => defFor(name, spec));
 }
 
@@ -1444,8 +1488,8 @@ export function validateArgs(name: string, args: unknown): ValidationResult {
  *
  * Nothing here throws: a refusal is a RESULT, because the model has to be able
  * to read what went wrong and try something else, and a thrown error would end
- * the turn instead. The role check is belt and braces — an administrator tool is
- * never offered to a technician in the first place, and the database would
+ * the turn instead. The role checks are belt and braces — a tool outside the
+ * caller's roles is never offered in the first place, and the database would
  * refuse it anyway — but a model that invents a tool name should be told no here
  * rather than at the database.
  */
@@ -1462,8 +1506,16 @@ export async function executeTool(
     const message = `${name} is not a tool this helpdesk offers.`;
     return { ok: false, result: { error: message }, summary: message };
   }
-  if (spec.group === 'admin' && ctx.actor.role !== 'admin') {
+  if (spec.group === 'admin' && !ctx.actor.roles.includes('admin')) {
     const message = 'Only an administrator can do that.';
+    return { ok: false, result: { error: message }, summary: message };
+  }
+  if (
+    spec.group !== 'admin' &&
+    !canWorkTickets(ctx.actor.roles) &&
+    !(DIRECTORY_TOOLS as readonly string[]).includes(name)
+  ) {
+    const message = 'This account works the directory, not tickets.';
     return { ok: false, result: { error: message }, summary: message };
   }
 

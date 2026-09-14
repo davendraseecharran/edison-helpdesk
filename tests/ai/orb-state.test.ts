@@ -70,7 +70,7 @@ describe('momentForTool', () => {
   });
 
   it('treats everything else as a change', () => {
-    for (const name of ['claim_ticket', 'add_note', 'create_ticket', 'import_csv', 'set_role', 'bulk_update_devices']) {
+    for (const name of ['claim_ticket', 'add_note', 'create_ticket', 'import_csv', 'set_roles', 'bulk_update_devices']) {
       expect(momentForTool(name)).toBe('changing');
     }
   });

@@ -15,6 +15,7 @@ import 'server-only';
  */
 
 import { cache } from 'react';
+import { redirect } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { canWorkTickets, normalizeRoles } from '@/lib/auth/roles';
@@ -151,4 +152,20 @@ export async function isAdmin(): Promise<boolean> {
 export async function actorCanWorkTickets(): Promise<boolean> {
   const account = await activeAccount();
   return account ? canWorkTickets(account.roles) : false;
+}
+
+/**
+ * The gate every ticket route stands behind.
+ *
+ * A skills officer has no queue, so a ticket route is not a refusal to explain
+ * — it is a page that does not exist for them. They are sent to the directory,
+ * which is their landing page anyway, with a notice saying why they moved.
+ * The database refuses them the same records independently; this only decides
+ * what a person sees instead of an error.
+ */
+export async function requireTicketWorker(): Promise<ActorAccount> {
+  const account = await activeAccount();
+  if (!account) redirect('/login');
+  if (!canWorkTickets(account.roles)) redirect('/people?moved=tickets');
+  return account;
 }

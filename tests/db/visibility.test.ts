@@ -215,7 +215,7 @@ describe('account and requester lookups', () => {
     const rows = await rpcOk<Array<Record<string, unknown>>>(owner, 'app_directory');
     expect(rows.length).toBeGreaterThanOrEqual(6);
     for (const row of rows) {
-      expect(Object.keys(row).sort()).toEqual(['display_name', 'id', 'role', 'status']);
+      expect(Object.keys(row).sort()).toEqual(['display_name', 'id', 'role', 'roles', 'status']);
     }
     const serialised = JSON.stringify(rows);
     expect(serialised).not.toMatch(/@edison\.example/);
@@ -235,6 +235,7 @@ describe('account and requester lookups', () => {
       'email',
       'id',
       'role',
+      'roles',
       'session_is_current',
       'status',
     ]);

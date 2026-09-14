@@ -252,7 +252,7 @@ export function createTicket(
   }
 
   const title = trimmed(input.title);
-  if (!title) return fail('A short title is required.', 'title');
+  if (!title) return fail('Give the ticket a short title.', 'title');
   if (title.length > 120) return fail('Keep the title under 120 characters.', 'title');
 
   const issue = trimmed(input.issue);
@@ -267,7 +267,7 @@ export function createTicket(
   const category: TicketCategory = input.category ?? 'other';
 
   if (!isValidDateKey(input.submittedOn)) {
-    return fail('Enter a valid submission date.', 'submittedOn');
+    return fail('Enter the date the request came in.', 'submittedOn');
   }
   if (input.submittedOn > context.today) {
     return fail('The submission date cannot be in the future.', 'submittedOn');
@@ -280,10 +280,10 @@ export function createTicket(
 
   if (!isAdmin(actor)) {
     if (channel !== 'walk_in') {
-      return fail('Technicians can only record walk-in tickets.', 'channel');
+      return fail('NetRiders can only record walk-in tickets.', 'channel');
     }
     if (ownerId !== null && ownerId !== actor.id) {
-      return fail('Technicians must assign their walk-in tickets to themselves.', 'ownerId');
+      return fail('NetRiders must assign their walk-in tickets to themselves.', 'ownerId');
     }
     ownerId = actor.id;
   }
@@ -291,7 +291,7 @@ export function createTicket(
   if (ownerId) {
     const owner = findAccount(data, ownerId);
     if (!owner || owner.status !== 'active') {
-      return fail('Choose an active technician as the owner.', 'ownerId');
+      return fail('Choose an active NetRider as the owner.', 'ownerId');
     }
   }
 
@@ -497,7 +497,7 @@ export function reassignTicket(
   if (newOwnerId) {
     const owner = findAccount(data, newOwnerId);
     if (!owner || owner.status !== 'active') {
-      return fail('Choose an active technician.', 'ownerId');
+      return fail('Choose an active NetRider.', 'ownerId');
     }
   }
 
@@ -745,7 +745,7 @@ export function logWork(
     return fail('Only participants can record time on this ticket.');
   }
   if (!isValidDateKey(input.workDate)) {
-    return fail('Enter a valid work date.', 'workDate');
+    return fail('Enter the date the work was done.', 'workDate');
   }
   if (input.workDate > context.today) {
     return fail('The work date cannot be in the future.', 'workDate');
@@ -1046,7 +1046,7 @@ export function createTechnicianAccount(
     return fail('Only an administrator can create accounts.');
   }
   const displayName = trimmed(input.displayName);
-  if (!displayName) return fail('Enter the technician name.', 'displayName');
+  if (!displayName) return fail('Enter their name.', 'displayName');
   const email = trimmed(input.email).toLowerCase();
   if (!EMAIL_PATTERN.test(email)) return fail('Enter a valid school email address.', 'email');
   if (data.accounts.some((account) => account.email.toLowerCase() === email)) {

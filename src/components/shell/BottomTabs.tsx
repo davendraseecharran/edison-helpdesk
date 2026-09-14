@@ -7,14 +7,46 @@ import { Liquid } from 'liquid-gooey';
 import { Ellipsis, Plus, Search, Settings, Sparkles, X } from 'lucide-react';
 import { SignOutButton } from '@/components/auth/SignOutButton';
 import { Icon, type LucideIcon } from '@/components/ui/Icon';
+import { IconSwap } from '@/components/ui/Motion';
 import { Sheet } from '@/components/ui/Sheet';
 import { useEscape, useOutsidePress } from '@/components/ui/focus';
 import { useReducedMotion, useTokenValue } from '@/components/ui/media';
 import { CountPill, isCurrentPath, type NavItem } from './RailNav';
 import { openAssistant } from './TopBar';
 
-/** Items with a tab of their own; the rest live in the More sheet. */
-const TAB_HREFS = ['/queue', '/my-tickets', '/devices'];
+/**
+ * Items with a tab of their own; the rest live in the More sheet.
+ *
+ * In preference order. A NetRider gets the first three; an account without the
+ * Work group falls through to the directory pages it does have, so the row is
+ * never three empty slots.
+ */
+const TAB_PREFERENCE = ['/queue', '/my-tickets', '/devices', '/people', '/inventory/students', '/inventory/devices'];
+
+/**
+ * Shorter names for the ones that do not fit a fifth of a phone's width.
+ * Everything else uses the rail's own label.
+ */
+const PHONE_LABELS: Record<string, string> = {
+  '/my-tickets': 'Mine',
+  '/inventory/students': 'Students',
+  '/inventory/devices': 'Inventory',
+};
+
+export function phoneLabel(item: NavItem): string {
+  return PHONE_LABELS[item.href] ?? item.label;
+}
+
+/** The three hrefs this account's rail can actually fill, in rail order. */
+export function primaryTabs(items: NavItem[]): NavItem[] {
+  const chosen: NavItem[] = [];
+  for (const href of TAB_PREFERENCE) {
+    const item = items.find((entry) => entry.href === href);
+    if (item) chosen.push(item);
+    if (chosen.length === 3) break;
+  }
+  return chosen;
+}
 
 function Tab({
   item,
@@ -34,9 +66,14 @@ function Tab({
       aria-label={typeof item.count === 'number' ? `${label}, ${item.count}` : undefined}
     >
       <span className="bottom-tab-icon">
-        <Icon icon={item.icon} size={22} />
+        <Icon icon={item.icon} size={22} weight="medium" />
         {typeof item.count === 'number' && item.count > 0 ? (
-          <span className="bottom-tab-count" aria-hidden="true">
+          <span
+            className={
+              item.callToAction ? 'bottom-tab-count' : 'bottom-tab-count bottom-tab-count-quiet'
+            }
+            aria-hidden="true"
+          >
             {item.count > 99 ? '99+' : item.count}
           </span>
         ) : null}
@@ -99,12 +136,14 @@ function GooeyCluster({
             aria-haspopup="true"
             onClick={onToggle}
           >
-            <Icon icon={open ? X : Search} size={24} />
+            <IconSwap token={open ? 'close' : 'open'}>
+              <Icon icon={open ? X : Search} size={24} weight="medium" />
+            </IconSwap>
           </button>
         </Liquid.Item>
         {actions.map((action, index) => {
           const at = open ? positions[index] : { x: 0, y: 0 };
-          const content = <Icon icon={action.icon} size={20} />;
+          const content = <Icon icon={action.icon} size={20} weight="medium" />;
           return (
             <Liquid.Item
               key={action.key}
@@ -180,7 +219,7 @@ function PlainCluster({
           {actions.map((action) =>
             action.href ? (
               <Link key={action.key} href={action.href} className="menu-item" onClick={onSelect}>
-                <Icon icon={action.icon} size={16} />
+                <Icon icon={action.icon} size={16} weight="medium" />
                 <span>{action.label}</span>
               </Link>
             ) : (
@@ -193,7 +232,7 @@ function PlainCluster({
                   action.onSelect?.();
                 }}
               >
-                <Icon icon={action.icon} size={16} />
+                <Icon icon={action.icon} size={16} weight="medium" />
                 <span>{action.label}</span>
               </button>
             ),
@@ -208,25 +247,32 @@ function PlainCluster({
         aria-haspopup="true"
         onClick={onToggle}
       >
-        <Icon icon={open ? X : Search} size={24} />
+        <IconSwap token={open ? 'close' : 'open'}>
+          <Icon icon={open ? X : Search} size={24} weight="medium" />
+        </IconSwap>
       </button>
     </div>
   );
 }
 
 /**
- * Phone navigation: Queue, Mine, the lookup cluster, Devices and More.
+ * Phone navigation: two tabs, the lookup cluster, a third tab and More.
  *
  * Fixed to the bottom edge and padded for the home indicator. The More sheet
  * holds every other rail item plus Settings and Sign out, so nothing the
- * desktop rail offers is out of reach on a phone.
+ * desktop rail offers is out of reach on a phone. Which three tabs are shown
+ * depends on what this account's rail holds: a skills officer has no queue, so
+ * their row is the directory rather than three blanks.
  */
 export function BottomTabs({
   items,
   onOpenLookup,
+  canCreateTickets = true,
 }: {
   items: NavItem[];
   onOpenLookup: () => void;
+  /** False for an account that does not work tickets, which hides intake. */
+  canCreateTickets?: boolean;
 }) {
   const pathname = usePathname();
   const reduced = useReducedMotion();
@@ -239,12 +285,15 @@ export function BottomTabs({
   useEscape(clusterOpen, closeCluster);
   useOutsidePress(clusterOpen, clusterRefs, closeCluster);
 
-  const byHref = (href: string) => items.find((item) => item.href === href);
-  const rest = items.filter((item) => !TAB_HREFS.includes(item.href));
+  const tabs = primaryTabs(items);
+  const tabHrefs = tabs.map((item) => item.href);
+  const rest = items.filter((item) => !tabHrefs.includes(item.href));
 
   const actions: ClusterAction[] = [
     { key: 'search', label: 'Search', icon: Search, onSelect: onOpenLookup },
-    { key: 'new', label: 'New ticket', icon: Plus, href: '/tickets/new' },
+    ...(canCreateTickets
+      ? [{ key: 'new', label: 'New ticket', icon: Plus, href: '/tickets/new' } as ClusterAction]
+      : []),
     { key: 'ask', label: 'Ask', icon: Sparkles, onSelect: openAssistant },
   ];
 
@@ -267,15 +316,27 @@ export function BottomTabs({
   return (
     <>
       <nav className="bottom-tabs" aria-label="Primary">
-        <Tab item={byHref('/queue')} label="Queue" current={isCurrentPath(pathname, '/queue')} />
-        <Tab item={byHref('/my-tickets')} label="Mine" current={isCurrentPath(pathname, '/my-tickets')} />
+        <Tab
+          item={tabs[0]}
+          label={tabs[0] ? phoneLabel(tabs[0]) : ''}
+          current={isCurrentPath(pathname, tabs[0]?.href ?? '')}
+        />
+        <Tab
+          item={tabs[1]}
+          label={tabs[1] ? phoneLabel(tabs[1]) : ''}
+          current={isCurrentPath(pathname, tabs[1]?.href ?? '')}
+        />
         <div className="bottom-tab bottom-tab-cluster" ref={clusterRef}>
           {cluster}
           <span className="bottom-tab-label" aria-hidden="true">
             Lookup
           </span>
         </div>
-        <Tab item={byHref('/devices')} label="Devices" current={isCurrentPath(pathname, '/devices')} />
+        <Tab
+          item={tabs[2]}
+          label={tabs[2] ? phoneLabel(tabs[2]) : ''}
+          current={isCurrentPath(pathname, tabs[2]?.href ?? '')}
+        />
         <button
           type="button"
           className="bottom-tab"
@@ -284,7 +345,7 @@ export function BottomTabs({
           onClick={() => setMoreOpen(true)}
         >
           <span className="bottom-tab-icon">
-            <Icon icon={Ellipsis} size={22} />
+            <Icon icon={Ellipsis} size={22} weight="medium" />
           </span>
           <span className="bottom-tab-label">More</span>
         </button>
@@ -300,15 +361,17 @@ export function BottomTabs({
                 aria-current={isCurrentPath(pathname, item.href) ? 'page' : undefined}
                 onClick={() => setMoreOpen(false)}
               >
-                <Icon icon={item.icon} size={18} />
+                <Icon icon={item.icon} size={18} weight="medium" />
                 <span>{item.label}</span>
-                {typeof item.count === 'number' ? <CountPill count={item.count} /> : null}
+                {typeof item.count === 'number' ? (
+                  <CountPill count={item.count} callToAction={item.callToAction} />
+                ) : null}
               </Link>
             </li>
           ))}
           <li>
             <Link href="/settings" className="menu-item" onClick={() => setMoreOpen(false)}>
-              <Icon icon={Settings} size={18} />
+              <Icon icon={Settings} size={18} weight="medium" />
               <span>Settings</span>
             </Link>
           </li>

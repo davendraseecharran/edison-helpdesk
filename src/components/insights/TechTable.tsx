@@ -23,7 +23,7 @@ import type { InsightsTechnician } from '@/lib/data/insights';
 const columns: Column<InsightsTechnician>[] = [
   {
     key: 'name',
-    header: 'Technician',
+    header: 'NetRider',
     cell: (row) => (
       <span className="tech-name">
         <Avatar name={row.name} />
@@ -68,7 +68,7 @@ export function TechTable({ rows, days }: { rows: InsightsTechnician[]; days: nu
   const tabled = busy.length === 0 ? rows : busy;
   const named = busy.length === 0 ? [] : quiet;
   const caption =
-    `Each technician's resolved tickets and logged time over the last ${days} days, and the tickets they own now` +
+    `Each NetRider's resolved tickets and logged time over the last ${days} days, and the tickets they own now` +
     (named.length > 0 ? '; colleagues with no activity are named below' : '');
   const shownNames = named.slice(0, MAX_NAMED_QUIET).map((row) => row.name);
   const moreCount = named.length - shownNames.length;
@@ -87,7 +87,7 @@ export function TechTable({ rows, days }: { rows: InsightsTechnician[]; days: nu
         )}
         caption={caption}
         empty={
-          <EmptyState title="No technicians yet">
+          <EmptyState title="No NetRiders yet">
             Accounts appear here once an administrator has added them.
           </EmptyState>
         }

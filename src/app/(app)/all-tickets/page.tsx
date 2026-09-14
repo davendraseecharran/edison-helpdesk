@@ -28,7 +28,7 @@ export default async function AllTicketsPage({
     <>
       <PageHeader
         title="All tickets"
-        description="Every ticket regardless of owner or status. Filter by owner to see one technician's workload, or by status to audit the day."
+        description="Every ticket regardless of owner or status. Filter by owner to see one NetRider's workload, or by status to audit the day."
       />
       <TicketListView
         page={page}

@@ -184,8 +184,7 @@
   gap: 8px 12px;
   margin: 12px 16px;
   padding: 10px 12px 10px 16px;
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-3);
   background: var(--surface);
   box-shadow: var(--shadow-2);
 }
@@ -381,7 +380,7 @@
 .record-table {
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-1);
 }
 
 .record-table .table thead th {
@@ -413,8 +412,8 @@
   align-items: center;
   gap: 8px 12px;
   padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-1);
+  background: var(--surface-2);
 }
 
 .loan-card-text {
@@ -503,7 +502,7 @@
   margin: 0;
   padding: 0;
   border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-1);
   list-style: none;
 }
 

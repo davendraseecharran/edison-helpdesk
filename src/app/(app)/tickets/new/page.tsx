@@ -219,7 +219,7 @@ export default function NewTicketPage() {
         title="New ticket"
         description={
           isAdminIntake
-            ? 'Quick entry for phone, email and walk-in requests. Leave the owner on the queue to let a technician claim it.'
+            ? 'Quick entry for phone, email and walk-in requests. Leave the owner on the queue to let a NetRider claim it.'
             : 'Walk-ins you handle yourself. The channel is fixed to walk-in and you are recorded as the owner.'
         }
       />
@@ -326,7 +326,7 @@ export default function NewTicketPage() {
                   htmlFor="requester-descriptor"
                   optional
                   className="form-grid-full"
-                  hint="Only what a technician needs to do the job."
+                  hint="Only what a NetRider needs to do the job."
                 >
                   <input
                     id="requester-descriptor"
@@ -577,7 +577,7 @@ export default function NewTicketPage() {
                 </select>
               </Field>
             ) : (
-              <Field label="Channel" htmlFor="channel-fixed" hint="Technician intake is walk-in only.">
+              <Field label="Channel" htmlFor="channel-fixed" hint="NetRider intake is walk-in only.">
                 <input id="channel-fixed" type="text" value="Walk-in" readOnly disabled />
               </Field>
             )}
@@ -613,7 +613,7 @@ export default function NewTicketPage() {
                 label="Owner"
                 htmlFor="owner"
                 error={errorFor('ownerId')}
-                hint="Leave on the queue so any technician can claim it."
+                hint="Leave on the queue so any NetRider can claim it."
               >
                 <select
                   id="owner"
@@ -638,7 +638,7 @@ export default function NewTicketPage() {
               <Field
                 label="Owner"
                 htmlFor="owner-fixed"
-                hint="A technician's walk-in is always assigned to themselves."
+                hint="A NetRider's walk-in is always assigned to themselves."
               >
                 <input
                   id="owner-fixed"

@@ -27,24 +27,60 @@ describe('tool classification', () => {
 
   it('classifies every tool an administrator is offered', () => {
     const classified = new Set(ALL);
-    const unclassified = toolsFor('admin')
+    const unclassified = toolsFor(['admin'])
       .map((tool) => tool.name)
       .filter((name) => !classified.has(name));
     expect(unclassified).toEqual([]);
   });
 
   it('offers an administrator exactly the three lists', () => {
-    expect(toolsFor('admin').map((tool) => tool.name).sort()).toEqual([...ALL].sort());
+    expect(toolsFor(['admin']).map((tool) => tool.name).sort()).toEqual([...ALL].sort());
   });
 
-  it('excludes every admin tool from a technician', () => {
-    const names = new Set(toolsFor('technician').map((tool) => tool.name));
+  it('excludes every admin tool from a NetRider', () => {
+    const names = new Set(toolsFor(['netrider']).map((tool) => tool.name));
     for (const name of ADMIN_TOOLS) expect(names.has(name)).toBe(false);
   });
 
-  it('offers a technician every read and write tool', () => {
-    expect(toolsFor('technician').map((tool) => tool.name).sort()).toEqual(
+  it('offers a NetRider every read and write tool', () => {
+    expect(toolsFor(['netrider']).map((tool) => tool.name).sort()).toEqual(
       [...READ_TOOLS, ...WRITE_TOOLS].sort(),
+    );
+  });
+
+  it('offers a skills officer the directory and no ticket tool at all', () => {
+    const names = toolsFor(['skills_officer']).map((tool) => tool.name).sort();
+    expect(names).toEqual([
+      'create_person',
+      'get_device',
+      'get_person',
+      'list_devices',
+      'list_notifications',
+      'list_people',
+      'search_records',
+      'update_person',
+    ]);
+    // Everything a ticket is made of, absent.
+    for (const name of [
+      'create_ticket',
+      'claim_ticket',
+      'add_note',
+      'resolve_ticket',
+      'log_work',
+      'get_ticket',
+      'list_queue',
+      'get_insights',
+    ]) {
+      expect(names).not.toContain(name);
+    }
+  });
+
+  it('adds rather than replaces when somebody holds two roles', () => {
+    expect(toolsFor(['netrider', 'skills_officer']).map((t) => t.name).sort()).toEqual(
+      toolsFor(['netrider']).map((t) => t.name).sort(),
+    );
+    expect(toolsFor(['admin', 'skills_officer']).map((t) => t.name).sort()).toEqual(
+      toolsFor(['admin']).map((t) => t.name).sort(),
     );
   });
 
@@ -96,7 +132,7 @@ describe('tool classification', () => {
       'cancel_ticket',
       'review_access_request',
       'create_invite',
-      'set_role',
+      'set_roles',
       'import_csv',
     ]) {
       expect(ADMIN_TOOLS).toContain(name);
@@ -104,7 +140,7 @@ describe('tool classification', () => {
   });
 
   it('never offers a model other than the one the product ships', () => {
-    const serialised = JSON.stringify(toolsFor('admin'));
+    const serialised = JSON.stringify(toolsFor(['admin']));
     expect(serialised).not.toContain('gpt-5.3-codex-spark');
   });
 });
@@ -136,7 +172,7 @@ describe('isWriteCall', () => {
 
 describe('tool definitions', () => {
   it('declares every tool strict, with a closed object schema', () => {
-    for (const tool of toolsFor('admin')) {
+    for (const tool of toolsFor(['admin'])) {
       expect(tool.type).toBe('function');
       expect(tool.strict).toBe(true);
       expect(tool.description.length).toBeGreaterThan(10);
@@ -205,7 +241,7 @@ describe('inherited property names are not tools', () => {
           throw new Error('a tool that does not exist must never reach the database');
         },
       },
-      actor: { id: 'a', displayName: 'Pat Example', role: 'admin' },
+      actor: { id: 'a', displayName: 'Pat Example', roles: ['admin'] },
     } as unknown as ToolContext;
 
     return Promise.all(
@@ -220,14 +256,14 @@ describe('inherited property names are not tools', () => {
 
 describe('requiresApproval', () => {
   it('asks for the irreversible administrator changes however the setting is set', () => {
-    for (const name of ['set_role', 'create_invite', 'review_access_request', 'cancel_ticket']) {
+    for (const name of ['set_roles', 'create_invite', 'review_access_request', 'cancel_ticket']) {
       expect(requiresApproval(name, {}, false)).toBe(true);
       expect(requiresApproval(name, {}, true)).toBe(true);
     }
   });
 
   it('asks for every administrator tool with confirmations off', () => {
-    const admin = toolsFor('admin')
+    const admin = toolsFor(['admin'])
       .map((tool) => tool.name)
       .filter((name) => ADMIN_TOOLS.includes(name));
     expect(admin.sort()).toEqual([...ADMIN_TOOLS].sort());
@@ -303,7 +339,7 @@ describe('what a failed tool tells the model', () => {
           throw error;
         },
       },
-      actor: { id: 'a', displayName: 'Pat Example', role: 'admin' },
+      actor: { id: 'a', displayName: 'Pat Example', roles: ['admin'] },
     } as unknown as ToolContext;
   }
 

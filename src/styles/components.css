@@ -3,9 +3,21 @@
  * the small pieces they share. Built on the tokens only.
  *
  * Rhythm: controls are 40px tall (32px small), table rows 44px, spacing in
- * 12 / 16 / 24. Radii: `--radius-1` on controls, `--radius-2` on cards,
- * `--radius-3` on sheets and dialogs. `--shadow-2` appears only under the
- * floating surfaces; rows and cards cast none.
+ * 8 / 16 / 24.
+ *
+ * Radii are concentric — an outer radius is its inner radius plus the padding
+ * between them, or the two layers look like they were drawn by different
+ * people. That gives one ladder: `--radius-1` (4) on every control, and then
+ * `--radius-2` (8) on a surface holding controls at 4px of inset (menus, the
+ * segmented track), `--radius-3` (12) at 8px of inset (the flash and toast
+ * boxes), `--radius-4` (16) at 12px (panels) — and the same 16 on dialogs and
+ * sheets, whose 24px gutter is wide enough that the layers read as separate
+ * surfaces and each picks its own.
+ *
+ * Depth is a shadow and structure is a border. `--shadow-2` sits under menus
+ * and popovers, `--shadow-3` under dialogs and sheets, `--shadow-1` under a
+ * resting card. A 1px line means "these are separate things": row dividers,
+ * table rules, the outline of an input.
  */
 
 /* --- Buttons ------------------------------------------------------------ */
@@ -25,18 +37,34 @@
   white-space: nowrap;
   text-decoration: none;
   cursor: pointer;
-  transition:
-    background-color 120ms ease-out,
-    border-color 120ms ease-out,
-    color 120ms ease-out;
+  transition-property: background-color, border-color, color, scale;
+  transition-duration: var(--dur-hover), var(--dur-hover), var(--dur-hover), var(--dur-press);
+  transition-timing-function: ease-out;
 }
 
 .btn:hover {
   text-decoration: none;
 }
 
-.btn:hover:not(:disabled):not([aria-disabled='true']) {
-  background: var(--surface-2);
+/*
+ * Press feedback: the button gives under the finger and comes back. A
+ * transition rather than a keyframe, so letting go halfway returns smoothly
+ * instead of snapping. `scale`, not `transform`, so a control that is also
+ * translated (the collapsed phone button, the FAB satellites) keeps its
+ * place. `.btn-static` switches it off where the motion would distract.
+ */
+.btn:active:not(:disabled):not([aria-disabled='true']):not(.btn-static) {
+  scale: 0.96;
+}
+
+/*
+ * Hover is a pointer state, not a touch state. Without the query a tap on a
+ * phone leaves the button looking hovered until something else is touched.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not(:disabled):not([aria-disabled='true']) {
+    background: var(--surface-2);
+  }
 }
 
 .btn:disabled,
@@ -83,20 +111,10 @@
   font-weight: 600;
 }
 
-.btn-primary:hover:not(:disabled):not([aria-disabled='true']) {
-  border-color: var(--brass-2);
-  background: var(--brass-2);
-}
-
 .btn-ghost {
   border-color: transparent;
   background: transparent;
   color: var(--ink-2);
-}
-
-.btn-ghost:hover:not(:disabled):not([aria-disabled='true']) {
-  background: var(--surface-3);
-  color: var(--ink);
 }
 
 .btn-danger {
@@ -104,8 +122,20 @@
   color: var(--bad);
 }
 
-.btn-danger:hover:not(:disabled):not([aria-disabled='true']) {
-  background: var(--bad-soft);
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover:not(:disabled):not([aria-disabled='true']) {
+    border-color: var(--brass-2);
+    background: var(--brass-2);
+  }
+
+  .btn-ghost:hover:not(:disabled):not([aria-disabled='true']) {
+    background: var(--surface-3);
+    color: var(--ink);
+  }
+
+  .btn-danger:hover:not(:disabled):not([aria-disabled='true']) {
+    background: var(--bad-soft);
+  }
 }
 
 .btn-sm {
@@ -136,6 +166,18 @@
 
 .icon-spin {
   animation: spin 800ms linear infinite;
+}
+
+/* Holds the two glyphs of an `IconSwap` on one another while they cross. */
+.icon-swap {
+  display: grid;
+  place-items: center;
+}
+
+.icon-swap > * {
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
 }
 
 @keyframes spin {
@@ -345,6 +387,11 @@ select[aria-invalid='true'] {
 
 /* --- Avatar, actor ------------------------------------------------------ */
 
+/*
+ * Neutral, not brass. An avatar is on screen constantly and says who, not
+ * what needs doing; tinting it spent part of the one accent on a label that
+ * never changes. The initials carry enough weight on their own.
+ */
 .avatar {
   display: inline-grid;
   flex: 0 0 auto;
@@ -352,8 +399,8 @@ select[aria-invalid='true'] {
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  background: var(--brass-soft);
-  color: var(--ink);
+  background: var(--surface-3);
+  color: var(--ink-2);
   font-size: var(--fs-0);
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -377,6 +424,12 @@ select[aria-invalid='true'] {
 
 /* --- Flash, empty, skeleton --------------------------------------------- */
 
+/*
+ * The 3px stripe already says what kind of message this is; the box drawn
+ * round it was saying the same thing a second time. The border goes and a
+ * resting elevation takes its place, which also lets the flash sit on the
+ * page ground or inside a panel without changing colour.
+ */
 .flash {
   display: flex;
   align-items: flex-start;
@@ -384,11 +437,11 @@ select[aria-invalid='true'] {
   gap: 12px;
   margin-bottom: 16px;
   padding: 8px 8px 8px 16px;
-  border: 1px solid var(--line);
   border-left: 3px solid var(--slate);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-3);
   background: var(--surface);
   color: var(--ink);
+  box-shadow: var(--shadow-1);
 }
 
 p.flash {
@@ -407,27 +460,38 @@ p.flash {
   border-left-color: var(--bad);
 }
 
+/*
+ * An empty screen is an invitation to act, so it is given the room of a small
+ * page rather than the height of a missing row: the title carries real weight,
+ * the sentence under it says what to do next, and the action is the thing the
+ * eye lands on. Nothing decorates it.
+ */
 .empty {
-  padding: 40px 20px;
+  padding: 56px 24px;
   color: var(--ink-2);
   text-align: center;
 }
 
 .empty-title {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   color: var(--ink);
+  font-size: var(--fs-3);
   font-weight: 600;
+  letter-spacing: var(--tracking-heading);
 }
 
 .empty-body {
   max-width: 48ch;
   margin: 0 auto;
+  text-wrap: pretty;
 }
 
 .empty-action {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
-  margin-top: 16px;
+  gap: 8px;
+  margin-top: 20px;
 }
 
 .skeleton {
@@ -525,20 +589,19 @@ p.flash {
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--shadow-3);
   outline: none;
 }
 
 .overlay-panel:focus-visible {
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--shadow-3);
 }
 
 .sheet-right {
   width: min(440px, 100%);
   height: 100dvh;
   margin-left: auto;
-  border-left: 1px solid var(--line);
-  border-radius: var(--radius-3) 0 0 var(--radius-3);
+  border-radius: var(--radius-4) 0 0 var(--radius-4);
 }
 
 .sheet-bottom {
@@ -546,16 +609,14 @@ p.flash {
   max-height: min(88dvh, 720px);
   margin-top: auto;
   padding-bottom: env(safe-area-inset-bottom);
-  border-top: 1px solid var(--line);
-  border-radius: var(--radius-3) var(--radius-3) 0 0;
+  border-radius: var(--radius-4) var(--radius-4) 0 0;
 }
 
 .dialog {
   width: min(480px, calc(100% - 32px));
   max-height: calc(100dvh - 32px);
   margin: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-3);
+  border-radius: var(--radius-4);
 }
 
 .overlay-head {
@@ -621,28 +682,52 @@ p.flash {
   display: inline-flex;
 }
 
+/*
+ * A popover belongs to the control that opened it, so it grows out of that
+ * control rather than out of its own middle: the origin is the corner nearest
+ * the trigger. Whether one reader notices is not the point — in aggregate
+ * these are what make an interface feel built rather than assembled.
+ *
+ * `@starting-style` gives the entrance with no keyframe, so a menu closed and
+ * reopened quickly picks up from wherever it had got to instead of restarting.
+ * It starts from 0.97, never from 0: nothing in the world appears out of
+ * nothing.
+ */
 .menu,
 .popover {
   position: absolute;
   top: calc(100% + 6px);
   z-index: 40;
   min-width: 200px;
-  padding: 6px;
-  border: 1px solid var(--line);
+  padding: 4px;
   border-radius: var(--radius-2);
   background: var(--surface);
   box-shadow: var(--shadow-2);
-  animation: pop-in 120ms ease-out;
+  opacity: 1;
+  scale: 1;
+  transition-property: opacity, scale;
+  transition-duration: var(--dur-surface);
+  transition-timing-function: var(--ease-out);
 }
 
 .menu-end,
 .popover-end {
   right: 0;
+  transform-origin: top right;
 }
 
 .menu-start,
 .popover-start {
   left: 0;
+  transform-origin: top left;
+}
+
+@starting-style {
+  .menu,
+  .popover {
+    opacity: 0;
+    scale: 0.97;
+  }
 }
 
 .popover:focus-visible {
@@ -665,9 +750,11 @@ p.flash {
   cursor: pointer;
 }
 
-.menu-item:hover {
-  background: var(--surface-2);
-  text-decoration: none;
+@media (hover: hover) and (pointer: fine) {
+  .menu-item:hover {
+    background: var(--surface-2);
+    text-decoration: none;
+  }
 }
 
 .menu-item .icon {
@@ -702,12 +789,13 @@ p.flash {
 
 /* --- Segmented control -------------------------------------------------- */
 
+/* 4px of inset around a 4px option, so the track's own radius is 8. */
 .segmented {
   display: inline-flex;
   gap: 2px;
-  padding: 3px;
+  padding: 4px;
   border: 1px solid var(--line);
-  border-radius: var(--radius-1);
+  border-radius: var(--radius-2);
   background: var(--surface-2);
 }
 
@@ -719,16 +807,21 @@ p.flash {
   height: 32px;
   padding: 0 12px;
   border: 0;
-  border-radius: 3px;
+  border-radius: var(--radius-1);
   background: transparent;
   color: var(--ink-2);
   font: 500 var(--fs-1) / 1 var(--font-sans);
   white-space: nowrap;
   cursor: pointer;
+  transition-property: background-color, color;
+  transition-duration: var(--dur-hover);
+  transition-timing-function: ease-out;
 }
 
-.segmented-option:hover {
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .segmented-option:hover {
+    color: var(--ink);
+  }
 }
 
 .segmented-option .icon {
@@ -788,10 +881,12 @@ p.flash {
   white-space: nowrap;
 }
 
-.tab:hover {
-  background: var(--surface-2);
-  color: var(--ink);
-  text-decoration: none;
+@media (hover: hover) and (pointer: fine) {
+  .tab:hover {
+    background: var(--surface-2);
+    color: var(--ink);
+    text-decoration: none;
+  }
 }
 
 .tab[aria-current='page'] {
@@ -836,14 +931,15 @@ p.flash {
   vertical-align: middle;
 }
 
+/* The outer columns line up with the panel's own 12px inset. */
 .table th:first-child,
 .table td:first-child {
-  padding-left: 16px;
+  padding-left: 12px;
 }
 
 .table th:last-child,
 .table td:last-child {
-  padding-right: 16px;
+  padding-right: 12px;
 }
 
 .table thead th {
@@ -862,8 +958,24 @@ p.flash {
   height: 44px;
 }
 
-.table tbody tr:hover {
-  background: var(--surface-2);
+/*
+ * The last row's rule would cut across the panel's bottom corners now that
+ * they are a 16px radius. Where a pagination bar follows, its own top border
+ * is the rule; where nothing follows, the panel's edge is.
+ */
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/*
+ * A row hover fires tens of times a minute, so it gets the cheapest possible
+ * feedback: one colour, 100ms, nothing that moves.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .table tbody tr:hover {
+    background: var(--surface-2);
+    transition: background-color 100ms ease-out;
+  }
 }
 
 .table .num {
@@ -882,8 +994,12 @@ p.flash {
 }
 
 .row-card {
-  padding: 12px 16px;
+  padding: 12px;
   border-bottom: 1px solid var(--line);
+}
+
+.row-cards li:last-child .row-card {
+  border-bottom: 0;
 }
 
 .row-card-title {
@@ -932,6 +1048,17 @@ p.flash {
 }
 
 /*
+ * A sticky header inside a rounded panel has to stop at the panel's edge, or
+ * the first row scrolls out through the corner. `clip` clips without creating
+ * a scroll container, so the header still sticks to the page rather than to
+ * this box.
+ */
+.panel > .data-table:last-child {
+  border-radius: 0 0 var(--radius-4) var(--radius-4);
+  overflow: clip;
+}
+
+/*
  * Between the phone cards and the full-width desktop the table may be wider
  * than the main column, so the wrapper scrolls sideways instead of the page.
  * A scrolling box clips outside it, so the wrapper keeps a little padding at
@@ -966,7 +1093,7 @@ p.flash {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 12px;
   border-top: 1px solid var(--line);
 }
 
@@ -981,7 +1108,7 @@ p.flash {
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
-  padding: 12px 16px;
+  padding: 12px;
   min-height: 64px;
   border-bottom: 1px solid var(--line);
 }
@@ -1043,21 +1170,13 @@ p.flash {
 /* --- Motion ------------------------------------------------------------- */
 
 /*
- * Menus and popovers pop in with CSS. Sheets, dialogs, list rows and toasts
- * are driven by `motion` (see `Motion.tsx`), which also plays their exit.
+ * Menus and popovers arrive on a CSS transition out of `@starting-style`,
+ * scaling from the corner their trigger sits in (see the menu block above).
+ * A keyframe was doing that job and could not be interrupted: a menu closed
+ * and reopened inside the animation restarted from the beginning. Sheets,
+ * dialogs, list rows and toasts are driven by `motion` (see `Motion.tsx`),
+ * which also plays their exit.
  */
-
-@keyframes pop-in {
-  from {
-    transform: scale(0.98);
-    opacity: 0;
-  }
-
-  to {
-    transform: none;
-    opacity: 1;
-  }
-}
 
 /* --- Role chips --------------------------------------------------------- */
 

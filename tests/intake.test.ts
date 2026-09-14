@@ -155,7 +155,7 @@ describe('admin intake', () => {
         ownerId: IDS.alex,
       }),
     );
-    expect(error).toMatch(/active technician/i);
+    expect(error).toMatch(/active NetRider/i);
   });
 });
 
@@ -171,7 +171,7 @@ describe('intake validation', () => {
           submittedOn: toDateKey(NOW),
         }),
       ),
-    ).toMatch(/title is required/i);
+    ).toMatch(/give the ticket a short title/i);
 
     expect(
       expectFail(

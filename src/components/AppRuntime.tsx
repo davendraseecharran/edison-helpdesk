@@ -33,6 +33,7 @@ import {
 import { useRouter } from 'next/navigation';
 import type { Account, Requester } from '@/lib/domain/types';
 import type { ActorAccount } from '@/lib/auth/session';
+import type { AccountRole } from '@/lib/auth/roles';
 import type { ActionResult } from '@/lib/data/actions';
 import {
   initialToastState,
@@ -146,6 +147,17 @@ export function useToasts(): ToastStore {
   const store = useContext(ToastContext);
   if (!store) throw new Error('useToasts must be used inside AppRuntimeProvider');
   return store;
+}
+
+/**
+ * What the signed-in account may do.
+ *
+ * Separate from `useActorAccount`, which returns the domain `Account` record
+ * and carries only the derived single-value role. A screen deciding what to
+ * offer should ask this.
+ */
+export function useActorRoles(): AccountRole[] {
+  return useRuntime().actor.roles;
 }
 
 /** The signed-in account, in the shape the approved panels already expect. */

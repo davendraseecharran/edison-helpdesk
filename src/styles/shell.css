@@ -625,12 +625,18 @@
   margin-top: 16px;
 }
 
+/*
+ * Quieter than the items it heads. A group label is a signpost read once on
+ * arrival; at the same weight as the links it competes with them every time
+ * the eye crosses the rail.
+ */
 .rail-heading {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   padding: 0 12px;
   color: var(--ink-3);
   font-size: var(--fs-0);
   font-weight: 500;
+  opacity: 0.8;
 }
 
 .rail-list {
@@ -642,6 +648,7 @@
   list-style: none;
 }
 
+/* 8px: the row holds a 20px capsule and an 18px icon at 10px of inset. */
 .rail-link {
   position: relative;
   display: flex;
@@ -649,15 +656,20 @@
   gap: 10px;
   height: 36px;
   padding: 0 10px 0 12px;
-  border-radius: var(--radius-1);
+  border-radius: var(--radius-2);
   color: var(--ink-2);
   font-weight: 500;
+  transition-property: background-color, color;
+  transition-duration: 100ms;
+  transition-timing-function: ease-out;
 }
 
-.rail-link:hover {
-  background: var(--surface-2);
-  color: var(--ink);
-  text-decoration: none;
+@media (hover: hover) and (pointer: fine) {
+  .rail-link:hover {
+    background: var(--surface-2);
+    color: var(--ink);
+    text-decoration: none;
+  }
 }
 
 .rail-link .icon {
@@ -665,25 +677,21 @@
   color: var(--ink-3);
 }
 
+/*
+ * The lamp. On nearly every screen this is the one lit element: the page you
+ * are on. It replaces a 3px brass bar hung off the rail's edge, which said
+ * the same thing in a way that only worked on this one surface — the light
+ * belongs to the row, so the same treatment carries to a queue row, a panel,
+ * a field, and reads as one idea rather than four decorations.
+ */
 .rail-link[aria-current='page'] {
   background: var(--surface-3);
   color: var(--ink);
+  box-shadow: var(--edge-light);
 }
 
 .rail-link[aria-current='page'] .icon {
   color: var(--ink);
-}
-
-/* The marker sits on the rail's own edge, outside the link's inset. */
-.rail-link[aria-current='page']::before {
-  content: '';
-  position: absolute;
-  top: 6px;
-  bottom: 6px;
-  left: -8px;
-  width: 3px;
-  border-radius: 0 2px 2px 0;
-  background: var(--brass);
 }
 
 .rail-text {
@@ -694,6 +702,13 @@
   white-space: nowrap;
 }
 
+/*
+ * Brass here is reserved for the one count that is a call to action: the open
+ * queue, where somebody is waiting and nobody has picked it up. My tickets,
+ * Collaborating, Resolved and All tickets are quantities of your own work and
+ * are set quiet — five brass pills down one rail is a highlighter, not a
+ * signal, and it costs the lamp its meaning.
+ */
 .count-pill {
   display: inline-flex;
   flex: 0 0 auto;
@@ -755,15 +770,22 @@
   cursor: pointer;
 }
 
-.bottom-tab:hover {
-  color: var(--ink-2);
-  text-decoration: none;
+@media (hover: hover) and (pointer: fine) {
+  .bottom-tab:hover {
+    color: var(--ink-2);
+    text-decoration: none;
+  }
 }
 
 .bottom-tab[aria-current='page'] {
   color: var(--ink);
 }
 
+/*
+ * The phone's lamp. There is no rail down here, so the lit edge is the tab's
+ * own top edge — the same brass hairline with the same bloom under it, turned
+ * to face into the screen.
+ */
 .bottom-tab[aria-current='page']::before {
   content: '';
   position: absolute;
@@ -773,6 +795,7 @@
   height: 3px;
   border-radius: 0 0 2px 2px;
   background: var(--brass);
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--brass) 55%, transparent);
 }
 
 .bottom-tab-icon {
@@ -795,8 +818,16 @@
   color: var(--brass-ink);
   font-size: var(--fs-0);
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
   line-height: 18px;
   text-align: center;
+}
+
+/* Your own tally rather than work waiting for somebody: quiet, like the rail's. */
+.bottom-tab-count-quiet {
+  background: var(--surface-3);
+  color: var(--ink-3);
+  font-weight: 500;
 }
 
 .bottom-tab-label {
@@ -896,6 +927,18 @@
   pointer-events: none;
 }
 
+/*
+ * A label names the satellite it sits over, so it has to arrive after that
+ * satellite has landed. Reviewed frame by frame, all three were on screen at
+ * full strength while the circles were still travelling, which read as three
+ * captions hanging in the air waiting for their buttons to catch up. The
+ * satellites leave the core on a 40ms stagger and settle by about 220ms;
+ * the labels follow them in.
+ *
+ * Closing takes the delay away: an exit is softer and quicker than an
+ * entrance, and a caption for a button that has already gone is a caption for
+ * nothing.
+ */
 .fab-label {
   position: absolute;
   padding: 3px 8px;
@@ -907,11 +950,14 @@
   white-space: nowrap;
   transform: translateX(-50%);
   opacity: 0;
-  transition: opacity 120ms ease-out;
+  transition-property: opacity;
+  transition-duration: var(--dur-hover);
+  transition-timing-function: ease-out;
 }
 
 .fab[data-open='true'] .fab-label {
   opacity: 1;
+  transition-delay: 220ms;
 }
 
 /* Reduced motion: an ordinary button and an ordinary menu above it. */

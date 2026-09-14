@@ -48,6 +48,7 @@ import {
   RecentRow,
   type LookupAction,
 } from './LookupResults';
+import { canWorkTickets } from '@/lib/auth/roles';
 import { navItems } from './RailNav';
 import { ScanButton } from './ScanButton';
 import { useTheme, useThemeChoice } from './ThemeProvider';
@@ -290,7 +291,7 @@ function Palette({
     };
     const list: LookupAction[] = [];
 
-    if (ticketNumber) {
+    if (ticketNumber && canWorkTickets(actor.roles)) {
       list.push({
         id: 'claim',
         label: `Claim ${ticketNumber}`,
@@ -302,15 +303,19 @@ function Palette({
       });
     }
 
-    list.push({
-      id: 'new-ticket',
-      label: 'New ticket',
-      icon: Plus,
-      keywords: ['create', 'intake', 'log'],
-      run: go('/tickets/new'),
-    });
+    // Claiming and intake are ticket work. A skills officer has no queue, so
+    // offering either would be an action that ends in a refusal.
+    if (canWorkTickets(actor.roles)) {
+      list.push({
+        id: 'new-ticket',
+        label: 'New ticket',
+        icon: Plus,
+        keywords: ['create', 'intake', 'log'],
+        run: go('/tickets/new'),
+      });
+    }
 
-    for (const item of navItems(actor.role, NO_COUNTS)) {
+    for (const item of navItems(actor.roles, NO_COUNTS)) {
       list.push({
         id: `go:${item.href}`,
         label: `Go to ${item.label.toLowerCase()}`,
@@ -365,7 +370,7 @@ function Palette({
     });
 
     return list;
-  }, [ticketNumber, actor.role, theme, term, onClose, router, claim, choose]);
+  }, [ticketNumber, actor.roles, theme, term, onClose, router, claim, choose]);
 
   const visibleActions = useMemo(
     () =>

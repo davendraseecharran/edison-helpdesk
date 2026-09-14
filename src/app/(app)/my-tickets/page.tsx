@@ -5,6 +5,7 @@ import { ButtonLink } from '@/components/ui/Button';
 import { TicketListView } from '@/components/TicketListView';
 import type { QueueSearchParams } from '../search-params';
 import { toFilters } from '../search-params';
+import { requireTicketWorker } from '@/lib/auth/session';
 
 export const metadata = { title: 'My tickets — Edison Helpdesk' };
 
@@ -13,6 +14,7 @@ export default async function MyTicketsPage({
 }: {
   searchParams: Promise<QueueSearchParams>;
 }) {
+  await requireTicketWorker();
   const page = await loadQueue('mine', toFilters(await searchParams));
 
   return (
@@ -26,7 +28,7 @@ export default async function MyTicketsPage({
         now={requestTime()}
         emptyTitle="You do not own any active tickets"
         emptyBody="Claim something from the queue, or record a walk-in that is assigned to you."
-        emptyAction={<ButtonLink href="/queue">Go to the queue</ButtonLink>}
+        emptyAction={<ButtonLink href="/queue">Open the queue</ButtonLink>}
       />
     </>
   );

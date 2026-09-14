@@ -3,10 +3,11 @@
  * administration shell. Built on the tokens and on the primitives in
  * `components.css`; nothing here names a colour or a size directly.
  *
- * One surface, `.panel`, holds every grouped block. Rows and panels cast no
- * shadow. The detail page is a 2fr / 1fr grid from 1024px up and a single
- * column below; on phones the detail page and the intake form pin their
- * primary actions in a bar above the bottom tabs.
+ * One surface, `.panel`, holds every grouped block: it rests on the page at
+ * the first elevation and its radius is concentric with what it holds — 12px
+ * of inset around a 4px block makes 16. The detail page is a 2fr / 1fr grid
+ * from 1024px up and a single column below; on phones the detail page and the
+ * intake form pin their primary actions in a bar above the bottom tabs.
  */
 
 /* --- Panel -------------------------------------------------------------- */
@@ -14,8 +15,8 @@
 .panel {
   min-width: 0;
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-4);
+  box-shadow: var(--shadow-1);
 }
 
 .panel-head {
@@ -24,8 +25,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px 12px;
-  min-height: 52px;
-  padding: 10px 16px;
+  min-height: 48px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -49,7 +50,7 @@
 }
 
 .panel-body {
-  padding: 16px;
+  padding: 12px;
 }
 
 /* Quiet explanatory copy inside a panel. */
@@ -84,10 +85,14 @@
 }
 
 /* A short explanation or a state the reader should not miss. */
+/*
+ * Blocks that sit inside a panel: their tint is what separates them from the
+ * surface under them, so the border around it was saying the same thing a
+ * second time. The radius is concentric with the panel's 12px inset.
+ */
 .callout {
   padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-1);
   background: var(--surface-2);
   color: var(--ink-2);
   font-size: var(--fs-1);
@@ -199,7 +204,7 @@
   margin: 0;
   padding: 12px 16px 16px;
   border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-1);
 }
 
 .draft legend {
@@ -340,7 +345,6 @@
   -webkit-box-orient: vertical;
   max-width: 46ch;
   padding: 8px 10px;
-  border: 1px solid var(--line-2);
   border-radius: var(--radius-2);
   background: var(--surface-2);
   box-shadow: var(--shadow-2);
@@ -458,6 +462,39 @@
   .ticket-grid {
     grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
   }
+
+  /*
+   * The aside is one object, not six.
+   *
+   * The two columns hold different kinds of thing: on the left is what people
+   * wrote — the report, the notes, the photographs, the history — and each of
+   * those is its own contribution, so each is its own card. On the right are
+   * the ticket's facts and its controls: who owns it, what it is, how it ends.
+   * That is one panel of instruments, and drawing it as six identical floating
+   * cards said the opposite, as well as putting six shadows down one column.
+   *
+   * So the column takes the surface and the elevation, and the sections inside
+   * it are separated by the hairline that separates any two things in a list.
+   * Below 1024 the columns stack into one flow and each section is a card
+   * again, because down there they are not a column, they are the rest of the
+   * page.
+   */
+  .ticket-grid > .ticket-column:nth-child(2) {
+    gap: 0;
+    overflow: clip;
+    border-radius: var(--radius-4);
+    background: var(--surface);
+    box-shadow: var(--shadow-1);
+  }
+
+  .ticket-grid > .ticket-column:nth-child(2) > .panel {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .ticket-grid > .ticket-column:nth-child(2) > .panel + .panel {
+    border-top: 1px solid var(--line);
+  }
 }
 
 .ticket-issue {
@@ -550,8 +587,7 @@
 
 .note {
   padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-1);
   background: var(--surface-2);
 }
 
@@ -580,9 +616,8 @@
 
 .solution {
   padding: 12px 14px;
-  border: 1px solid var(--line);
   border-left: 3px solid var(--ok);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-1);
   background: var(--ok-soft);
   line-height: 1.6;
   white-space: pre-wrap;
@@ -615,8 +650,8 @@
 
 .device {
   padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-1);
+  background: var(--surface-2);
 }
 
 .device-head {
@@ -1068,8 +1103,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-1);
   background: var(--surface-2);
 }
 .picker-status {
@@ -1083,8 +1117,8 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-1);
+  background: var(--surface-2);
 }
 .linked-devices {
   display: flex;
@@ -1206,8 +1240,7 @@
   justify-content: space-between;
   gap: 10px 16px;
   padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-1);
   background: var(--surface-2);
 }
 

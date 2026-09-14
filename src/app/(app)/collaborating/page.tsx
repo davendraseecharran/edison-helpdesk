@@ -4,6 +4,7 @@ import { PageHeader } from '@/components/Primitives';
 import { TicketListView } from '@/components/TicketListView';
 import type { QueueSearchParams } from '../search-params';
 import { toFilters } from '../search-params';
+import { requireTicketWorker } from '@/lib/auth/session';
 
 export const metadata = { title: 'Collaborating — Edison Helpdesk' };
 
@@ -12,6 +13,7 @@ export default async function CollaboratingPage({
 }: {
   searchParams: Promise<QueueSearchParams>;
 }) {
+  await requireTicketWorker();
   const page = await loadQueue('collaborating', toFilters(await searchParams));
 
   return (

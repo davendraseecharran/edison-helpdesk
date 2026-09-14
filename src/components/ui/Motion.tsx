@@ -146,6 +146,40 @@ export function StaggerItem({
   );
 }
 
+/**
+ * One icon replacing another, when the swap is the feedback.
+ *
+ * A contextual icon change — search becoming close, play becoming pause — is
+ * the one place a small piece of motion earns its cost, because the two glyphs
+ * are the same size in the same box and a hard cut reads as a flicker. The
+ * entering glyph grows from a quarter size out of a 4px blur while the leaving
+ * one shrinks back into it, on a spring with no bounce.
+ *
+ * `initial={false}` keeps the first render still: the icon is already in its
+ * default state on page load and has nothing to announce. Under reduced
+ * motion the swap is instant, and it is never the only cue — every caller also
+ * changes the control's accessible name.
+ */
+export function IconSwap({ token, children }: { token: string; children: ReactNode }) {
+  const reduced = useReducedMotion();
+  if (reduced) return <span className="icon-swap">{children}</span>;
+  return (
+    <span className="icon-swap">
+      <AnimatePresence initial={false} mode="popLayout">
+        <motion.span
+          key={token}
+          initial={{ opacity: 0, scale: 0.25, filter: 'blur(4px)' }}
+          animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+          exit={{ opacity: 0, scale: 0.25, filter: 'blur(4px)' }}
+          transition={{ type: 'spring', duration: 0.3, bounce: 0 }}
+        >
+          {children}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
+}
+
 export interface SpringSurfaceProps {
   /** `sheet` arrives from an edge on a spring; `dialog` scales up from 0.98 in the centre. */
   kind: 'sheet' | 'dialog';
