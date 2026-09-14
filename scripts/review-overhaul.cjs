@@ -428,9 +428,11 @@ async function shoot(page, theme, viewport, slug) {
           stage = `${label} ${route.path}`;
           await session.page.goto(base + route.path);
           await settle(session.page);
+          // A route may carry a query string (the staff tab is /people?kind=staff),
+          // so the comparison is path against path rather than against the href.
           assert.equal(
             new URL(session.page.url()).pathname,
-            route.path,
+            new URL(base + route.path).pathname,
             `${label} ${route.path} redirected to ${new URL(session.page.url()).pathname}`,
           );
           if (route.title) assert.equal(await session.page.title(), route.title, `${label} ${route.path} title`);
