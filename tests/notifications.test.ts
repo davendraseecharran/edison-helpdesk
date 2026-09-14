@@ -30,7 +30,7 @@ function notice(overrides: Partial<NotificationView> = {}): NotificationView {
 
 describe('kinds', () => {
   // These are the kinds the migrations actually write. A drift here is a drift
-  // in 20260912101000_m5_audit_notifications.sql, ..101020 or ..100100.
+  // in 20260914101000_m5_audit_notifications.sql, ..101020 or ..100100.
   it('covers every kind the database writes', () => {
     expect([...NOTIFICATION_KINDS].sort()).toEqual([
       'access_approved',

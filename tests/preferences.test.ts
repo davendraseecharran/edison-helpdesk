@@ -16,7 +16,7 @@ import {
 describe('defaults', () => {
   // Addendum 4: the application ships dark and does not stop to confirm every
   // change the assistant proposes. These match the column defaults in
-  // 20260912100900_m5_ai_preferences.sql, and a drift here is a drift there.
+  // 20260914100900_m5_ai_preferences.sql, and a drift here is a drift there.
   it('match the column defaults in the database', () => {
     expect(DEFAULT_PREFERENCES).toEqual({
       theme: 'dark',

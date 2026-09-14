@@ -10,33 +10,44 @@ import { PERSON_KIND_LABELS, type PersonKind } from './types';
 /**
  * The form field a person-record message belongs next to.
  *
- * The database writes one message per rejected field, in words an operator
- * reads ("An OSIS number is 6 to 12 digits..."). Matching on those words is
- * how the message lands beside the input rather than at the foot of the form;
- * a message nothing matches goes to the foot, which is still correct.
+ * app_save_person and app_validate_profile write one message per rejected
+ * field, some in an operator's words ("OSIS must contain numbers only.") and
+ * some naming the JSON key ("Enter a valid phone number for guardianPhone.").
+ * Matching on either is how the message lands beside the input rather than at
+ * the foot of the form; a message nothing matches goes to the foot, which is
+ * still correct, and is where a message about the WHOLE record belongs anyway.
  */
 export function personErrorField(message: string): string | null {
   const text = message.toLowerCase();
-  if (text.includes('osis')) return 'externalId';
-  if (text.includes('staff id')) return 'email';
-  if (text.includes('email')) return 'email';
-  if (text.includes('guardian phone') || text.includes('home phone')) return 'guardianPhone';
-  if (text.includes('class of') || text.includes('four-digit')) return 'classOf';
-  if (text.includes('student or staff')) return 'kind';
-  if (text.includes('display name') || text.includes("person's name")) return 'displayName';
-  // The optimistic lock is about the whole record, not one field.
+  // The optimistic lock is about the whole record, so it goes to the foot.
   if (text.includes('changed since you opened it')) return null;
+  if (text.includes('osis')) return 'externalId';
+  if (text.includes('email')) return 'email';
+  if (text.includes('guardianphone')) return 'guardianPhone';
+  if (text.includes('homephone')) return 'homePhone';
+  if (text.includes('class of') || text.includes('classof')) return 'classOf';
+  if (text.includes('enrollment status') || text.includes('studentstatus')) return 'studentStatus';
+  if (text.includes('staff or student') || text.includes('student or staff')) return 'kind';
+  if (text.includes('a name is required') || text.includes('displayname')) return 'displayName';
+  if (text.includes('address')) return 'address';
+  if (text.includes('notes')) return 'notes';
   return null;
 }
 
 /** The form field a device-record message belongs next to. */
 export function deviceErrorField(message: string): string | null {
   const text = message.toLowerCase();
-  if (text.includes('serial number')) return 'serialNumber';
-  if (text.includes('asset tag')) return 'assetTag';
-  if (text.includes('device type')) return 'deviceType';
+  if (text.includes('changed since you opened it')) return null;
+  // "Device type, manufacturer, model and serial number are required." names
+  // four fields at once, so it belongs at the foot rather than beside one of
+  // them; the serial is the only one of the four with a rule of its own.
+  if (text.includes('are required')) return null;
+  if (text.includes('serial number') || text.includes('serialnumber')) return 'serialNumber';
+  if (text.includes('asset tag') || text.includes('assettag')) return 'assetTag';
+  if (text.includes('device type') || text.includes('devicetype')) return 'deviceType';
   if (text.includes('manufacturer')) return 'manufacturer';
   if (text.includes('model')) return 'model';
+  if (text.includes('assignment') || text.includes('assignedrequesterid')) return 'assignedRequesterId';
   if (text.includes('status')) return 'status';
   if (text.includes('location')) return 'location';
   return null;
