@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildImportPlan,
   countDataRows,
+  describeActionFailure,
   describeDetection,
   fieldsFor,
   findParseErrors,
@@ -10,6 +11,7 @@ import {
   prefillMapping,
   presetLabel,
   problemRowsCsv,
+  remapRunRows,
   resolvePreset,
   summariseImport,
   type ImportRunResult,
@@ -294,5 +296,112 @@ describe('labels', () => {
     expect(holderLabel({ kind: 'staff', osis: null, staff_id: null, name: null })).toBe(
       'A member of staff',
     );
+  });
+});
+
+/*
+ * Row numbers.
+ *
+ * `app_admin_import` reports a problem by the position of the row in the array
+ * it was handed, and that array is the file with its blank lines, its malformed
+ * lines and its unsavable lines taken out. Every number that reaches an
+ * operator has to be a row of the spreadsheet instead.
+ */
+
+// Row 2 is blank, row 3 cannot be saved, row 4 has slid sideways, so only rows
+// 1 and 5 are sent — and the RPC will call them 1 and 2.
+const RAGGED_CSV = [
+  'Student ID:,Name,Notes',
+  '240000201,Ada Fixture,Cart 1',
+  ',,',
+  'not-an-osis,Cleo Fixture,',
+  '240000204,"Dara Fixture",slid,sideways',
+  '240000205,Esme Fixture,Cart 2',
+].join('\n');
+
+describe('source rows', () => {
+  it('records the file row each sent row came from', () => {
+    const plan = buildImportPlan(RAGGED_CSV, { kind: 'people', presetId: 'appsheet_students' });
+
+    expect(plan.rowCount).toBe(4);
+    expect(plan.parseErrors.map((error) => error.row)).toEqual([4]);
+    expect(plan.normalisedErrors.map((error) => error.row)).toEqual([3]);
+    // Row 4 is left out even though it normalised: its fields have slid.
+    expect(plan.rows).toHaveLength(2);
+    expect(plan.sourceRows).toEqual([1, 5]);
+    expect((plan.rows[1] as Record<string, unknown>).display_name).toBe('Esme Fixture');
+  });
+
+  it('turns the RPC\u2019s positions back into rows of the file', () => {
+    const plan = buildImportPlan(RAGGED_CSV, { kind: 'people', presetId: 'appsheet_students' });
+    const remapped = remapRunRows(
+      runResult({
+        errors: [{ row: 2, message: 'This row could not be saved.', detail: 'duplicate key' }],
+        unmatched_holders: [{ row: 1, holder: { kind: 'student', name: 'Ada Fixture' } }],
+      }),
+      plan.sourceRows,
+    );
+
+    expect(remapped.errors[0].row).toBe(5);
+    expect(remapped.errors[0].detail).toBe('duplicate key');
+    expect(remapped.unmatched_holders[0].row).toBe(1);
+  });
+
+  it('leaves a position it cannot place alone rather than guessing', () => {
+    expect(remapRunRows(runResult({ errors: [{ row: 9, message: 'x' }] }), [1, 5]).errors[0].row)
+      .toBe(9);
+  });
+
+  it('quotes the right line back in the problem rows file', () => {
+    const plan = buildImportPlan(RAGGED_CSV, { kind: 'people', presetId: 'appsheet_students' });
+    const problems = mergeProblems(plan.parseErrors, plan.normalisedErrors, [
+      { row: 5, message: 'This row could not be saved.' },
+    ]);
+    const file = problemRowsCsv(plan.csv, problems);
+
+    expect(problems.map((problem) => problem.row)).toEqual([3, 4, 5]);
+    expect(file).toContain('Cleo Fixture');
+    expect(file).toContain('Esme Fixture');
+    expect(file).not.toContain('Ada Fixture');
+  });
+});
+
+describe('the chips add up', () => {
+  it('counts a row that failed twice as one row that did not land', () => {
+    // Malformed AND unsavable: one line of the spreadsheet, two sentences.
+    const csv = ['Student ID:,Name', 'not-an-osis,Fern Fixture,slid', '240000301,Gale Fixture'].join(
+      '\n',
+    );
+    const plan = buildImportPlan(csv, { kind: 'people', presetId: 'appsheet_students' });
+    const problems = mergeProblems(plan.parseErrors, plan.normalisedErrors, []);
+
+    expect(plan.parseErrors.map((error) => error.row)).toEqual([1]);
+    expect(plan.normalisedErrors.map((error) => error.row)).toEqual([1]);
+    expect(problems).toHaveLength(1);
+    expect(problems[0].message).toContain('quotation marks');
+    expect(problems[0].message).toContain('6 to 12 digits');
+
+    // One row sent, one row a problem, two rows in the file.
+    const summary = summariseImport(
+      runResult({ inserts: plan.rows.length }),
+      plan.rowCount,
+      problems.length,
+    );
+    expect(summary.inserts + summary.updates + summary.unchanged + summary.problems).toBe(
+      summary.total,
+    );
+  });
+});
+
+describe('describeActionFailure', () => {
+  it('names the request being refused for its size', () => {
+    expect(describeActionFailure(new Error('Body exceeded 5mb limit'))).toContain('5 MB limit');
+    expect(describeActionFailure(new Error('Request failed with status 413'))).toContain(
+      '5 MB limit',
+    );
+  });
+
+  it('falls back to something an operator can act on', () => {
+    expect(describeActionFailure(new Error('fetch failed'))).toContain('Check your connection');
   });
 });

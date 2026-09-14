@@ -25,9 +25,9 @@ import {
   parseCsv,
   toDeviceRows,
   toPersonRows,
-} from '@/lib/import';
-import type { ColumnPreset, ImportKind, ParsedCsv, RowError } from '@/lib/import';
-import { csvRow } from '@/lib/csv';
+} from '../import/index.ts';
+import type { ColumnPreset, ImportKind, ParsedCsv, RowError } from '../import/index.ts';
+import { csvRow } from '../csv.ts';
 
 /** What `app_admin_import` refuses beyond, stated here so the file says why. */
 export const MAX_IMPORT_ROWS = 5000;
@@ -102,6 +102,15 @@ export interface ImportPlan {
   normalisedErrors: RowError[];
   /** The rows to send. Already normalised; the RPC normalises again anyway. */
   rows: Record<string, unknown>[];
+  /**
+   * The file row each sent row came from, 1-based with the header excluded.
+   *
+   * `app_admin_import` reports a problem by the position of the row in the
+   * array it was handed, and that array is the file with its blank lines, its
+   * malformed lines and its unsavable lines taken out. Without this, "row 5"
+   * on the screen would be a different row 5 from the one in the spreadsheet.
+   */
+  sourceRows: number[];
   /** The mapping actually used, so the screen can show what it did. */
   preset: ColumnPreset;
   /** The parsed file, kept so the problem-rows download can quote it back. */
@@ -233,26 +242,94 @@ export function countDataRows(csv: ParsedCsv): number {
 }
 
 /**
+ * Which file row each normalised row came from.
+ *
+ * The normalisers walk the file in order and emit a row for every line that is
+ * neither blank nor rejected, so walking the file the same way and applying the
+ * same two exclusions reproduces their output positions exactly. `skip` adds a
+ * third exclusion for the rows this module drops on top of theirs.
+ */
+function sourceRowNumbers(
+  csv: ParsedCsv,
+  rejected: readonly RowError[],
+  skip: ReadonlySet<number>,
+): number[] {
+  const failed = new Set(rejected.map((error) => error.row));
+  const rows: number[] = [];
+  csv.rows.forEach((row, index) => {
+    const at = index + 1;
+    if (isBlankRow(row)) return;
+    if (failed.has(at) || skip.has(at)) return;
+    rows.push(at);
+  });
+  return rows;
+}
+
+/**
  * Reads the text and produces the rows to send, plus everything the screen
  * shows about the file before any of it is sent.
+ *
+ * A row the reader could not line up with the header is left OUT of what is
+ * sent. Its fields have slid sideways, so importing it would write one
+ * column's values into another; it is reported as a problem instead, and the
+ * rest of the file still lands.
  */
 export function buildImportPlan(csvText: string, mapping: ImportMapping): ImportPlan {
   const csv = parseCsv(csvText);
   const preset = resolvePreset(mapping);
   const detected = detectPreset(csv.headers);
 
+  const parseErrors = findParseErrors(csv);
+  const malformed = new Set(parseErrors.map((error) => error.row));
+
   const normalised =
     mapping.kind === 'people' ? toPersonRows(csv, preset) : toDeviceRows(csv, preset);
+  const normalisedRows = normalised.rows as unknown as Record<string, unknown>[];
+  const everyRow = sourceRowNumbers(csv, normalised.errors, new Set<number>());
+
+  const rows: Record<string, unknown>[] = [];
+  const sourceRows: number[] = [];
+  normalisedRows.forEach((row, index) => {
+    // `everyRow` is the normalisers' own output positions; a length mismatch
+    // would mean this module and they disagree about the file, so the row is
+    // kept without a source number rather than given somebody else's.
+    const at = everyRow[index];
+    if (at !== undefined && malformed.has(at)) return;
+    rows.push(row);
+    sourceRows.push(at ?? index + 1);
+  });
 
   return {
     headers: csv.headers,
     detectedPresetId: detected?.id ?? null,
     rowCount: countDataRows(csv),
-    parseErrors: findParseErrors(csv),
+    parseErrors,
     normalisedErrors: normalised.errors,
-    rows: normalised.rows as unknown as Record<string, unknown>[],
+    rows,
+    sourceRows,
     preset,
     csv,
+  };
+}
+
+/**
+ * The same run result, with every row number turned back into the row of the
+ * file the operator is looking at.
+ *
+ * `app_admin_import` counts positions in the array it was handed. That array
+ * has the file's blank, malformed and unsavable lines taken out of it, so its
+ * position 5 is not the spreadsheet's row 5 — and the number on screen has to
+ * be the one somebody can go and fix.
+ */
+export function remapRunRows(run: ImportRunResult, sourceRows: readonly number[]): ImportRunResult {
+  const fileRow = (sent: number): number => sourceRows[sent - 1] ?? sent;
+  return {
+    ...run,
+    errors: run.errors.map((error) => ({ ...error, row: fileRow(error.row) })),
+    unmatched_holders: run.unmatched_holders.map((entry) => ({
+      ...entry,
+      row: fileRow(entry.row),
+    })),
   };
 }
 
@@ -355,11 +432,13 @@ export function summariseImport(
 }
 
 /**
- * Every problem in one list, ordered by the row the operator would go and fix.
+ * Every problem in one list, one entry per row, ordered by the row the operator
+ * would go and fix.
  *
- * A row can only fail once: a row the parser flagged never reaches the
- * normaliser, and a row the normaliser rejected is never sent, so the three
- * lists do not overlap and concatenating them cannot double-count.
+ * One entry per row is what makes the summary strip add up: the four chips
+ * count ROWS, and a line that is both malformed and missing a name is one row
+ * that did not land, not two. Its two sentences are joined rather than one of
+ * them being dropped, because both are things to fix.
  */
 export function mergeProblems(
   parseErrors: readonly RowError[],
@@ -375,7 +454,38 @@ export function mergeProblems(
       detail: error.detail,
     })),
   ];
-  return all.sort((left, right) => left.row - right.row);
+
+  const byRow = new Map<number, RowProblem>();
+  for (const problem of all) {
+    const found = byRow.get(problem.row);
+    if (!found) {
+      byRow.set(problem.row, { ...problem });
+      continue;
+    }
+    if (!found.message.includes(problem.message)) {
+      found.message = `${found.message} ${problem.message}`;
+    }
+    if (found.detail === undefined && problem.detail !== undefined) {
+      found.detail = problem.detail;
+    }
+  }
+
+  return [...byRow.values()].sort((left, right) => left.row - right.row);
+}
+
+/**
+ * What to tell somebody when the action itself did not come back.
+ *
+ * The one failure worth naming is the request being refused for its size: a
+ * Server Action body is capped, the import sends the file as an argument, and
+ * "check your connection" would send the operator looking in the wrong place.
+ */
+export function describeActionFailure(error: unknown): string {
+  const text = error instanceof Error ? `${error.name} ${error.message}` : String(error);
+  if (/413|body exceeded|too large|request entity/i.test(text)) {
+    return 'That file is too large to import (5 MB limit). Split it into parts and import them one at a time.';
+  }
+  return 'The import could not be reached. Check your connection and try again.';
 }
 
 /**

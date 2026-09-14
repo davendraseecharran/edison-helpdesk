@@ -32,6 +32,7 @@ import {
   MAX_CSV_BYTES,
   MAX_IMPORT_ROWS,
   buildImportPlan,
+  remapRunRows,
   type ImportMapping,
   type ImportRunResult,
 } from '@/lib/data/import-plan';
@@ -66,7 +67,6 @@ export interface ImportRunView {
   kind: 'people' | 'devices';
   at: string;
   actorName: string;
-  rowCount: number;
   inserted: number;
   updated: number;
   unchanged: number;
@@ -85,13 +85,16 @@ const NO_SESSION = 'Your session is not able to import. Sign in again.';
  * here means an oversized file costs one message rather than a round trip that
  * carries every row of it.
  */
-function refuseOversize(csvText: string, rowCount: number): string | null {
+function refuseSize(csvText: string): string | null {
   // `Blob` counts the bytes the text actually takes, which is what the request
   // carries; a file of accented names is longer than its character count.
-  const bytes = new Blob([csvText]).size;
-  if (bytes > MAX_CSV_BYTES) {
+  if (new Blob([csvText]).size > MAX_CSV_BYTES) {
     return 'This file is larger than 5 MB. Split it into parts and import them one at a time.';
   }
+  return null;
+}
+
+function refuseRowCount(rowCount: number): string | null {
   if (rowCount > MAX_IMPORT_ROWS) {
     return `This file has ${rowCount.toLocaleString('en-US')} rows. An import is at most ${MAX_IMPORT_ROWS.toLocaleString('en-US')} rows at a time. Split the file and import it in parts.`;
   }
@@ -116,6 +119,7 @@ function refusedPreview(error: string, partial?: Partial<ImportPreview>): Import
 async function importRows(
   kind: 'people' | 'devices',
   rows: Record<string, unknown>[],
+  sourceRows: readonly number[],
   mode: 'dry_run' | 'commit',
 ): Promise<{ result: ImportRunResult } | { error: string }> {
   const supabase = await createClient();
@@ -128,7 +132,9 @@ async function importRows(
   if (!data || typeof data !== 'object') {
     return { error: 'The import did not report what it did. Try again.' };
   }
-  return { result: data as ImportRunResult };
+  // The RPC counts positions in the array it was handed; the screen and the
+  // problem-rows file have to name rows of the spreadsheet.
+  return { result: remapRunRows(data as ImportRunResult, sourceRows) };
 }
 
 export interface ImportInput extends ImportMapping {
@@ -148,10 +154,15 @@ export async function previewImportAction(input: ImportInput): Promise<ImportPre
     return refusedPreview(NO_SESSION);
   }
 
+  // Checked on the text, before a row of it is read: an oversized file costs
+  // one message rather than a parse of every line in it.
+  const oversize = refuseSize(input.csvText);
+  if (oversize) return refusedPreview(oversize);
+
   const plan = buildImportPlan(input.csvText, input);
-  const oversize = refuseOversize(input.csvText, plan.rowCount);
-  if (oversize) {
-    return refusedPreview(oversize, {
+  const tooMany = refuseRowCount(plan.rowCount);
+  if (tooMany) {
+    return refusedPreview(tooMany, {
       headers: plan.headers,
       detectedPresetId: plan.detectedPresetId,
       rowCount: plan.rowCount,
@@ -172,7 +183,7 @@ export async function previewImportAction(input: ImportInput): Promise<ImportPre
     return { ...base, ok: false, error: 'This file is empty. Export the sheet again and upload it.' };
   }
 
-  const outcome = await importRows(input.kind, plan.rows, 'dry_run');
+  const outcome = await importRows(input.kind, plan.rows, plan.sourceRows, 'dry_run');
   if ('error' in outcome) return { ...base, ok: false, error: outcome.error };
   return { ...base, dryRun: outcome.result };
 }
@@ -190,9 +201,23 @@ export async function commitImportAction(input: ImportInput): Promise<ImportComm
     return { ok: false, error: NO_SESSION, result: null };
   }
 
-  const plan = buildImportPlan(input.csvText, input);
-  const oversize = refuseOversize(input.csvText, plan.rowCount);
+  const oversize = refuseSize(input.csvText);
   if (oversize) return { ok: false, error: oversize, result: null };
+
+  const plan = buildImportPlan(input.csvText, input);
+  const tooMany = refuseRowCount(plan.rowCount);
+  if (tooMany) return { ok: false, error: tooMany, result: null };
+  // Refused here and not only on the screen. A row the reader could not line up
+  // with the header means a quote is unbalanced above it, so every row after it
+  // may have slid sideways too, and this is not a file to write from.
+  if (plan.parseErrors.length > 0) {
+    return {
+      ok: false,
+      error:
+        'This file has rows the reader could not line up with its columns. Fix the quotation marks in the spreadsheet and upload it again.',
+      result: null,
+    };
+  }
   if (plan.rows.length === 0) {
     return {
       ok: false,
@@ -201,7 +226,7 @@ export async function commitImportAction(input: ImportInput): Promise<ImportComm
     };
   }
 
-  const outcome = await importRows(input.kind, plan.rows, 'commit');
+  const outcome = await importRows(input.kind, plan.rows, plan.sourceRows, 'commit');
   if ('error' in outcome) return { ok: false, error: outcome.error, result: null };
 
   // An import rewrites the directory and the inventory, so every list, count
@@ -241,7 +266,6 @@ export async function listImportRunsAction(limit = 20): Promise<{
     kind: string;
     at: string;
     actor_name: string | null;
-    row_count: number;
     inserted: number;
     updated: number;
     unchanged: number;
@@ -255,7 +279,6 @@ export async function listImportRunsAction(limit = 20): Promise<{
       kind: row.kind === 'devices' ? 'devices' : 'people',
       at: row.at,
       actorName: row.actor_name ?? 'An administrator',
-      rowCount: row.row_count,
       inserted: row.inserted,
       updated: row.updated,
       unchanged: row.unchanged,

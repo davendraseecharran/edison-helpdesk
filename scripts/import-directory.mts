@@ -27,9 +27,11 @@
  *
  * Run by Node directly, with no loader and no bundler — which is why the
  * imports below carry their `.ts` extension and why nothing from `@/` appears
- * here. No row is ever printed: these files hold children's addresses and
+ * here. No whole row is ever printed: these files hold children's addresses and
  * parents' phone numbers, and a terminal is not a private place. Problems are
- * reported by row number, which is what you need to go and fix the sheet.
+ * reported by row number, which is what you need to go and fix the sheet —
+ * though a message about one value may quote that value back, as the OSIS
+ * refusal does, because a number you cannot see is a number you cannot correct.
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -38,20 +40,20 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { PRESETS, detectPreset, parseCsv } from '../src/lib/import/index.ts';
+import type { ColumnPreset, ImportKind, RowError } from '../src/lib/import/index.ts';
+// The screen's own rules, not a second copy of them: which rows are malformed,
+// which file row each sent row came from, and what the RPC's positions mean.
+// The module is plain TypeScript with relative imports for exactly this reason.
 import {
-  PRESETS,
-  detectPreset,
-  isBlankRow,
-  parseCsv,
-  toDeviceRows,
-  toPersonRows,
-} from '../src/lib/import/index.ts';
-import type { ColumnPreset, ParsedCsv, RowError } from '../src/lib/import/index.ts';
+  MAX_IMPORT_ROWS,
+  buildImportPlan,
+  remapRunRows,
+  type ImportRunResult,
+} from '../src/lib/data/import-plan.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const LOOPBACK = ['127.0.0.1', 'localhost', '::1', '[::1]'];
-/** The RPC's own ceiling, repeated so an oversized file costs one message. */
-const MAX_ROWS = 5000;
 /** How many problems are worth reading in a terminal before you open the file. */
 const SHOWN_PROBLEMS = 20;
 
@@ -172,9 +174,11 @@ async function readPassword(email: string): Promise<string> {
     };
     const onData = (chunk: string) => {
       for (const char of chunk) {
-        if (char === '\n' || char === '\r' || char === '') return finish(null);
-        if (char === '') return finish(new Error('Cancelled.'));
-        if (char === '' || char === '\b') value = value.slice(0, -1);
+        // End of line, end of transmission, interrupt, backspace: written as
+        // escapes so the source stays readable in every editor and diff.
+        if (char === '\n' || char === '\r' || char === '\u0004') return finish(null);
+        if (char === '\u0003') return finish(new Error('Cancelled.'));
+        if (char === '\u007f' || char === '\b') value = value.slice(0, -1);
         else value += char;
       }
     };
@@ -183,31 +187,6 @@ async function readPassword(email: string): Promise<string> {
     stdin.setEncoding('utf8');
     stdin.on('data', onData);
   });
-}
-
-/**
- * Rows whose cell count does not fit the header line: a quote is unbalanced
- * somewhere above them and every field after it has slid sideways. The one
- * problem in a CSV that must stop an import rather than be reported per row.
- */
-function findParseErrors(csv: ParsedCsv): RowError[] {
-  if (csv.headers.length === 0) {
-    return [{ row: 0, message: 'This file is empty.' }];
-  }
-  const errors: RowError[] = [];
-  csv.rows.forEach((row, index) => {
-    if (row.length > csv.headers.length) {
-      errors.push({
-        row: index + 1,
-        message: `${row.length} values but the file has ${csv.headers.length} columns. Check the quotation marks.`,
-      });
-    }
-  });
-  return errors;
-}
-
-function countDataRows(csv: ParsedCsv): number {
-  return csv.rows.filter((row) => !isBlankRow(row)).length;
 }
 
 function count(value: number): string {
@@ -219,18 +198,7 @@ function rows(value: number): string {
   return `${count(value)} ${value === 1 ? 'row' : 'rows'}`;
 }
 
-interface RunResult {
-  run_id: string | null;
-  total: number;
-  inserts: number;
-  updates: number;
-  unchanged: number;
-  errors: Array<{ row: number; message: string; detail?: string }>;
-  unmatched_holders: Array<{ row: number; holder: Record<string, string | null> }>;
-  assignments_created: number;
-}
-
-function summarise(label: string, mode: string, result: RunResult) {
+function summarise(label: string, mode: string, result: ImportRunResult) {
   console.log(
     `  ${label} (${mode}): ${count(result.inserts)} new, ${count(result.updates)} changed, ` +
       `${count(result.unchanged)} unchanged, ${count(result.errors.length)} with problems` +
@@ -252,8 +220,10 @@ function showProblems(problems: Array<{ row: number; message: string; detail?: s
 
 interface Prepared {
   spec: FileSpec;
-  kind: 'people' | 'devices';
+  kind: ImportKind;
   rows: Record<string, unknown>[];
+  /** The file row each sent row came from, for turning the RPC's answer back. */
+  sourceRows: number[];
   parseErrors: RowError[];
   rowErrors: RowError[];
   rowCount: number;
@@ -265,33 +235,34 @@ async function prepare(dir: string, spec: FileSpec): Promise<Prepared | null> {
   if (!existsSync(file)) return null;
 
   const preset = PRESETS.find((entry: ColumnPreset) => entry.id === spec.presetId) as ColumnPreset;
-  const csv = parseCsv(await readFile(file, 'utf8'));
-  const parseErrors = findParseErrors(csv);
-  const rowCount = countDataRows(csv);
+  const text = await readFile(file, 'utf8');
+  const plan = buildImportPlan(text, {
+    kind: preset.kind,
+    presetId: preset.id,
+    personKind: preset.fixed?.kind === 'staff' ? 'staff' : 'student',
+  });
 
-  if (rowCount > MAX_ROWS) {
+  if (plan.rowCount > MAX_IMPORT_ROWS) {
     throw new Error(
-      `${spec.file} has ${count(rowCount)} rows. An import is at most ${count(MAX_ROWS)} rows at a time. Split the file.`,
+      `${spec.file} has ${count(plan.rowCount)} rows. An import is at most ${count(MAX_IMPORT_ROWS)} rows at a time. Split the file.`,
     );
   }
 
   // The file name says what the file is; detection is reported when it
   // disagrees, because a renamed column is worth knowing about before a commit.
-  const looksLike = detectPreset(csv.headers);
+  const looksLike = detectPreset(parseCsv(text).headers);
   if (looksLike !== null && looksLike.id !== preset.id) {
     console.log(`  ${spec.file}: headers look more like the ${looksLike.label} export.`);
   }
 
-  const normalised =
-    preset.kind === 'people' ? toPersonRows(csv, preset) : toDeviceRows(csv, preset);
-
   return {
     spec,
     kind: preset.kind,
-    rows: normalised.rows as unknown as Record<string, unknown>[],
-    parseErrors,
-    rowErrors: normalised.errors,
-    rowCount,
+    rows: plan.rows,
+    sourceRows: plan.sourceRows,
+    parseErrors: plan.parseErrors,
+    rowErrors: plan.normalisedErrors,
+    rowCount: plan.rowCount,
   };
 }
 
@@ -334,14 +305,16 @@ async function main() {
     throw new Error('Could not sign in with that address and password.');
   }
 
-  async function importRows(one: Prepared, mode: 'dry_run' | 'commit'): Promise<RunResult> {
+  async function importRows(one: Prepared, mode: 'dry_run' | 'commit'): Promise<ImportRunResult> {
     const { data, error } = await supabase.rpc('app_admin_import', {
       p_kind: one.kind,
       p_rows: one.rows,
       p_mode: mode,
     });
     if (error) throw new Error(`${one.spec.file}: ${error.message}`);
-    return data as RunResult;
+    // The RPC counts positions in the array it was handed; every number this
+    // script prints is a row of the spreadsheet.
+    return remapRunRows(data as ImportRunResult, one.sourceRows);
   }
 
   let failed = false;
@@ -374,6 +347,7 @@ async function main() {
     }
   }
 
+  let committed = 0;
   if (!args.commit) {
     console.log('\nNothing was written. Add --commit to import.');
   } else if (failed) {
@@ -382,17 +356,23 @@ async function main() {
     console.log('\nCommitting');
     for (const one of prepared) {
       const result = await importRows(one, 'commit');
+      committed += 1;
       summarise(one.spec.label, 'commit', result);
       console.log(`    run ${result.run_id}`);
     }
   }
 
   if (failed) {
-    console.error('\nFinished with parse errors.');
+    console.error('\nFinished with parse errors. Nothing was written.');
     process.exitCode = 1;
   } else if (unmatchedTotal > 0 && !args.allowUnmatched) {
+    // A non-zero exit after a commit must not read as "it did not happen": the
+    // rows are in, and what is outstanding is the loans they could not record.
     console.error(
-      `\nFinished with ${count(unmatchedTotal)} unmatched holders. Import the people files first, or pass --allow-unmatched.`,
+      `\nFinished with ${count(unmatchedTotal)} unmatched ${unmatchedTotal === 1 ? 'holder' : 'holders'}. ` +
+        (committed > 0
+          ? `The ${count(committed)} ${committed === 1 ? 'file was' : 'files were'} committed and those rows are in the helpdesk; what is missing is who holds those machines. Import the people files first, then import the inventory again, or pass --allow-unmatched to accept it.`
+          : 'Nothing was written. Import the people files first, or pass --allow-unmatched.'),
     );
     process.exitCode = 1;
   }

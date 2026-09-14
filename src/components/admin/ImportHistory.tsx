@@ -73,9 +73,19 @@ export function ImportHistory({
       key: 'problems',
       header: 'Problems',
       align: 'right',
-      width: 100,
-      cell: (run) =>
-        run.errorCount === 0 ? <span className="muted">None</span> : count(run.errorCount),
+      width: 148,
+      cell: (run) => (
+        <>
+          {run.errorCount === 0 ? <span className="muted">None</span> : count(run.errorCount)}
+          {/* Not an error: the machines imported, nobody was recorded as
+              holding them. Worth seeing beside the run that caused it. */}
+          {run.unmatched > 0 ? (
+            <span className="admin-sub">
+              {count(run.unmatched)} {run.unmatched === 1 ? 'holder' : 'holders'} not matched
+            </span>
+          ) : null}
+        </>
+      ),
     },
   ];
 

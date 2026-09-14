@@ -37,6 +37,7 @@ import {
   MAX_CSV_BYTES,
   MAX_IMPORT_ROWS,
   countDataRows,
+  describeActionFailure,
   describeDetection,
   fieldLabel,
   fieldsFor,
@@ -124,11 +125,13 @@ export function ImportScreen() {
     skipped: number;
   } | null>(null);
   const [confirming, setConfirming] = useState(false);
+  /** The dry run's own busy flag; it does not go through `run()`. */
+  const [checking, setChecking] = useState(false);
 
   const nextToken = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const busy = pendingKey !== null;
+  const busy = pendingKey !== null || checking;
   const fields = fieldsFor(kind);
 
   /**
@@ -174,10 +177,25 @@ export function ImportScreen() {
     [done],
   );
 
-  /** Re-point every column at the file's own headers for a fresh preset. */
+  /**
+   * Re-point every column at the file's own headers for a fresh preset, and say
+   * again whether the file looks like the export that preset describes.
+   *
+   * Detection is about the CHOSEN preset, not about the file on its own: an
+   * operator who switches a student export to Staff has not got the staff
+   * export, so the sentence claiming a recognised file goes and the mapping
+   * opens itself instead of quietly staying folded over the wrong columns.
+   */
   function refill(headers: string[], nextKind: ImportKind, nextPersonKind: PersonKind) {
-    setMap(prefillMapping(headers, basePreset(nextKind, nextPersonKind)));
+    const base = basePreset(nextKind, nextPersonKind);
+    setMap(prefillMapping(headers, base));
     setMapAdjusted(false);
+
+    const detection = describeDetection(headers);
+    const recognised = detection !== null && detection.id === base.id;
+    setDetectedId(recognised ? detection.id : null);
+    setDetectedSentence(recognised ? detection.sentence : null);
+    setMapOpen(!recognised);
   }
 
   function forgetCheck() {
@@ -224,12 +242,10 @@ export function ImportScreen() {
     setFile({ name: chosen.name, text, headers: csv.headers, rowCount, token: nextToken.current });
     setKind(nextKind);
     setPersonKind(nextPersonKind);
-    setDetectedId(detection?.id ?? null);
-    setDetectedSentence(detection?.sentence ?? null);
+    // `refill` settles the mapping, the detected sentence and whether step 2
+    // opens itself: a file nothing recognised needs its columns decided before
+    // anything else, rather than waiting to be found.
     refill(csv.headers, nextKind, nextPersonKind);
-    // A file nothing recognised needs the mapping decided before anything else,
-    // so the step that decides it opens itself rather than waiting to be found.
-    setMapOpen(detection === null);
   }
 
   function onDrop(event: DragEvent<HTMLDivElement>) {
@@ -256,6 +272,10 @@ export function ImportScreen() {
     forgetCheck();
     setCommitted(null);
     if (file) refill(file.headers, next, personKind);
+    else {
+      setDetectedId(null);
+      setDetectedSentence(null);
+    }
   }
 
   function changePersonKind(next: PersonKind) {
@@ -288,17 +308,36 @@ export function ImportScreen() {
     };
   }
 
+  /**
+   * The dry run.
+   *
+   * Deliberately NOT through `run()`: that refreshes the server data when an
+   * action succeeds, and a dry run changes nothing, so a refresh here would
+   * throw away the page for an answer it did not alter. The busy state and the
+   * message are handled here instead.
+   */
   async function onCheck() {
     const input = inputFor();
     if (!input) return;
     const at = signature;
-    const outcome = await run('import-dry-run', async () => {
+    setChecking(true);
+    try {
       const result = await previewImportAction(input);
       setPreview(result);
       setCheckedSignature(at);
-      return { ok: result.ok, error: result.error };
-    });
-    if (outcome.ok) notify('success', 'Dry run finished. Nothing was saved.');
+      if (result.ok) notify('success', 'Dry run finished. Nothing was saved.');
+      else notify('error', result.error ?? 'The check could not be run.');
+    } catch (error) {
+      // The request never came back. The one cause worth naming is the body
+      // being refused for its size, which is not a connectivity problem.
+      const message = describeActionFailure(error);
+      setPreview(null);
+      setCheckedSignature(null);
+      setFileError(message);
+      notify('error', message);
+    } finally {
+      setChecking(false);
+    }
   }
 
   async function onCommit() {
@@ -306,17 +345,21 @@ export function ImportScreen() {
     if (!input) return;
     const at = signature;
     const outcome = await run('import-commit', async () => {
-      const result = await commitImportAction(input);
-      if (result.ok && result.result) {
-        setCommitted({
-          result: result.result,
-          rowCount: current?.rowCount ?? result.result.total,
-          skipped:
-            (current?.parseErrors.length ?? 0) + (current?.normalisedErrors.length ?? 0),
-        });
-        setCommittedSignature(at);
+      try {
+        const result = await commitImportAction(input);
+        if (result.ok && result.result) {
+          setCommitted({
+            result: result.result,
+            rowCount: current?.rowCount ?? result.result.total,
+            skipped:
+              (current?.parseErrors.length ?? 0) + (current?.normalisedErrors.length ?? 0),
+          });
+          setCommittedSignature(at);
+        }
+        return { ok: result.ok, error: result.error, message: result.message };
+      } catch (error) {
+        return { ok: false, error: describeActionFailure(error) };
       }
-      return { ok: result.ok, error: result.error, message: result.message };
     });
     if (outcome.ok) setConfirming(false);
   }
@@ -338,8 +381,12 @@ export function ImportScreen() {
 
   const blocked = (() => {
     if (!file) return 'Choose a file first.';
-    if (!current || !summary) return 'Run the check first, so you can see what this file would do.';
+    if (!current) return 'Run the check first, so you can see what this file would do.';
+    // Order matters: a check that came back with an error has no summary, and
+    // "run the check first" would be the wrong thing to tell somebody who just
+    // did and was told why it failed.
     if (!current.ok) return 'The check did not finish. Fix the problem above and run it again.';
+    if (!summary) return 'Run the check first, so you can see what this file would do.';
     if (current.parseErrors.length > 0) {
       return 'This file has rows the reader could not line up with its columns. Fix the quotation marks in the spreadsheet and upload it again.';
     }
@@ -482,6 +529,10 @@ export function ImportScreen() {
                   </p>
                   <div className="import-map">
                     <table>
+                      <caption className="visually-hidden">
+                        Each field the helpdesk keeps, and the column of the file it takes its
+                        value from
+                      </caption>
                       <thead>
                         <tr>
                           <th scope="col">Field</th>
@@ -535,7 +586,7 @@ export function ImportScreen() {
               size="sm"
               onClick={() => void onCheck()}
               disabled={busy}
-              loading={pendingKey === 'import-dry-run'}
+              loading={checking}
             >
               {current ? 'Check again' : 'Check this file'}
             </Button>
