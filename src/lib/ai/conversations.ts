@@ -54,7 +54,6 @@ export interface LoadedConversation {
 
 type MessageRole = 'user' | 'assistant' | 'tool' | 'system';
 
-
 function isPending(content: unknown): content is PendingCall {
   return isRecord(content) && content.pending === true && isRecord(content.call);
 }

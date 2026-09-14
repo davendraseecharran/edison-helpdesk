@@ -29,7 +29,7 @@ const PAIRING_LIMIT_MS = 15 * 60 * 1000;
 type Step =
   | { kind: 'idle' }
   | { kind: 'starting' }
-  | { kind: 'pairing'; deviceAuthId: string; userCode: string; intervalSeconds: number; verifyUrl: string }
+  | { kind: 'pairing'; userCode: string; intervalSeconds: number; verifyUrl: string }
   | { kind: 'error'; message: string };
 
 /** "plus" as ChatGPT writes it, "Plus" as a person reads it. */
@@ -91,7 +91,6 @@ export function AiConnectCard({
       expiresAt.current = Date.now() + PAIRING_LIMIT_MS;
       setStep({
         kind: 'pairing',
-        deviceAuthId: result.start.deviceAuthId,
         userCode: result.start.userCode,
         intervalSeconds: Math.max(2, result.start.intervalSeconds || 5),
         verifyUrl: result.start.verifyUrl || VERIFY_URL,
@@ -110,7 +109,7 @@ export function AiConnectCard({
   // deadline is held outside the effect in case one ever does.
   useEffect(() => {
     if (step.kind !== 'pairing') return;
-    const { deviceAuthId, userCode, intervalSeconds } = step;
+    const { userCode, intervalSeconds } = step;
     let cancelled = false;
     let timer = 0;
 
@@ -120,7 +119,7 @@ export function AiConnectCard({
         setStep({ kind: 'error', message: 'That code has expired. Start again to get a new one.' });
         return;
       }
-      const result = await services.pollAuth(deviceAuthId, userCode);
+      const result = await services.pollAuth(userCode);
       if (cancelled) return;
       if (!result.ok) {
         setStep({ kind: 'error', message: result.error ?? 'ChatGPT did not answer. Try again.' });

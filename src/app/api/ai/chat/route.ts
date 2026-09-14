@@ -96,7 +96,6 @@ interface ChatBody {
   page?: { kind: PageKind; id: string; label: string };
 }
 
-
 function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : [];
 }

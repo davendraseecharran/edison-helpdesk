@@ -89,7 +89,6 @@ export interface StreamRequest {
   signal?: AbortSignal;
 }
 
-
 /**
  * Turns one decoded SSE frame into the events the caller cares about.
  *

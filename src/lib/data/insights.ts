@@ -103,7 +103,6 @@ function hours(value: unknown): number | null {
   return number;
 }
 
-
 function countsByKey<Key extends string>(value: unknown, keys: readonly Key[]): Record<Key, number> {
   const source = record(value);
   const result = {} as Record<Key, number>;

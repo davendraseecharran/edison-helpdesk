@@ -34,7 +34,7 @@ export interface AiServices {
   status: () => Promise<AiStatus>;
   updatePreferences: (patch: AiPreferencePatch) => Promise<AiActionResult>;
   startAuth: () => Promise<DeviceAuthStarted>;
-  pollAuth: (deviceAuthId: string, userCode: string) => Promise<DeviceAuthPolled>;
+  pollAuth: (userCode: string) => Promise<DeviceAuthPolled>;
   disconnect: () => Promise<AiActionResult>;
   listConversations: () => Promise<ConversationListResult>;
   loadConversation: (id: string) => Promise<ConversationTranscriptResult>;
@@ -46,7 +46,7 @@ export const serverServices: AiServices = {
   status: () => aiStatusAction(),
   updatePreferences: (patch) => updateAiPreferencesAction(patch),
   startAuth: () => startCodexAuthAction(),
-  pollAuth: (deviceAuthId, userCode) => pollCodexAuthAction(deviceAuthId, userCode),
+  pollAuth: (userCode) => pollCodexAuthAction(userCode),
   disconnect: () => disconnectCodexAction(),
   listConversations: () => listConversationsAction(),
   loadConversation: (id) => loadConversationAction(id),

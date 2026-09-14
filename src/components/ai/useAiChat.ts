@@ -136,7 +136,6 @@ function newId(): string {
   return `t-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-
 /** Applies one stream line to the parts of the turn being written. */
 export function applyLine(parts: TurnPart[], line: Record<string, unknown>): TurnPart[] {
   const type = textOf(line.type);

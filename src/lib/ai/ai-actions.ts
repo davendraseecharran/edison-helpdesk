@@ -86,7 +86,7 @@ async function writeDeviceCookie(accountId: string, deviceAuthId: string): Promi
   jar.set(DEVICE_COOKIE, sealDeviceAuth(accountId, deviceAuthId), {
     httpOnly: true,
     sameSite: 'lax',
-    secure: appOrigin().startsWith('https://'),
+    secure: process.env.NODE_ENV === 'production' || appOrigin().startsWith('https://'),
     path: '/',
     maxAge: DEVICE_COOKIE_MAX_AGE,
   });
@@ -119,15 +119,12 @@ export async function startCodexAuthAction(): Promise<DeviceAuthStarted> {
  * One poll. `complete` means the tokens are already encrypted and stored, so the
  * panel's next status read will say connected.
  *
- * The first argument is whatever the panel held for the device auth id; it is
- * ignored. The id comes from the cookie `startCodexAuthAction` wrote, which
- * binds it to this account, so a code read off a colleague's screen cannot be
- * polled from another session into another account's connection.
+ * The device auth id never comes from the caller. It comes from the cookie
+ * `startCodexAuthAction` wrote, which binds it to this account, so a code read
+ * off a colleague's screen cannot be polled from another session into another
+ * account's connection.
  */
-export async function pollCodexAuthAction(
-  _deviceAuthId: string,
-  userCode: string,
-): Promise<DeviceAuthPolled> {
+export async function pollCodexAuthAction(userCode: string): Promise<DeviceAuthPolled> {
   const account = await activeAccount();
   if (!account) return { ok: false, error: SIGNED_OUT };
   if (!aiEnabled()) return { ok: false, error: DISABLED };
@@ -301,7 +298,6 @@ export interface ConversationTranscriptResult extends AiActionResult {
   /** Calls still waiting for an answer, oldest first. */
   pending: PendingCall['call'][];
 }
-
 
 export async function loadConversationAction(id: string): Promise<ConversationTranscriptResult> {
   const empty = { title: null, items: [], pending: [] };
