@@ -339,7 +339,7 @@ async function resolvePerson(ctx: ToolContext, value: string): Promise<PersonRef
     return { id: query, name: textOf(person.display_name) };
   }
 
-  const found = rows(await rpc(ctx, 'app_list_people', { p_query: query, p_limit: 5 }));
+  const found = rows(await rpc(ctx, 'app_list_people_m5', { p_query: query, p_limit: 5 }));
   if (found.length === 0) throw new ToolError(`Nobody in the directory matches "${query}".`);
 
   const folded = query.toLowerCase();
@@ -535,7 +535,7 @@ const TOOLS: Record<string, ToolSpec> = {
       limit: { type: 'integer', description: 'How many to return. Default 25, at most 100.' },
     },
     run: async (args, ctx) => {
-      const data = await rpc(ctx, 'app_list_people', {
+      const data = await rpc(ctx, 'app_list_people_m5', {
         p_query: args.query ?? null,
         p_kind: args.kind ?? null,
         p_department: args.department ?? null,

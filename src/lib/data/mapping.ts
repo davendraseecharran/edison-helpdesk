@@ -275,7 +275,7 @@ export function mapActivity(row: {
 
 /* --- Directory ---------------------------------------------------------- */
 
-/** One row of `app_list_people`. `total_count` arrives as a string over PostgREST. */
+/** One row of `app_list_people_m5`. `total_count` arrives as a string over PostgREST. */
 export interface PersonSummaryRow {
   id: string;
   kind: string;

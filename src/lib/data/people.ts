@@ -6,7 +6,7 @@ import 'server-only';
  * Every query runs through the signed-in user's own client, so row-level
  * security decides the rows: an account that is not active gets nothing, and
  * nothing here filters in JavaScript for security. Search, filtering, ordering,
- * counting and pagination all happen inside `app_list_people`, which is
+ * counting and pagination all happen inside `app_list_people_m5`, which is
  * SECURITY INVOKER and therefore still subject to RLS.
  */
 
@@ -52,7 +52,7 @@ export async function loadPeople(filters: PeopleFilters = {}): Promise<PeoplePag
   const supabase = await createClient();
   const page = Math.max(1, filters.page ?? 1);
 
-  const { data, error } = await supabase.rpc('app_list_people', {
+  const { data, error } = await supabase.rpc('app_list_people_m5', {
     p_query: optional(filters.query),
     p_kind: filters.kind ?? null,
     p_department: optional(filters.department),

@@ -415,7 +415,7 @@ describe('a directory person as the requester', () => {
       p_person_id: personId,
     });
 
-    const rows = await rpcOk<PersonListRow[]>(admin, 'app_list_people', {
+    const rows = await rpcOk<PersonListRow[]>(admin, 'app_list_people_m5', {
       p_query: `Bex${RUN_TAG}`,
     });
     const row = rows.find((entry) => entry.id === personId);
@@ -433,7 +433,7 @@ describe('a directory person as the requester', () => {
       p_ticket: ticketId,
       p_solution: 'Cleared the vents and confirmed the fan settles.',
     });
-    const after = await rpcOk<PersonListRow[]>(admin, 'app_list_people', {
+    const after = await rpcOk<PersonListRow[]>(admin, 'app_list_people_m5', {
       p_query: `Bex${RUN_TAG}`,
     });
     expect(after.find((entry) => entry.id === personId)?.open_ticket_count).toBe(0);

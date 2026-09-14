@@ -13,7 +13,7 @@
  * same authorization and audit rules it applies to any other caller. Nothing
  * here trusts an actor id or role from the browser.
  *
- * `app_list_people` is SECURITY INVOKER, so the row policy decides what comes
+ * `app_list_people_m5` is SECURITY INVOKER, so the row policy decides what comes
  * back: an account that is not active gets an empty list rather than an error,
  * because the directory holds children's home addresses and parents' phone
  * numbers and is hidden by the database rather than by this file.
@@ -47,7 +47,7 @@ export async function searchPeopleAction(query: string): Promise<PersonSearchRes
   if (actor.kind !== 'active') return [];
 
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc('app_list_people', {
+  const { data, error } = await supabase.rpc('app_list_people_m5', {
     p_query: term,
     p_limit: SEARCH_LIMIT,
   });

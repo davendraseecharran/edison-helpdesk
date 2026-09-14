@@ -4,7 +4,7 @@
  * The directory list.
  *
  * Filters and pagination live in the URL and are applied by the database
- * (`app_list_people`, SECURITY INVOKER) against the rows RLS allows, so a
+ * (`app_list_people_m5`, SECURITY INVOKER) against the rows RLS allows, so a
  * filtered roster is shareable and nothing is filtered client-side for
  * security. The search runs as you type, after a short pause, because a
  * directory is something you narrow rather than query.

@@ -113,7 +113,7 @@ async function list(
   client: SupabaseClient,
   args: Record<string, unknown> = {},
 ): Promise<PersonListRow[]> {
-  return rpcOk<PersonListRow[]>(client, 'app_list_people', args);
+  return rpcOk<PersonListRow[]>(client, 'app_list_people_m5', args);
 }
 
 /** Ground truth straight from the table, bypassing every read path under test. */
@@ -693,7 +693,7 @@ describe('who may reach the directory', () => {
     const read = await anon.from('people').select('id');
     expect(read.error?.message).toMatch(/permission denied/i);
 
-    for (const fn of ['app_list_people', 'app_people_facets']) {
+    for (const fn of ['app_list_people_m5', 'app_people_facets']) {
       const { error } = await anon.rpc(fn);
       expect(error?.message, fn).toMatch(/permission denied|function|schema cache/i);
     }
