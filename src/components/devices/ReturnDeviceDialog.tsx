@@ -61,7 +61,7 @@ export function ReturnDeviceDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title={count === 1 ? `Return ${subject}` : `Return ${subject}`}
+      title={`Return ${subject}`}
       description="The loan is closed and the device gets the status it came back in."
       footer={
         <>
@@ -90,15 +90,17 @@ export function ReturnDeviceDialog({
             ))}
           </select>
         </Field>
-        <Field label="Note" htmlFor="return-note" optional hint="Kept on the device's and the person's history.">
-          <textarea
-            id="return-note"
-            value={note}
-            rows={3}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder="Charger missing; screen scratched on the left"
-          />
-        </Field>
+        {count === 1 ? (
+          <Field label="Note" htmlFor="return-note" optional hint="Kept on the device's and the person's history.">
+            <textarea
+              id="return-note"
+              value={note}
+              rows={3}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="Charger missing; screen scratched on the left"
+            />
+          </Field>
+        ) : null}
       </form>
     </Dialog>
   );

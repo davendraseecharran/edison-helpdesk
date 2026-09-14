@@ -127,12 +127,6 @@
 
 /* --- Selection and the bulk bar ---------------------------------------- */
 
-.directory .table th.select-cell,
-.directory .table td.select-cell {
-  width: 40px;
-  padding-right: 0;
-}
-
 .row-check {
   display: inline-flex;
   align-items: center;

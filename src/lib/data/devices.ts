@@ -11,6 +11,7 @@ import 'server-only';
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import type { DeviceDetail, DeviceSummary } from '@/lib/domain/types';
+import { deviceListArgs, type DeviceFilters } from './device-filters';
 import {
   mapDeviceDetail,
   mapDeviceSummary,
@@ -20,48 +21,18 @@ import {
 
 export const DEVICES_PAGE_SIZE = 25;
 
-/** The most rows a list page or an export may ask the database for at once. */
-export const DEVICES_RPC_LIMIT = 100;
-
-export type HolderFilter = 'student' | 'staff' | 'none';
-
-export interface DeviceFilters {
-  query?: string;
-  type?: string;
-  status?: string;
-  location?: string;
-  /** `none` is a device nobody is holding: in stock, in repair, retired, lost or surplus. */
-  holder?: HolderFilter;
-  page?: number;
-}
+// The filter shapes and the RPC argument builder are pure and live in
+// `device-filters.ts`, so the export and the unit tests can use them without
+// importing this server-only module. Re-exported here so callers keep one
+// import for inventory reads.
+export { DEVICES_RPC_LIMIT, deviceListArgs } from './device-filters';
+export type { DeviceFilters, HolderFilter } from './device-filters';
 
 export interface DevicesPage {
   devices: DeviceSummary[];
   total: number;
   page: number;
   pageCount: number;
-}
-
-function optional(value: string | undefined): string | null {
-  if (!value || value.trim() === '' || value === 'all') return null;
-  return value;
-}
-
-/** The RPC arguments for one page of `filters`, shared with the CSV export. */
-export function deviceListArgs(
-  filters: DeviceFilters,
-  limit: number,
-  offset: number,
-): Record<string, unknown> {
-  return {
-    p_query: optional(filters.query),
-    p_type: optional(filters.type),
-    p_status: optional(filters.status),
-    p_location: optional(filters.location),
-    p_holder_kind: filters.holder ?? null,
-    p_limit: limit,
-    p_offset: offset,
-  };
 }
 
 export async function loadDevices(filters: DeviceFilters = {}): Promise<DevicesPage> {

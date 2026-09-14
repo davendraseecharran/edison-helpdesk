@@ -5,6 +5,10 @@
  * The person is found with `PersonPicker`; the device that is already with
  * that person is refused by the database, and a device with another holder
  * is taken back from them first, which the history records on both sides.
+ *
+ * The note is offered for one device only: `app_bulk_update_devices` keeps a
+ * reason for a status change and nothing else, and a field whose text is
+ * thrown away would promise history that is never written.
  */
 
 import { useState, type FormEvent } from 'react';
@@ -108,15 +112,17 @@ export function AssignDeviceDialog({
             error={person ? null : error}
           />
         )}
-        <Field label="Note" htmlFor="assign-note" optional hint="Kept on the device's and the person's history.">
-          <textarea
-            id="assign-note"
-            value={note}
-            rows={3}
-            onChange={(event) => setNote(event.target.value)}
-            placeholder="Loaner while the screen is repaired"
-          />
-        </Field>
+        {count === 1 ? (
+          <Field label="Note" htmlFor="assign-note" optional hint="Kept on the device's and the person's history.">
+            <textarea
+              id="assign-note"
+              value={note}
+              rows={3}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="Loaner while the screen is repaired"
+            />
+          </Field>
+        ) : null}
         {person && error ? (
           <p className="field-error" role="alert">
             {error}

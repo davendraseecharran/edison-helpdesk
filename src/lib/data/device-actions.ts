@@ -19,7 +19,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { loadActor } from '@/lib/auth/session';
 import type { ActionResult } from '@/lib/data/actions';
-import { callRpc } from '@/lib/data/rpc';
+import { bulkResultMessage, shapeBulkPatch, type BulkDevicePatch } from '@/lib/data/device-bulk';
+import { callRpc, type RpcResult } from '@/lib/data/rpc';
 import { deviceLabel, type DeviceStatus } from '@/lib/domain/types';
 
 export interface DeviceSearchResult {
@@ -161,40 +162,15 @@ export async function moveDeviceAction(
   );
 }
 
-/**
- * One change applied to a selection. Exactly one of the four: assign them all
- * to `personId`, `return` them all (in `status`, default in stock), set their
- * `status`, or move them to `location`. The database applies nothing at all
- * when any device refuses, and names that device in the message.
- */
-export interface BulkDevicePatch {
-  personId?: string;
-  return?: boolean;
-  status?: string;
-  location?: string;
-  reason?: string;
-}
-
 export async function bulkUpdateDevicesAction(
   ids: string[],
   patch: BulkDevicePatch,
-): Promise<ActionResult> {
-  const clean: Record<string, unknown> = {};
-  if (patch.personId) clean.person_id = patch.personId;
-  if (patch.return) clean.return = true;
-  if (patch.status) clean.status = patch.status;
-  if (patch.location !== undefined) clean.location = patch.location;
-  if (patch.reason) clean.reason = patch.reason;
-
-  const count = ids.length;
-  const noun = count === 1 ? 'device' : 'devices';
-  const message = patch.personId
-    ? `${count} ${noun} assigned.`
-    : patch.return
-      ? `${count} ${noun} returned.`
-      : patch.status
-        ? `Status updated on ${count} ${noun}.`
-        : `${count} ${noun} moved.`;
-
-  return callRpc('app_bulk_update_devices', { p_ids: ids, p_patch: clean }, message);
+): Promise<RpcResult> {
+  return callRpc(
+    'app_bulk_update_devices',
+    { p_ids: ids, p_patch: shapeBulkPatch(patch) },
+    // The database says how many devices it actually changed; the toast
+    // reports that rather than how many were selected.
+    (result) => bulkResultMessage(patch, result.count ?? ids.length),
+  );
 }

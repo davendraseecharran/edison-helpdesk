@@ -31,7 +31,7 @@ import {
   type DeviceAssignment,
   type DeviceDetail as DeviceDetailData,
 } from '@/lib/domain/types';
-import { useRuntime } from '@/components/AppRuntime';
+import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { DeviceStatusBadge } from '@/components/Badges';
 import { Avatar, TimeAgo } from '@/components/Primitives';
 import { CopyButton } from '@/components/directory/CopyButton';
@@ -78,8 +78,10 @@ function Fact({ label, value }: { label: string; value: string | null }) {
 
 export function DeviceDetail({ detail, facets }: { detail: DeviceDetailData; facets: DeviceFacets }) {
   const { pendingKey, run } = useRuntime();
+  const actor = useActorAccount();
   const router = useRouter();
   const { device, holder } = detail;
+  const isAdmin = actor.role === 'admin';
   const label = deviceLabel(device);
   const busy = pendingKey !== null;
 
@@ -324,12 +326,18 @@ export function DeviceDetail({ detail, facets }: { detail: DeviceDetailData; fac
               <h2 className="panel-title" id="device-tickets-heading">
                 Linked tickets
               </h2>
-              <span className="panel-aside">tickets you can see</span>
+              <span className="panel-aside">
+                {isAdmin ? 'open first, then recent' : 'open tickets you can see, then recent'}
+              </span>
             </div>
             <div className="panel-body">
               <RecordTicketList
                 tickets={detail.tickets}
-                emptyText="No ticket you can see names this device. Link one from the ticket's page."
+                emptyText={
+                  isAdmin
+                    ? "No ticket names this device. Link one from the ticket's page."
+                    : "No ticket you can see names this device. Link one from the ticket's page."
+                }
               />
             </div>
           </section>

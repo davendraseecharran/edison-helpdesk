@@ -18,6 +18,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import type { ActionResult } from '@/lib/data/actions';
 import { bulkUpdateDevicesAction } from '@/lib/data/device-actions';
+import type { BulkDevicePatch } from '@/lib/data/device-bulk';
 import type { DeviceFacets, DevicesPage, HolderFilter } from '@/lib/data/devices';
 import { countLabel } from '@/lib/domain/records';
 import {
@@ -52,6 +53,33 @@ type BulkDialog = 'assign' | 'status' | 'move' | 'return' | null;
 
 const SEARCH_DEBOUNCE_MS = 250;
 const BULK_KEY = 'bulk-devices';
+
+/**
+ * One row's checkbox. Declared here, not inside the list, so React keeps the
+ * same element across renders: a component declared in the parent's body is a
+ * new type every render, which remounts the box and drops keyboard focus on
+ * every tick.
+ */
+function RowCheck({
+  device,
+  checked,
+  onToggle,
+}: {
+  device: DeviceSummary;
+  checked: boolean;
+  onToggle: (id: string, on: boolean) => void;
+}) {
+  return (
+    <label className="row-check">
+      <input
+        type="checkbox"
+        checked={checked}
+        aria-label={`Select ${deviceLabel(device)}`}
+        onChange={(event) => onToggle(device.id, event.target.checked)}
+      />
+    </label>
+  );
+}
 
 export function DeviceList({ page, facets }: { page: DevicesPage; facets: DeviceFacets }) {
   const { pendingKey, run } = useRuntime();
@@ -135,8 +163,8 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
   }, [someOnPage, allOnPage]);
 
   function toggle(id: string, on: boolean) {
-    setTicked(() => {
-      const next = new Set(selected);
+    setTicked((prev) => {
+      const next = new Set(prev);
       if (on) next.add(id);
       else next.delete(id);
       return next;
@@ -147,7 +175,7 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
     setTicked(on ? new Set(devices.map((device) => device.id)) : new Set());
   }
 
-  async function bulk(patch: Parameters<typeof bulkUpdateDevicesAction>[1]): Promise<ActionResult> {
+  async function bulk(patch: BulkDevicePatch): Promise<ActionResult> {
     const ids = [...selected];
     const result = await run(BULK_KEY, () => bulkUpdateDevicesAction(ids, patch));
     if (result.ok) setTicked(new Set());
@@ -157,19 +185,6 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
   const bulkPending = pendingKey === BULK_KEY;
   const subject = countLabel(selected.size, 'device');
   const busy = navigating;
-
-  function RowCheck({ device }: { device: DeviceSummary }) {
-    return (
-      <label className="row-check">
-        <input
-          type="checkbox"
-          checked={selected.has(device.id)}
-          aria-label={`Select ${deviceLabel(device)}`}
-          onChange={(event) => toggle(device.id, event.target.checked)}
-        />
-      </label>
-    );
-  }
 
   const columns: Column<DeviceSummary>[] = [
     {
@@ -187,7 +202,9 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
       ),
       hideOnPhone: true,
       width: 40,
-      cell: (device) => <RowCheck device={device} />,
+      cell: (device) => (
+        <RowCheck device={device} checked={selected.has(device.id)} onToggle={toggle} />
+      ),
     },
     {
       key: 'tag',
@@ -364,7 +381,7 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
             settle
             cardTitle={(device) => (
               <span className="dir-card-title">
-                <RowCheck device={device} />
+                <RowCheck device={device} checked={selected.has(device.id)} onToggle={toggle} />
                 <Link href={`/devices/${device.id}`} className="mono">
                   {deviceLabel(device)}
                 </Link>
@@ -414,9 +431,7 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
         subject={subject}
         count={selected.size}
         pending={bulkPending}
-        onSubmit={({ person, note }) =>
-          bulk(note.trim() ? { personId: person.id, reason: note } : { personId: person.id })
-        }
+        onSubmit={({ person }) => bulk({ personId: person.id })}
       />
       <ChangeStatusDialog
         open={dialog === 'status'}
@@ -441,9 +456,7 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
         subject={subject}
         count={selected.size}
         pending={bulkPending}
-        onSubmit={({ status, note }) =>
-          bulk(note.trim() ? { return: true, status, reason: note } : { return: true, status })
-        }
+        onSubmit={({ status }) => bulk({ return: true, status })}
       />
     </section>
   );

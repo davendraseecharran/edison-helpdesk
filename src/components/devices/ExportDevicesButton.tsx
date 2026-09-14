@@ -37,7 +37,9 @@ export function ExportDevicesButton() {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      URL.revokeObjectURL(url);
+      // Revoked on the next turn: some browsers start the download after the
+      // click handler returns, and a URL revoked inside it downloads nothing.
+      setTimeout(() => URL.revokeObjectURL(url), 0);
       // A cut export is reported as a failure even though the file saved: a
       // success message leaves after five seconds, and "this file is not the
       // whole filter" must not disappear before it has been read.
