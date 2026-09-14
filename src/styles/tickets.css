@@ -159,10 +159,20 @@
   min-width: 0;
 }
 
+/*
+ * Collaborators on the intake form: one checkbox per active colleague, so as
+ * many as the school has technicians. A single column turned the last section
+ * of the form into a twenty-item ladder on a screen with room for four across,
+ * and pushed "Create ticket" below the fold on every ticket. Tracks of about
+ * 200px fill across and wrap, which is one or two rows at a desk and a single
+ * column on a phone, where a column is right. Grid flows in DOM order, so the
+ * alphabetical list still reads across then down and the tab order is
+ * unchanged.
+ */
 .check-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px 16px;
 }
 
 /* A fieldset around a checklist, its legend dressed as a field label. */
