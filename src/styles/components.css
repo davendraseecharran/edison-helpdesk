@@ -168,6 +168,18 @@
   animation: spin 800ms linear infinite;
 }
 
+/* Holds the two glyphs of an `IconSwap` on one another while they cross. */
+.icon-swap {
+  display: grid;
+  place-items: center;
+}
+
+.icon-swap > * {
+  grid-area: 1 / 1;
+  display: grid;
+  place-items: center;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -375,6 +387,11 @@ select[aria-invalid='true'] {
 
 /* --- Avatar, actor ------------------------------------------------------ */
 
+/*
+ * Neutral, not brass. An avatar is on screen constantly and says who, not
+ * what needs doing; tinting it spent part of the one accent on a label that
+ * never changes. The initials carry enough weight on their own.
+ */
 .avatar {
   display: inline-grid;
   flex: 0 0 auto;
@@ -382,8 +399,8 @@ select[aria-invalid='true'] {
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  background: var(--brass-soft);
-  color: var(--ink);
+  background: var(--surface-3);
+  color: var(--ink-2);
   font-size: var(--fs-0);
   font-weight: 600;
   letter-spacing: 0.02em;

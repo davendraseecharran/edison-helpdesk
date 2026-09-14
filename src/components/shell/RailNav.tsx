@@ -29,6 +29,11 @@ export interface NavItem {
   group: NavGroup;
   /** Live count shown in a pill; absent for pages without a natural count. */
   count?: number;
+  /**
+   * The count is work waiting for somebody, not a tally of your own. Only
+   * these are set in brass.
+   */
+  callToAction?: boolean;
 }
 
 /** Rail order. Groups never interleave. */
@@ -58,7 +63,14 @@ export function navItems(roles: readonly AccountRole[], counts: QueueCounts): Na
 
   if (canWorkTickets(roles)) {
     items.push(
-      { href: '/queue', label: 'Queue', icon: Inbox, group: 'Work', count: counts.openQueue },
+      {
+        href: '/queue',
+        label: 'Queue',
+        icon: Inbox,
+        group: 'Work',
+        count: counts.openQueue,
+        callToAction: true,
+      },
       {
         href: '/my-tickets',
         label: 'My tickets',
@@ -115,10 +127,18 @@ export function isCurrentPath(pathname: string | null, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-export function CountPill({ count }: { count: number }) {
-  return (
-    <span className={count > 0 ? 'count-pill' : 'count-pill count-pill-quiet'}>{count}</span>
-  );
+/**
+ * A live count beside a navigation item.
+ *
+ * Brass is reserved for a count that is a call to action — the open queue,
+ * where somebody is waiting and nobody has claimed them yet. Every other count
+ * is a quantity of your own work and is set quiet: five brass pills down one
+ * rail stop being a signal and start being a highlighter, and they cost the
+ * one brass thing on the screen its meaning.
+ */
+export function CountPill({ count, callToAction }: { count: number; callToAction?: boolean }) {
+  const lit = callToAction && count > 0;
+  return <span className={lit ? 'count-pill' : 'count-pill count-pill-quiet'}>{count}</span>;
 }
 
 /**
@@ -153,9 +173,11 @@ export function RailNav({ items }: { items: NavItem[] }) {
                       aria-current={current ? 'page' : undefined}
                       title={item.label}
                     >
-                      <Icon icon={item.icon} size={18} />
+                      <Icon icon={item.icon} size={18} weight="medium" />
                       <span className="rail-text">{item.label}</span>
-                      {typeof item.count === 'number' ? <CountPill count={item.count} /> : null}
+                      {typeof item.count === 'number' ? (
+                        <CountPill count={item.count} callToAction={item.callToAction} />
+                      ) : null}
                     </Link>
                   </li>
                 );
