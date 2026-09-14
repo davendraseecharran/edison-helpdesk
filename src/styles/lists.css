@@ -1,0 +1,380 @@
+/*
+ * What a list looks like while somebody is driving it from the keyboard.
+ *
+ * The keys themselves are in `src/lib/lists/keys.ts` and the binding is in
+ * `useRowKeys`; this is the two-line presentation that goes with them. It is a
+ * separate stylesheet rather than a few rules inside the queue's because the
+ * model is shared: Today's list, the queue, and every list that adopts it next
+ * all read from here, and a rule that lives in one screen's stylesheet ends up
+ * being copied into the second screen's.
+ *
+ * Nothing here animates. This is the interaction repeated all day: the focus
+ * marker appears the instant the key is pressed, and the only transition is the
+ * 100ms background the rows already had under the pointer.
+ */
+
+/*
+ * The lamp is a box-shadow, and a shadow on a `<tr>` is not painted while the
+ * table collapses its borders — so the shared table sets `border-collapse:
+ * separate` with zero spacing (components.css). This rule is the reason.
+ */
+.table tr[data-row-key][data-focused] > td,
+.row-cards li[data-row-key][data-focused] {
+  background: var(--surface-3);
+}
+
+.table tr[data-row-key]:focus,
+.row-cards li[data-row-key]:focus,
+.today-row[data-row-key]:focus {
+  outline: none;
+}
+
+/*
+ * The keys, written where they are pressed.
+ *
+ * A shortcut nobody can see is a shortcut nobody uses, and a help page nobody
+ * opens is not where it becomes visible. They sit in the filter bar's end, in
+ * front of the result count, and disappear on a phone where there is no
+ * keyboard to press them with.
+ */
+.queue-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 12px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.queue-keys .kbd {
+  margin-left: 6px;
+}
+
+.queue-keys .kbd:first-child {
+  margin-left: 0;
+}
+
+@media (max-width: 719.98px) {
+  .queue-keys {
+    display: none;
+  }
+}
+
+/* --- The drafted solution ------------------------------------------------ */
+
+/*
+ * What the ticket already says, offered back at the moment it is asked for
+ * again. It sits above the field rather than inside it, because a solution
+ * nobody read before pressing the button is worse than a short one somebody
+ * meant — accepting it is a press, not an absence of one.
+ */
+.resolve-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--surface);
+}
+
+.resolve-draft-label {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.resolve-draft-text {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-2);
+  line-height: 1.5;
+}
+
+.resolve-draft-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* --- Saved views --------------------------------------------------------- */
+
+/*
+ * The filter sets somebody named. A chip is one press where rebuilding the
+ * combination is six controls and a search box.
+ *
+ * They sit above the filter bar rather than inside it, because they are the
+ * shortcut past the bar and reading them should not mean reading it first.
+ * Nothing animates: these are pressed all day.
+ */
+.saved-views {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px 0;
+}
+
+.saved-view {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  transition: background-color 100ms ease-out;
+}
+
+.saved-view[data-current] {
+  border-color: var(--line-strong, var(--line-2));
+  background: var(--surface-3);
+}
+
+.saved-view-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 4px 0 9px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.saved-view[data-current] .saved-view-open {
+  color: var(--ink);
+}
+
+.saved-view-forget {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 7px 0 3px;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.saved-view-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px dashed var(--line-strong, var(--line-2));
+  border-radius: var(--radius-2);
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--fs-1);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .saved-view:hover {
+    background: var(--surface-3);
+  }
+
+  .saved-view-forget:hover,
+  .saved-view-add:hover {
+    color: var(--ink);
+  }
+}
+
+.saved-view-open:focus-visible,
+.saved-view-forget:focus-visible,
+.saved-view-add:focus-visible {
+  border-radius: var(--radius-1);
+  box-shadow: var(--focus);
+  outline: none;
+}
+
+.saved-view-namer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.saved-view-name {
+  width: 180px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong, var(--line-2));
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-1);
+}
+
+.saved-view-error {
+  color: var(--bad);
+  font-size: var(--fs-1);
+}
+
+/* --- One row for the same problem ---------------------------------------- */
+
+/*
+ * The count line under a folded row's title. It replaces the requester there,
+ * because a group of five has five requesters and none of them is the answer to
+ * "what is this row". Pressing it opens the group; `o` on the keyboard does the
+ * same, which is why the row's first key is not a navigation.
+ */
+.queue-group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--fs-1);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .queue-group-toggle:hover {
+    color: var(--ink);
+  }
+}
+
+.queue-group-toggle:focus-visible {
+  border-radius: var(--radius-1);
+  box-shadow: var(--focus);
+  outline: none;
+}
+
+/* --- What the form already knows ----------------------------------------- */
+
+/*
+ * The suggested category and priority, read off the sentence above them. They
+ * sit under the issue box, which is the field they were read from and the field
+ * Tab accepts them out of.
+ */
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.suggestions-label {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.suggestion-chip {
+  display: inline-flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+}
+
+.suggestion-chip-accept {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 9px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-1);
+  cursor: pointer;
+}
+
+.suggestion-chip-why {
+  color: var(--ink-3);
+}
+
+.suggestion-chip-no {
+  padding: 0 8px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--fs-0);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .suggestion-chip-accept:hover {
+    background: var(--surface-3);
+  }
+
+  .suggestion-chip-no:hover {
+    color: var(--ink);
+  }
+}
+
+/* --- Somebody already reported this -------------------------------------- */
+
+/*
+ * A warning, never a block. The NetRider at the desk can see the person in
+ * front of them and this cannot; "you may not record that" would be the form
+ * overruling somebody who knows more than it does.
+ */
+.duplicate-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--warn-soft);
+}
+
+.duplicate-warning-glyph {
+  flex: none;
+  margin-top: 2px;
+  color: var(--warn);
+}
+
+.duplicate-warning-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.duplicate-warning-text p {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-1);
+}
+
+.duplicate-warning-text ul {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.duplicate-warning-text li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: var(--fs-1);
+}
+
+.duplicate-warning-sub {
+  color: var(--ink-3);
+}
+
+.duplicate-warning-no {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--fs-1);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}

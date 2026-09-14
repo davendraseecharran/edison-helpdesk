@@ -21,13 +21,13 @@ import { Button } from '@/components/ui/Button';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import type { AiConnectionView } from '@/lib/data/preferences';
 import {
-  REASONING_EFFORTS,
+  REASONING_CHOICES,
   REASONING_LABELS,
   type ReasoningEffort,
 } from '@/lib/domain/preferences';
 import { PreferenceSwitch, SettingRow, SettingsSection, useSavePreference } from './parts';
 
-const REASONING_OPTIONS = REASONING_EFFORTS.map((value) => ({
+const REASONING_OPTIONS = REASONING_CHOICES.map((value) => ({
   value,
   label: REASONING_LABELS[value],
 }));

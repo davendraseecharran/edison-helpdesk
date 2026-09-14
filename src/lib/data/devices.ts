@@ -35,7 +35,17 @@ export interface DeviceFilters {
   query?: string;
   /** The owner's one list filter: only the machines assigned to this person. */
   requesterId?: string | null;
+  /** Exact matches, from the values actually in the inventory. */
+  status?: string | null;
+  deviceType?: string | null;
+  location?: string | null;
   page?: number;
+}
+
+/** The values the inventory actually holds, for the list's own controls. */
+export interface DeviceFacets {
+  types: string[];
+  locations: string[];
 }
 
 export interface DevicesPage {
@@ -53,6 +63,9 @@ export async function loadDevices(filters: DeviceFilters = {}): Promise<DevicesP
     p_query: filters.query?.trim() ?? '',
     p_page: page,
     p_requester: filters.requesterId ?? null,
+    p_status: filters.status ?? null,
+    p_type: filters.deviceType ?? null,
+    p_location: filters.location ?? null,
   });
 
   if (error) {
@@ -117,6 +130,24 @@ export async function loadDeviceStatuses(): Promise<string[]> {
   const { data, error } = await supabase.rpc('app_inventory_statuses');
   if (error || !Array.isArray(data)) return [...SEED_DEVICE_STATUSES];
   return (data as unknown[]).filter((value): value is string => typeof value === 'string');
+}
+
+/**
+ * The device types and locations the inventory actually holds.
+ *
+ * Read rather than guessed: `inventory_devices.location` is free text and the
+ * district's rooms and carts are not a vocabulary anybody wrote down. An empty
+ * list is not an error — it is an inventory with nothing in that column yet,
+ * and the control hides itself rather than offering a filter with no values.
+ */
+export async function loadDeviceFacets(): Promise<DeviceFacets> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('app_inventory_facets');
+  if (error || !data || typeof data !== 'object') return { types: [], locations: [] };
+  const record = data as { types?: unknown; locations?: unknown };
+  const strings = (value: unknown): string[] =>
+    Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+  return { types: strings(record.types), locations: strings(record.locations) };
 }
 
 /** The catalogue of type, manufacturer and model tuples the editor offers. */

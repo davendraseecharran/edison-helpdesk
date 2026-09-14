@@ -107,6 +107,58 @@ export async function claimTicketAction(ticketId: string): Promise<ActionResult>
   return runRpc('app_claim_ticket', { p_ticket: ticketId }, 'You own this ticket.');
 }
 
+/**
+ * Claims several tickets that are the same problem.
+ *
+ * One projector dies and five people report it. Claiming five tickets one at a
+ * time is five presses and five page refreshes, so the grouped row does it in
+ * one — but it is still five calls to `app_claim_ticket`, not a new bulk path,
+ * because that function holds the locking order, the participation rules and
+ * the audit entry, and a bulk write that skipped any of those would be a
+ * different set of rules for the same action.
+ *
+ * Sequential rather than parallel: the RPC takes an advisory lock and five
+ * concurrent claims would queue behind each other anyway, with the difference
+ * that a failure halfway through parallel calls is harder to describe. A
+ * failure here stops and reports how many committed, because "claimed three of
+ * five, the fourth was taken by somebody else" is the sentence a NetRider needs
+ * — not a silent partial success.
+ */
+export async function claimTicketsAction(ticketIds: string[]): Promise<ActionResult> {
+  const ids = [...new Set(ticketIds.filter((id) => typeof id === 'string' && id !== ''))];
+  if (ids.length === 0) return { ok: false, error: 'There was nothing to claim.' };
+  if (ids.length === 1) return claimTicketAction(ids[0]);
+
+  const actor = await loadActor();
+  if (actor.kind !== 'active') {
+    return { ok: false, error: 'Your session is not able to make changes. Sign in again.' };
+  }
+
+  const supabase = await createClient();
+  let claimed = 0;
+  let failure: string | null = null;
+
+  for (const id of ids) {
+    const { error } = await supabase.rpc('app_claim_ticket', { p_ticket: id });
+    if (error) {
+      failure = error.message;
+      break;
+    }
+    claimed += 1;
+  }
+
+  revalidatePath('/', 'layout');
+
+  if (failure !== null) {
+    if (claimed === 0) return { ok: false, error: failure };
+    return {
+      ok: false,
+      error: `Claimed ${claimed} of ${ids.length}. The next one could not be claimed: ${failure}`,
+    };
+  }
+  return { ok: true, message: `You own ${claimed} tickets.` };
+}
+
 export async function returnTicketAction(ticketId: string): Promise<ActionResult> {
   return runRpc(
     'app_return_ticket_to_queue',

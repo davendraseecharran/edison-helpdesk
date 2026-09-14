@@ -35,6 +35,7 @@ import type { Account } from '@/lib/domain/types';
 import type { ActorAccount } from '@/lib/auth/session';
 import type { AccountRole } from '@/lib/auth/roles';
 import type { ActionResult } from '@/lib/data/actions';
+import type { SavedView } from '@/lib/domain/saved-views';
 import {
   initialToastState,
   toastReducer,
@@ -50,6 +51,8 @@ export interface AppRuntime {
   /** Minimal requester records, for recording a walk-in. Not a directory. */
   /** School-local (America/New_York) date, computed on the server. */
   today: string;
+  /** Filter sets this account named, from `account_preferences`. Newest first. */
+  savedViews: SavedView[];
   pendingKey: string | null;
   /** Show a message outside `run()`, for example after a client-side check. */
   notify: (kind: ToastKind, text: string) => void;
@@ -69,11 +72,13 @@ export function AppRuntimeProvider({
   actor,
   directory,
   today,
+  savedViews,
   children,
 }: {
   actor: ActorAccount;
   directory: Account[];
   today: string;
+  savedViews?: SavedView[];
   children: ReactNode;
 }) {
   const router = useRouter();
@@ -120,9 +125,10 @@ export function AppRuntimeProvider({
     [router, notify],
   );
 
+  const views = useMemo(() => savedViews ?? [], [savedViews]);
   const value = useMemo<AppRuntime>(
-    () => ({ actor, directory, today, pendingKey, notify, run }),
-    [actor, directory, today, pendingKey, notify, run],
+    () => ({ actor, directory, today, savedViews: views, pendingKey, notify, run }),
+    [actor, directory, today, views, pendingKey, notify, run],
   );
   const toastStore = useMemo<ToastStore>(() => ({ toasts, dispatchToast }), [toasts]);
 

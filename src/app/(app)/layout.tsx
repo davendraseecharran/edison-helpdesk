@@ -56,6 +56,7 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
       actor={actor.account}
       directory={directory}
       today={schoolToday()}
+      savedViews={preferences.savedViews}
     >
       {/* The account's stored theme, handed up to the provider in the root
           layout, which is above this one and knows nothing about accounts. */}

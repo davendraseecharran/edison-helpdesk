@@ -384,19 +384,59 @@
   }
 
   /*
-   * The action drops to its own row rather than squeezing the title into two
-   * words. The age keeps its place beside the title, because the age is why
-   * the row is where it is in the list.
+   * On a phone the title gets the width and the row gets taller.
+   *
+   * It used to be one line with the ticket number pinned beside it, which
+   * meant the number always won and the title arrived as "Projector shows no
+   * signal in roo…". The title is the thing being read, so it wraps to two
+   * lines and the number drops under it with the age — both of them metadata,
+   * both quiet, on a line of their own. The action takes the full width at the
+   * bottom, where a thumb is.
    */
   .today-row {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 6px 12px;
   }
 
+  /*
+   * The title takes the width and wraps to two lines. Beside the number it
+   * always lost — "Projector shows no signal in roo…" — and the title is the
+   * thing being read; the number is how you refer to it afterwards.
+   */
+  .today-row-title {
+    display: block;
+  }
+
+  .today-row-title a {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+    text-overflow: clip;
+  }
+
+  /* Off the title's line and onto its own, with the rest of the metadata. */
+  .today-row-number {
+    display: inline-block;
+    margin-top: 2px;
+  }
+
+  /* Bottom right of the block, where the eye ends rather than where it starts. */
+  .today-row-age {
+    align-self: end;
+  }
+
+  /* A button a thumb reaches for takes the width it is given. */
   .today-row-action {
     grid-column: 1 / -1;
-    justify-content: flex-start;
+    justify-content: stretch;
     min-width: 0;
+  }
+
+  .today-row-action .btn {
+    width: 100%;
   }
 
   .today-keys {

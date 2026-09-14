@@ -163,3 +163,64 @@ export async function bulkUpdateDevicesAction(
     (result) => bulkResultMessage(patch, result.count ?? ids.length),
   );
 }
+
+/**
+ * Hand a cart to a class, or take one back.
+ *
+ * Status and location have a bulk RPC of their own because they are a patch:
+ * one statement over a list of ids. Assignment does not — each hand-over writes
+ * an `inventory_events` row, a holder and a status together, and the version
+ * check that stops two people assigning the same machine is per machine. So
+ * these walk the selection and call the single-device RPC for each one, and
+ * report what actually happened rather than what was asked for.
+ *
+ * A failure stops the walk. The alternative is carrying on and reporting "9 of
+ * 12", which leaves somebody to work out which three — and the usual reason to
+ * fail is that the selection is stale, which will fail for the rest too.
+ */
+async function walkSelection(
+  ids: string[],
+  step: (id: string) => Promise<ActionResult>,
+  done: (count: number) => string,
+): Promise<RpcResult> {
+  let count = 0;
+  for (const id of ids) {
+    const result = await step(id);
+    if (!result.ok) {
+      return {
+        ok: false,
+        error:
+          count === 0
+            ? result.error
+            : `${result.error} ${count === 1 ? '1 device was' : `${count} devices were`} changed before that.`,
+        count,
+      };
+    }
+    count += 1;
+  }
+  return { ok: true, count, message: done(count) };
+}
+
+export async function bulkAssignDevicesAction(
+  ids: string[],
+  personId: string,
+  note?: string | null,
+): Promise<RpcResult> {
+  return walkSelection(
+    ids,
+    (id) => assignDeviceAction(id, personId, note ?? null, null),
+    (count) => `${count === 1 ? '1 device' : `${count} devices`} assigned.`,
+  );
+}
+
+export async function bulkReturnDevicesAction(
+  ids: string[],
+  status = 'Available',
+  note?: string | null,
+): Promise<RpcResult> {
+  return walkSelection(
+    ids,
+    (id) => returnDeviceAction(id, status, note ?? null, null),
+    (count) => `${count === 1 ? '1 device' : `${count} devices`} returned.`,
+  );
+}

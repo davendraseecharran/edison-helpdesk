@@ -44,6 +44,7 @@ import { claimTicketAction } from '@/lib/data/actions';
 import { lookupDeviceCodeAction } from '@/lib/data/device-actions';
 import { matchesQuery, type RecentItem, type SearchHit } from '@/lib/data/search';
 import { targetKind } from '@/lib/lookup/recognise';
+import { asksFirst, readAsk } from '@/lib/lookup/ask';
 import { routeScannedCode } from '@/lib/scan/route';
 import type { QueueCounts } from '@/lib/data/tickets';
 import type { ThemePreference } from './theme-script';
@@ -107,6 +108,9 @@ interface LookupSeed {
 }
 
 /** The palette's actions do not show counts, so the navigation needs none. */
+/** The heading every navigation row sits under, instead of in every label. */
+const GO_TO = 'Go to';
+
 const NO_COUNTS: QueueCounts = {
   openQueue: 0,
   myTickets: 0,
@@ -318,6 +322,19 @@ function Palette({
 
   const { term, searchable, ticketNumber } = lookup;
 
+  /*
+   * Whether what was typed is a question rather than a lookup.
+   *
+   * `found` is held true while a search is still in flight, so the ask row does
+   * not jump to the top of a list that is about to arrive and then jump back
+   * down again — the palette's first row is the row Enter opens, and it must
+   * not move under a finger already on the way to the key.
+   */
+  const ask = useMemo(
+    () => readAsk(lookup.query, !searchable || lookup.loading || lookup.hits.length > 0),
+    [lookup.query, searchable, lookup.loading, lookup.hits.length],
+  );
+
   const actions = useMemo<LookupAction[]>(() => {
     const go = (href: string) => () => {
       onClose();
@@ -349,20 +366,25 @@ function Palette({
       });
     }
 
+    // The screen's own name, under a "Go to" heading. Written out, every one
+    // of these began with the same two words, and a dozen rows that share a
+    // prefix are a dozen rows the eye has to read past.
     for (const item of navItems(actor.roles, NO_COUNTS)) {
       list.push({
         id: `go:${item.href}`,
-        label: `Go to ${item.label.toLowerCase()}`,
+        label: item.label,
         icon: item.icon,
-        keywords: ['page', 'open', item.label],
+        group: GO_TO,
+        keywords: ['page', 'open', 'go to', item.label],
         run: go(item.href),
       });
     }
     list.push({
       id: 'go:/settings',
-      label: 'Go to settings',
+      label: 'Settings',
       icon: Settings,
-      keywords: ['page', 'open', 'preferences', 'account'],
+      group: GO_TO,
+      keywords: ['page', 'open', 'go to', 'preferences', 'account'],
       run: go('/settings'),
     });
 
@@ -379,16 +401,31 @@ function Palette({
       },
     });
 
+    /*
+     * The assistant, reachable from the surface everybody already opens.
+     *
+     * The label carries the text rather than describing the action, because
+     * what this row does is send THAT sentence — "Ask the assistant: who has
+     * cart 3" is one read; "Ask the assistant" with the question underneath is
+     * two. A forced `>` or `?` prefix is stripped before it is sent, so the
+     * character that summoned the row never reaches the assistant.
+     */
+    const asked = ask.prompt;
     list.push({
       id: 'ask',
-      label: 'Ask the assistant',
+      label: asked === '' ? 'Ask the assistant' : `Ask the assistant: ${asked}`,
       icon: MessageCircle,
-      keywords: ['ai', 'help', 'question'],
-      subtitle: term ? `“${term}”` : undefined,
+      keywords: ['ai', 'help', 'question', 'assistant'],
+      subtitle:
+        ask.rank === 'forced'
+          ? undefined
+          : ask.rank === 'likely'
+            ? 'This reads like a question'
+            : undefined,
       always: true,
       run: () => {
         onClose();
-        openAssistant(term || undefined);
+        openAssistant(asked || undefined);
       },
     });
 
@@ -404,7 +441,7 @@ function Palette({
     });
 
     return list;
-  }, [ticketNumber, actor.roles, theme, term, onClose, router, claim, choose]);
+  }, [ticketNumber, actor.roles, theme, ask, onClose, router, claim, choose]);
 
   const visibleActions = useMemo(
     () =>
@@ -414,13 +451,44 @@ function Palette({
     [actions, term],
   );
 
+  // Two groups, in the order they are rendered: what you can do here, then
+  // where you can go. `first` below walks the same order.
+  const commands = useMemo(
+    () =>
+      visibleActions.filter(
+        (action) => action.group !== GO_TO && !(asksFirst(ask) && action.id === 'ask'),
+      ),
+    [visibleActions, ask],
+  );
+  const destinations = useMemo(
+    () => visibleActions.filter((action) => action.group === GO_TO),
+    [visibleActions],
+  );
+
   const showRecent = !searchable && lookup.recent.length > 0;
+
+  /*
+   * The ask, and where it sits.
+   *
+   * When the text reads as a question it is lifted out of the actions and
+   * rendered above the records under its own heading, so it is the first row
+   * and the one Enter opens. Otherwise it stays in Actions, at the bottom,
+   * where it has always been. It is never in both places.
+   */
+  const askAction = useMemo(
+    () => visibleActions.find((action) => action.id === 'ask') ?? null,
+    [visibleActions],
+  );
+  const askLeads = asksFirst(ask) && askAction !== null;
 
   // The list in the order it is rendered, so the first item is always the
   // one Enter opens: a record when there are records, otherwise an action.
   // cmdk keeps whatever was selected when items arrive, so the selection is
   // moved here each time the head of the list changes.
   const first = useMemo(() => {
+    // A question outranks every record: somebody who typed a sentence did not
+    // type it hoping to find a ticket whose title contains it.
+    if (askLeads && askAction) return actionValue(askAction);
     if (showRecent) return `recent:${hitValue(lookup.recent[0])}`;
     const { tickets, people, devices } = lookup.groups;
     /*
@@ -437,8 +505,19 @@ function Palette({
       named === 'device' ? devices[0] : named === 'person' ? people[0] : named === 'ticket' ? tickets[0] : undefined;
     const hit = preferred ?? tickets[0] ?? people[0] ?? devices[0];
     if (searchable && hit) return hitValue(hit);
-    return visibleActions[0] ? actionValue(visibleActions[0]) : '';
-  }, [showRecent, lookup.recent, lookup.groups, lookup.recognition, searchable, visibleActions]);
+    const head = commands[0] ?? destinations[0];
+    return head ? actionValue(head) : '';
+  }, [
+    askLeads,
+    askAction,
+    showRecent,
+    lookup.recent,
+    lookup.groups,
+    lookup.recognition,
+    searchable,
+    commands,
+    destinations,
+  ]);
 
   const [selected, setSelected] = useState(first);
   const [selectedFor, setSelectedFor] = useState(first);
@@ -530,6 +609,12 @@ function Palette({
           </div>
 
           <Command.List className="palette-list" label="Results">
+            {askLeads && askAction ? (
+              <Command.Group heading="Assistant">
+                <ActionItem action={askAction} />
+              </Command.Group>
+            ) : null}
+
             {showRecent ? (
               <Command.Group heading="Recent">
                 {lookup.recent.map((item) => (
@@ -548,9 +633,17 @@ function Palette({
               </p>
             ) : null}
 
-            {visibleActions.length > 0 ? (
+            {commands.length > 0 ? (
               <Command.Group heading="Actions">
-                {visibleActions.map((action) => (
+                {commands.map((action) => (
+                  <ActionItem key={action.id} action={action} />
+                ))}
+              </Command.Group>
+            ) : null}
+
+            {destinations.length > 0 ? (
+              <Command.Group heading={GO_TO}>
+                {destinations.map((action) => (
                   <ActionItem key={action.id} action={action} />
                 ))}
               </Command.Group>

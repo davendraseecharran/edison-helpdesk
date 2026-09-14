@@ -34,7 +34,7 @@ import { useRuntime } from '@/components/AppRuntime';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { useApplePlatform, useReducedMotion } from '@/components/ui/media';
 import { useRowKeys } from '@/components/ui/useRowKeys';
-import { claimTicketAction } from '@/lib/data/actions';
+import { claimTicketsAction } from '@/lib/data/actions';
 import { ageLabel } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import type { ListAction } from '@/lib/lists/keys';
@@ -49,6 +49,7 @@ import {
 } from '@/lib/domain/today';
 import { PRIORITY_LABELS } from '@/lib/domain/types';
 import { greetingMoment, isFridayAfternoon, say, voiceLine } from '@/lib/voice/moments';
+import '@/styles/lists.css';
 import '@/styles/today.css';
 import '@/styles/voice.css';
 
@@ -116,8 +117,15 @@ export function TodayScreen({
    * A layout effect rather than an ordinary one: it runs before the browser
    * paints the newly inserted markup, which is the only moment at which
    * switching a CSS animation off is still switching it off rather than
-   * cutting it short. The page's own blocking script does the same job for a
-   * reload, where hydration is far too late.
+   * cutting it short. That covers every in-app return to Today, which is the
+   * case the rule is for: queue, ticket, back to Today, three times an hour.
+   *
+   * A full page load still plays it, and should. Hydration is far too late to
+   * stop an animation that started at first paint, and the only thing that
+   * would be early enough is a blocking script — which React re-renders on the
+   * client, warns about, and does not execute anyway. It is also the right
+   * answer: a reload is the application arriving, the same moment the bench
+   * lamp is drawn for, and the two belong together.
    */
   useLayoutEffect(() => {
     try {
@@ -148,8 +156,10 @@ export function TodayScreen({
 
   const claim = useCallback(
     async (item: NeedItem) => {
-      if (!item.ticketId) return;
-      await run(`claim:${item.ticketId}`, () => claimTicketAction(item.ticketId!));
+      if (item.ticketIds.length === 0) return;
+      // A row that stands for five reports of one dead projector claims all
+      // five. That is the whole reason it is one row.
+      await run(`claim:${item.key}`, () => claimTicketsAction(item.ticketIds));
     },
     [run],
   );
@@ -186,7 +196,14 @@ export function TodayScreen({
     : null;
 
   return (
-    <div className="today">
+    /*
+     * The briefing is published on the root element, the same way the ticket
+     * page publishes which ticket is open: the assistant panel reads it when it
+     * opens and uses it as its first line, so the panel and the screen say the
+     * same thing. The page renders one attribute and knows nothing about the
+     * panel.
+     */
+    <div className="today" data-today-briefing={sentence || 'Nothing needs you right now.'}>
       <header className="today-stage today-greet">
         <h1 className="today-hello">{greeting}</h1>
         {total > 0 ? (
@@ -267,10 +284,10 @@ export function TodayScreen({
                         // lets the first one mean anything.
                         variant={index === 0 ? 'accent' : 'secondary'}
                         disabled={pendingKey !== null}
-                        loading={pendingKey === `claim:${item.ticketId}`}
+                        loading={pendingKey === `claim:${item.key}`}
                         onClick={() => void claim(item)}
                       >
-                        Claim
+                        {item.count > 1 ? `Claim all ${item.count}` : 'Claim'}
                       </Button>
                     ) : (
                       <ButtonLink

@@ -22,7 +22,7 @@ import { openAssistant } from './TopBar';
  * Work group falls through to the directory pages it does have, so the row is
  * never three empty slots.
  */
-const TAB_PREFERENCE = ['/queue', '/my-tickets', '/devices', '/people', '/inventory/students', '/inventory/devices'];
+const TAB_PREFERENCE = ['/today', '/queue', '/my-tickets', '/people', '/devices'];
 
 /**
  * Shorter names for the ones that do not fit a fifth of a phone's width.
@@ -30,8 +30,6 @@ const TAB_PREFERENCE = ['/queue', '/my-tickets', '/devices', '/people', '/invent
  */
 const PHONE_LABELS: Record<string, string> = {
   '/my-tickets': 'Mine',
-  '/inventory/students': 'Students',
-  '/inventory/devices': 'Inventory',
 };
 
 export function phoneLabel(item: NavItem): string {

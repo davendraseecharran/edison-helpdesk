@@ -43,9 +43,32 @@ export const AI_MODEL_LABEL = 'GPT-5.6 Luna';
 
 export const RESPONSES_URL = 'https://chatgpt.com/backend-api/codex/responses';
 
-export type Reasoning = 'low' | 'medium' | 'high' | 'xhigh';
+export type Reasoning = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
-export const REASONING_LEVELS: readonly Reasoning[] = ['low', 'medium', 'high', 'xhigh'] as const;
+export const REASONING_LEVELS: readonly Reasoning[] = [
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+] as const;
+
+/**
+ * The level to fall back to when the service refuses the one that was asked
+ * for.
+ *
+ * The effort vocabulary belongs to the provider and moves without warning, so a
+ * level this deployment offers can be a level the API has never heard of. One
+ * retry at `high` is better than an error: the person asked a question, and
+ * "that model does not take that effort" is not an answer to it.
+ */
+export const REASONING_FALLBACK: Reasoning = 'high';
+
+/** Whether an error from the service is about the reasoning effort specifically. */
+export function isEffortRejection(message: string): boolean {
+  const text = message.toLowerCase();
+  return text.includes('effort') || text.includes('reasoning');
+}
 
 export function isReasoning(value: unknown): value is Reasoning {
   return typeof value === 'string' && (REASONING_LEVELS as readonly string[]).includes(value);
@@ -248,30 +271,53 @@ function failureMessage(status: number, body: string): string {
 }
 
 export async function* streamResponses(request: StreamRequest): AsyncGenerator<ResponsesEvent> {
+  /*
+   * One retry, and only for the reasoning effort.
+   *
+   * The effort vocabulary belongs to the provider and moves without warning, so
+   * a level this deployment offers can be one the API has never heard of. When
+   * the refusal names the effort, the same request goes again at `high` — the
+   * person asked a question, and "that model does not take that effort" is not
+   * an answer to it. Anything else fails as it always did: a retry that does
+   * not know why it is retrying is how one bad request becomes two.
+   */
+  let attempt: StreamRequest = request;
   let response: Response;
-  try {
-    response = await fetch(RESPONSES_URL, {
-      method: 'POST',
-      headers: requestHeaders(request),
-      body: requestBody(request),
-      signal: request.signal,
-      cache: 'no-store',
-    });
-  } catch (error) {
-    if (request.signal?.aborted) return;
-    const detail = error instanceof Error ? error.message : 'the request could not be sent';
-    yield { type: 'error', message: `Could not reach ChatGPT: ${detail}.` };
-    return;
-  }
 
-  if (!response.ok || response.body === null) {
+  for (;;) {
+    try {
+      response = await fetch(RESPONSES_URL, {
+        method: 'POST',
+        headers: requestHeaders(attempt),
+        body: requestBody(attempt),
+        signal: attempt.signal,
+        cache: 'no-store',
+      });
+    } catch (error) {
+      if (attempt.signal?.aborted) return;
+      const detail = error instanceof Error ? error.message : 'the request could not be sent';
+      yield { type: 'error', message: `Could not reach ChatGPT: ${detail}.` };
+      return;
+    }
+
+    if (response.ok && response.body !== null) break;
+
     let body = '';
     try {
       body = await response.text();
     } catch {
       // Nothing readable; the status is the whole message.
     }
-    yield { type: 'error', message: failureMessage(response.status, body) };
+    const message = failureMessage(response.status, body);
+    if (
+      response.status === 400 &&
+      attempt.reasoning !== REASONING_FALLBACK &&
+      isEffortRejection(message)
+    ) {
+      attempt = { ...attempt, reasoning: REASONING_FALLBACK };
+      continue;
+    }
+    yield { type: 'error', message };
     return;
   }
 

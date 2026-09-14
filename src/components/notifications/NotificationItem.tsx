@@ -22,10 +22,18 @@
  */
 
 import Link from 'next/link';
+import { useRuntime } from '@/components/AppRuntime';
+import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
+import { claimTicketAction } from '@/lib/data/actions';
 import { ageLabel, formatDateTime } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
-import { notificationIcon, notificationLabel, type NotificationView } from '@/lib/domain/notifications';
+import {
+  notificationAction,
+  notificationIcon,
+  notificationLabel,
+  type NotificationView,
+} from '@/lib/domain/notifications';
 
 export interface NotificationItemProps {
   item: NotificationView;
@@ -38,6 +46,7 @@ export interface NotificationItemProps {
 }
 
 export function NotificationItem({ item, read, now, onOpen }: NotificationItemProps) {
+  const { pendingKey, run } = useRuntime();
   const tick = useNow();
   const at = new Date(tick ?? now);
   const absolute = formatDateTime(item.createdAt);
@@ -65,15 +74,55 @@ export function NotificationItem({ item, read, now, onOpen }: NotificationItemPr
 
   const className = read ? 'notification' : 'notification notification-unread';
 
+  /*
+   * The action the notice is about, beside the notice.
+   *
+   * A notice used to be half a thing: it said what happened and then made you
+   * go and find the button. Claiming a ticket somebody had just returned meant
+   * opening it, scrolling to Claim, and coming back for the next row. The
+   * action sits on the row now, and pressing it marks the notice read — you
+   * have plainly read it.
+   *
+   * It is a sibling of the link rather than a child of it, because a button
+   * inside a link is a press with two meanings.
+   */
+  const action = notificationAction(item);
+  const claimKey = action?.kind === 'claim' ? `claim:${action.ticketId}` : null;
+
   // Every kind the migrations write carries a path. A notice without one is
   // still worth showing; it simply has nowhere to go, so it is not a link.
-  if (!item.href) {
-    return <div className={className}>{body}</div>;
-  }
-
-  return (
+  const row = item.href ? (
     <Link className={className} href={item.href} onClick={() => onOpen?.(item)}>
       {body}
     </Link>
+  ) : (
+    <div className={className}>{body}</div>
+  );
+
+  if (action === null || action.kind === 'open') return row;
+
+  return (
+    <div className="notification-row">
+      {row}
+      <div className="notification-action">
+        {action.kind === 'claim' ? (
+          <Button
+            size="sm"
+            disabled={pendingKey !== null}
+            loading={pendingKey === claimKey}
+            onClick={() => {
+              onOpen?.(item);
+              void run(claimKey!, () => claimTicketAction(action.ticketId));
+            }}
+          >
+            {action.label}
+          </Button>
+        ) : (
+          <Link className="btn btn-secondary btn-sm" href={action.href} onClick={() => onOpen?.(item)}>
+            {action.label}
+          </Link>
+        )}
+      </div>
+    </div>
   );
 }

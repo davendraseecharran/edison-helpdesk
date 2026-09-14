@@ -34,6 +34,12 @@ export interface LookupAction {
   icon: LucideIcon;
   /** Words that also match, beyond the label. */
   keywords: string[];
+  /**
+   * Which group the row sits under. Navigation takes "Go to", so a dozen rows
+   * that all began "Go to …" become a dozen short names under one heading and
+   * the list fits on a laptop without scrolling.
+   */
+  group?: string;
   subtitle?: ReactNode;
   meta?: ReactNode;
   /** Shown whatever was typed; the filter does not apply. */

@@ -20,6 +20,7 @@
  * row-level security; this only decides the order it is read in.
  */
 
+import { normaliseTitle } from './grouping';
 import type { Priority, TicketStatus } from './types';
 
 /** One row of what the database said is going on. */
@@ -93,6 +94,13 @@ export interface NeedItem {
   priority: Priority | null;
   /** The ticket id, for the actions that need one. Null for an access request. */
   ticketId: string | null;
+  /**
+   * Every ticket this row stands for. One, normally; more when the same problem
+   * was reported several times and the row is the group.
+   */
+  ticketIds: string[];
+  /** How many tickets this row stands for. One is an ordinary row. */
+  count: number;
   /** Whether this row can be claimed from here. */
   claimable: boolean;
 }
@@ -123,20 +131,63 @@ export function urgencyBand(item: NeedItem): number {
   return item.priority ? PRIORITY_RANK[item.priority] : PRIORITY_RANK.normal;
 }
 
-function ticketNeed(ticket: BriefingTicket, kind: 'unassigned' | 'waiting'): NeedItem {
+function ticketNeed(
+  ticket: BriefingTicket,
+  kind: 'unassigned' | 'waiting',
+  others: BriefingTicket[] = [],
+): NeedItem {
   const who = ticket.requesterName ?? 'Requester unknown';
+  const count = others.length + 1;
   return {
     kind,
     key: `${kind}:${ticket.id}`,
     title: ticket.title,
-    subtitle: kind === 'waiting' && ticket.waitingReason ? `${who}, ${ticket.waitingReason}` : who,
-    number: ticket.number,
+    subtitle:
+      count > 1
+        ? `${count} tickets`
+        : kind === 'waiting' && ticket.waitingReason
+          ? `${who}, ${ticket.waitingReason}`
+          : who,
+    number: count > 1 ? null : ticket.number,
     href: `/tickets/${ticket.id}`,
     since: ticket.since,
     priority: ticket.priority,
     ticketId: ticket.id,
+    ticketIds: [ticket.id, ...others.map((entry) => entry.id)],
+    count,
     claimable: kind === 'unassigned',
   };
+}
+
+/**
+ * The unclaimed tickets, with repeats folded into one row.
+ *
+ * A projector dies and five people report it; Today should say one thing needs
+ * you, not five. Titles only here — the briefing carries no room or category,
+ * and the queue's fuller rule (`grouping.ts`) has both. A title that reads the
+ * same once case and punctuation are off is the case this is for, and it is the
+ * case that actually happens.
+ *
+ * The oldest leads, which is the one to work and the one whose age the row
+ * shows.
+ */
+function foldUnassigned(tickets: readonly BriefingTicket[]): NeedItem[] {
+  const groups = new Map<string, BriefingTicket[]>();
+  for (const ticket of tickets) {
+    const key = normaliseTitle(ticket.title);
+    const existing = groups.get(key);
+    if (existing) existing.push(ticket);
+    else groups.set(key, [ticket]);
+  }
+
+  return [...groups.values()].map((entries) => {
+    const sorted = [...entries].sort((left, right) => {
+      const age = Date.parse(left.since) - Date.parse(right.since);
+      if (Number.isFinite(age) && age !== 0) return age;
+      return left.id.localeCompare(right.id);
+    });
+    return ticketNeed(sorted[0], 'unassigned', sorted.slice(1));
+  });
 }
 
 /** The most rows the list shows. Past this it stops being a plan and becomes an inbox. */
@@ -150,7 +201,7 @@ export const NEEDS_LIMIT = 7;
  */
 export function needsYou(briefing: Briefing): NeedItem[] {
   const items: NeedItem[] = [
-    ...briefing.unassigned.map((ticket) => ticketNeed(ticket, 'unassigned')),
+    ...foldUnassigned(briefing.unassigned),
     ...briefing.waiting.map((ticket) => ticketNeed(ticket, 'waiting')),
     ...briefing.accessRequests.map((request) => ({
       kind: 'access' as const,
@@ -162,6 +213,8 @@ export function needsYou(briefing: Briefing): NeedItem[] {
       since: request.createdAt,
       priority: null,
       ticketId: null,
+      ticketIds: [],
+      count: 1,
       claimable: false,
     })),
   ];

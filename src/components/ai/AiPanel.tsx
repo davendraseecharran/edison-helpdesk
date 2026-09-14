@@ -25,6 +25,7 @@
 
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { usePathname } from 'next/navigation';
 import { Ellipsis, MessagesSquare, SquarePen, Unplug, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useRuntime } from '@/components/AppRuntime';
@@ -40,23 +41,30 @@ import { AiComposer, type AiComposerHandle } from './AiComposer';
 import { AiConnectCard } from './AiConnectCard';
 import { AiMessage } from './AiMessage';
 import { OPEN_ASSISTANT_EVENT, readOpenDetail, setAssistant } from './assistant-store';
+import { clearDraft, readDraft, writeDraft } from './draft-store';
 import { ConversationList } from './ConversationList';
 import { Orb } from './Orb';
 import type { Moment } from './orb-state';
 import { readPageContext, usePageContext } from './page-context';
 import { serverServices, type AiServices, type AiStatus } from './services';
+import { say } from '@/lib/voice/moments';
 import { turnsFromTranscript, useAiChat, type ChatBlock, type Turn } from './useAiChat';
 import { useSpeaker, useSpeechRecognition } from './useSpeech';
 import '@/styles/ai.css';
+import '@/styles/ai-connect.css';
 
-/** What the header says before the server has told the panel which model it runs. */
-const MODEL_LABEL = 'GPT-5.6 Luna';
-
+/*
+ * Three levels, and High is the default.
+ *
+ * Low and medium were offered and never chosen for a reason: the assistant does
+ * multi-step work against a real database, and a cheap wrong answer to "who has
+ * this device" costs more than the seconds it saved. The database still accepts
+ * the old values so rows written before this keep working.
+ */
 const REASONING_OPTIONS: { value: Reasoning; label: string }[] = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
   { value: 'high', label: 'High' },
   { value: 'xhigh', label: 'Extra high' },
+  { value: 'max', label: 'Max' },
 ];
 
 const EXAMPLES = [
@@ -65,12 +73,36 @@ const EXAMPLES = [
   'Which devices are out for repair?',
 ];
 
+/**
+ * What the panel offers when it opens on Today.
+ *
+ * Three asks about the screen the reader is actually looking at, rather than
+ * three generic ones. The briefing itself is read off the Today screen's own
+ * root element, the same way the ticket page tells the panel which ticket is
+ * open — the page renders one attribute and knows nothing about the panel.
+ */
+const TODAY_EXAMPLES = [
+  'What should I do first?',
+  'Summarise what is waiting in the queue',
+  'Draft a reply for the oldest one',
+];
+
+/** Today's briefing line, if that is the page underneath. */
+function readTodayBriefing(): string | null {
+  if (typeof document === 'undefined') return null;
+  const root = document.querySelector<HTMLElement>('[data-today-briefing]');
+  const line = root?.dataset.todayBriefing?.trim() ?? '';
+  return line === '' ? null : line;
+}
+
 const ALWAYS_ASKS = 'This change always asks first, whatever the setting.';
 
 type View = 'chat' | 'connect' | 'conversations';
 
 export interface AiPanelProps {
   services?: AiServices;
+  /** How many tickets are unclaimed, so the welcome can name a real number. */
+  queueCount?: number;
   /** Start open, for the dev demo. */
   initialOpen?: boolean;
   /** Start on this view, for the dev demo. */
@@ -81,11 +113,13 @@ export interface AiPanelProps {
 
 export function AiPanel({
   services = serverServices,
+  queueCount,
   initialOpen = false,
   initialView = 'chat',
   initialTurns,
 }: AiPanelProps) {
-  const { notify } = useRuntime();
+  const { actor, notify } = useRuntime();
+  const pathname = usePathname();
   const phone = usePhone();
   const wide = useMediaQuery('(min-width: 1024px)');
   const reduced = useReducedMotion();
@@ -97,12 +131,32 @@ export function AiPanel({
   const [requestedView, setRequestedView] = useState<View>(initialView);
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [connectAtOnce, setConnectAtOnce] = useState(false);
-  const [draft, setDraft] = useState('');
+  /*
+   * The composer's text, restored from this session.
+   *
+   * Read in the initialiser rather than in an effect, so the field is never
+   * briefly empty in front of somebody who has just come back from typing a
+   * device code into another tab. `readDraft` answers with an empty string on
+   * the server, and the panel renders nothing there, so there is no hydration
+   * to disagree with.
+   */
+  const [draft, setDraftState] = useState(() => readDraft(actor.id));
+  const [connectInline, setConnectInline] = useState(false);
+  const [connectDismissed, setConnectDismissed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
   const [conversationsError, setConversationsError] = useState<string | null>(null);
   const [unread, setUnread] = useState(false);
+
+  /** One setter, so nothing can change the draft without keeping it. */
+  const setDraft = useCallback(
+    (value: string) => {
+      setDraftState(value);
+      writeDraft(actor.id, value);
+    },
+    [actor.id],
+  );
 
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -180,12 +234,45 @@ export function AiPanel({
   }, [draft, speech.listening]);
 
   const ready = status?.enabled === true && status.connected;
+  const needsConnection = status?.enabled === true && !status.connected;
 
-  // Not connected: the connection card is the only useful thing to show.
-  const view: View =
-    status && status.enabled && !status.connected && requestedView === 'chat' ? 'connect' : requestedView;
+  /*
+   * The composer is always open.
+   *
+   * It used to be replaced by the connection card the moment the server said
+   * there was no ChatGPT account linked, so the first thing anybody met was a
+   * setup screen for a thing they had not asked for yet. Now the panel opens on
+   * the conversation, you type, and the card appears ABOVE the composer when
+   * the message is actually sent — which is the first moment connecting is
+   * something you want rather than something you are being told to do. The
+   * draft is kept the whole way through.
+   *
+   * `Disconnect` in the menu still asks for the card as a view of its own,
+   * because that is a deliberate visit to a settings screen.
+   */
+  const view: View = requestedView;
+  const showConnectInline = needsConnection && connectInline && view === 'chat';
 
   const moment: Moment = speech.listening ? 'listening' : speaker.speaking ? 'speaking' : chat.moment;
+
+  /*
+   * The welcome, which is the assistant's one chance to say what it is for.
+   *
+   * On Today it repeats the briefing the screen already wrote, because that is
+   * the thing the reader has in their head at the moment they open the panel,
+   * and it offers three asks about that screen. Anywhere else it rotates a line
+   * from the voice library, naming the real open count when there is one.
+   */
+  const [todayBriefing, setTodayBriefing] = useState<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const frame = window.requestAnimationFrame(() => setTodayBriefing(readTodayBriefing()));
+    return () => window.cancelAnimationFrame(frame);
+  }, [open, pathname]);
+
+  const welcomeLine =
+    todayBriefing ?? say('assistant.idle', { count: queueCount, seed: queueCount ?? 0 });
+  const examples = todayBriefing ? TODAY_EXAMPLES : EXAMPLES;
 
   // --- Sending --------------------------------------------------------------
 
@@ -199,13 +286,46 @@ export function AiPanel({
     [sendToChat, stopSpeaking],
   );
 
-  /** A prompt handed in from elsewhere: sent if the assistant can, kept in the field if not. */
+  /**
+   * One door for everything that tries to send: the composer, the examples on
+   * the welcome, and a prompt handed in by the palette or the settings screen.
+   *
+   * Connected, it sends. Not connected, it keeps the text in the composer and
+   * opens the connection card above it — which is the whole of the type-first
+   * flow. Nothing is lost and nothing is refused.
+   */
+  const submit = useCallback(
+    (text: string) => {
+      const trimmed = text.trim();
+      if (trimmed === '') return;
+      if (status?.enabled === false) return;
+      if (!ready) {
+        setDraft(trimmed);
+        setRequestedView('chat');
+        setConnectInline(true);
+        setConnectDismissed(false);
+        return;
+      }
+      sendText(trimmed);
+      setDraft('');
+      dictationBase.current = '';
+    },
+    [ready, status?.enabled, sendText, setDraft],
+  );
+
+  /** A prompt handed in from elsewhere, before the status is known. */
   const deliver = useCallback(
     (prompt: string, known: AiStatus) => {
       if (known.enabled && known.connected) sendText(prompt);
-      else setDraft(prompt);
+      else {
+        setDraft(prompt);
+        if (known.enabled) {
+          setConnectInline(true);
+          setConnectDismissed(false);
+        }
+      }
     },
-    [sendText],
+    [sendText, setDraft],
   );
 
   // --- Status -----------------------------------------------------------
@@ -233,10 +353,27 @@ export function AiPanel({
   // effect that depends on them, and an inline arrow here would restart that
   // poll — and with it the wait for the person to type the code — every time
   // anything else on the panel re-rendered.
+  /*
+   * The connection completed. The saved prompt goes as the first message and
+   * the card collapses.
+   *
+   * The draft is read back out of storage rather than out of state, because the
+   * device-code round trip may have taken the reader to another tab and back,
+   * and storage is the copy that survived it.
+   */
   const onConnected = useCallback(() => {
     setConnectAtOnce(false);
-    void refreshStatus().then(() => setRequestedView('chat'));
-  }, [refreshStatus]);
+    setConnectInline(false);
+    void refreshStatus().then((next) => {
+      setRequestedView('chat');
+      if (!next.enabled || !next.connected) return;
+      const waiting = readDraft(actor.id).trim();
+      if (waiting === '') return;
+      clearDraft(actor.id);
+      setDraftState('');
+      sendText(waiting);
+    });
+  }, [refreshStatus, actor.id, sendText]);
 
   const onDisconnected = useCallback(() => {
     setConnectAtOnce(false);
@@ -429,16 +566,13 @@ export function AiPanel({
     speaker.cancel();
     chat.newConversation();
     setDraft('');
+    setConnectInline(false);
     setRequestedView('chat');
   }
 
   function send() {
-    const text = draft.trim();
-    if (text === '' || !ready) return;
     if (speech.listening) speech.stop();
-    sendText(text);
-    setDraft('');
-    dictationBase.current = '';
+    submit(draft);
   }
 
   // Keep the newest line in view while a reply grows, unless the reader has
@@ -509,7 +643,6 @@ export function AiPanel({
                     <h2 id={titleId} className="ai-title">
                       Assistant
                     </h2>
-                    <p className="ai-model">{status?.modelLabel ?? MODEL_LABEL}</p>
                   </div>
                   <div className="ai-head-actions">
                     <span className="menu-anchor">
@@ -651,16 +784,15 @@ export function AiPanel({
                     <div className="ai-welcome-orb">
                       <Orb moment={moment} size={64} level={level} />
                     </div>
-                    <p className="ai-welcome-text">Ask anything about tickets, people or devices.</p>
+                    <p className="ai-welcome-text">{welcomeLine}</p>
                     {status ? (
                       <div className="ai-examples">
-                        {EXAMPLES.map((example) => (
+                        {examples.map((example) => (
                           <button
                             key={example}
                             type="button"
                             className="ai-example"
-                            onClick={() => sendText(example)}
-                            disabled={!ready}
+                            onClick={() => submit(example)}
                           >
                             {example}
                           </button>
@@ -688,18 +820,72 @@ export function AiPanel({
               </div>
 
               {view === 'chat' && status?.enabled !== false ? (
-                <AiComposer
-                  ref={composerRef}
-                  value={draft}
-                  onChange={setDraft}
-                  onSend={send}
-                  onStop={chat.stop}
-                  busy={chat.busy}
-                  disabled={!ready}
-                  speech={speech.supported ? speech : null}
-                  page={pageContext}
-                  placeholder={status ? undefined : 'Getting ready'}
-                />
+                <div className="ai-foot">
+                  {/*
+                   * The connection card, inline, above the composer and below
+                   * the conversation. It appears when a message is actually
+                   * sent, which is the first moment linking an account is
+                   * something the reader wants rather than something they are
+                   * being told to do. Closing it leaves the draft where it is
+                   * with one line saying what happens next.
+                   */}
+                  {showConnectInline ? (
+                    <div className="ai-connect-inline">
+                      <div className="ai-connect-inline-head">
+                        <p>Connect ChatGPT to send this. Your message is kept.</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={X}
+                          aria-label="Close"
+                          onClick={() => {
+                            setConnectInline(false);
+                            setConnectDismissed(true);
+                            composerRef.current?.focus();
+                          }}
+                        />
+                      </div>
+                      <AiConnectCard
+                        services={services}
+                        connection={null}
+                        notify={notify}
+                        autoStart
+                        onConnected={onConnected}
+                        onDisconnected={onDisconnected}
+                      />
+                    </div>
+                  ) : null}
+                  {needsConnection && connectDismissed && !connectInline ? (
+                    <p className="ai-connect-hint subtle">
+                      Not connected yet. Your message is kept until you are.{' '}
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={() => {
+                          setConnectInline(true);
+                          setConnectDismissed(false);
+                        }}
+                      >
+                        Connect ChatGPT
+                      </button>
+                    </p>
+                  ) : null}
+                  <AiComposer
+                    ref={composerRef}
+                    value={draft}
+                    onChange={setDraft}
+                    onSend={send}
+                    onStop={chat.stop}
+                    busy={chat.busy}
+                    /* Typing is never disabled. Only a deployment with no key
+                       at all takes the composer away, and that is checked
+                       above. */
+                    disabled={false}
+                    speech={speech.supported ? speech : null}
+                    page={pageContext}
+                    placeholder={status ? undefined : 'Getting ready'}
+                  />
+                </div>
               ) : null}
             </div>
           </motion.div>

@@ -4,7 +4,7 @@ import { navItems } from '../src/components/shell/RailNav';
 const counts = { openQueue: 3, myTickets: 1, collaborating: 0, closed: 9, all: 13 };
 
 describe('navItems', () => {
-  it('gives NetRiders work, directory and inventory but no admin group', () => {
+  it('gives NetRiders work and the directory but no admin group', () => {
     const items = navItems(['netrider'], counts);
     expect(items.map((i) => i.href)).toEqual([
       '/today',
@@ -14,9 +14,6 @@ describe('navItems', () => {
       '/resolved',
       '/people',
       '/devices',
-      '/inventory/students',
-      '/inventory/staff',
-      '/inventory/devices',
     ]);
     expect(items.find((i) => i.href === '/queue')?.count).toBe(3);
   });
@@ -32,18 +29,15 @@ describe('navItems', () => {
     const items = navItems(['admin'], counts);
     const groups = items.map((i) => i.group);
     // Groups appear in rail order and never interleave.
-    expect([...new Set(groups)]).toEqual(['Work', 'Directory', 'Inventory', 'Admin']);
+    expect([...new Set(groups)]).toEqual(['Work', 'Directory', 'Admin']);
     expect(items.every((i) => i.label.length > 0 && i.icon)).toBe(true);
   });
 
-  it('gives a skills officer the directory and the inventory and no ticket route', () => {
+  it('gives a skills officer the directory and no ticket route', () => {
     const items = navItems(['skills_officer'], counts);
-    expect(items.map((i) => i.href)).toEqual([
-      '/people',
-      '/inventory/students',
-      '/inventory/staff',
-      '/inventory/devices',
-    ]);
+    // The inventory is a read for them: the device screen refuses the editor,
+    // and so does the database.
+    expect(items.map((i) => i.href)).toEqual(['/people', '/devices']);
     // Nothing in the rail leads anywhere they would be turned away from.
     expect(items.some((i) => i.group === 'Work' || i.group === 'Admin')).toBe(false);
     expect(items.some((i) => i.href === '/insights')).toBe(false);

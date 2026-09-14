@@ -22,8 +22,14 @@
  * because nothing interrupts it — it plays when the line appears and never
  * plays again.
  */
+:root {
+  /* The two durations the voice owns, named where they are used. */
+  --voice-mark: 300ms;
+  --boot-lamp: 1000ms;
+}
+
 .voice-mark {
-  animation: voice-mark-in 300ms var(--ease-out) both;
+  animation: voice-mark-in var(--voice-mark) var(--ease-out) both;
 }
 
 @keyframes voice-mark-in {
@@ -62,7 +68,7 @@
   place-items: center;
   background: var(--bg);
   pointer-events: none;
-  animation: boot-lamp-out 1000ms var(--ease-out) forwards;
+  animation: boot-lamp-out var(--boot-lamp) var(--ease-out) forwards;
 }
 
 .boot-lamp-mark {
@@ -74,7 +80,7 @@
   color: var(--ink);
   font-size: var(--fs-4);
   letter-spacing: var(--tracking-heading);
-  animation: boot-lamp-warm 1000ms var(--ease-out) forwards;
+  animation: boot-lamp-warm var(--boot-lamp) var(--ease-out) forwards;
 }
 
 .boot-lamp-mark b {
