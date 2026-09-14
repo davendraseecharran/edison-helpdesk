@@ -42,7 +42,7 @@ export function ScanTargetButton({ label, onScan, disabled, className }: ScanTar
         icon={Smartphone}
         className={className ? `scan-target ${className}` : 'scan-target'}
         aria-label={`Scan ${label.toLowerCase()} with your phone`}
-        title="Scan with your phone"
+        title={`Scan ${label.toLowerCase()} with your phone`}
         disabled={disabled}
         onClick={() => setOpen(true)}
       />

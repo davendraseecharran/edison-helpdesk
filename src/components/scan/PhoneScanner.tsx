@@ -87,7 +87,7 @@ type CameraState = 'off' | 'starting' | 'running' | 'unsupported' | 'refused' | 
 const CAMERA_MESSAGE: Partial<Record<CameraState, string>> = {
   unsupported: 'This browser cannot read barcodes from the camera. Type the code instead.',
   refused: 'The camera is not available. Allow camera access in your browser, or type the code.',
-  failed: 'The camera stopped. Reload the page, or type the code instead.',
+  failed: 'The camera stopped. Try again, or type the code instead.',
 };
 
 const SESSION_MESSAGE: Record<Exclude<SessionState, 'active'>, string> = {
@@ -124,6 +124,8 @@ export function PhoneScanner({ session, label, active, stopped }: PhoneScannerPr
   const videoRef = useRef<HTMLVideoElement>(null);
   /** The last code this phone sent, for the debounce. */
   const last = useRef<LastScan | null>(null);
+  /** Bumped by "Try again" to restart the camera effect without `live` changing. */
+  const [attempt, setAttempt] = useState(0);
 
   const live = state === 'active';
 
@@ -171,6 +173,8 @@ export function PhoneScanner({ session, label, active, stopped }: PhoneScannerPr
   // The camera. Runs only while the pairing is live, and every track is
   // stopped when it is not, whatever stopped it: a phone that keeps its
   // camera light on after a session has ended is a phone people put away.
+  // `attempt` has no meaning of its own — it exists so "Try again" can
+  // restart this effect without `live` having changed.
   useEffect(() => {
     if (!live) return;
     const video = videoRef.current;
@@ -180,6 +184,15 @@ export function PhoneScanner({ session, label, active, stopped }: PhoneScannerPr
     let timer = 0;
     let done = false;
     let detecting = false;
+    let onVideoError: (() => void) | null = null;
+    let tracks: MediaStreamTrack[] = [];
+
+    // A track can end on its own — the camera unplugged, the OS revoking
+    // permission mid-session, another app claiming the camera — with no
+    // rejected promise anywhere to catch. Only these two events say so.
+    function onTrackEnded() {
+      if (!done) setCamera('failed');
+    }
 
     async function run() {
       if (!video || !Detector || !navigator.mediaDevices?.getUserMedia) {
@@ -199,6 +212,12 @@ export function PhoneScanner({ session, label, active, stopped }: PhoneScannerPr
         return;
       }
       video.srcObject = stream;
+      onVideoError = () => {
+        if (!done) setCamera('failed');
+      };
+      video.addEventListener('error', onVideoError);
+      tracks = stream.getTracks();
+      tracks.forEach((track) => track.addEventListener('ended', onTrackEnded));
       try {
         await video.play();
       } catch {
@@ -241,10 +260,12 @@ export function PhoneScanner({ session, label, active, stopped }: PhoneScannerPr
     return () => {
       done = true;
       window.clearInterval(timer);
+      if (video && onVideoError) video.removeEventListener('error', onVideoError);
+      tracks.forEach((track) => track.removeEventListener('ended', onTrackEnded));
       stream?.getTracks().forEach((track) => track.stop());
       if (video) video.srcObject = null;
     };
-  }, [live, send]);
+  }, [live, send, attempt]);
 
   // Is the pairing still live? Asked rather than assumed, because the desktop
   // may have pressed Stop, the half hour may have passed, or the tab may have
@@ -282,6 +303,12 @@ export function PhoneScanner({ session, label, active, stopped }: PhoneScannerPr
     setSending(false);
     setState('stopped');
     setError(null);
+  }
+
+  /** Restarts the camera effect after a track ended or the video errored. */
+  function retry() {
+    setCamera('starting');
+    setAttempt((count) => count + 1);
   }
 
   const cameraMessage = live ? CAMERA_MESSAGE[camera] : undefined;
@@ -334,6 +361,12 @@ export function PhoneScanner({ session, label, active, stopped }: PhoneScannerPr
               : (cameraMessage ?? 'Starting the camera…')
             : SESSION_MESSAGE[state as Exclude<SessionState, 'active'>]}
         </p>
+
+        {live && camera === 'failed' ? (
+          <Button variant="secondary" size="sm" onClick={retry}>
+            Try again
+          </Button>
+        ) : null}
 
         {error ? (
           <p className="flash flash-error" role="alert">

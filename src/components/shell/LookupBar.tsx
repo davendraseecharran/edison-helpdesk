@@ -179,11 +179,32 @@ export function LookupBar({ open, onClose }: LookupBarProps) {
     () => true,
     () => false,
   );
+
+  // A seed is a one-time request: once the palette has read it into the
+  // query, it must not survive to the next open. `Palette` unmounts on every
+  // close (that is what discards its query and selection), so without this
+  // the next open would remount it, its effect would see the same `seed`
+  // object it never got to clear, and a scan from an hour ago would search
+  // again.
+  const clearSeed = useCallback(() => setSeed(null), []);
+  const handleClose = useCallback(() => {
+    setSeed(null);
+    onClose();
+  }, [onClose]);
+
   if (!client) return null;
 
   return createPortal(
     <AnimatePresence>
-      {open ? <Palette key="lookup" phone={phone} seed={seed} onClose={onClose} /> : null}
+      {open ? (
+        <Palette
+          key="lookup"
+          phone={phone}
+          seed={seed}
+          onSeedUsed={clearSeed}
+          onClose={handleClose}
+        />
+      ) : null}
     </AnimatePresence>,
     document.body,
   );
@@ -192,11 +213,14 @@ export function LookupBar({ open, onClose }: LookupBarProps) {
 function Palette({
   phone,
   seed,
+  onSeedUsed,
   onClose,
 }: {
   phone: boolean;
   /** Text a scan asked for. A new `at` is a new request, even for the same code. */
   seed: LookupSeed | null;
+  /** Tells the seed's owner it has been read into the query, so it is not re-applied next open. */
+  onSeedUsed: () => void;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -223,8 +247,11 @@ function Palette({
   const seedAt = seed?.at;
   const seedQuery = seed?.query;
   useEffect(() => {
-    if (seedAt !== undefined && seedQuery !== undefined) setQuery(seedQuery);
-  }, [seedAt, seedQuery, setQuery]);
+    if (seedAt !== undefined && seedQuery !== undefined) {
+      setQuery(seedQuery);
+      onSeedUsed();
+    }
+  }, [seedAt, seedQuery, setQuery, onSeedUsed]);
 
   const openHit = useCallback(
     (hit: SearchHit) => {

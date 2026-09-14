@@ -68,11 +68,30 @@ const NO_SESSION = 'That scan session is not available to this account.';
 /**
  * The signed-in Supabase client, or null when this request has no account
  * that may act. A fast fail for an unusable session, not the security
- * boundary: every RPC below re-checks identity inside the database.
+ * boundary: every RPC re-checks identity inside the database regardless.
+ *
+ * Used by the session-starting and -ending actions, where the extra
+ * `auth.getUser()` + `app_my_account` round trip is worth paying to fail
+ * fast. The two actions the desktop polls every few seconds skip it and go
+ * straight to the database — see `pollingClient()`.
  */
 async function activeClient() {
   const actor = await loadActor();
   if (actor.kind !== 'active') return null;
+  return createClient();
+}
+
+/**
+ * The signed-in Supabase client, with no `loadActor()` round trip.
+ *
+ * `scanEventsAction` and `scanSessionAction` are polled every few seconds
+ * while a pairing is open, so doubling their cost with an `auth.getUser()`
+ * and an `app_my_account` lookup on top of the RPC's own actor check buys
+ * nothing: the RPC already derives the actor from `auth.uid()` and decides
+ * for itself whose session this is, the same way it would if `activeClient()`
+ * had let a stale or missing session through.
+ */
+function pollingClient() {
   return createClient();
 }
 
@@ -169,8 +188,7 @@ export async function scanEventsAction(
   if (!isSessionId(session)) return [];
 
   try {
-    const supabase = await activeClient();
-    if (!supabase) return [];
+    const supabase = await pollingClient();
 
     const { data, error } = await supabase.rpc('app_scan_events', {
       p_session: session,
@@ -210,8 +228,7 @@ export async function scanSessionAction(session: string): Promise<ScanSessionVie
   if (!isSessionId(session)) return null;
 
   try {
-    const supabase = await activeClient();
-    if (!supabase) return null;
+    const supabase = await pollingClient();
 
     const { data, error } = await supabase.rpc('app_scan_session', { p_session: session });
     if (error) {
