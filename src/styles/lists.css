@@ -211,3 +211,36 @@
   color: var(--bad);
   font-size: var(--fs-1);
 }
+
+/* --- One row for the same problem ---------------------------------------- */
+
+/*
+ * The count line under a folded row's title. It replaces the requester there,
+ * because a group of five has five requesters and none of them is the answer to
+ * "what is this row". Pressing it opens the group; `o` on the keyboard does the
+ * same, which is why the row's first key is not a navigation.
+ */
+.queue-group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--fs-1);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .queue-group-toggle:hover {
+    color: var(--ink);
+  }
+}
+
+.queue-group-toggle:focus-visible {
+  border-radius: var(--radius-1);
+  box-shadow: var(--focus);
+  outline: none;
+}

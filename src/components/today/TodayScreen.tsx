@@ -34,7 +34,7 @@ import { useRuntime } from '@/components/AppRuntime';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { useApplePlatform, useReducedMotion } from '@/components/ui/media';
 import { useRowKeys } from '@/components/ui/useRowKeys';
-import { claimTicketAction } from '@/lib/data/actions';
+import { claimTicketsAction } from '@/lib/data/actions';
 import { ageLabel } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import type { ListAction } from '@/lib/lists/keys';
@@ -156,8 +156,10 @@ export function TodayScreen({
 
   const claim = useCallback(
     async (item: NeedItem) => {
-      if (!item.ticketId) return;
-      await run(`claim:${item.ticketId}`, () => claimTicketAction(item.ticketId!));
+      if (item.ticketIds.length === 0) return;
+      // A row that stands for five reports of one dead projector claims all
+      // five. That is the whole reason it is one row.
+      await run(`claim:${item.key}`, () => claimTicketsAction(item.ticketIds));
     },
     [run],
   );
@@ -282,10 +284,10 @@ export function TodayScreen({
                         // lets the first one mean anything.
                         variant={index === 0 ? 'accent' : 'secondary'}
                         disabled={pendingKey !== null}
-                        loading={pendingKey === `claim:${item.ticketId}`}
+                        loading={pendingKey === `claim:${item.key}`}
                         onClick={() => void claim(item)}
                       >
-                        Claim
+                        {item.count > 1 ? `Claim all ${item.count}` : 'Claim'}
                       </Button>
                     ) : (
                       <ButtonLink

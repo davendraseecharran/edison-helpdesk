@@ -219,3 +219,48 @@ describe('nextBestAction', () => {
     });
   });
 });
+
+describe('the same problem reported several times', () => {
+  it('folds repeats into one row and says how many', () => {
+    const list = needsYou(
+      briefing({
+        unassigned: [
+          { ...ticket('a', 'normal', '2026-09-14T09:00:00Z'), title: 'Projector shows no signal' },
+          { ...ticket('b', 'normal', '2026-09-14T08:00:00Z'), title: 'Projector shows no signal!' },
+          { ...ticket('c', 'normal', '2026-09-14T10:00:00Z'), title: 'Wi-Fi drops in the library' },
+        ],
+      }),
+    );
+    const folded = list.find((item) => item.title.startsWith('Projector'));
+    expect(folded?.count).toBe(2);
+    expect(folded?.subtitle).toBe('2 tickets');
+    // The oldest leads: it is the one to work, and its age is the row's age.
+    expect(folded?.ticketId).toBe('b');
+    expect(folded?.ticketIds).toEqual(['b', 'a']);
+    expect(list.find((item) => item.title.startsWith('Wi-Fi'))?.count).toBe(1);
+  });
+
+  it('leaves an ordinary row saying who reported it', () => {
+    const [only] = needsYou(briefing({ unassigned: [ticket('a', 'normal', '2026-09-01T08:00:00Z')] }));
+    expect(only.count).toBe(1);
+    expect(only.subtitle).toBe('Nia Okonkwo');
+    expect(only.ticketIds).toEqual(['a']);
+  });
+
+  it('counts a folded row once in the list, not once per ticket', () => {
+    const same = (id: string, at: string) => ({
+      ...ticket(id, 'normal', at),
+      title: 'Projector shows no signal',
+    });
+    const list = needsYou(
+      briefing({
+        unassigned: [
+          same('a', '2026-09-14T08:00:00Z'),
+          same('b', '2026-09-14T09:00:00Z'),
+          same('c', '2026-09-14T10:00:00Z'),
+        ],
+      }),
+    );
+    expect(list.length).toBe(1);
+  });
+});
