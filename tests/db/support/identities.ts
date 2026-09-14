@@ -22,7 +22,11 @@ export type IdentityKey =
   | 'pending'
   | 'inactive'
   | 'pendingApproval'
-  | 'denied';
+  | 'denied'
+  | 'skillsOfficer'
+  | 'netriderSkills';
+
+export type SeededRole = 'admin' | 'netrider' | 'skills_officer';
 
 export interface SeededIdentity {
   key: IdentityKey;
@@ -30,7 +34,9 @@ export interface SeededIdentity {
   email: string;
   password: string;
   displayName: string;
+  /** The derived column, asserted by the suites written before roles were a set. */
   role: 'admin' | 'technician';
+  roles: SeededRole[];
   status: 'active' | 'inactive' | 'setup_pending' | 'pending_approval' | 'denied';
 }
 
@@ -40,6 +46,7 @@ const PEOPLE: Array<Omit<SeededIdentity, 'id' | 'password'>> = [
     email: 'morgan.ellis@edison.example',
     displayName: 'Morgan Ellis',
     role: 'admin',
+    roles: ['admin'],
     status: 'active',
   },
   {
@@ -47,6 +54,7 @@ const PEOPLE: Array<Omit<SeededIdentity, 'id' | 'password'>> = [
     email: 'priya.raman@edison.example',
     displayName: 'Priya Raman',
     role: 'technician',
+    roles: ['netrider'],
     status: 'active',
   },
   {
@@ -54,6 +62,7 @@ const PEOPLE: Array<Omit<SeededIdentity, 'id' | 'password'>> = [
     email: 'dev.okafor@edison.example',
     displayName: 'Dev Okafor',
     role: 'technician',
+    roles: ['netrider'],
     status: 'active',
   },
   {
@@ -61,6 +70,7 @@ const PEOPLE: Array<Omit<SeededIdentity, 'id' | 'password'>> = [
     email: 'sam.whitaker@edison.example',
     displayName: 'Sam Whitaker',
     role: 'technician',
+    roles: ['netrider'],
     status: 'active',
   },
   {
@@ -68,6 +78,7 @@ const PEOPLE: Array<Omit<SeededIdentity, 'id' | 'password'>> = [
     email: 'jordan.pike@edison.example',
     displayName: 'Jordan Pike',
     role: 'technician',
+    roles: ['netrider'],
     status: 'setup_pending',
   },
   {
@@ -75,6 +86,7 @@ const PEOPLE: Array<Omit<SeededIdentity, 'id' | 'password'>> = [
     email: 'alex.reyes@edison.example',
     displayName: 'Alex Reyes',
     role: 'technician',
+    roles: ['netrider'],
     status: 'inactive',
   },
   // M5. Someone who signed in with Google without an invite and is waiting for
@@ -84,6 +96,7 @@ const PEOPLE: Array<Omit<SeededIdentity, 'id' | 'password'>> = [
     email: 'rowan.deleon@edison.example',
     displayName: 'Rowan De Leon',
     role: 'technician',
+    roles: ['netrider'],
     status: 'pending_approval',
   },
   // M5. A request an administrator turned down. Kept as a seeded identity so
@@ -93,7 +106,28 @@ const PEOPLE: Array<Omit<SeededIdentity, 'id' | 'password'>> = [
     email: 'noor.baptiste@edison.example',
     displayName: 'Noor Baptiste',
     role: 'technician',
+    roles: ['netrider'],
     status: 'denied',
+  },
+  // P2-3. A skills officer and nothing else: works the student and staff
+  // directory, reads the inventory, and must reach no ticket at all.
+  {
+    key: 'skillsOfficer',
+    email: 'skills@edison.example',
+    displayName: 'Robin Alvarez',
+    role: 'technician',
+    roles: ['skills_officer'],
+    status: 'active',
+  },
+  // P2-3. Somebody who does both jobs. Proves the roles add rather than
+  // override: the directory AND the queue, from one account.
+  {
+    key: 'netriderSkills',
+    email: 'casey.lindqvist@edison.example',
+    displayName: 'Casey Lindqvist',
+    role: 'technician',
+    roles: ['netrider', 'skills_officer'],
+    status: 'active',
   },
 ];
 
@@ -154,7 +188,7 @@ export async function seedIdentities(stack: LocalStack): Promise<SeededIdentity[
         id: userId,
         display_name: person.displayName,
         email: person.email,
-        role: person.role,
+        roles: person.roles,
         status: person.status,
       },
       { onConflict: 'id' },
@@ -184,7 +218,7 @@ export async function restoreIdentityStates(
   for (const identity of identities) {
     await admin
       .from('app_accounts')
-      .update({ role: identity.role, status: identity.status })
+      .update({ roles: identity.roles, status: identity.status })
       .eq('id', identity.id);
   }
 }
