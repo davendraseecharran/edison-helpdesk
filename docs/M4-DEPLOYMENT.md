@@ -1,5 +1,12 @@
 # M4 deployment runbook
 
+> **Superseded in part by M5.** This is the record of the M4 deployment and
+> the first hosted rollout. Step 4 below says to disable public signup; M5
+> turns sign-ups **on**, after installing the Before User Created hook that
+> refuses email-and-password sign-up, so that Google sign-in can work. Follow
+> the ordered runbook in [M5-PLATFORM-OVERHAUL.md](M5-PLATFORM-OVERHAUL.md)
+> for anything done from now on; the rest of this file still holds.
+
 ## Authorized target
 
 - Private source: https://github.com/davendraseecharran/edison-helpdesk
@@ -16,7 +23,7 @@ Node24.x is pinned in package.json and .nvmrc. Vercel uses Next.js, npm ci, npm 
 1. Authenticate Supabase CLI in an interactive terminal. Never pass a token on the command line or paste it in chat. Verify access to the exact project above.
 2. Inspect the empty hosted database before writing: PostgreSQL version; pgcrypto location; auth.users.encrypted_password; auth.sessions and auth.mfa_amr_claims. M3 depends on provider bcrypt and password/otp AMR behavior.
 3. Apply the reviewed migrations without seed/test data. Keep a separate deployment workdir or explicit project target so local reset tests remain unlinked. Never run reset against the hosted database. Record migration versions and verify RLS/function grants.
-4. Configure hosted Auth: disable public signup, minimum password12, recovery expiry3600 seconds, review secure-password-change setting against the tested setup/recovery flow. Set site URL and allowed callback to the verified stable HTTPS app origin. Local config.toml does not configure the hosted project by itself.
+4. Configure hosted Auth: disable public signup (M5 reverses this — see the note at the top), minimum password12, recovery expiry3600 seconds, review secure-password-change setting against the tested setup/recovery flow. Set site URL and allowed callback to the verified stable HTTPS app origin. Local config.toml does not configure the hosted project by itself.
 5. Set production-only Vercel variables: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_APP_ORIGIN, SUPABASE_SERVICE_ROLE_KEY. Read keys privately from the exact project; never print/log them. Do not attach production credentials to preview or development deployments.
 6. Deploy the approved source revision via authenticated CLI. Verify the stable alias before using it for callback links. Automatic Git deployments additionally require the user to connect GitHub in Vercel login connections.
 7. Use guarded operator bootstrap to issue the first admin setup link to a private file; user sets password privately. No public bootstrap route.

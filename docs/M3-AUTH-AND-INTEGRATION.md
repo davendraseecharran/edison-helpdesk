@@ -1,5 +1,10 @@
 # M3 — real authentication and persisted ticketing
 
+> **Extended by M5.** Google sign-in, invites and the approval queue were
+> added in the platform overhaul; the password path, the trust boundaries
+> and the provider behaviour recorded here are unchanged and still apply.
+> See [M5-PLATFORM-OVERHAUL.md](M5-PLATFORM-OVERHAUL.md).
+
 The approved interface now runs on real local Supabase Auth and persisted data.
 Technicians sign in with a school email and a separate app password they choose
 themselves; administrators create accounts and hand over single-use setup and

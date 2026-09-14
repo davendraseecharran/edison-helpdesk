@@ -2,6 +2,38 @@
 
 Prepared September 10, 2026; revised with the user's platform selection. Status: first-release requirements and hosting stack selected. The user confirmed Vercel Hobby works for this project. This is a planning artifact, not an implementation or deployment.
 
+## Superseded decisions (M5, September 2026)
+
+This plan is the original specification and is kept as written. Five of its
+decisions have since been reversed or overtaken by the M5 platform overhaul;
+where this document and [docs/M5-PLATFORM-OVERHAUL.md](docs/M5-PLATFORM-OVERHAUL.md)
+disagree, M5 is what was built.
+
+1. **Google sign-in is in.** "Google OAuth/SSO is not part of this release" and
+   "technicians sign in with student email addresses and a separate application
+   password" are superseded: Google is now the primary way in, an administrator
+   invites by email first, and an uninvited verified Google address lands in an
+   approval queue. The password form remains as the administrator's break-glass
+   path.
+2. **Email is in, optionally.** Outbound mail (Resend) sends invite messages.
+   With no key configured an invite still works and the administration screen
+   hands over the message to send by hand, so nothing depends on a mail
+   provider.
+3. **Attachments are in.** Images and PDFs up to 8 MiB, in a private bucket
+   reachable only through short-lived signed URLs.
+4. **Inventory and the directory are in.** Stages 5 and 6 below ("Add
+   inventory", "Expand people and assignments") were brought forward into M5:
+   people and devices are imported from the AppSheet CSV exports, tickets link
+   to both, and this system becomes their authoritative home after
+   reconciliation.
+5. **An AI assistant was added**, which this plan does not mention at all. It
+   runs on each technician's own ChatGPT account and acts only through the same
+   operations a person has.
+
+Unchanged: the platform selection (Next.js on Vercel Hobby with Supabase), the
+ticket workflows and permission rules, the pilot acceptance checks, and the
+deferral of public intake.
+
 ## Objective
 
 Launch an internal helpdesk where a super admin records incoming requests, technicians claim or receive assignments, collaborators contribute, and every completed ticket records the work performed. Extend the same system later with inventory, staff and student records, device assignments, and public intake.

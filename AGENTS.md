@@ -5,14 +5,18 @@ Read PROJECT_STATUS.md first, then the relevant portions of TICKETING-PLAN.md. F
 ## Established decisions
 
 - Next.js App Router + TypeScript, Vercel Hobby (user selected), Supabase Postgres/Auth. Do not reopen platform selection.
-- School email + separate user-chosen app password. No Google OAuth/SSO. Admin creates accounts; proposed setup/recovery uses privately delivered single-use links without automated email.
+- Google sign-in is the primary way in (M5, superseding the earlier email-and-password-only decision). An admin invites by email first; an uninvited verified Google address lands in `pending_approval` for an admin to approve or deny. Any verified Google address is allowed, personal ones included: the gate is the invite or the approval, not the domain.
+- Password sign-in remains, as the admin's break-glass path. Admin creates those accounts and hands over privately delivered single-use setup/recovery links. Public password sign-up is closed by the Before User Created auth hook, not only by a dashboard setting.
+- Email (Resend) is optional and only sends invite messages. With no key set an invite still succeeds and the admin screen hands over the message text.
 - Technicians see only claimable open tickets and tickets they own/collaborate on. Admin sees all. Enforce this on the backend/database, not just the UI.
 - Admin creates any intake channel and selects owner or Open Queue. Technician creation is Walk-in only, assigned to themselves; they can add collaborators.
 - Primary owners can return unfinished tickets to Open Queue, preserving all contributions and collaborators and recording the return in history. Collaborators cannot release someone else’s ticket.
 - Owner or collaborator resolves immediately with a solution. No approval step. Time logs are optional.
-- No attachments, email notifications, inventory migration, directory migration, or public intake in milestone M1 or the initial ticketing implementation.
-- About seven technicians and 20–40 new tickets daily. Future directory/inventory is ~2,500 students, 300 staff, and 7,500 devices.
-- Restrained, clean interface; neutral surfaces, readable type, one accent, practical tables, accessible keyboard/focus states, responsive layout.
+- People and devices are in scope (M5): the directory and the inventory are imported from the AppSheet CSV exports and this system becomes their authoritative home. Tickets link to people and to machines. Attachments, in-app notifications, an audit log and insights are in. Public intake is still deferred.
+- Attachments live in a private storage bucket with no policies on `storage.objects`; the server issues short-lived signed URLs after checking the parent record. 8 MiB per file, images and PDF.
+- The AI assistant runs on each technician's own ChatGPT account (device-code OAuth, tokens encrypted at rest with `AI_TOKEN_KEY`, server-only). It acts through the same RPCs a person uses, on that person's own client, so it can never see or change more than they can. Admin tools always confirm. Every AI change is attributed as the person's AI — a label for readers, never a permission.
+- About seven technicians and 20–40 new tickets daily. The directory/inventory is ~2,500 students, 300 staff, and 7,500 devices.
+- Restrained, clean interface; neutral surfaces, readable type, one accent, practical tables, accessible keyboard/focus states, responsive layout. M5 adds: dark theme by default with light and system available, tokens only (no hard-coded colours outside `tokens.css`), IBM Plex Sans/Mono, sentence case, no horizontal page scroll at 390px, reduced motion respected.
 
 ## Continuity and efficient delegation
 
