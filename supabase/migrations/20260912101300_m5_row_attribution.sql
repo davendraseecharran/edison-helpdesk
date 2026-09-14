@@ -817,7 +817,8 @@ begin
 
   perform public.app_log_event(
     v_ticket_id, 'created', v_actor.id,
-    v_actor.display_name || ' recorded a '
+    v_actor.display_name || ' recorded '
+      || case v_channel when 'email' then 'an ' else 'a ' end
       || case v_channel when 'walk_in' then 'walk-in' when 'email' then 'email' else 'phone call' end
       || ' request',
     case when v_submitted <> public.app_today()

@@ -378,7 +378,7 @@ export function createTicket(
     context,
     ticketId,
     'created',
-    `${actor.displayName} recorded a ${CHANNEL_LABELS[channel].toLowerCase()} request`,
+    `${actor.displayName} recorded ${channel === 'email' ? 'an' : 'a'} ${CHANNEL_LABELS[channel].toLowerCase()} request`,
     input.submittedOn !== context.today
       ? `Submission date backdated to ${input.submittedOn}.`
       : null,
