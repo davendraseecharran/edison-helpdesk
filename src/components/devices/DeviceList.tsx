@@ -30,7 +30,7 @@ import {
   bulkUpdateDevicesAction,
 } from '@/lib/data/device-actions';
 import type { BulkDevicePatch } from '@/lib/data/device-bulk';
-import type { DevicesPage } from '@/lib/data/devices';
+import type { DeviceFacets, DevicesPage } from '@/lib/data/devices';
 import { countLabel } from '@/lib/domain/records';
 import { deviceLabel, type DeviceSummary } from '@/lib/domain/types';
 import { useRuntime } from '@/components/AppRuntime';
@@ -77,7 +77,16 @@ function RowCheck({
   );
 }
 
-export function DeviceList({ page, statuses }: { page: DevicesPage; statuses: string[] }) {
+export function DeviceList({
+  page,
+  statuses,
+  facets,
+}: {
+  page: DevicesPage;
+  statuses: string[];
+  /** The types and locations the inventory actually holds. */
+  facets: DeviceFacets;
+}) {
   const { pendingKey, run } = useRuntime();
   const router = useRouter();
   const pathname = usePathname();
@@ -88,11 +97,19 @@ export function DeviceList({ page, statuses }: { page: DevicesPage; statuses: st
     () => ({
       query: searchParams.get('query') ?? '',
       requester: searchParams.get('requester') ?? '',
+      status: searchParams.get('status') ?? '',
+      type: searchParams.get('type') ?? '',
+      location: searchParams.get('location') ?? '',
     }),
     [searchParams],
   );
 
-  const filtersActive = current.query.trim() !== '' || current.requester !== '';
+  const filtersActive =
+    current.query.trim() !== '' ||
+    current.requester !== '' ||
+    current.status !== '' ||
+    current.type !== '' ||
+    current.location !== '';
 
   function updateParams(changes: Record<string, string>) {
     const next = new URLSearchParams(searchParams.toString());
@@ -312,6 +329,67 @@ export function DeviceList({ page, statuses }: { page: DevicesPage; statuses: st
               }}
             />
           </Field>
+
+          {/*
+            * Exact, where the search box is not. "repair" typed into the box
+            * also matches a note, a model name and a room; the columns are how
+            * somebody asks for every Chromebook in repair and means it.
+            *
+            * Each control is offered only when the inventory has something to
+            * put in it — a filter with one option is a control that cannot
+            * change anything.
+            */}
+          <Field label="Status" htmlFor="devices-status">
+            <select
+              id="devices-status"
+              name="status"
+              value={current.status}
+              onChange={(event) => updateParams({ status: event.target.value })}
+            >
+              <option value="">Any status</option>
+              {statuses.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          {facets.types.length > 1 ? (
+            <Field label="Type" htmlFor="devices-type">
+              <select
+                id="devices-type"
+                name="type"
+                value={current.type}
+                onChange={(event) => updateParams({ type: event.target.value })}
+              >
+                <option value="">Any type</option>
+                {facets.types.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
+
+          {facets.locations.length > 1 ? (
+            <Field label="Location" htmlFor="devices-location">
+              <select
+                id="devices-location"
+                name="location"
+                value={current.location}
+                onChange={(event) => updateParams({ location: event.target.value })}
+              >
+                <option value="">Any location</option>
+                {facets.locations.map((location) => (
+                  <option key={location} value={location}>
+                    {location}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
         </div>
       </FilterBar>
 
