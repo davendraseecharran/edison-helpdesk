@@ -307,14 +307,14 @@
   font-weight: 500;
 }
 
-/* 8px of list padding around an 8px row makes the 16px panel concentric. */
+/* 8px of list padding around an 8px row makes the panel concentric. */
 .palette-list [cmdk-item] {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
-  min-height: 40px;
-  padding: 6px 10px;
+  gap: 8px;
+  min-height: 36px;
+  padding: 4px 8px;
   border-radius: var(--radius-2);
   color: var(--ink);
   cursor: pointer;
@@ -333,19 +333,22 @@
   background: var(--surface-3);
 }
 
+/*
+ * A bare icon, not a tile. Boxing each 16px glyph in a bordered square put a
+ * column of little containers down the left of the list and made every row
+ * read as a card; the icon is a hint about what kind of row this is, and a
+ * hint does not need a frame of its own.
+ */
 .palette-item-icon {
   display: grid;
   flex: 0 0 auto;
   place-items: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-1);
-  background: var(--surface-2);
-  color: var(--ink-3);
+  width: 16px;
+  height: 16px;
+  color: var(--ink-2);
 }
 
 .palette-list [cmdk-item][data-selected='true'] .palette-item-icon {
-  background: var(--surface);
   color: var(--ink);
 }
 

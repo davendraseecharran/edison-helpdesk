@@ -104,6 +104,9 @@ interface LookupSeed {
 }
 
 /** The palette's actions do not show counts, so the navigation needs none. */
+/** The heading every navigation row sits under, instead of in every label. */
+const GO_TO = 'Go to';
+
 const NO_COUNTS: QueueCounts = {
   openQueue: 0,
   myTickets: 0,
@@ -320,20 +323,25 @@ function Palette({
       });
     }
 
+    // The screen's own name, under a "Go to" heading. Written out, every one
+    // of these began with the same two words, and a dozen rows that share a
+    // prefix are a dozen rows the eye has to read past.
     for (const item of navItems(actor.roles, NO_COUNTS)) {
       list.push({
         id: `go:${item.href}`,
-        label: `Go to ${item.label.toLowerCase()}`,
+        label: item.label,
         icon: item.icon,
-        keywords: ['page', 'open', item.label],
+        group: GO_TO,
+        keywords: ['page', 'open', 'go to', item.label],
         run: go(item.href),
       });
     }
     list.push({
       id: 'go:/settings',
-      label: 'Go to settings',
+      label: 'Settings',
       icon: Settings,
-      keywords: ['page', 'open', 'preferences', 'account'],
+      group: GO_TO,
+      keywords: ['page', 'open', 'go to', 'preferences', 'account'],
       run: go('/settings'),
     });
 
@@ -385,6 +393,17 @@ function Palette({
     [actions, term],
   );
 
+  // Two groups, in the order they are rendered: what you can do here, then
+  // where you can go. `first` below walks the same order.
+  const commands = useMemo(
+    () => visibleActions.filter((action) => action.group !== GO_TO),
+    [visibleActions],
+  );
+  const destinations = useMemo(
+    () => visibleActions.filter((action) => action.group === GO_TO),
+    [visibleActions],
+  );
+
   const showRecent = !searchable && lookup.recent.length > 0;
 
   // The list in the order it is rendered, so the first item is always the
@@ -408,8 +427,9 @@ function Palette({
       named === 'device' ? devices[0] : named === 'person' ? people[0] : named === 'ticket' ? tickets[0] : undefined;
     const hit = preferred ?? tickets[0] ?? people[0] ?? devices[0];
     if (searchable && hit) return hitValue(hit);
-    return visibleActions[0] ? actionValue(visibleActions[0]) : '';
-  }, [showRecent, lookup.recent, lookup.groups, lookup.recognition, searchable, visibleActions]);
+    const head = commands[0] ?? destinations[0];
+    return head ? actionValue(head) : '';
+  }, [showRecent, lookup.recent, lookup.groups, lookup.recognition, searchable, commands, destinations]);
 
   const [selected, setSelected] = useState(first);
   const [selectedFor, setSelectedFor] = useState(first);
@@ -519,9 +539,17 @@ function Palette({
               </p>
             ) : null}
 
-            {visibleActions.length > 0 ? (
+            {commands.length > 0 ? (
               <Command.Group heading="Actions">
-                {visibleActions.map((action) => (
+                {commands.map((action) => (
+                  <ActionItem key={action.id} action={action} />
+                ))}
+              </Command.Group>
+            ) : null}
+
+            {destinations.length > 0 ? (
+              <Command.Group heading={GO_TO}>
+                {destinations.map((action) => (
                   <ActionItem key={action.id} action={action} />
                 ))}
               </Command.Group>
