@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { loadActor } from '@/lib/auth/session';
+import { loadUnreadCount } from '@/lib/data/notifications';
 import { loadPreferences } from '@/lib/data/preferences';
 import { loadCounts, loadDirectory, loadRequesters } from '@/lib/data/tickets';
 import { schoolToday } from '@/lib/format';
@@ -42,11 +43,12 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
     redirect(actor.reason === 'denied' ? '/restricted?reason=denied' : '/restricted');
   }
 
-  const [counts, directory, requesters, preferences] = await Promise.all([
+  const [counts, directory, requesters, preferences, unreadNotifications] = await Promise.all([
     loadCounts(),
     loadDirectory(),
     loadRequesters(),
     loadPreferences(),
+    loadUnreadCount(),
   ]);
 
   return (
@@ -59,7 +61,11 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
       {/* The account's stored theme, handed up to the provider in the root
           layout, which is above this one and knows nothing about accounts. */}
       <ServerTheme theme={preferences.theme} />
-      <AppShell counts={counts} unreadNotifications={0}>
+      <AppShell
+        counts={counts}
+        unreadNotifications={unreadNotifications}
+        notifyInApp={preferences.notifyInApp}
+      >
         {children}
       </AppShell>
     </AppRuntimeProvider>

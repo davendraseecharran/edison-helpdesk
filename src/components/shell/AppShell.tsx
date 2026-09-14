@@ -33,10 +33,13 @@ function modalOpen(): boolean {
 export function AppShell({
   counts,
   unreadNotifications = 0,
+  notifyInApp = true,
   children,
 }: {
   counts: QueueCounts;
   unreadNotifications?: number;
+  /** The account's `notify_in_app` setting. False hides the bell's count. */
+  notifyInApp?: boolean;
   children: ReactNode;
 }) {
   const { actor } = useRuntime();
@@ -78,7 +81,11 @@ export function AppShell({
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
-      <TopBar unreadNotifications={unreadNotifications} onOpenLookup={openLookup} />
+      <TopBar
+        unreadNotifications={unreadNotifications}
+        notifyInApp={notifyInApp}
+        onOpenLookup={openLookup}
+      />
       <RailNav items={items} />
       <main className="main" id="main-content" tabIndex={-1}>
         <Flash />

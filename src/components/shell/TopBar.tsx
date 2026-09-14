@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { Bell, Plus } from 'lucide-react';
-import { Button, ButtonLink } from '@/components/ui/Button';
+import { Plus } from 'lucide-react';
+import { ButtonLink } from '@/components/ui/Button';
 import { AiToggle } from './AiToggle';
 import { LookupTrigger } from './LookupBar';
+import { NotificationsBell } from './NotificationsBell';
 import { UserMenu } from './UserMenu';
 
 /** Dispatched on `window` to open the assistant panel, wherever it lives. */
@@ -18,33 +19,18 @@ export function openAssistant(prompt?: string): void {
 }
 
 /**
- * Bell with an unread count. The dropdown arrives with notifications; until
- * then the button announces the count and does nothing else.
- */
-export function NotificationsBell({ unread }: { unread: number }) {
-  const label = unread > 0 ? `Notifications, ${unread} unread` : 'Notifications';
-  return (
-    <span className="bell">
-      <Button variant="ghost" icon={Bell} aria-label={label} title="Notifications" />
-      {unread > 0 ? (
-        <span className="bell-count" aria-hidden="true">
-          {unread > 9 ? '9+' : unread}
-        </span>
-      ) : null}
-    </span>
-  );
-}
-
-/**
  * The top bar: brand, the lookup field in the centre, then the actions that
  * are always one press away. The lookup is the one bold element of the
  * interface, so the bar around it stays plain.
  */
 export function TopBar({
   unreadNotifications,
+  notifyInApp = true,
   onOpenLookup,
 }: {
   unreadNotifications: number;
+  /** The account's `notify_in_app` setting. False hides the bell's count. */
+  notifyInApp?: boolean;
   onOpenLookup: () => void;
 }) {
   return (
@@ -64,7 +50,7 @@ export function TopBar({
         <ButtonLink href="/tickets/new" variant="primary" icon={Plus} collapseOnPhone>
           New ticket
         </ButtonLink>
-        <NotificationsBell unread={unreadNotifications} />
+        <NotificationsBell unread={unreadNotifications} showCount={notifyInApp} />
         <AiToggle />
         <UserMenu />
       </div>
