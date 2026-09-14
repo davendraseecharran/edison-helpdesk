@@ -17,16 +17,26 @@
 --      20260914120000_m5_create_ticket_merged.sql.
 --   3. `app_has_role(text)`, added by 20260914140000, was granted and never
 --      called -- a door left unlocked and unused. It is wired into the three
---      guards that test the CALLER's own roles in place of the inline
---      `roles && array[...]` test: `app_lock_ticket` (p_actor is always the
---      caller, passed in as `v_actor` by every site that calls it),
---      `app_insights` and `app_save_inventory_device` (both call
---      `app_require_actor()` into the variable they then test), and
---      `app_claim_ticket` (20260914140100_m5_roles_ticket_targets.sql), same
---      shape. `app_reassign_ticket` and `app_add_collaborator` keep their
---      inline form: those two guards test the TARGET account a role is being
---      handed to, and `app_has_role` only ever asks about `auth.uid()`, so it
---      cannot stand in for a check on somebody else's row.
+--      guards that test the CALLER's own roles, always reached only through
+--      `app_require_actor()` reading `auth.uid()` into the variable the guard
+--      then tests, in place of the inline `roles && array[...]` test:
+--      `app_insights`, `app_save_inventory_device` and `app_claim_ticket`
+--      (20260914140100_m5_roles_ticket_targets.sql).
+--
+--      `app_lock_ticket(p_ticket, p_actor)` looked like a fourth: every
+--      SESSION-based caller passes it `v_actor` from its own
+--      `app_require_actor()`, so `p_actor.id = auth.uid()` there too. But
+--      `app_trusted_register_attachment` and its kin (20260912100810,
+--      20260912101300) build `v_actor` from an explicit `p_actor uuid`
+--      parameter instead -- a service-role path with no session and no
+--      `auth.uid()` at all -- and call `app_lock_ticket` with THAT row.
+--      `app_has_role` would ask about `auth.uid()` regardless, find no row,
+--      and refuse every trusted attachment. Caught by this migration's own
+--      `npm run test:db` (m5-row-attribution.test.ts). `app_lock_ticket` keeps
+--      its inline form, for the same reason `app_reassign_ticket` and
+--      `app_add_collaborator` keep theirs: the row under test is not
+--      guaranteed to be the caller, and `app_has_role` only ever asks about
+--      `auth.uid()`.
 --
 -- Additive: no table changes, no data changes.
 -- ---------------------------------------------------------------------------
@@ -370,53 +380,13 @@ to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- app_has_role wired into the guards that test the caller's own roles.
--- Restated from 20260914140000 (app_lock_ticket, app_insights,
--- app_save_inventory_device) and 20260914140100 (app_claim_ticket), each with
--- exactly one line changed: the inline `roles && array[...]` becomes the two
--- app_has_role calls it is equivalent to for these callers. Nothing else in
--- any of the four bodies changes.
+-- Restated from 20260914140000 (app_insights, app_save_inventory_device) and
+-- 20260914140100 (app_claim_ticket), each with exactly one line changed: the
+-- inline `roles && array[...]` becomes the two app_has_role calls it is
+-- equivalent to for these callers. Nothing else in any of the three bodies
+-- changes. app_lock_ticket is NOT restated here: see the header comment for
+-- why its inline form stays.
 -- ---------------------------------------------------------------------------
-
-create or replace function public.app_lock_ticket(p_ticket uuid, p_actor public.app_accounts)
-returns public.tickets
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_ticket public.tickets;
-begin
-  if p_ticket is null then
-    raise exception 'That ticket is not available to this account.'
-      using errcode = 'insufficient_privilege';
-  end if;
-
-  select * into v_ticket
-  from public.tickets t
-  where t.id = p_ticket
-  for update;
-
-  if not found
-    or not (public.app_has_role('admin') or public.app_has_role('netrider'))
-    or not (
-      p_actor.role = 'admin'
-      or (v_ticket.status = 'open' and v_ticket.owner_id is null)
-      or coalesce(v_ticket.owner_id = p_actor.id, false)
-      or exists (
-        select 1
-        from public.ticket_collaborators tc
-        where tc.ticket_id = v_ticket.id
-          and tc.account_id = p_actor.id
-      )
-    )
-  then
-    raise exception 'That ticket is not available to this account.'
-      using errcode = 'insufficient_privilege';
-  end if;
-
-  return v_ticket;
-end;
-$$;
 
 create or replace function public.app_insights(p_days integer default 30)
 returns jsonb

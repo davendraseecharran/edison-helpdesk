@@ -91,7 +91,7 @@ describe('admin intake', () => {
       p_requester_unknown: true,
       p_owner_id: identity('inactive').id,
     });
-    expect(inactiveOwner.message).toMatch(/active technician/i);
+    expect(inactiveOwner.message).toMatch(/active netrider/i);
   });
 
   it('records devices and collaborators in the same transaction', async () => {

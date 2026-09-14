@@ -366,17 +366,13 @@ describe('access requests', () => {
 
 describe('role changes', () => {
   it('sets another account’s roles through the one door, admin_set_role is gone', async () => {
-    // Morgan is the only usable administrator among these fixtures, so this
-    // is refused by the same last-usable-administrator guard the dedicated
-    // account-roles suite exercises directly, not by a "your own role"
-    // special case — app_set_account_roles carries no such case.
-    expect(
-      (await rpcFails(admin, 'app_set_account_roles', {
-        p_account: identity('admin').id,
-        p_roles: ['netrider'],
-      })).code,
-    ).toBe(REFUSED);
-
+    // The last-usable-administrator guard, and the self-change case
+    // app_admin_set_role used to carry as a special rule of its own, are the
+    // dedicated account-roles suite's job, which controls the admin count
+    // itself rather than relying on whatever an earlier file happened to
+    // leave behind. What is proved here is narrower: the dropped RPC's name
+    // is gone, and app_set_account_roles is reachable only by an
+    // administrator.
     expect(
       (await rpcFails(owner, 'app_set_account_roles', {
         p_account: identity('collaborator').id,

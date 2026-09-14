@@ -169,7 +169,7 @@ describe('deactivation with a live session', () => {
       p_requester_unknown: true,
       p_owner_id: identity('unrelated').id,
     });
-    expect(intake.message).toMatch(/active technician/i);
+    expect(intake.message).toMatch(/active netrider/i);
 
     const { ticketId } = await ownedTicket();
     const collaborate = await rpcFails(admin, 'app_add_collaborator', {
