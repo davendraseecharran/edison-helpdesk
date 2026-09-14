@@ -145,6 +145,52 @@ export function safeHref(href: string | null | undefined): string | null {
   return trimmed;
 }
 
+/**
+ * The ticket a notice points at, or null.
+ *
+ * Every ticket notice carries `/tickets/<id>` as its link, which is the only
+ * place the id appears — the row is written by the database and holds a path,
+ * not a foreign key. Parsed rather than trusted: a path that is not a ticket
+ * path yields null, so an action is never offered against something that is not
+ * a ticket.
+ */
+export function ticketIdFromHref(href: string | null): string | null {
+  const safe = safeHref(href);
+  if (safe === null) return null;
+  const match = /^\/tickets\/([^/?#]+)$/.exec(safe);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/** What a notice offers to do about itself, beside opening it. */
+export type NotificationAction =
+  | { kind: 'claim'; label: string; ticketId: string }
+  | { kind: 'review'; label: string; href: string }
+  | { kind: 'open'; label: string; href: string }
+  | null;
+
+/**
+ * The one action this notice is about.
+ *
+ * A notice is a thing that happened and a thing you might do about it, and the
+ * second half was missing: every row navigated, and claiming the ticket
+ * somebody had just returned meant opening it, finding the button and coming
+ * back. The kinds that carry a real action are the two where the notice IS the
+ * work — a ticket returned to the queue, and somebody waiting to be let in.
+ * Everything else opens, which is what the row already did.
+ */
+export function notificationAction(item: NotificationView): NotificationAction {
+  const href = safeHref(item.href);
+  if (item.kind === 'ticket_returned') {
+    const ticketId = ticketIdFromHref(item.href);
+    if (ticketId) return { kind: 'claim', label: 'Claim', ticketId };
+  }
+  if (item.kind === 'access_requested' && href) {
+    return { kind: 'review', label: 'Review', href };
+  }
+  if (href) return { kind: 'open', label: 'Open', href };
+  return null;
+}
+
 /** Whether a notice has not been read yet. */
 export function isUnread(item: NotificationView): boolean {
   return item.readAt === null;

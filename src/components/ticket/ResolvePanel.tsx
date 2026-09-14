@@ -1,13 +1,15 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { TicketDetail } from '@/lib/domain/selectors';
 import { canResolveTicket } from '@/lib/domain/permissions';
+import { draftSolution } from '@/lib/domain/resolution';
 import { resolveTicketAction } from '@/lib/data/actions';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Field } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
 import { revealControl, useTicketIntent } from './TicketActionBar';
+import '@/styles/lists.css';
 
 /**
  * Resolution. A non-blank solution is required; a time entry is not. The owner
@@ -20,7 +22,19 @@ export function ResolvePanel({ detail }: { detail: TicketDetail }) {
   const actor = useActorAccount();
   const [solution, setSolution] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [draftUsed, setDraftUsed] = useState(false);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
+
+  /*
+   * The solution, already written.
+   *
+   * By the time somebody resolves a ticket they have usually typed the answer
+   * once already, in a note. This offers it back rather than asking for it
+   * again at the end of a long day, which is the moment solutions get written
+   * as "fixed". It is offered rather than filled in: a solution nobody read
+   * before pressing the button is worse than a short one somebody meant.
+   */
+  const draft = useMemo(() => draftSolution(detail), [detail]);
 
   const ticket = detail.ticket;
   const mayResolve = canResolveTicket(ticket, actor);
@@ -52,6 +66,27 @@ export function ResolvePanel({ detail }: { detail: TicketDetail }) {
       <div className="panel-body">
         {mayResolve ? (
           <form onSubmit={onSubmit} className="form">
+            {draft && !draftUsed && solution.trim() === '' ? (
+              <div className="resolve-draft">
+                <p className="resolve-draft-label">From the notes and the work log</p>
+                <p className="resolve-draft-text">{draft}</p>
+                <div className="resolve-draft-actions">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setSolution(draft);
+                      setDraftUsed(true);
+                      revealControl(fieldRef.current);
+                    }}
+                  >
+                    Use this
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setDraftUsed(true)}>
+                    Write my own
+                  </Button>
+                </div>
+              </div>
+            ) : null}
             <Field
               label="Solution"
               htmlFor={`solution-${ticket.id}`}

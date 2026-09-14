@@ -245,3 +245,35 @@
     padding: 12px 10px;
   }
 }
+
+/* --- The action a notice is about ---------------------------------------- */
+
+/*
+ * A notice used to be half a thing: it said what happened and then made you go
+ * and find the button. The two kinds where the notice IS the work — a ticket
+ * returned to the queue, somebody waiting to be let in — carry their action on
+ * the row. It is a sibling of the link rather than a child of it, because a
+ * button inside a link is a press with two meanings.
+ */
+.notification-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.notification-row > .notification {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.notification-action {
+  flex: none;
+  padding-right: 10px;
+}
+
+@media (max-width: 719.98px) {
+  .notification-action {
+    padding-right: 6px;
+  }
+}

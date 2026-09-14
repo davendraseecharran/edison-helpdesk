@@ -12,6 +12,8 @@ import {
   toNotificationFilter,
   unreadBadge,
   type NotificationView,
+  notificationAction,
+  ticketIdFromHref,
 } from '../src/lib/domain/notifications';
 
 /** A notice, with only the fields a test cares about spelled out. */
@@ -180,5 +182,48 @@ describe('read state and filters', () => {
     expect(toNotificationFilter('UNREAD')).toBe('all');
     expect(toNotificationFilter(undefined)).toBe('all');
     expect(toNotificationFilter('')).toBe('all');
+  });
+});
+
+describe('the action a notice carries', () => {
+  function notice(kind: string, href: string | null): NotificationView {
+    return { id: `n-${kind}`, kind, title: kind, body: null, href, createdAt: '', readAt: null };
+  }
+
+  it('reads the ticket out of the link, and only out of a ticket link', () => {
+    expect(ticketIdFromHref('/tickets/abc-123')).toBe('abc-123');
+    expect(ticketIdFromHref('/tickets/a%2Fb')).toBe('a/b');
+    expect(ticketIdFromHref('/tickets/abc/extra')).toBeNull();
+    expect(ticketIdFromHref('/people/abc')).toBeNull();
+    expect(ticketIdFromHref('//evil.example/tickets/abc')).toBeNull();
+    expect(ticketIdFromHref(null)).toBeNull();
+  });
+
+  it('offers to claim a ticket that was returned to the queue', () => {
+    expect(notificationAction(notice('ticket_returned', '/tickets/t1'))).toEqual({
+      kind: 'claim',
+      label: 'Claim',
+      ticketId: 't1',
+    });
+  });
+
+  it('offers to review an access request', () => {
+    expect(notificationAction(notice('access_requested', '/admin'))).toEqual({
+      kind: 'review',
+      label: 'Review',
+      href: '/admin',
+    });
+  });
+
+  it('opens everything else, which is what the row already did', () => {
+    expect(notificationAction(notice('ticket_assigned', '/tickets/t1'))?.kind).toBe('open');
+    expect(notificationAction(notice('collaborator_added', '/tickets/t1'))?.kind).toBe('open');
+  });
+
+  it('offers nothing for a notice with nowhere to go', () => {
+    expect(notificationAction(notice('ticket_assigned', null))).toBeNull();
+    // A returned-ticket notice whose link is not a ticket falls back rather
+    // than offering to claim something it cannot name.
+    expect(notificationAction(notice('ticket_returned', '/queue'))?.kind).toBe('open');
   });
 });

@@ -59,3 +59,40 @@
     display: none;
   }
 }
+
+/* --- The drafted solution ------------------------------------------------ */
+
+/*
+ * What the ticket already says, offered back at the moment it is asked for
+ * again. It sits above the field rather than inside it, because a solution
+ * nobody read before pressing the button is worse than a short one somebody
+ * meant — accepting it is a press, not an absence of one.
+ */
+.resolve-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--surface);
+}
+
+.resolve-draft-label {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.resolve-draft-text {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-2);
+  line-height: 1.5;
+}
+
+.resolve-draft-actions {
+  display: flex;
+  gap: 8px;
+}
