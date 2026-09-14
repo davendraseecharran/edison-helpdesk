@@ -7,6 +7,7 @@ describe('navItems', () => {
   it('gives NetRiders work, directory and inventory but no admin group', () => {
     const items = navItems(['netrider'], counts);
     expect(items.map((i) => i.href)).toEqual([
+      '/today',
       '/queue',
       '/my-tickets',
       '/collaborating',
@@ -46,6 +47,7 @@ describe('navItems', () => {
     // Nothing in the rail leads anywhere they would be turned away from.
     expect(items.some((i) => i.group === 'Work' || i.group === 'Admin')).toBe(false);
     expect(items.some((i) => i.href === '/insights')).toBe(false);
+    expect(items.some((i) => i.href === '/today')).toBe(false);
   });
 
   it('adds rather than replaces when somebody holds two roles', () => {
@@ -55,5 +57,6 @@ describe('navItems', () => {
     const both = navItems(['admin', 'skills_officer'], counts);
     expect(both.map((i) => i.href)).toContain('/admin');
     expect(both.map((i) => i.href)).toContain('/queue');
+    expect(both.map((i) => i.href)).toContain('/today');
   });
 });

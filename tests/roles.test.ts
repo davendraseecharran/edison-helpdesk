@@ -73,11 +73,11 @@ describe('predicates', () => {
     expect(isAdmin(['netrider', 'skills_officer'])).toBe(false);
   });
 
-  it('lands a skills officer on the directory and everybody else on the queue', () => {
+  it('lands a skills officer on the directory and everybody else on Today', () => {
     expect(landingPath(['skills_officer'])).toBe('/people');
-    expect(landingPath(['netrider'])).toBe('/queue');
-    expect(landingPath(['admin'])).toBe('/queue');
-    expect(landingPath(['netrider', 'skills_officer'])).toBe('/queue');
+    expect(landingPath(['netrider'])).toBe('/today');
+    expect(landingPath(['admin'])).toBe('/today');
+    expect(landingPath(['netrider', 'skills_officer'])).toBe('/today');
   });
 });
 

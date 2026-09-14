@@ -126,9 +126,11 @@ export function canEditInventory(roles: readonly AccountRole[]): boolean {
 /**
  * Where signing in lands, and where a screen someone may not see sends them.
  *
- * A skills officer has no queue, so the directory is their home rather than a
- * consolation prize.
+ * Today rather than the queue: the queue is a list of everything, and the
+ * first question somebody has when they sit down is not "what exists" but
+ * "what needs me". A skills officer has no queue and no Today, so the
+ * directory is their home rather than a consolation prize.
  */
 export function landingPath(roles: readonly AccountRole[]): string {
-  return canWorkTickets(roles) ? '/queue' : '/people';
+  return canWorkTickets(roles) ? '/today' : '/people';
 }

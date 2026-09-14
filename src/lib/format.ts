@@ -105,6 +105,27 @@ const schoolWallClock = new Intl.DateTimeFormat('en-US', {
   hour12: false,
 });
 
+/**
+ * The school's own hour and weekday at an instant.
+ *
+ * For anything that changes with the time of day — a greeting, a Friday
+ * afternoon — computed on the server and handed down, so the browser's own
+ * timezone never disagrees with the page it hydrates. `weekday` is 0 for
+ * Sunday, matching `Date.getDay()`.
+ */
+export function schoolHour(date: Date = new Date()): number {
+  const hour = Number(
+    schoolWallClock.formatToParts(date).find((part) => part.type === 'hour')?.value ?? '0',
+  );
+  // en-US with hour12:false renders midnight as 24 in some ICU versions.
+  return hour % 24;
+}
+
+export function schoolWeekday(date: Date = new Date()): number {
+  const [year, month, day] = toDateKey(date).split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+}
+
 /** Milliseconds the school's wall clock runs ahead of UTC at this instant. */
 function schoolOffsetAt(instant: number): number {
   const parts = schoolWallClock.formatToParts(new Date(instant));

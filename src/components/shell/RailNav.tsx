@@ -6,6 +6,7 @@ import {
   Boxes,
   Briefcase,
   CircleCheck,
+  CalendarCheck,
   ClipboardList,
   GraduationCap,
   Handshake,
@@ -43,7 +44,8 @@ export const NAV_GROUPS: NavGroup[] = ['Work', 'Directory', 'Inventory', 'Admin'
  *
  * Pure so the composition can be tested without rendering. NetRiders get Work,
  * Directory and Inventory; admins also get the Admin group, whose
- * "All tickets" carries the total across every account.
+ * "All tickets" carries the total across every account. Work begins with
+ * Today, which is where signing in lands.
  *
  * A skills officer who is neither gets the directory and the inventory and
  * nothing else — no Work group and no ticket route anywhere in
@@ -62,6 +64,10 @@ export function navItems(roles: readonly AccountRole[], counts: QueueCounts): Na
 
   if (canWorkTickets(roles)) {
     items.push(
+      // Today is first because it is where signing in lands and because it is
+      // the only item that answers "what now" rather than "what exists". It
+      // carries no count: its whole job is to say how much there is.
+      { href: '/today', label: 'Today', icon: CalendarCheck, group: 'Work' },
       {
         href: '/queue',
         label: 'Queue',
@@ -106,9 +112,6 @@ export function navItems(roles: readonly AccountRole[], counts: QueueCounts): Na
     { href: '/inventory/staff', label: 'Staff', icon: Briefcase, group: 'Inventory' },
     { href: '/inventory/devices', label: 'Master inventory', icon: Boxes, group: 'Inventory' },
   );
-
-  if (canWorkTickets(roles)) {
-  }
 
   if (isAdmin(roles)) {
     items.push(

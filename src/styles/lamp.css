@@ -16,7 +16,10 @@
  *      on the screen (the stream ends at the first call that needs approval,
  *      so the panel never shows two), and on a wide screen the panel is docked
  *      rather than modal, so without this it would sit lit beside a lit rail;
- *   3. the rail's current page — the resting state, worn whenever nothing
+ *   3. the row a list's keyboard is on — `j` and `k` move it, and `o`, `c`,
+ *      `r` and `e` act on it, which is the definition of the light. Only one
+ *      list on a screen is ever driven at a time;
+ *   4. the rail's current page — the resting state, worn whenever nothing
  *      above has claimed the light.
  *
  * `:has()` on the document element is what makes this one owner rather than
@@ -37,7 +40,13 @@
   box-shadow: var(--edge-light);
 }
 
-/* 3. The rail's current page, unless either of the above is asking. */
-:root:not(:has(.palette)):not(:has(.ai-approval)) .rail-link[aria-current='page'] {
+/* 3. The row a list's keyboard is on, unless a modal surface is over it. */
+:root:not(:has(.palette)):not(:has(.ai-approval)) [data-row-key][data-focused] {
+  box-shadow: var(--edge-light);
+}
+
+/* 4. The rail's current page, unless any of the above is asking. */
+:root:not(:has(.palette)):not(:has(.ai-approval)):not(:has([data-row-key][data-focused]))
+  .rail-link[aria-current='page'] {
   box-shadow: var(--edge-light);
 }

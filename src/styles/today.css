@@ -1,0 +1,405 @@
+/*
+ * Today: the landing screen, and the one place the interface spends any
+ * boldness at all.
+ *
+ * The boldness is spent on exactly two things. The greeting is set at the
+ * largest size the application uses outside the sign-in screen, because it is
+ * the one line that says this desk is yours. And the screen gets ONE
+ * orchestrated entrance — three semantic groups, 60ms apart, 180ms each, the
+ * last landing at 300ms — which is the only staged animation anywhere in the
+ * product. Everything below it, and every list on every other screen, is
+ * instant.
+ *
+ * The entrance never plays twice in a session. A CSS animation runs the moment
+ * the element is painted, so the suppression has to be in place before that: a
+ * blocking inline script stamps `data-today-seen` on the document element on a
+ * reload, and a layout effect does the same before the first paint of a
+ * client-side navigation. Both read the same session flag.
+ *
+ * Tokens only, and no colour except where colour is information: a priority
+ * that is above normal, and the single accent on the one action the screen is
+ * actually asking for.
+ */
+
+.today {
+  /*
+   * The entrance's numbers, named rather than scattered. Three groups, 60ms
+   * apart, 180ms each: the last one lands at 300ms, which is the budget the
+   * whole choreography was given. The curve is the project's own `--ease-out`.
+   */
+  --today-step: 60ms;
+  --today-rise: 180ms;
+
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 940px;
+}
+
+/* --- The one orchestrated entrance -------------------------------------- */
+
+.today-stage {
+  animation: today-rise var(--today-rise) var(--ease-out) both;
+}
+
+.today-stage:nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.today-stage:nth-child(2) {
+  animation-delay: var(--today-step);
+}
+
+.today-stage:nth-child(3) {
+  animation-delay: calc(var(--today-step) * 2);
+}
+
+@keyframes today-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Seen once this session, or motion turned down: the screen is simply there. */
+:root[data-today-seen] .today-stage,
+:root[data-today-seen] .voice-mark {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .today-stage {
+    animation: none;
+  }
+}
+
+/* --- The greeting -------------------------------------------------------- */
+
+.today-greet {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.today-hello {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-6);
+  font-weight: 500;
+  letter-spacing: var(--tracking-display);
+  line-height: 1.15;
+}
+
+.today-brief {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-3);
+  line-height: 1.45;
+}
+
+/* The Friday remark, and anything else the voice adds after the briefing. */
+.today-aside-line {
+  color: var(--ink-3);
+}
+
+/* --- First sign-in on this browser -------------------------------------- */
+
+.today-welcome {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 12px 12px 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--surface);
+}
+
+.today-welcome-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  line-height: 1.5;
+}
+
+.today-welcome-text strong {
+  display: block;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* --- The list of what needs you ------------------------------------------ */
+
+.today-needs {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.today-needs-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/*
+ * A section label, not a headline. At the briefing line's size it competed
+ * with it and the page read as two equal voices; the list underneath is the
+ * content, and this only has to name it.
+ */
+.today-needs-head h2 {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  font-weight: 500;
+}
+
+/* The keys, shown rather than hidden in a help page nobody opens. */
+.today-keys {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.today-keys span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.today-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  overflow: clip;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--surface);
+  list-style: none;
+}
+
+.today-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+  min-height: 56px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  /* Colour only. The lamp on the focused row is a box-shadow, and a shadow
+     that animates on every `j` is the definition of a cost paid all day. */
+  transition: background-color 100ms ease-out;
+}
+
+.today-list li:last-child .today-row {
+  border-bottom: 0;
+}
+
+.today-row:focus {
+  outline: none;
+}
+
+/*
+ * The row the keyboard is on. The lamp says "your next keystroke acts on
+ * this", and exactly one element on the screen wears it — the ordering that
+ * guarantees that lives in lamp.css.
+ */
+.today-row[data-focused] {
+  position: relative;
+  z-index: 1;
+  background: var(--surface-3);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .today-row:hover {
+    background: var(--surface-3);
+  }
+}
+
+.today-row-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.today-row-title {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--ink);
+  font-size: var(--fs-2);
+  font-weight: 500;
+}
+
+.today-row-title a {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .today-row-title a:hover {
+    text-decoration: underline;
+  }
+}
+
+.today-row-number {
+  flex: none;
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-0);
+}
+
+.today-row-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+/* What kind of thing this row is: unclaimed, waiting on a reply, wants access. */
+.today-row-kind {
+  color: var(--ink-2);
+}
+
+/* Colour is information: only a priority above normal is allowed any. */
+.today-row-flag {
+  color: var(--ink-2);
+}
+
+.today-row-flag[data-priority='urgent'] {
+  color: var(--bad);
+}
+
+.today-row-flag[data-priority='high'] {
+  color: var(--warn);
+}
+
+.today-row-age {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.today-row-action {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 92px;
+}
+
+/* --- Nothing needs you --------------------------------------------------- */
+
+.today-clear {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 28px 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--surface);
+}
+
+.today-clear p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-3);
+}
+
+.today-clear .today-clear-lead {
+  color: var(--ink);
+}
+
+/* --- Where the rest of the work is --------------------------------------- */
+
+/*
+ * Three identical rounded cards with one big number each is the kit every
+ * dashboard ships; it said nothing this line does not, and it said it in three
+ * boxes. A ledger rule with the numbers set inline reads as a desk, costs one
+ * row, and lets a measure that is zero simply not appear.
+ */
+.today-ledger {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.today-ledger-item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  color: var(--ink-3);
+  font-size: var(--fs-2);
+  text-decoration: none;
+}
+
+.today-ledger-item b {
+  color: var(--ink);
+  font-size: var(--fs-3);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .today-ledger-item:hover span {
+    color: var(--ink-2);
+    text-decoration: underline;
+  }
+}
+
+/* --- Phone --------------------------------------------------------------- */
+
+@media (max-width: 719.98px) {
+  .today {
+    gap: 20px;
+  }
+
+  .today-hello {
+    font-size: var(--fs-5);
+  }
+
+  .today-brief {
+    font-size: var(--fs-2);
+  }
+
+  /*
+   * The action drops to its own row rather than squeezing the title into two
+   * words. The age keeps its place beside the title, because the age is why
+   * the row is where it is in the list.
+   */
+  .today-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 12px;
+  }
+
+  .today-row-action {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .today-keys {
+    display: none;
+  }
+}

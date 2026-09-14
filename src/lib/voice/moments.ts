@@ -84,27 +84,20 @@ interface MomentCopy {
  * `{count}` and `{key}`.
  */
 const COPY: Record<MomentId, MomentCopy> = {
+  /*
+   * A greeting is the shortest line on the page set at the largest size, so
+   * every variant is a salutation and a name and nothing else. The remark that
+   * used to ride along here pushed the briefing under it into a footnote; it
+   * belongs on the second line, at the size a sentence is read at.
+   */
   'today.morning': {
-    lines: [
-      'Good morning, {name}.',
-      'Morning, {name}. The desk is open.',
-      'Good morning, {name}. Here is what came in overnight.',
-      'Morning, {name}. Before the first bell.',
-    ],
+    lines: ['Good morning, {name}.', 'Morning, {name}.', 'Early, {name}.'],
   },
   'today.afternoon': {
-    lines: [
-      'Good afternoon, {name}.',
-      'Afternoon, {name}. Here is what is left.',
-      'Afternoon, {name}. Halfway through.',
-    ],
+    lines: ['Good afternoon, {name}.', 'Afternoon, {name}.', 'Hello, {name}.'],
   },
   'today.evening': {
-    lines: [
-      'Good evening, {name}.',
-      'Evening, {name}. One last look.',
-      'Evening, {name}. Whatever is left keeps until tomorrow.',
-    ],
+    lines: ['Good evening, {name}.', 'Evening, {name}.', 'Still here, {name}.'],
   },
   'today.empty': {
     lines: [
