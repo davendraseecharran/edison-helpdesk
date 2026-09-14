@@ -7,7 +7,7 @@ import { X } from 'lucide-react';
 import { useToasts } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
 import { useReducedMotion } from '@/components/ui/media';
-import { AnimatePresence, EASE_IN_FAST, EASE_OUT, INSTANT, motion } from '@/components/ui/Motion';
+import { AnimatePresence, EASE_OUT, EASE_OUT_FAST, INSTANT, motion } from '@/components/ui/Motion';
 import { nextDeadline, type Toast, type ToastAction, type ToastHold } from '@/components/ui/toast';
 import { useNow } from '@/lib/useNow';
 import { formatAge, formatDateTime, formatRelative, initialsOf } from '@/lib/format';
@@ -78,6 +78,25 @@ export function Flash() {
   const reduced = useReducedMotion();
   const deadline = nextDeadline(toasts);
 
+  /*
+   * A message nobody is looking at has not been read. Switching to another tab
+   * stops every clock and coming back starts them again from where they
+   * stopped, so "Ticket resolved." is still on screen a minute later rather
+   * than having expired into an empty corner. The initial dispatch covers the
+   * case where the page was restored into a background tab.
+   */
+  useEffect(() => {
+    function sync(): void {
+      dispatchToast({
+        type: document.visibilityState === 'hidden' ? 'hide' : 'show',
+        now: Date.now(),
+      });
+    }
+    sync();
+    document.addEventListener('visibilitychange', sync);
+    return () => document.removeEventListener('visibilitychange', sync);
+  }, [dispatchToast]);
+
   useEffect(() => {
     if (deadline === null) return;
     // Expire at the deadline the timer was armed for, not at whatever the
@@ -126,7 +145,7 @@ function ToastItem({
       layout={reduced ? false : 'position'}
       initial={reduced ? false : { opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={reduced ? undefined : { opacity: 0, transition: EASE_IN_FAST }}
+      exit={reduced ? undefined : { opacity: 0, y: 8, transition: EASE_OUT_FAST }}
       transition={reduced ? INSTANT : EASE_OUT}
       onPointerEnter={() => hold('hover')}
       onPointerLeave={() => release('hover')}

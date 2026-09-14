@@ -194,8 +194,8 @@
 /*
  * A dialog on desktop, hung near the top so results have room to grow
  * downwards; a full-height sheet on phones, where the keyboard takes the
- * lower half. The panel does not clip: the opening beam blooms a little past
- * its edge, and nothing inside reaches the corners.
+ * lower half. It opens with no animation at all — see the note in
+ * `LookupBar.tsx`.
  */
 .palette {
   width: min(640px, calc(100% - 32px));
@@ -294,6 +294,7 @@
   font-weight: 500;
 }
 
+/* 8px of list padding around an 8px row makes the 16px panel concentric. */
 .palette-list [cmdk-item] {
   position: relative;
   display: flex;
@@ -301,26 +302,22 @@
   gap: 12px;
   min-height: 40px;
   padding: 6px 10px;
-  border-radius: var(--radius-1);
+  border-radius: var(--radius-2);
   color: var(--ink);
   cursor: pointer;
   user-select: none;
 }
 
+/*
+ * The row the keyboard is on. While the palette is open it is the only thing
+ * on the screen that Enter will act on, so it takes the lamp — the same one
+ * the rail wears for the page you are on, which is behind the backdrop while
+ * this is up. No transition: the selection moves on every arrow key, and at
+ * that frequency anything but an instant change is a lag.
+ */
 .palette-list [cmdk-item][data-selected='true'] {
   background: var(--surface-3);
-}
-
-/* The same brass marker the rail uses for the current page. */
-.palette-list [cmdk-item][data-selected='true']::before {
-  content: '';
-  position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 0;
-  width: 3px;
-  border-radius: 0 2px 2px 0;
-  background: var(--brass);
+  box-shadow: var(--edge-light);
 }
 
 .palette-item-icon {
@@ -477,10 +474,6 @@
     max-height: none;
     margin: 0;
     border-top: 0;
-    border-radius: 0;
-  }
-
-  .palette-sheet .open-beam-ghost {
     border-radius: 0;
   }
 

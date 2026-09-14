@@ -10,9 +10,14 @@
  * semantics, arrow keys and Enter; this file owns what is in the list, the
  * surface it sits on, and what selecting something does.
  *
- * Desktop: a dialog hung at 15vh, 640px wide, scaling in. Phone: a
- * full-height sheet from the bottom. Both carry the opening beam for two
- * rotations, then it is gone. Reduced motion removes the beam and the reveal.
+ * Desktop: a dialog hung at 15vh, 640px wide. Phone: a full-height sheet from
+ * the bottom. Neither animates, and neither carries the opening beam any more.
+ * This is the surface somebody reaches for dozens of times a day, and the one
+ * rule about motion that does not bend is that a high-frequency interaction
+ * gets instant feedback: after the tenth time, a scale and a rotating stroke
+ * are not delight, they are the delay between asking for the palette and being
+ * able to type into it. The beam still belongs to the assistant panel and to
+ * an approval card, which are opened rarely and are worth announcing.
  */
 
 import {
@@ -32,7 +37,6 @@ import { Hand, Plus, Search, Settings, Smartphone, Sparkles, SunMoon, X } from '
 import { useRuntime } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
-import { OpenBeam } from '@/components/ui/OpenBeam';
 import { useBodyScrollLock, useEscape, useFocusTrap } from '@/components/ui/focus';
 import { useApplePlatform, usePhone } from '@/components/ui/media';
 import { AnimatePresence, SpringSurface } from '@/components/ui/Motion';
@@ -433,9 +437,10 @@ function Palette({
         'aria-labelledby': titleId,
         tabIndex: -1,
       }}
+      instant
       onBackdropPress={onClose}
     >
-      <OpenBeam className="palette-frame">
+      <div className="palette-frame">
         <h2 id={titleId} className="visually-hidden">
           Lookup
         </h2>
@@ -524,7 +529,7 @@ function Palette({
             </span>
           </footer>
         </Command>
-      </OpenBeam>
+      </div>
     </SpringSurface>
   );
 }

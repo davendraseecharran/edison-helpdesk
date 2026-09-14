@@ -32,7 +32,7 @@ import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { useBodyScrollLock, useEscape, useFocusTrap, useOutsidePress } from '@/components/ui/focus';
 import { useMediaQuery, usePhone, useReducedMotion } from '@/components/ui/media';
-import { AnimatePresence, DURATION, EASE_IN_FAST, INSTANT, SPRING } from '@/components/ui/Motion';
+import { AnimatePresence, DURATION, EASE_OUT_FAST, INSTANT, SPRING } from '@/components/ui/Motion';
 import { OpenBeam } from '@/components/ui/OpenBeam';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import type { ConversationSummary } from '@/lib/ai/conversations';
@@ -490,7 +490,7 @@ export function AiPanel({
             tabIndex={-1}
             initial={reduced ? false : hidden}
             animate={shown}
-            exit={reduced ? undefined : { ...hidden, transition: EASE_IN_FAST }}
+            exit={reduced ? undefined : { ...hidden, transition: EASE_OUT_FAST }}
             transition={reduced ? INSTANT : SPRING}
           >
             <OpenBeam className="ai-frame">

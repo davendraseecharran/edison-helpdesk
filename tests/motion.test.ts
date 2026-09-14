@@ -62,6 +62,14 @@ function dismiss(state: ToastState, id: number, now: number) {
   return toastReducer(state, { type: 'dismiss', id, now });
 }
 
+function hide(state: ToastState, now: number) {
+  return toastReducer(state, { type: 'hide', now });
+}
+
+function show(state: ToastState, now: number) {
+  return toastReducer(state, { type: 'show', now });
+}
+
 describe('toastReducer', () => {
   it('gives a success toast a five second deadline from the moment it is pushed', () => {
     const state = push(initialToastState, 'success', 'Ticket claimed', 1_000);
@@ -249,6 +257,55 @@ describe('toastReducer', () => {
     state = push(state, 'error', 'Three', 0);
     state = push(state, 'error', 'Four', 0);
     expect(state.toasts.map((toast) => toast.text)).toEqual(['Two', 'Three', 'Four']);
+  });
+
+  it('stops every clock while the tab is hidden and resumes with the time left', () => {
+    let state = push(initialToastState, 'success', 'Ticket resolved', 0);
+    state = hide(state, 1_500);
+    expect(state.paused).toBe(true);
+    expect(state.toasts[0].deadline).toBeNull();
+    expect(state.toasts[0].remaining).toBe(TOAST_LIFETIME_MS - 1_500);
+
+    // A minute in the background expires nothing: nobody was reading it.
+    state = toastReducer(state, { type: 'expire', now: 60_000 });
+    expect(state.toasts).toHaveLength(1);
+
+    state = show(state, 60_000);
+    expect(state.paused).toBe(false);
+    expect(state.toasts[0].deadline).toBe(60_000 + TOAST_LIFETIME_MS - 1_500);
+  });
+
+  it('pushes a toast into a hidden tab without a clock and starts it on return', () => {
+    let state = hide(initialToastState, 0);
+    state = push(state, 'success', 'Note added', 1_000);
+    expect(state.toasts[0].deadline).toBeNull();
+    state = show(state, 9_000);
+    expect(state.toasts[0].deadline).toBe(9_000 + TOAST_LIFETIME_MS);
+  });
+
+  it('keeps the clock stopped when the pointer is still resting on a toast', () => {
+    let state = push(initialToastState, 'success', 'Note added', 0);
+    const id = state.toasts[0].id;
+    state = hold(state, 'hover', id, 1_000);
+    state = hide(state, 2_000);
+    state = show(state, 30_000);
+    expect(state.paused).toBe(true);
+    expect(state.toasts[0].deadline).toBeNull();
+
+    // And a hold released while the tab is still hidden does not restart it.
+    state = hide(state, 31_000);
+    state = release(state, 'hover', id, 32_000);
+    expect(state.paused).toBe(true);
+    expect(state.toasts[0].deadline).toBeNull();
+    state = show(state, 33_000);
+    expect(state.toasts[0].deadline).toBe(33_000 + TOAST_LIFETIME_MS - 1_000);
+  });
+
+  it('is unchanged by a repeated hide or a show while already visible', () => {
+    const state = push(initialToastState, 'success', 'Note added', 0);
+    const hidden = hide(state, 1_000);
+    expect(hide(hidden, 2_000)).toBe(hidden);
+    expect(show(state, 2_000)).toBe(state);
   });
 
   it('reports the earliest deadline for scheduling one timer', () => {
