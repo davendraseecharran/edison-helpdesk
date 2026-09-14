@@ -31,13 +31,14 @@ import { toDateKey } from '@/lib/format';
 
 /**
  * Every kind the migrations write, with the RPC that writes it:
- *   - `ticket_assigned`    app_reassign_ticket  → the new owner
- *   - `ticket_claimed`     app_claim_ticket     → the technician who held it
- *   - `ticket_returned`    app_return_ticket    → active administrators
- *   - `ticket_reopened`    app_reopen_ticket    → the owner
- *   - `collaborator_added` app_add_collaborator → the new collaborator
- *   - `access_requested`   app_link_identity    → active administrators
- *   - `access_approved`/`access_denied`  app_decide_access → the requester
+ *   - `ticket_assigned`    app_reassign_ticket        → the new owner
+ *   - `ticket_claimed`     app_claim_ticket           → the technician who held it
+ *   - `ticket_returned`    app_return_ticket_to_queue → active administrators
+ *   - `ticket_reopened`    app_reopen_ticket          → the owner
+ *   - `collaborator_added` app_add_collaborator       → the new collaborator
+ *   - `access_requested`   app_trusted_link_identity  → active administrators
+ *   - `access_approved`/`access_denied`
+ *     app_admin_review_access_request → the requester
  */
 export const NOTIFICATION_KINDS = [
   'ticket_assigned',
