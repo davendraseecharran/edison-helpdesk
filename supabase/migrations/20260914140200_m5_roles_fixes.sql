@@ -46,7 +46,9 @@ drop function public.app_admin_set_role(uuid, text);
 -- ---------------------------------------------------------------------------
 -- app_create_ticket, restated verbatim from 20260914120000 except the four
 -- messages a walk-in submitter or an administrator choosing an owner can
--- actually read.
+-- actually read. Seventeen arguments, not eighteen: p_person_id went with the
+-- M5 people table, and the requester is a staff or student row that already
+-- exists in the district's directory.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.app_create_ticket(
@@ -66,7 +68,6 @@ create or replace function public.app_create_ticket(
   p_collaborator_ids uuid[] default '{}',
   p_devices jsonb default '[]',
   p_category text default 'other',
-  p_person_id uuid default null,
   p_device_ids uuid[] default '{}'
 )
 returns uuid
@@ -82,7 +83,6 @@ declare
   v_requester uuid := p_requester_id;
   v_submitted date := coalesce(p_submitted_on, public.app_today());
   v_category text := coalesce(nullif(pg_catalog.btrim(coalesce(p_category, '')), ''), 'other');
-  v_person public.people;
   v_ticket public.tickets;
   v_ticket_id uuid;
   v_collaborator uuid;
@@ -113,6 +113,16 @@ begin
   -- none yet) but not unbounded.
   if length(coalesce(p_issue, '')) > 6000 then
     raise exception 'Keep notes under 6000 characters.' using errcode = 'check_violation';
+  end if;
+  -- Their rule, adopted: the directory is the district's, and a requester is
+  -- somebody already in it. Typing a name here would make a row with no source
+  -- identifier beside 3,709 rows that have one.
+  if length(btrim(coalesce(p_requester_name, ''))) > 0 then
+    raise exception 'Select an existing requester or Requester Unknown.' using errcode = 'check_violation';
+  end if;
+  -- Their rule, adopted: intake here is physical, and a room goes in location.
+  if coalesce(p_is_remote, false) then
+    raise exception 'Use the location field for intake.' using errcode = 'check_violation';
   end if;
   -- Their bound, checked before any row is written so an oversized list costs
   -- one message rather than a long transaction.
@@ -154,58 +164,20 @@ begin
     raise exception 'Choose an active NetRider as the owner.' using errcode = 'check_violation';
   end if;
 
-  -- Requester: explicitly unknown, somebody in the directory, an existing
-  -- requester record, or a new minimal record typed in by hand.
+  -- Requester: explicitly unknown, or a staff or student row that already
+  -- exists in the district's directory. Nothing else.
   if coalesce(p_requester_unknown, false) then
     -- Their check: "unknown" and a named requester in the same call is a caller
     -- that has not decided, not a request to prefer one of them.
-    if p_requester_id is not null or p_person_id is not null then
+    if p_requester_id is not null then
       raise exception 'Choose one requester option.' using errcode = 'check_violation';
     end if;
     v_requester := null;
-  elsif p_person_id is not null then
-    -- SECURITY DEFINER, so this read is not under RLS. app_require_actor above
-    -- has already established an active account, and an active account may read
-    -- every person anyway.
-    select * into v_person from public.people p where p.id = p_person_id;
-    if not found then
-      raise exception 'That person is not in the directory. Search for them again.'
-        using errcode = 'no_data_found';
-    end if;
-
-    -- One requester row per person: found, or made once and reused forever --
-    -- in ONE statement, so two technicians recording a walk-in for the same
-    -- student at the same moment both succeed. The `do update` is a no-op that
-    -- exists so RETURNING yields the existing row's id; `do nothing` would
-    -- return no row at all. Nothing else on the existing requester is
-    -- overwritten: that row is the authoritative one.
-    insert into public.requesters (display_name, kind, descriptor, created_by, person_id)
-    values (
-      v_person.display_name,
-      v_person.kind,
-      nullif(btrim(coalesce(v_person.department, v_person.official_class, '')), ''),
-      v_actor.id,
-      p_person_id
-    )
-    on conflict (person_id) where person_id is not null
-      do update set person_id = excluded.person_id
-    returning id into v_requester;
-  elsif v_requester is not null then
-    if not exists (select 1 from public.requesters r where r.id = v_requester) then
-      raise exception 'That requester record no longer exists.' using errcode = 'check_violation';
-    end if;
-  elsif length(btrim(coalesce(p_requester_name, ''))) > 0 then
-    insert into public.requesters (display_name, kind, descriptor, created_by)
-    values (
-      btrim(p_requester_name),
-      coalesce(nullif(btrim(coalesce(p_requester_kind, '')), ''), 'staff'),
-      nullif(btrim(coalesce(p_requester_descriptor, '')), ''),
-      v_actor.id
-    )
-    returning id into v_requester;
-  else
-    raise exception 'Select an existing requester, name one, or mark the requester as unknown.'
-      using errcode = 'check_violation';
+  elsif v_requester is null or not exists (
+    select 1 from public.requesters r
+    where r.id = v_requester and r.kind in ('staff', 'student')
+  ) then
+    raise exception 'Select an existing requester or Requester Unknown.' using errcode = 'check_violation';
   end if;
 
   insert into public.tickets (
@@ -365,17 +337,17 @@ begin
 end;
 $$;
 
-comment on function public.app_create_ticket(text, text, text, text, date, uuid, text, text, text, boolean, text, boolean, uuid, uuid[], jsonb, text, uuid, uuid[]) is
-  'Records one request, for both intake models. p_requester_id names a row in the owner''s directory; p_person_id names somebody in the M5 people table and finds or creates their single requester row in one statement, so two concurrent intakes for the same person both succeed. A device entry carrying inventoryDeviceId is snapshotted from inventory_devices; one carrying a manufacturer must match a device_catalog row and carry a serial; one carrying neither is a free-text observation. p_device_ids links M5 inventory machines. Rejects a forged channel, owner, date or category rather than correcting it. The walk-in guard speaks of NetRiders.';
+comment on function public.app_create_ticket(text, text, text, text, date, uuid, text, text, text, boolean, text, boolean, uuid, uuid[], jsonb, text, uuid[]) is
+  'Records one request. p_requester_id names a staff or student row in the district directory, or p_requester_unknown says there is nobody to name; a free-text requester name and remote intake are both refused. A device entry carrying inventoryDeviceId is snapshotted from inventory_devices; one carrying a manufacturer must match a device_catalog row and carry a serial; one carrying neither is a free-text observation. p_device_ids links inventory machines to the ticket. Rejects a forged channel, owner, date or category rather than correcting it. The walk-in guard speaks of NetRiders.';
 
 -- create or replace preserves the ACL, but restated for clarity, as the brief
 -- for this fix asked.
 revoke execute on function
-  public.app_create_ticket(text, text, text, text, date, uuid, text, text, text, boolean, text, boolean, uuid, uuid[], jsonb, text, uuid, uuid[])
+  public.app_create_ticket(text, text, text, text, date, uuid, text, text, text, boolean, text, boolean, uuid, uuid[], jsonb, text, uuid[])
 from public, anon;
 
 grant execute on function
-  public.app_create_ticket(text, text, text, text, date, uuid, text, text, text, boolean, text, boolean, uuid, uuid[], jsonb, text, uuid, uuid[])
+  public.app_create_ticket(text, text, text, text, date, uuid, text, text, text, boolean, text, boolean, uuid, uuid[], jsonb, text, uuid[])
 to authenticated;
 
 -- ---------------------------------------------------------------------------
