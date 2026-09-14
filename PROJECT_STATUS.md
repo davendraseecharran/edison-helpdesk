@@ -1,6 +1,6 @@
 # Edison Helpdesk — resume here
 
-Updated September 13, 2026. **Inventory management is implemented, reviewed and locally verified; not yet published.** The user confirms the previous intake release is live and working, including its two migrations and initial directory/device import. Do not repeat the initial import.
+Updated September 13, 2026. **Inventory management is staged; its hosted migration is now applied. Profile enrichment and promotion remain pending.** The user confirms the previous intake release is live and working, including its two migrations and initial directory/device import. Do not repeat the initial import.
 
 ## Current source and ownership
 
@@ -21,9 +21,17 @@ Root review fixes: student email no longer overwrites OSIS with staff ID calcula
 
 ## Exact next step: publish this release
 
-Follow `docs/PUBLISH-INVENTORY-MANAGEMENT.md` in order: push reviewed branch; stage production deployment with `--skip-domain`; fresh private schema/data backups; dry-run/apply exactly ONE migration `20260913150000_inventory_management.sql`; run prepared private profile enrichment; inspect aggregate checks and staged pages; promote; smoke-check stable URL; fast-forward main and push for collaborators. No hosted mutation, deployment or push was performed for this feature during review.
+Follow `docs/PUBLISH-INVENTORY-MANAGEMENT.md` in order: push reviewed branch; stage production deployment with `--skip-domain`; fresh private schema/data backups; dry-run/apply exactly ONE migration `20260913150000_inventory_management.sql`; run prepared private profile enrichment; inspect aggregate checks and staged pages; promote; smoke-check stable URL; fast-forward main and push for collaborators. The user pushed and staged the feature. Root subsequently applied the new migration to fix staging error #441; see incident details below.
 
 The previous `docs/PUBLISH-INTAKE-UPDATE.md` is historical and already performed by the user. Do not rerun its import or migrations. Do not reset hosted data or recreate resources/accounts. Automatic Git deployment remains unverified; explicit Vercel CLI staging works.
+
+## Staging error #441 fixed — September 13
+
+Staging deployment: https://edison-helpdesk-9yiyt54px-thomas-edison-cte-high-school.vercel.app (production environment, unpromoted). Vercel also created Preview fd5tqeceq, confirming GitHub-triggered preview deployment works.
+
+Root cause confirmed from staging runtime logs: app_list_people and app_inventory_statuses missing from PostgREST schema cache. Hosted dry run confirmed inventory_management migration was pending. Fresh private backups completed in `.private/inventory-staging-fix-20260913/{schema,data}.sql`; root then applied exactly `20260913150000_inventory_management.sql`. Read-only verification confirms people/list inventory/status functions exist and counts remain3448 students,261 staff,4278 devices. No app-code change needed. No profile enrichment, promotion, initial reimport, or record edits performed for this fix. Browser session was not available for an authenticated hosted UI check; user should refresh staging.
+
+Next release action is step4 (prepared private enrichment) in `docs/PUBLISH-INVENTORY-MANAGEMENT.md`, followed by staged-page checks and promotion. Steps1–3 have now been completed; do not redo the initial import. Existing private backup directory can be used for the enrichment log if shell variable from prior session is unavailable.
 
 ## Private source enrichment
 
@@ -36,7 +44,7 @@ Initial live import baseline:261 staff,3448 students,4278 devices,113 catalog co
 ## Existing resources and processes
 
 - Stable site: https://edison-helpdesk.vercel.app. User promoted prior intake deployment https://edison-helpdesk-8qjd7xl7o-thomas-edison-cte-high-school.vercel.app.
-- Supabase `lfqlkngxgefoaijuuvvx`,us-east-1,PG17;17 migrations through directory_inventory applied by user. Local workspace deliberately unlinked; CLI uses explicit project ref for hosted operations. Preserve existing accounts/passwords; Jessie Kalloo completed setup.
+- Supabase `lfqlkngxgefoaijuuvvx`,us-east-1,PG17;18 migrations through inventory_management now applied. Local workspace deliberately unlinked; CLI uses explicit project ref for hosted operations. Preserve existing accounts/passwords; Jessie Kalloo completed setup.
 - Private GitHub `davendraseecharran/edison-helpdesk`; Vercel project `edison-helpdesk`, team `thomas-edison-cte-high-school`, Node24/Next.js/npm ci/build. Production environment configured; do not print credentials. Sensitive hosted env /tmp/edison-deploy/production.env.
 - Local Supabase/Docker running with synthetic fixtures from final clean DB suite. Fresh `npm run dev` session95722 on3000; stale PID91155 was stopped. No Claude writer active.
 
