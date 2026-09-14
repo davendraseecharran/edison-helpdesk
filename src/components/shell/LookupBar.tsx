@@ -43,6 +43,7 @@ import { AnimatePresence, SpringSurface } from '@/components/ui/Motion';
 import { claimTicketAction } from '@/lib/data/actions';
 import { matchesQuery, type RecentItem, type SearchHit } from '@/lib/data/search';
 import { targetKind } from '@/lib/lookup/recognise';
+import { asksFirst, readAsk } from '@/lib/lookup/ask';
 import type { QueueCounts } from '@/lib/data/tickets';
 import type { ThemePreference } from './theme-script';
 import {
@@ -292,6 +293,19 @@ function Palette({
 
   const { term, searchable, ticketNumber } = lookup;
 
+  /*
+   * Whether what was typed is a question rather than a lookup.
+   *
+   * `found` is held true while a search is still in flight, so the ask row does
+   * not jump to the top of a list that is about to arrive and then jump back
+   * down again — the palette's first row is the row Enter opens, and it must
+   * not move under a finger already on the way to the key.
+   */
+  const ask = useMemo(
+    () => readAsk(lookup.query, !searchable || lookup.loading || lookup.hits.length > 0),
+    [lookup.query, searchable, lookup.loading, lookup.hits.length],
+  );
+
   const actions = useMemo<LookupAction[]>(() => {
     const go = (href: string) => () => {
       onClose();
@@ -358,16 +372,31 @@ function Palette({
       },
     });
 
+    /*
+     * The assistant, reachable from the surface everybody already opens.
+     *
+     * The label carries the text rather than describing the action, because
+     * what this row does is send THAT sentence — "Ask the assistant: who has
+     * cart 3" is one read; "Ask the assistant" with the question underneath is
+     * two. A forced `>` or `?` prefix is stripped before it is sent, so the
+     * character that summoned the row never reaches the assistant.
+     */
+    const asked = ask.prompt;
     list.push({
       id: 'ask',
-      label: 'Ask the assistant',
+      label: asked === '' ? 'Ask the assistant' : `Ask the assistant: ${asked}`,
       icon: MessageCircle,
-      keywords: ['ai', 'help', 'question'],
-      subtitle: term ? `“${term}”` : undefined,
+      keywords: ['ai', 'help', 'question', 'assistant'],
+      subtitle:
+        ask.rank === 'forced'
+          ? undefined
+          : ask.rank === 'likely'
+            ? 'This reads like a question'
+            : undefined,
       always: true,
       run: () => {
         onClose();
-        openAssistant(term || undefined);
+        openAssistant(asked || undefined);
       },
     });
 
@@ -383,7 +412,7 @@ function Palette({
     });
 
     return list;
-  }, [ticketNumber, actor.roles, theme, term, onClose, router, claim, choose]);
+  }, [ticketNumber, actor.roles, theme, ask, onClose, router, claim, choose]);
 
   const visibleActions = useMemo(
     () =>
@@ -396,8 +425,11 @@ function Palette({
   // Two groups, in the order they are rendered: what you can do here, then
   // where you can go. `first` below walks the same order.
   const commands = useMemo(
-    () => visibleActions.filter((action) => action.group !== GO_TO),
-    [visibleActions],
+    () =>
+      visibleActions.filter(
+        (action) => action.group !== GO_TO && !(asksFirst(ask) && action.id === 'ask'),
+      ),
+    [visibleActions, ask],
   );
   const destinations = useMemo(
     () => visibleActions.filter((action) => action.group === GO_TO),
@@ -406,11 +438,28 @@ function Palette({
 
   const showRecent = !searchable && lookup.recent.length > 0;
 
+  /*
+   * The ask, and where it sits.
+   *
+   * When the text reads as a question it is lifted out of the actions and
+   * rendered above the records under its own heading, so it is the first row
+   * and the one Enter opens. Otherwise it stays in Actions, at the bottom,
+   * where it has always been. It is never in both places.
+   */
+  const askAction = useMemo(
+    () => visibleActions.find((action) => action.id === 'ask') ?? null,
+    [visibleActions],
+  );
+  const askLeads = asksFirst(ask) && askAction !== null;
+
   // The list in the order it is rendered, so the first item is always the
   // one Enter opens: a record when there are records, otherwise an action.
   // cmdk keeps whatever was selected when items arrive, so the selection is
   // moved here each time the head of the list changes.
   const first = useMemo(() => {
+    // A question outranks every record: somebody who typed a sentence did not
+    // type it hoping to find a ticket whose title contains it.
+    if (askLeads && askAction) return actionValue(askAction);
     if (showRecent) return `recent:${hitValue(lookup.recent[0])}`;
     const { tickets, people, devices } = lookup.groups;
     /*
@@ -429,7 +478,17 @@ function Palette({
     if (searchable && hit) return hitValue(hit);
     const head = commands[0] ?? destinations[0];
     return head ? actionValue(head) : '';
-  }, [showRecent, lookup.recent, lookup.groups, lookup.recognition, searchable, commands, destinations]);
+  }, [
+    askLeads,
+    askAction,
+    showRecent,
+    lookup.recent,
+    lookup.groups,
+    lookup.recognition,
+    searchable,
+    commands,
+    destinations,
+  ]);
 
   const [selected, setSelected] = useState(first);
   const [selectedFor, setSelectedFor] = useState(first);
@@ -521,6 +580,12 @@ function Palette({
           </div>
 
           <Command.List className="palette-list" label="Results">
+            {askLeads && askAction ? (
+              <Command.Group heading="Assistant">
+                <ActionItem action={askAction} />
+              </Command.Group>
+            ) : null}
+
             {showRecent ? (
               <Command.Group heading="Recent">
                 {lookup.recent.map((item) => (
