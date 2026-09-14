@@ -139,10 +139,10 @@ begin
       union all
 
       -- Everything else. The label is whatever names the record to a person: a
-      -- device is known by the tag on its lid, an invite by the address it was
-      -- sent to, an import by what it imported. A label that comes back NULL
-      -- means the record it named is gone, which the screen shows as such rather
-      -- than inventing a name for it.
+      -- machine is known by the tag on its lid, somebody by their name, an
+      -- invite by the address it was sent to. A label that comes back NULL means
+      -- the record it named is gone, which the screen shows as such rather than
+      -- inventing a name for it.
       select
         'record'::text,
         e.id,
@@ -154,19 +154,24 @@ begin
         e.entity_type,
         e.entity_id,
         case e.entity_type
-          when 'person' then (
-            select p.display_name from public.people p where p.id = e.entity_id
+          when 'requester' then (
+            select r.display_name from public.requesters r where r.id = e.entity_id
           )
-          when 'device' then (
-            select coalesce(d.asset_tag, d.serial_number, d.device_id)
-            from public.devices d where d.id = e.entity_id
+          when 'inventory_device' then (
+            select coalesce(
+              nullif(pg_catalog.btrim(coalesce(d.asset_tag, '')), ''),
+              nullif(pg_catalog.btrim(coalesce(d.serial_number, '')), ''),
+              d.external_id
+            )
+            from public.inventory_devices d where d.id = e.entity_id
           )
           when 'invite' then (
             select i.email from public.account_invites i where i.id = e.entity_id
           )
-          when 'import' then (
-            select pg_catalog.initcap(r.kind) from public.import_runs r where r.id = e.entity_id
-          )
+          -- 'import' stays in the record_events vocabulary and has no label
+          -- branch: the in-app importer that wrote those rows is gone with the
+          -- tables it wrote, so there is no import to name. An old row would
+          -- render the same way a deleted record does.
           when 'account' then (
             select a.display_name from public.app_accounts a where a.id = e.entity_id
           )

@@ -1,59 +1,46 @@
--- M5 review fix: bind the verification to the address actually being claimed.
+-- M5 review fix (Ruling 31): a bound on outstanding access requests.
 --
 -- Additive. Recreates public.app_trusted_link_identity with the body from
--- 20260912100100_m5_account_states_invites.sql, changing two things and nothing
--- else. The earlier migration is already applied locally and may be applied
--- elsewhere, so the fix arrives as a new migration rather than an edit.
+-- 20260914100160_m5_link_identity_email_binding.sql, adding one check to the
+-- one branch that creates a waiting account and changing nothing else.
 --
--- 1. THE VULNERABILITY (important). The verified-email test read:
+-- THE PROBLEM. Any Google account that reached /auth/callback with a verified
+-- address and no invite created an `app_accounts` row in `pending_approval` and
+-- notified every administrator. Nothing bounded that. A script with a supply of
+-- Google accounts could therefore fill the accounts table and bury the real
+-- waiting list under thousands of rows and one notification each, and every
+-- administrator's notification list is where the invite and approval work
+-- actually happens.
 --
---      v_verified := v_user.email_confirmed_at is not null
---        or exists (select 1 from auth.identities i
---                   where i.user_id = p_user
---                     and i.identity_data ->> 'email_verified' = 'true');
+-- THE BOUND. Fifty outstanding requests. Below that the branch behaves exactly
+-- as before. At or above it the function raises instead of inserting, so no
+-- account row is created, no notification is sent, and the provider identity is
+-- left exactly as it was: unlinked. The next sign-in tries again, and an
+-- administrator approving or denying anything frees a slot immediately.
 --
---    One auth user can carry several identities, and each identity records its
---    OWN address and its OWN verification. That predicate scanned every identity
---    on the user and never compared the identity's address to the address the
---    account was about to be created on, so a verification of address A vouched
---    for an account minted on address B.
+-- Fifty is chosen to be far above a real school's queue — a year's worth of
+-- genuine requests arrive in ones and twos, and an administrator sees each one
+-- as a notification — and far below the point at which the list stops being
+-- reviewable. It is a constant here rather than a setting because a setting
+-- nobody has ever changed is a setting that has to be documented, migrated and
+-- tested for no benefit; the number is in docs/M5-PLATFORM-OVERHAUL.md.
 --
---    Concretely: create a user whose primary address is an invited colleague's
---    and leave it unconfirmed, then attach any verified identity for an address
---    you really do control. The old predicate said "verified", the invite for
---    the primary address was then found and spent, and the result was an ACTIVE
---    ADMINISTRATOR account on an address that was never proven. The regression
---    test in tests/auth/google-link.test.ts reproduces exactly that and asserts
---    `unverified` with no account row and the invite still waiting.
+-- WHY IT IS SAFE TO RAISE. The advisory lock taken as the first statement means
+-- the count and the insert cannot race: two simultaneous sign-ins are serialised
+-- and the second sees the first's row. Nothing has been written on this path
+-- before the check, so the abort discards only the reads.
 --
---    Both proofs are now bound to v_email — the address the account would be
---    created on:
+-- THE ERRCODE. 'P9003', with the message `access_requests_full`, so the callback
+-- route can tell this refusal apart from "that address already belongs to
+-- another account" and show the waiting-list sentence rather than the generic
+-- failure. It follows the P900x sentinels this codebase already uses for its own
+-- typed refusals (P9001, P9002) rather than PL/pgSQL's assigned P0003, which is
+-- `too_many_rows` and would confuse a real one with this one.
 --
---      * auth.users.email_confirmed_at counts only when auth.users.email IS that
---        address. v_email is derived from auth.users.email today, so this is
---        currently a tautology; it is written out anyway so the binding survives
---        any future change to where v_email comes from, and so the rule reads as
---        one rule rather than two unrelated ones.
---      * an identity counts only when its own identity_data ->> 'email' is that
---        address AND it carries email_verified = true. Compared lower/trimmed,
---        the same normalisation v_email already went through.
---
---    This can only ever REFUSE sign-ins the old version accepted. An identity
---    that genuinely verifies the address being claimed still satisfies it, which
---    is the ordinary Google case and is covered by its own test.
---
--- 2. Honest audit trail (minor). `identity_linked` was written on every path,
---    including for an account that has no provider identity at all — for example
---    a password account that the trusted server asks about, which takes the
---    `existing` branch. The event now requires a real provider identity on the
---    user (auth.identities.provider <> 'email'), computed once and applied at
---    all three sites, so the trail never claims a link that does not exist.
---    Nothing else about any branch changes: an account is still created, an
---    invite is still spent, and administrators are still notified exactly as
---    before.
---
--- Not changed: the advisory lock is still the first statement, the outcomes are
--- still the same four values, the function is still trusted-server-only.
+-- Not changed: the advisory lock is still the first statement, the email binding
+-- and the provider-identity test are byte for byte the earlier version's, the
+-- outcomes are still the same four values, and the function is still
+-- trusted-server-only.
 
 create or replace function public.app_trusted_link_identity(p_user uuid)
 returns table (outcome text, account_id uuid, status text)
@@ -71,6 +58,7 @@ declare
   v_has_invite boolean;
   v_name text;
   v_new public.app_accounts;
+  v_pending bigint;
 begin
   -- Exclusive, before anything is read: this creates access.
   perform pg_catalog.pg_advisory_xact_lock(1162103123, 1);
@@ -198,8 +186,21 @@ begin
     return;
   end if;
 
-  -- Nobody invited them. The account exists only so the request can be answered;
-  -- pending_approval reaches nothing until an administrator decides.
+  -- Nobody invited them, so this is a request. Count what is already waiting
+  -- before adding to it: under the advisory lock held since the first statement,
+  -- this count and the insert below cannot race another sign-in.
+  select pg_catalog.count(*) into v_pending
+  from public.app_accounts a
+  where a.status = 'pending_approval';
+
+  if v_pending >= 50 then
+    -- No row, no notification, and the identity stays unlinked. The address can
+    -- try again once an administrator has answered somebody.
+    raise exception 'access_requests_full' using errcode = 'P9003';
+  end if;
+
+  -- The account exists only so the request can be answered; pending_approval
+  -- reaches nothing until an administrator decides.
   insert into public.app_accounts (id, display_name, email, role, status)
   values (p_user, v_name, v_email, 'technician', 'pending_approval')
   returning * into v_new;
@@ -223,7 +224,7 @@ end;
 $$;
 
 comment on function public.app_trusted_link_identity(uuid) is
-  'Trusted server entry point for a provider sign-in. Returns existing, invited, requested or unverified. A verification counts only for the address it was issued for. Never granted to authenticated or anon.';
+  'Trusted server entry point for a provider sign-in. Returns existing, invited, requested or unverified. A verification counts only for the address it was issued for. Raises access_requests_full (P9003) rather than creating a 51st outstanding request. Never granted to authenticated or anon.';
 
 -- CREATE OR REPLACE preserves the existing EXECUTE ACLs. These are the grants
 -- the M5 migration applied to this function, restated so this migration

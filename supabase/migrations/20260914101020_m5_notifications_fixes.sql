@@ -1,6 +1,6 @@
 -- M5 ticket notifications: review fixes.
 --
--- 20260912101000_m5_audit_notifications.sql is already applied, so the two RPCs
+-- 20260914101000_m5_audit_notifications.sql is already applied, so the two RPCs
 -- that change are recreated here with their full bodies; app_audit_log,
 -- app_claim_ticket, app_add_collaborator and app_reopen_ticket are untouched.
 -- Bodies are copied from 101000, which copied them from
@@ -37,7 +37,7 @@
 -- ---------------------------------------------------------------------------
 -- app_return_ticket_to_queue
 --
--- Body from 20260912101000_m5_audit_notifications.sql, itself from
+-- Body from 20260914101000_m5_audit_notifications.sql, itself from
 -- 20260910200300_ticket_rpcs.sql. Only the notification block changes.
 -- ---------------------------------------------------------------------------
 
@@ -109,7 +109,7 @@ $$;
 -- ---------------------------------------------------------------------------
 -- app_reassign_ticket
 --
--- Body from 20260912101000_m5_audit_notifications.sql, itself from
+-- Body from 20260914101000_m5_audit_notifications.sql, itself from
 -- 20260910200300_ticket_rpcs.sql. Only the notification title changes.
 -- ---------------------------------------------------------------------------
 

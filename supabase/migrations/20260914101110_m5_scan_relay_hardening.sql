@@ -1,6 +1,6 @@
 -- M5: bounds, housekeeping and a warning label for the phone scanner relay.
 --
--- 20260912101100 established the channel. Review of it raised four things that
+-- 20260914101100 established the channel. Review of it raised four things that
 -- are not defects in what it does but in what it leaves unbounded or unsaid, and
 -- this file is additive-only answers to them.
 --

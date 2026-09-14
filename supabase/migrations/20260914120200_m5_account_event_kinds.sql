@@ -2,7 +2,7 @@
 -- The account-event vocabulary is the union of both branches, not the later one.
 --
 -- `account_events_kind_valid` has been rewritten three times: M3 wrote it,
--- M5's `20260912100100_m5_account_states_invites.sql` widened it for Google
+-- M5's `20260914100100_m5_account_states_invites.sql` widened it for Google
 -- sign-in (identity_linked, invite_accepted, access_requested, access_approved,
 -- access_denied) and the owner's `20260912210000_account_roles.sql` widened it
 -- for role changes.

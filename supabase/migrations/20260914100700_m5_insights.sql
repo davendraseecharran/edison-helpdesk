@@ -53,9 +53,12 @@ declare
   -- `resolved` and `cancelled` are finished and are not part of any "open" count.
   c_active_statuses constant text[] := array['open', 'assigned', 'in_progress', 'waiting'];
   c_priorities constant text[] := array['low', 'normal', 'high', 'urgent'];
-  c_device_statuses constant text[] := array[
-    'in_stock', 'deployed', 'in_repair', 'retired', 'lost', 'surplus'
-  ];
+  -- public.inventory_devices.status is free text with no CHECK: the vocabulary
+  -- is whatever the district has written, and app_inventory_statuses() is the
+  -- authority on what to offer. The chart therefore reads its buckets from that
+  -- function rather than from a list held here, so a status somebody adds in the
+  -- inventory screen appears on the dashboard instead of being silently dropped.
+  c_device_statuses text[];
   v_actor public.app_accounts;
   v_days integer;
   v_start date;
@@ -278,30 +281,49 @@ begin
 
   -- The inventory as it stands. Not windowed for the same reason the live queue
   -- is not: a shelf of laptops is a fact about now.
+  --
+  -- The buckets are app_inventory_statuses(): every status in use, plus the five
+  -- the owner's function seeds. A machine whose status is blank is counted under
+  -- 'No status' rather than dropped, because a chart that silently loses rows is
+  -- worse than one that names the gap.
+  select coalesce(
+    array(select pg_catalog.jsonb_array_elements_text(public.app_inventory_statuses())),
+    '{}'::text[]
+  )
+  into c_device_statuses;
+
   select pg_catalog.jsonb_build_object(
     'by_status', (
       select pg_catalog.jsonb_object_agg(s.status, coalesce(c.n, 0))
-      from pg_catalog.unnest(c_device_statuses) as s(status)
+      from (
+        select pg_catalog.unnest(c_device_statuses) as status
+        union
+        select 'No status'
+      ) s
       left join (
-        select d.status, pg_catalog.count(*)::integer as n
-        from public.devices d
-        group by d.status
+        select coalesce(nullif(pg_catalog.btrim(coalesce(d.status, '')), ''), 'No status') as status,
+               pg_catalog.count(*)::integer as n
+        from public.inventory_devices d
+        group by 1
       ) c on c.status = s.status
     ),
+    -- The types are the inventory's own device_type, which is also the first
+    -- column of public.device_catalog: every machine carries one, and the
+    -- catalogue is where the vocabulary comes from.
     'by_type', coalesce((
       select pg_catalog.jsonb_agg(
         pg_catalog.jsonb_build_object('type', x.type, 'count', x.n)
         order by x.n desc, x.type
       )
       from (
-        select d.type, pg_catalog.count(*)::integer as n
-        from public.devices d
-        group by d.type
-        order by pg_catalog.count(*) desc, d.type
+        select d.device_type as type, pg_catalog.count(*)::integer as n
+        from public.inventory_devices d
+        group by d.device_type
+        order by pg_catalog.count(*) desc, d.device_type
         limit 10
       ) x
     ), '[]'::jsonb),
-    'total', (select pg_catalog.count(*)::integer from public.devices)
+    'total', (select pg_catalog.count(*)::integer from public.inventory_devices)
   )
   into v_inventory;
 

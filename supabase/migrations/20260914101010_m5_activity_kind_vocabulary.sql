@@ -5,9 +5,9 @@
 -- inside a CHECK constraint, and two M5 migrations written in parallel both
 -- extend it by dropping and re-adding it:
 --
---   20260912100350_m5_ticket_category_devices.sql adds
+--   20260914100350_m5_ticket_category_devices.sql adds
 --     'category_changed', 'device_linked', 'device_unlinked'
---   20260912100800_m5_attachments.sql adds
+--   20260914100800_m5_attachments.sql adds
 --     'attachment_added', 'attachment_removed'
 --
 -- 100800 sorts later, so its re-add — written before 100350 existed — restates a
@@ -35,9 +35,9 @@ alter table public.activity_events add constraint activity_events_kind_valid che
     'collaborator_added', 'collaborator_removed', 'note_added',
     'device_recorded', 'priority_changed', 'status_changed',
     'time_logged', 'resolved', 'reopened', 'cancelled',
-    -- Categories and inventory links (20260912100350).
+    -- Categories and inventory links (20260914100350).
     'category_changed', 'device_linked', 'device_unlinked',
-    -- Attachments (20260912100800).
+    -- Attachments (20260914100800).
     'attachment_added', 'attachment_removed'
   )
 );

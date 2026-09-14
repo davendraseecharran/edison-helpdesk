@@ -1,6 +1,6 @@
 -- M5: attachment registration becomes server-only.
 --
--- Migration 20260912100800 gave `app_register_attachment` to `authenticated`,
+-- Migration 20260914100800 gave `app_register_attachment` to `authenticated`,
 -- which meant a session could write a registry row on its own. That is one
 -- privilege too many, and the reason is the bytes.
 --
@@ -93,7 +93,7 @@ begin
   -- Inventory is shared: any active account may attach a photograph of a
   -- cracked screen to the machine it belongs to.
   if p_device is not null then
-    return exists (select 1 from public.devices d where d.id = p_device);
+    return exists (select 1 from public.inventory_devices d where d.id = p_device);
   end if;
 
   select * into v_ticket from public.tickets t where t.id = p_ticket;
@@ -164,7 +164,7 @@ declare
   ];
   v_actor public.app_accounts;
   v_ticket public.tickets;
-  v_device public.devices;
+  v_device public.inventory_devices;
   v_path text;
   v_filename text;
   v_mime text;
@@ -215,7 +215,7 @@ begin
     -- Closed, or not a contributor. Says which, and what to do about it.
     perform public.app_require_contributor(v_ticket, v_actor);
   else
-    select * into v_device from public.devices d where d.id = p_device;
+    select * into v_device from public.inventory_devices d where d.id = p_device;
     if not found then
       raise exception 'That device is not in the inventory. Search for it again.'
         using errcode = 'no_data_found';
@@ -292,7 +292,7 @@ begin
     );
   else
     perform public.app_log_record_event(
-      'device', p_device, 'attachment_added', v_actor.id, 'Attached ' || v_filename || '.'
+      'inventory_device', p_device, 'attachment_added', v_actor.id, 'Attached ' || v_filename || '.'
     );
   end if;
 
