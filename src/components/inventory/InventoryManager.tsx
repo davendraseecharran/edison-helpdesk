@@ -69,7 +69,7 @@ function personKindLabel(kind: PersonKind): string {
 function sectionTitle(section: InventorySection): string {
   if (section === 'students') return 'Students';
   if (section === 'staff') return 'Staff';
-  return 'Master Inventory';
+  return 'Master inventory';
 }
 
 function sectionDescription(section: InventorySection): string {
