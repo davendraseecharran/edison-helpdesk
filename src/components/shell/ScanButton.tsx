@@ -45,14 +45,18 @@ const SCAN_INTERVAL_MS = 250;
  * Rendered only where `BarcodeDetector` exists (Chrome on Android and
  * ChromeOS, which is what the helpdesk's phones and Chromebooks run), so a
  * browser that cannot scan shows no button rather than a button that fails.
- * The dialog holds the rear camera's preview; the first code read becomes
- * the query and the dialog closes. Every track is stopped on close, whatever
- * closed it. The phone-as-scanner relay for a desktop session is separate.
+ * The dialog holds the rear camera's preview; the first code read is handed to
+ * `onDetect` and the dialog closes. What becomes of that code is the caller's
+ * to decide — `src/lib/scan/route.ts` asks the inventory about it before the
+ * search does — and this component deliberately does not know. Every track is
+ * stopped on close, whatever closed it. The phone-as-scanner relay for a
+ * desktop session is separate.
  */
 export function ScanButton({
   onDetect,
   onOpenChange,
 }: {
+  /** Given the code, as read. The caller decides where it goes. */
   onDetect: (code: string) => void;
   /** Reports the dialog opening and closing, so the palette can yield Escape to it. */
   onOpenChange?: (open: boolean) => void;

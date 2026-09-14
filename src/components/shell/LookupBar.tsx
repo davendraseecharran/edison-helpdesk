@@ -41,8 +41,10 @@ import { useBodyScrollLock, useEscape, useFocusTrap } from '@/components/ui/focu
 import { useApplePlatform, usePhone } from '@/components/ui/media';
 import { AnimatePresence, SpringSurface } from '@/components/ui/Motion';
 import { claimTicketAction } from '@/lib/data/actions';
+import { lookupDeviceCodeAction } from '@/lib/data/device-actions';
 import { matchesQuery, type RecentItem, type SearchHit } from '@/lib/data/search';
 import { targetKind } from '@/lib/lookup/recognise';
+import { routeScannedCode } from '@/lib/scan/route';
 import type { QueueCounts } from '@/lib/data/tickets';
 import type { ThemePreference } from './theme-script';
 import {
@@ -75,9 +77,10 @@ export function readScanTarget(event: Event): string | null {
  * Dispatched on `window` to open the palette with something already typed in
  * it. `detail.query` is the text.
  *
- * It exists for one caller: a barcode arriving from a paired phone, which is
- * a search the technician has already made with their hands. Two listeners
- * answer it and they do different halves of the job — `AppShell` opens the
+ * It exists for one caller: a scanned barcode the inventory did not recognise,
+ * which is a search the technician has already made with their hands (a code
+ * it DID recognise never reaches here — it opens that machine instead). Two
+ * listeners answer it and they do different halves of the job — `AppShell` opens the
  * palette, because it owns whether the palette is open, and `LookupBar` holds
  * the text, because the palette's state is discarded on every close. Both fire
  * in the same dispatch, so the palette mounts with the code already in it.
@@ -266,6 +269,32 @@ function Palette({
       router.push(hit.href);
     },
     [remember, onClose, router],
+  );
+
+  /*
+   * The camera button, one step shorter.
+   *
+   * A code read off a machine is asked of the inventory before it is asked of
+   * the search: an exact match on the inventory id, the asset tag or the
+   * serial closes the palette and opens that machine, because the operator is
+   * holding it and there is nothing left to choose. Anything else — a code no
+   * machine answers to, or one two machines answer to, which the lookup
+   * reports as none on purpose — goes into the field, which is where it used
+   * to go every time.
+   */
+  const onScan = useCallback(
+    (code: string) => {
+      void (async () => {
+        const route = routeScannedCode(code, await lookupDeviceCodeAction(code));
+        if (route.kind === 'device') {
+          onClose();
+          router.push(route.href);
+        } else {
+          setQuery(route.query);
+        }
+      })();
+    },
+    [onClose, router, setQuery],
   );
 
   const openRecent = useCallback(
@@ -488,7 +517,7 @@ function Palette({
                   />
                 ) : null}
               </span>
-              <ScanButton onDetect={setQuery} onOpenChange={setScanOpen} />
+              <ScanButton onDetect={onScan} onOpenChange={setScanOpen} />
               <Button
                 variant="ghost"
                 size="sm"
