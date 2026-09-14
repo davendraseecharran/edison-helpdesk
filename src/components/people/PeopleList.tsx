@@ -17,7 +17,8 @@ import { Plus, Upload } from 'lucide-react';
 import type { PeopleFacets, PeoplePage } from '@/lib/data/people';
 import { personPlacement, personSubtitle } from '@/lib/domain/records';
 import { type PersonKind, type PersonSummary } from '@/lib/domain/types';
-import { useActorAccount } from '@/components/AppRuntime';
+import { useActorAccount, useActorRoles } from '@/components/AppRuntime';
+import { canWorkTickets } from '@/lib/auth/roles';
 import { ArchivedBadge } from '@/components/Badges';
 import { EmptyState, Field } from '@/components/Primitives';
 import { ButtonLink } from '@/components/ui/Button';
@@ -39,6 +40,7 @@ const SEARCH_DEBOUNCE_MS = 250;
 
 export function PeopleList({ page, facets }: { page: PeoplePage; facets: PeopleFacets }) {
   const actor = useActorAccount();
+  const roles = useActorRoles();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -105,9 +107,11 @@ export function PeopleList({ page, facets }: { page: PeoplePage; facets: PeopleF
 
   const { people, total, pageCount } = page;
   const busy = navigating;
-  // A technician's count is of the tickets they may see, and the header says
-  // so rather than letting a smaller number read as the whole truth.
+  // A NetRider's count is of the tickets they may see, and the header says so
+  // rather than letting a smaller number read as the whole truth. Somebody who
+  // works no tickets gets no column: a zero they can never change is noise.
   const ticketsHeader = actor.role === 'admin' ? 'Open tickets' : 'Open tickets you can see';
+  const showTickets = canWorkTickets(roles);
 
   const columns: Column<PersonSummary>[] = [
     {
@@ -154,7 +158,10 @@ export function PeopleList({ page, facets }: { page: PeoplePage; facets: PeopleF
       cell: (person) =>
         person.deviceCount > 0 ? person.deviceCount : <span className="dir-quiet">0</span>,
     },
-    {
+  ];
+
+  if (showTickets) {
+    columns.push({
       key: 'tickets',
       header: ticketsHeader,
       align: 'right',
@@ -162,8 +169,8 @@ export function PeopleList({ page, facets }: { page: PeoplePage; facets: PeopleF
       width: actor.role === 'admin' ? 112 : 180,
       cell: (person) =>
         person.openTicketCount > 0 ? person.openTicketCount : <span className="dir-quiet">0</span>,
-    },
-  ];
+    });
+  }
 
   return (
     <section className="panel directory" data-busy={busy || undefined} aria-busy={busy || undefined}>
