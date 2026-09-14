@@ -151,7 +151,10 @@ beforeAll(async () => {
     },
   });
 
-  ({ ticketId } = await ownedTicket({ title: OWNED_TITLE }));
+  // Named explicitly: the owner's harness change made "requester unknown" the
+  // default, and this ticket's whole job below is to prove that a ticket found
+  // by number carries its requester's name as the subtitle.
+  ({ ticketId } = await ownedTicket({ title: OWNED_TITLE, requesterName: 'Ms. Calloway' }));
   ticketNumber = String((await rawTicket(ticketId)).number);
 
   // Admin-created and unclaimed: the Open Queue, which every active technician
