@@ -2,16 +2,18 @@
 
 import Link from 'next/link';
 import { Bell, Plus, Sparkles } from 'lucide-react';
-import { useRuntime } from '@/components/AppRuntime';
 import { Button, ButtonLink } from '@/components/ui/Button';
-import { LookupBar } from './LookupBar';
+import { LookupTrigger } from './LookupBar';
 import { UserMenu } from './UserMenu';
 
 /** Dispatched on `window` to open the assistant panel, wherever it lives. */
 export const OPEN_ASSISTANT_EVENT = 'edison:open-assistant';
 
-export function openAssistant(): void {
-  window.dispatchEvent(new CustomEvent(OPEN_ASSISTANT_EVENT));
+/** Open the assistant; with `prompt`, the panel starts from that text. */
+export function openAssistant(prompt?: string): void {
+  window.dispatchEvent(
+    new CustomEvent(OPEN_ASSISTANT_EVENT, { detail: prompt === undefined ? null : { prompt } }),
+  );
 }
 
 /**
@@ -40,7 +42,7 @@ export function AiToggle() {
       icon={Sparkles}
       aria-label="Ask the assistant"
       title="Ask the assistant"
-      onClick={openAssistant}
+      onClick={() => openAssistant()}
     />
   );
 }
@@ -50,10 +52,13 @@ export function AiToggle() {
  * are always one press away. The lookup is the one bold element of the
  * interface, so the bar around it stays plain.
  */
-export function TopBar({ unreadNotifications }: { unreadNotifications: number }) {
-  const { actor } = useRuntime();
-  const admin = actor.role === 'admin';
-
+export function TopBar({
+  unreadNotifications,
+  onOpenLookup,
+}: {
+  unreadNotifications: number;
+  onOpenLookup: () => void;
+}) {
   return (
     <header className="topbar">
       <Link href="/queue" className="brand" aria-label="Edison Helpdesk, go to the queue">
@@ -64,7 +69,7 @@ export function TopBar({ unreadNotifications }: { unreadNotifications: number })
       </Link>
 
       <div className="topbar-lookup">
-        <LookupBar admin={admin} />
+        <LookupTrigger onOpen={onOpenLookup} />
       </div>
 
       <div className="topbar-actions">

@@ -122,66 +122,368 @@
   margin-right: 8px;
 }
 
-/* --- Lookup ------------------------------------------------------------- */
+/* --- Lookup trigger ----------------------------------------------------- */
 
-.lookup {
-  position: relative;
+/*
+ * The top-bar field is a button dressed as an input. Pressing it opens the
+ * command palette, which is where the typing happens; the bar around it
+ * stays plain so the field reads as the one bold element.
+ */
+.lookup-trigger {
   display: flex;
   align-items: center;
+  gap: 10px;
   width: 100%;
   max-width: 640px;
-}
-
-.lookup-icon {
-  position: absolute;
-  left: 12px;
-  color: var(--ink-3);
-  pointer-events: none;
-}
-
-/* Written to outrank the element-level `input[type='search']` rule. */
-.lookup input.lookup-input {
-  width: 100%;
   height: 40px;
-  padding: 0 72px 0 40px;
+  padding: 0 8px 0 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius-1);
   background: var(--surface-2);
-  color: var(--ink);
-  font-size: var(--fs-2);
-  appearance: none;
-}
-
-.lookup input.lookup-input::placeholder {
   color: var(--ink-3);
+  font: 400 var(--fs-2) / 1 var(--font-sans);
+  text-align: left;
+  cursor: text;
+  transition:
+    background-color 120ms ease-out,
+    border-color 120ms ease-out;
 }
 
-.lookup input.lookup-input:focus-visible {
+.lookup-trigger:hover {
+  border-color: var(--line-2);
+  background: var(--surface);
+}
+
+.lookup-trigger:focus-visible {
   border-color: var(--brass);
   background: var(--surface);
   box-shadow: var(--focus);
 }
 
-.lookup-input::-webkit-search-cancel-button {
-  cursor: pointer;
+.lookup-trigger .icon {
+  flex: 0 0 auto;
 }
 
-.lookup-kbd {
-  position: absolute;
-  right: 8px;
-  padding: 3px 6px;
+.lookup-trigger-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A keycap: the shortcut chip in the field and the hints in the palette footer. */
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
   border: 1px solid var(--line);
+  border-bottom-width: 2px;
   border-radius: var(--radius-1);
   background: var(--surface);
   color: var(--ink-3);
-  font: 500 var(--fs-0) / 1.2 var(--font-sans);
+  font: 500 var(--fs-0) / 1 var(--font-sans);
+  white-space: nowrap;
+}
+
+/* --- Command palette ---------------------------------------------------- */
+
+/*
+ * A dialog on desktop, hung near the top so results have room to grow
+ * downwards; a full-height sheet on phones, where the keyboard takes the
+ * lower half. The panel does not clip: the opening beam blooms a little past
+ * its edge, and nothing inside reaches the corners.
+ */
+.palette {
+  width: min(640px, calc(100% - 32px));
+  max-height: min(80dvh, 720px);
+  margin: 15vh auto auto;
+  overflow: visible;
+}
+
+.palette-frame,
+.palette-command {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.palette-input-row {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 10px;
+  height: 56px;
+  padding: 0 10px 0 16px;
+  border-bottom: 1px solid var(--line);
+  transition: border-color 120ms ease-out;
+}
+
+/* The input has no box of its own; the row's lower edge is its focus ring. */
+.palette-input-row:focus-within {
+  border-bottom-color: var(--brass);
+  box-shadow: inset 0 -1px 0 var(--brass);
+}
+
+.palette-input-icon {
+  flex: 0 0 auto;
+  color: var(--ink-3);
+}
+
+.palette-command input.palette-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--fs-3);
+  appearance: none;
+}
+
+.palette-command input.palette-input::placeholder {
+  color: var(--ink-3);
+}
+
+.palette-command input.palette-input:focus-visible {
+  box-shadow: none;
+}
+
+.palette-input-end {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Room for the 20px orb whether or not a search is in flight, so nothing shifts. */
+.palette-orb {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+}
+
+.palette-close {
+  display: none;
+}
+
+.palette-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-padding-block: 8px;
+}
+
+.palette-list [cmdk-group] + [cmdk-group] {
+  margin-top: 6px;
+}
+
+.palette-list [cmdk-group-heading] {
+  padding: 8px 10px 4px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 500;
+}
+
+.palette-list [cmdk-item] {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  padding: 6px 10px;
+  border-radius: var(--radius-1);
+  color: var(--ink);
+  cursor: pointer;
+  user-select: none;
+}
+
+.palette-list [cmdk-item][data-selected='true'] {
+  background: var(--surface-3);
+}
+
+/* The same brass marker the rail uses for the current page. */
+.palette-list [cmdk-item][data-selected='true']::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  background: var(--brass);
+}
+
+.palette-item-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-1);
+  background: var(--surface-2);
+  color: var(--ink-3);
+}
+
+.palette-list [cmdk-item][data-selected='true'] .palette-item-icon {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.palette-item-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.palette-item-title {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-item-id {
+  margin-right: 8px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.palette-item-subtitle {
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-item-meta {
+  flex: 0 0 auto;
+  max-width: 40%;
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palette-item-meta .badge {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.palette-empty {
+  padding: 24px 12px;
+  color: var(--ink-2);
+  text-align: center;
+}
+
+.palette-foot {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 16px;
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.palette-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.palette-hint .kbd + .kbd {
+  margin-left: -4px;
+}
+
+/* --- Opening beam ------------------------------------------------------- */
+
+/*
+ * A layer over the surface, not a wrapper around it, so removing it once the
+ * beam has run never remounts what is underneath. It ignores the pointer.
+ */
+.open-beam {
+  position: relative;
+}
+
+/* Positioned inline by `OpenBeam`; the library's own rules would win here. */
+.open-beam-layer {
   pointer-events: none;
 }
 
-.lookup-sheet input.lookup-input {
-  height: 44px;
-  padding-right: 12px;
-  font-size: var(--fs-3);
+.open-beam-layer * {
+  pointer-events: none;
+}
+
+/* The library reads the surface's radius from this, so the stroke matches it. */
+.open-beam-ghost {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-3);
+}
+
+/* --- Barcode scan ------------------------------------------------------- */
+
+.scan-frame {
+  overflow: hidden;
+  border-radius: var(--radius-2);
+  background: var(--surface-3);
+}
+
+.scan-video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.scan-error {
+  margin-top: 12px;
+  color: var(--bad);
+  font-size: var(--fs-1);
+}
+
+@media (max-width: 719.98px) {
+  .palette-sheet {
+    height: 100dvh;
+    max-height: none;
+    border-top: 0;
+    border-radius: 0;
+  }
+
+  .palette-sheet .open-beam-ghost {
+    border-radius: 0;
+  }
+
+  .palette-input-row {
+    padding: 0 8px 0 16px;
+  }
+
+  .palette-close {
+    display: inline-flex;
+  }
+
+  .palette-list [cmdk-item] {
+    min-height: 48px;
+  }
+
+  .palette-foot {
+    display: none;
+  }
 }
 
 /* --- Bell, assistant, account ------------------------------------------ */
