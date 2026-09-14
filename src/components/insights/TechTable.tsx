@@ -56,6 +56,9 @@ function isQuiet(row: InsightsTechnician): boolean {
   return row.resolved === 0 && row.minutes === 0 && row.open === 0;
 }
 
+/** Names in the quiet-technician line, past which it says "and N more" instead. */
+const MAX_NAMED_QUIET = 12;
+
 export function TechTable({ rows, days }: { rows: InsightsTechnician[]; days: number }) {
   const busy = rows.filter((row) => !isQuiet(row));
   const quiet = rows.filter(isQuiet);
@@ -64,6 +67,11 @@ export function TechTable({ rows, days }: { rows: InsightsTechnician[]; days: nu
   // smaller type. A team that did nothing this range keeps its table.
   const tabled = busy.length === 0 ? rows : busy;
   const named = busy.length === 0 ? [] : quiet;
+  const caption =
+    `Each technician's resolved tickets and logged time over the last ${days} days, and the tickets they own now` +
+    (named.length > 0 ? '; colleagues with no activity are named below' : '');
+  const shownNames = named.slice(0, MAX_NAMED_QUIET).map((row) => row.name);
+  const moreCount = named.length - shownNames.length;
 
   return (
     <>
@@ -77,7 +85,7 @@ export function TechTable({ rows, days }: { rows: InsightsTechnician[]; days: nu
             {row.name}
           </span>
         )}
-        caption={`Each technician's resolved tickets and logged time over the last ${days} days, and the tickets they own now`}
+        caption={caption}
         empty={
           <EmptyState title="No technicians yet">
             Accounts appear here once an administrator has added them.
@@ -89,7 +97,8 @@ export function TechTable({ rows, days }: { rows: InsightsTechnician[]; days: nu
           <span className="tech-quiet-label">
             No activity in the last {days} days, and nothing open:
           </span>{' '}
-          {named.map((row) => row.name).join(', ')}
+          {shownNames.join(', ')}
+          {moreCount > 0 ? `, and ${moreCount} more` : ''}
         </p>
       ) : null}
     </>
