@@ -1,0 +1,1018 @@
+/*
+ * The assistant panel, its orb, and the top-bar toggle.
+ *
+ * Three layouts of one panel: docked to the right edge under the top bar on
+ * wide screens, over a light scrim between 720 and 1023px, and a full-screen
+ * sheet on phones. Imported by `AiPanel.tsx` rather than `globals.css`, so
+ * the styles ship with the component. Built on the tokens; nothing here
+ * names a colour.
+ */
+
+/* --- Layers ------------------------------------------------------------- */
+
+.ai-root {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  pointer-events: none;
+}
+
+/* Docked: below the top bar, above the rail, and the page stays clickable. */
+.ai-root[data-layout='docked'] {
+  top: var(--topbar-h);
+  z-index: 35;
+}
+
+.ai-scrim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--ink) 28%, transparent);
+  pointer-events: auto;
+}
+
+.ai-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(420px, 100%);
+  height: 100%;
+  margin-left: auto;
+  border-left: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-2);
+  outline: none;
+  pointer-events: auto;
+}
+
+.ai-panel:focus-visible {
+  box-shadow: var(--shadow-2);
+}
+
+.ai-root[data-layout='scrim'] .ai-panel {
+  border-radius: var(--radius-3) 0 0 var(--radius-3);
+}
+
+.ai-root[data-layout='phone'] .ai-panel {
+  width: 100%;
+  height: var(--ai-vh, 100dvh);
+  margin: auto 0 0;
+  border-left: 0;
+}
+
+/*
+ * The beam wrapper is the panel's flex column; the layer sits on its edge.
+ * The library reads the frame's top-left radius and falls back to its own
+ * 16px when that is zero, so a square panel asks for 1px: square in effect,
+ * and not mistaken for "unset".
+ */
+.ai-frame {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: 1px;
+}
+
+.ai-root[data-layout='scrim'] .ai-frame {
+  border-radius: inherit;
+}
+
+.ai-frame > .open-beam-layer {
+  border-radius: inherit;
+}
+
+.open-beam-ghost {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+/* --- Header ------------------------------------------------------------- */
+
+.ai-head {
+  flex: 0 0 auto;
+  padding: 12px 10px 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.ai-head-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ai-head-orb {
+  flex: 0 0 auto;
+}
+
+.ai-head-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ai-title {
+  font-size: var(--fs-3);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.ai-model {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.ai-head-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+}
+
+.ai-head-reasoning {
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding-right: 6px;
+}
+
+.ai-reasoning-label {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+/* --- Menu --------------------------------------------------------------- */
+
+.ai-menu {
+  width: 248px;
+}
+
+.ai-menu-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--ink);
+  font: 500 var(--fs-2) / 1.4 var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ai-menu-switch:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.ai-menu-switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ai-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 20px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: var(--surface-3);
+  transition:
+    background-color 120ms ease-out,
+    border-color 120ms ease-out;
+}
+
+.ai-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  transition:
+    transform 120ms ease-out,
+    background-color 120ms ease-out;
+}
+
+.ai-menu-switch[aria-checked='true'] .ai-switch {
+  border-color: var(--brass-2);
+  background: var(--brass);
+}
+
+.ai-menu-switch[aria-checked='true'] .ai-switch::after {
+  background: var(--brass-ink);
+  transform: translateX(14px);
+}
+
+/* --- Body --------------------------------------------------------------- */
+
+.ai-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.ai-note {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 8px;
+  text-align: center;
+  color: var(--ink-2);
+}
+
+.ai-note-orb {
+  margin-bottom: 8px;
+}
+
+/* --- Welcome ------------------------------------------------------------ */
+
+.ai-welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px 8px 16px;
+  text-align: center;
+}
+
+/* The same 64px orb the header carries, given the stage while there is nothing else to see. */
+.ai-welcome-orb {
+  margin: 12px 0 4px;
+}
+
+.ai-welcome-text {
+  max-width: 30ch;
+  color: var(--ink-2);
+  font-size: var(--fs-3);
+  line-height: 1.4;
+}
+
+.ai-examples {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.ai-example {
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font: 500 var(--fs-1) / 1.3 var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 120ms ease-out,
+    border-color 120ms ease-out,
+    color 120ms ease-out;
+}
+
+.ai-example:hover:not(:disabled) {
+  border-color: var(--line-2);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.ai-example:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* --- Turns -------------------------------------------------------------- */
+
+.ai-turns {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ai-turn-user {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ai-bubble {
+  max-width: 85%;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3) var(--radius-3) var(--radius-1) var(--radius-3);
+  background: var(--surface-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.ai-turn-assistant {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.ai-pending {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-1);
+}
+
+/* --- Markdown ----------------------------------------------------------- */
+
+.ai-md {
+  max-width: 100%;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.ai-md p + p,
+.ai-md p + ul,
+.ai-md p + ol,
+.ai-md ul + p,
+.ai-md ol + p,
+.ai-md pre + p {
+  margin-top: 8px;
+}
+
+.ai-md .md-heading {
+  margin-top: 12px;
+}
+
+.ai-md ul,
+.ai-md ol {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+
+.ai-md li + li {
+  margin-top: 3px;
+}
+
+.ai-md code {
+  padding: 1px 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface-3);
+  font-family: var(--font-mono), ui-monospace;
+  font-size: 0.92em;
+}
+
+.ai-md pre {
+  max-width: 100%;
+  margin: 8px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+  font-size: var(--fs-1);
+  line-height: 1.5;
+  overflow-x: auto;
+}
+
+.ai-md pre code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: inherit;
+}
+
+/* The writing caret: a brass bar after the last thing written. */
+.ai-md-live > :last-child::after {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  margin-left: 2px;
+  border-radius: 1px;
+  background: var(--brass);
+  vertical-align: -0.15em;
+  animation: ai-caret 900ms steps(2, jump-none) infinite;
+}
+
+@keyframes ai-caret {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+/* --- Thinking line ------------------------------------------------------ */
+
+.ai-thinking {
+  max-width: 100%;
+  padding-left: 10px;
+  border-left: 2px solid var(--line-2);
+}
+
+.ai-thinking-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  font-weight: 500;
+  list-style: none;
+  cursor: pointer;
+}
+
+.ai-thinking-summary::-webkit-details-marker {
+  display: none;
+}
+
+.ai-thinking-summary:hover {
+  color: var(--ink);
+}
+
+.ai-thinking-summary:focus-visible {
+  border-radius: var(--radius-1);
+  box-shadow: var(--focus);
+}
+
+.ai-thinking-body {
+  margin-top: 6px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+/* --- Tool chips --------------------------------------------------------- */
+
+.ai-chip-row {
+  max-width: 100%;
+}
+
+.ai-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  min-height: 28px;
+  padding: 3px 12px 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.ai-chip .icon {
+  flex: 0 0 auto;
+}
+
+.ai-chip-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ai-chip[data-status='ok'] {
+  color: var(--ink);
+}
+
+.ai-chip[data-status='ok'] .icon {
+  color: var(--ok);
+}
+
+.ai-chip[data-status='failed'] {
+  border-color: color-mix(in srgb, var(--bad) 45%, var(--line));
+  background: var(--bad-soft);
+  color: var(--bad);
+}
+
+.ai-chip[data-status='rejected'] {
+  color: var(--slate);
+}
+
+/* --- Approval card ------------------------------------------------------ */
+
+.ai-approval-beam {
+  width: 100%;
+  border-radius: var(--radius-2);
+}
+
+.ai-approval {
+  padding: 12px 14px 14px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+}
+
+.ai-approval-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 500;
+}
+
+.ai-approval-summary {
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.ai-approval-args {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 4px 12px;
+  margin: 10px 0 0;
+  font-size: var(--fs-1);
+}
+
+.ai-approval-arg {
+  display: contents;
+}
+
+.ai-approval-args dt {
+  color: var(--ink-3);
+}
+
+.ai-approval-args dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.ai-approval-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* --- Errors ------------------------------------------------------------- */
+
+.ai-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  color: var(--bad);
+  font-size: var(--fs-1);
+}
+
+.ai-error .icon {
+  flex: 0 0 auto;
+}
+
+.ai-error-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* --- Composer ----------------------------------------------------------- */
+
+.ai-composer {
+  flex: 0 0 auto;
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.ai-composer-context {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.ai-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 4px 4px 4px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+  transition:
+    border-color 120ms ease-out,
+    box-shadow 120ms ease-out;
+}
+
+.ai-composer-row:focus-within {
+  border-color: var(--brass);
+  box-shadow: 0 0 0 1px var(--brass);
+}
+
+.ai-composer[data-listening] .ai-composer-row {
+  border-color: var(--brass);
+}
+
+.ai-composer-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  /* One line to start; the field grows with the text. Overrides the form default. */
+  min-height: 0;
+  max-height: 146px;
+  padding: 9px 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  line-height: 21px;
+  resize: none;
+}
+
+.ai-composer-field::placeholder {
+  color: var(--ink-3);
+}
+
+.ai-composer-field:focus-visible {
+  box-shadow: none;
+}
+
+.ai-composer-field:disabled {
+  opacity: 0.6;
+}
+
+.ai-composer-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+}
+
+.ai-mic {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition:
+    background-color 120ms ease-out,
+    border-color 120ms ease-out,
+    color 120ms ease-out;
+}
+
+.ai-mic:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.ai-mic[aria-pressed='true'] {
+  border-color: var(--brass);
+  background: var(--brass-soft);
+  color: var(--ink);
+}
+
+.ai-mic:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ai-composer-hint {
+  margin-top: 6px;
+  font-size: var(--fs-0);
+}
+
+/* --- Conversations ------------------------------------------------------ */
+
+.ai-conversations-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ai-conversations-title {
+  font-size: var(--fs-3);
+  font-weight: 600;
+}
+
+.ai-conversations-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ai-conversations-empty {
+  padding: 16px 0;
+}
+
+.ai-conversation-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ai-conversation-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.ai-conversation-row:last-child {
+  border-bottom: 1px solid var(--line);
+}
+
+.ai-conversation-row[aria-current='true'] .ai-conversation-open {
+  box-shadow: inset 3px 0 0 var(--brass);
+}
+
+.ai-conversation-open {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ai-conversation-open:hover {
+  background: var(--surface-2);
+}
+
+.ai-conversation-open .icon {
+  flex: 0 0 auto;
+  color: var(--ink-3);
+}
+
+.ai-conversation-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ai-conversation-title {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-conversation-when {
+  font-size: var(--fs-0);
+}
+
+/* --- Connect ------------------------------------------------------------ */
+
+.ai-connect {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 8px 16px;
+  text-align: center;
+}
+
+.ai-connect-orb {
+  margin-bottom: 4px;
+}
+
+.ai-connect-title {
+  font-size: var(--fs-4);
+  font-weight: 600;
+}
+
+.ai-connect-text {
+  max-width: 36ch;
+  color: var(--ink-2);
+}
+
+.ai-code-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+
+.ai-code {
+  padding: 8px 18px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: var(--fs-6);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  line-height: 1.2;
+  user-select: all;
+}
+
+.ai-connect-link {
+  gap: 8px;
+}
+
+.ai-connect-waiting {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.ai-connect-error {
+  max-width: 36ch;
+  color: var(--bad);
+  font-size: var(--fs-1);
+}
+
+.ai-connect-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+/* --- Orb ---------------------------------------------------------------- */
+
+.ai-orb {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+}
+
+.ai-orb[data-size='20'] {
+  width: 20px;
+  height: 20px;
+}
+
+/*
+ * A soft brass glow behind the dots, breathing slowly; quicker while working.
+ * Lighter on the dark theme, where brass over navy turns olive if it is laid
+ * on thick.
+ */
+.ai-orb {
+  --ai-glow-core: 30%;
+  --ai-glow-mid: 12%;
+}
+
+:root[data-theme='dark'] .ai-orb {
+  --ai-glow-core: 20%;
+  --ai-glow-mid: 7%;
+}
+
+.ai-orb::before {
+  content: '';
+  position: absolute;
+  inset: -22%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--brass) var(--ai-glow-core), transparent) 0%,
+    color-mix(in srgb, var(--brass) var(--ai-glow-mid), transparent) 42%,
+    transparent 70%
+  );
+  opacity: 0.7;
+  animation: ai-glow 4.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.ai-orb[data-size='20']::before {
+  display: none;
+}
+
+.ai-orb[data-active]::before {
+  opacity: 1;
+  animation-duration: 2.4s;
+}
+
+/* Listening and speaking: the glow follows the level rather than a clock. */
+.ai-orb[data-moment='listening']::before,
+.ai-orb[data-moment='speaking']::before {
+  opacity: calc(0.55 + var(--ai-level, 0) * 0.6);
+  scale: calc(1 + var(--ai-level, 0) * 0.4);
+  animation: none;
+}
+
+.ai-orb-canvas {
+  position: relative;
+  display: block;
+  scale: calc(1 + var(--ai-level, 0) * 0.12);
+  transition: scale 90ms linear;
+}
+
+/* An error: frozen, and tinted towards the bad colour. */
+.ai-orb[data-tone='bad'] .ai-orb-canvas {
+  filter: sepia(1) saturate(4) hue-rotate(-52deg);
+}
+
+.ai-orb[data-tone='bad']::before {
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--bad) 28%, transparent) 0%,
+    transparent 68%
+  );
+  animation: none;
+}
+
+@keyframes ai-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.92);
+  }
+
+  50% {
+    opacity: 0.95;
+    transform: scale(1.08);
+  }
+}
+
+/* --- Top-bar toggle ----------------------------------------------------- */
+
+.ai-toggle-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.ai-toggle[aria-pressed='true'] {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.ai-toggle-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brass);
+  box-shadow: 0 0 0 2px var(--surface);
+  pointer-events: none;
+}
+
+/* --- Phones ------------------------------------------------------------- */
+
+@media (max-width: 719.98px) {
+  .ai-head {
+    padding: 10px 8px 10px 16px;
+  }
+
+  .ai-body {
+    padding: 12px;
+  }
+
+  .ai-composer {
+    position: sticky;
+    bottom: 0;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+
+  .ai-composer-hint {
+    display: none;
+  }
+
+  .ai-bubble {
+    max-width: 92%;
+  }
+
+  .ai-welcome {
+    padding-top: 24px;
+  }
+
+  .ai-code {
+    font-size: var(--fs-5);
+  }
+}
+
+/* --- Reduced motion ----------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-orb::before {
+    opacity: 0.5;
+    animation: none;
+  }
+
+  .ai-md-live > :last-child::after {
+    animation: none;
+  }
+}
+
+/* Why a card asks when asking is switched off. Placed with the card's rules. */
+.ai-approval-note {
+  margin-top: 4px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}

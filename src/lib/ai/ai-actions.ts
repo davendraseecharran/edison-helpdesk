@@ -22,7 +22,14 @@ import { createClient } from '@/lib/supabase/server';
 import { aiEnabled } from './crypto';
 import { pollDeviceAuth, startDeviceAuth, type DeviceAuthStart } from './codex-auth';
 import { disconnect, loadConnection, saveConnection } from './connections';
-import { listConversations, deleteConversation, type ConversationSummary } from './conversations';
+import {
+  deleteConversation,
+  listConversations,
+  loadConversation,
+  type ConversationSummary,
+  type PendingCall,
+} from './conversations';
+import { describeCall } from './tools';
 import { AI_MODEL, AI_MODEL_LABEL, isReasoning, type Reasoning } from './responses-client';
 
 export interface AiActionResult {
@@ -236,4 +243,100 @@ export async function aiReadyAction(): Promise<{ ready: boolean; reason?: 'disab
   if (!account) return { ready: false, reason: 'not_connected' };
   const connection = await loadConnection(account.id);
   return connection === null ? { ready: false, reason: 'not_connected' } : { ready: true };
+}
+
+/**
+ * A stored conversation, reduced to what the panel can show.
+ *
+ * The rows hold Responses API items — messages, function calls, their
+ * outputs, encrypted reasoning — and only the first three mean anything to a
+ * reader. A call's summary is rebuilt with `describeCall` from the arguments
+ * as stored, so a past chip says the same thing it said live.
+ */
+export type TranscriptItem =
+  | { role: 'user'; text: string }
+  | { role: 'assistant'; text: string }
+  | { role: 'tool'; callId: string; name: string; summary: string; ok: boolean | null };
+
+export interface ConversationTranscriptResult extends AiActionResult {
+  title: string | null;
+  items: TranscriptItem[];
+  /** Calls still waiting for an answer, oldest first. */
+  pending: PendingCall['call'][];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function textOf(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+export async function loadConversationAction(id: string): Promise<ConversationTranscriptResult> {
+  const empty = { title: null, items: [], pending: [] };
+  const account = await activeAccount();
+  if (!account) return { ok: false, error: SIGNED_OUT, ...empty };
+  if (typeof id !== 'string' || id.trim() === '') {
+    return { ok: false, error: 'Say which conversation to open.', ...empty };
+  }
+
+  try {
+    // The select policy scopes both reads to the caller's own rows; somebody
+    // else's id simply comes back empty.
+    const supabase = await createClient();
+    const conversationId = id.trim();
+    const [loaded, titled] = await Promise.all([
+      loadConversation(supabase, conversationId),
+      supabase.from('ai_conversations').select('title').eq('id', conversationId).maybeSingle(),
+    ]);
+
+    const items: TranscriptItem[] = [];
+    const calls = new Map<string, number>();
+
+    for (const item of loaded.items) {
+      const type = textOf(item.type);
+      if (type === 'message') {
+        const content = Array.isArray(item.content) ? item.content : [];
+        const text = content
+          .map((part: unknown) => (isRecord(part) ? textOf(part.text) : ''))
+          .join('');
+        if (text.trim() === '') continue;
+        items.push({ role: item.role === 'user' ? 'user' : 'assistant', text });
+      } else if (type === 'function_call') {
+        const callId = textOf(item.call_id) || textOf(item.id);
+        const name = textOf(item.name);
+        let args: Record<string, unknown> = {};
+        try {
+          const parsed: unknown = JSON.parse(textOf(item.arguments) || '{}');
+          if (isRecord(parsed)) args = parsed;
+        } catch {
+          // Unreadable arguments: the summary still names the tool.
+        }
+        calls.set(callId, items.length);
+        items.push({ role: 'tool', callId, name, summary: describeCall(name, args), ok: null });
+      } else if (type === 'function_call_output') {
+        const at = calls.get(textOf(item.call_id));
+        if (at === undefined) continue;
+        let ok: boolean | null = null;
+        try {
+          const parsed: unknown = JSON.parse(textOf(item.output));
+          if (isRecord(parsed) && typeof parsed.ok === 'boolean') ok = parsed.ok;
+        } catch {
+          // An unreadable output is reported as unknown rather than as a failure.
+        }
+        const call = items[at];
+        if (call.role === 'tool') items[at] = { ...call, ok };
+      }
+    }
+
+    return {
+      ok: true,
+      title: textOf(titled.data?.title) || null,
+      items,
+      pending: loaded.pending,
+    };
+  } catch (error) {
+    return { ok: false, error: failureText(error), ...empty };
+  }
 }

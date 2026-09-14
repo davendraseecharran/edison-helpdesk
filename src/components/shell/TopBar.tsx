@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Bell, Plus, Sparkles } from 'lucide-react';
+import { Bell, Plus } from 'lucide-react';
 import { Button, ButtonLink } from '@/components/ui/Button';
+import { AiToggle } from './AiToggle';
 import { LookupTrigger } from './LookupBar';
 import { UserMenu } from './UserMenu';
 
@@ -31,19 +32,6 @@ export function NotificationsBell({ unread }: { unread: number }) {
         </span>
       ) : null}
     </span>
-  );
-}
-
-/** Opens the assistant. The panel itself listens for the event. */
-export function AiToggle() {
-  return (
-    <Button
-      variant="ghost"
-      icon={Sparkles}
-      aria-label="Ask the assistant"
-      title="Ask the assistant"
-      onClick={() => openAssistant()}
-    />
   );
 }
 

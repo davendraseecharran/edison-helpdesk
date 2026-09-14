@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRuntime } from '@/components/AppRuntime';
 import { Flash } from '@/components/Primitives';
+import { AiPanel } from '@/components/ai/AiPanel';
 import type { QueueCounts } from '@/lib/data/tickets';
 import { BottomTabs } from './BottomTabs';
 import { LookupBar } from './LookupBar';
@@ -85,6 +86,9 @@ export function AppShell({
       </main>
       <BottomTabs items={items} onOpenLookup={openLookup} />
       <LookupBar open={lookupOpen} onClose={closeLookup} />
+      {/* The assistant. Owns its own opening: the toggle, Ctrl/Cmd+J and the
+          `edison:open-assistant` event all land inside it. */}
+      <AiPanel />
     </div>
   );
 }

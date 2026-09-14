@@ -56,7 +56,12 @@ export default async function TicketDetailPage({
   const backdated = ticket.submittedOn !== toDateKey(new Date(ticket.createdAt));
 
   return (
-    <div className="ticket">
+    <div
+      className="ticket"
+      data-page-kind="ticket"
+      data-page-id={ticket.number}
+      data-page-label={ticket.number}
+    >
       <header className="ticket-head">
         <div className="ticket-head-text">
           <span className="ticket-number mono">{ticket.number}</span>
