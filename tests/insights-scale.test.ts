@@ -21,6 +21,7 @@ import {
   tickIndexes,
 } from '../src/components/insights/LineChart';
 import { BarChart } from '../src/components/insights/BarChart';
+import { DEFAULT_RANGE, toInsightsRange } from '../src/app/(app)/insights/search-params';
 import { StatTile, formatHours } from '../src/components/insights/StatTile';
 
 describe('niceTicks', () => {
@@ -200,6 +201,46 @@ describe('BarChart markup', () => {
 
   it('hides the decorative bars from the accessibility tree', () => {
     expect(html).toContain('aria-hidden="true"');
+  });
+
+  it('still draws a bar for a count too small to round to a visible width', () => {
+    // 1 in 4,000 is 0.03%, which rounded to 0% and left only the 4px square
+    // that squares off the left end of the pill — a stray mark on the axis.
+    const tiny = renderToStaticMarkup(
+      h(BarChart, {
+        caption: 'Tickets by category',
+        rows: [
+          { key: 'network', label: 'Network or Wi-Fi', value: 4000 },
+          { key: 'phone', label: 'Phone', value: 1 },
+        ],
+      }),
+    );
+    expect(tiny).toContain('width="100%"');
+    expect(tiny).toContain('width="2%"');
+    expect(tiny).not.toContain('width="0%"');
+  });
+
+  it('draws no bar at all for a row with no count', () => {
+    // The zero row in the shared fixture above renders one rect-less cell.
+    expect(html).not.toContain('width="0%"');
+  });
+});
+
+describe('toInsightsRange', () => {
+  it('takes the three ranges the control offers', () => {
+    expect(toInsightsRange('7')).toBe(7);
+    expect(toInsightsRange('30')).toBe(30);
+    expect(toInsightsRange('90')).toBe(90);
+  });
+
+  it('takes the first value when the parameter is repeated', () => {
+    expect(toInsightsRange(['90', '7'])).toBe(90);
+  });
+
+  it('falls back to the default for anything else', () => {
+    for (const value of ['7.0', '07', ' 7 ', '7e0', '365', '', 'seven', undefined]) {
+      expect(toInsightsRange(value)).toBe(DEFAULT_RANGE);
+    }
   });
 });
 

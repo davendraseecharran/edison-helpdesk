@@ -13,7 +13,9 @@ const BAR_ROWS = ['72%', '54%', '38%', '22%'];
 /**
  * Insights while the aggregates are being counted: the header and its range
  * control, four figures, the wide chart, the three bar panels beside each
- * other, the technicians table and the inventory pair that closes the page.
+ * other, the technicians table, and the two panels that close the page —
+ * Inventory, which holds a PAIR of charts, and Device types in tickets, which
+ * holds one.
  *
  * It stands in for the real layout rather than for a generic page, so the
  * content that arrives lands where the placeholder was instead of pushing the
@@ -56,15 +58,31 @@ export default function Loading() {
           <SkeletonRows rows={4} facts={3} />
         </SkeletonPanel>
         <div className="insights-grid insights-grid-wide">
-          {['inventory', 'ticket-devices'].map((panel) => (
-            <SkeletonPanel key={panel} title={132}>
-              <div className="skeleton-rows">
-                {BAR_ROWS.map((width) => (
-                  <Skeleton key={width} width={width} height={12} />
-                ))}
-              </div>
-            </SkeletonPanel>
-          ))}
+          {/* Inventory is TWO charts side by side under one panel ("By status"
+              and "Most common types", in .insights-pair), so the skeleton is
+              too. A single flat list here made the panel grow a heading and
+              reflow the moment the counts arrived. */}
+          <SkeletonPanel title={132}>
+            <div className="insights-pair">
+              {['status', 'types'].map((block) => (
+                <div key={block} className="chart-block">
+                  <Skeleton width={96} height={12} />
+                  <div className="skeleton-rows">
+                    {BAR_ROWS.map((width) => (
+                      <Skeleton key={width} width={width} height={12} />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SkeletonPanel>
+          <SkeletonPanel title={132}>
+            <div className="skeleton-rows">
+              {BAR_ROWS.map((width) => (
+                <Skeleton key={width} width={width} height={12} />
+              ))}
+            </div>
+          </SkeletonPanel>
         </div>
       </div>
     </LoadingRegion>
