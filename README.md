@@ -4,8 +4,8 @@ The school's IT system: tickets, the people they are about, the machines they
 are about, and the work done on them. M1 established the interface, M2 added
 database permissions and transactions, M3 connected real accounts and ticket
 workflows, M4 deployed it, and M5 — the platform overhaul — added Google
-sign-in with invites and approvals, a people directory and a device inventory
-imported from AppSheet, search and a command palette, attachments,
+sign-in with invites and approvals, the district's own directory and
+inventory, search and a command palette, attachments,
 notifications, an audit log, insights, a phone that works as a barcode scanner,
 and an assistant that can do the work rather than only describe it.
 
@@ -88,10 +88,11 @@ Detailed auth contracts and limitations:
   notes, devices, time entries, collaborators and history; another technician
   can then claim it. Admins also reassign, reopen and cancel. School dates use
   America/New_York.
-- **People and devices.** Students, staff and every machine the school lends
-  out, with holders, assignment history, and links from tickets to the machines
-  involved. Imported from the AppSheet CSV exports through Administration →
-  Import (dry run first) or `npm run import:csv`.
+- **People and devices.** The district's own records: 3,448 students, 261 staff
+  and 4,278 machines, in `requesters` and `inventory_devices`. Who is holding
+  what, what state a machine is in, and links from a ticket to the machines
+  involved. They arrive through the owner's one-time preparation scripts and
+  are corrected afterwards from their own pages; there is no in-app importer.
 - **Search.** `Ctrl/Cmd+K` opens a command palette over tickets, people,
   devices, actions and what you looked at last.
 - **The phone as a scanner.** Pair from a QR code and send scanned serials and
@@ -131,7 +132,7 @@ leaves its synthetic fixtures behind. `review-m3.cjs` is the older M3 runner and
 `review-m1.cjs` is historical demo-only material.
 
 Other commands: `npm run build`, `npm start`, `npm run typecheck`,
-`npm run lint`, `npm test`, `npm run import:csv`, `npm run db:stop`,
+`npm run lint`, `npm test`, `npm run db:stop`,
 `npm run db:reset:local`, `npm run test:db`, `npm run test:auth`, and
 `npm run test:deploy:local`.
 
@@ -140,7 +141,7 @@ Other commands: `npm run build`, `npm start`, `npm run typecheck`,
 M5 is built and reviewed locally. What is left is operational: apply the
 migrations to the hosted project and work through the
 [owner runbook](docs/M5-PLATFORM-OVERHAUL.md#owner-runbook-for-the-hosted-project)
-in order, import the real directory and inventory after a dry run, and
-demonstrate backup and restoration before the system carries a day's real
-tickets. Public intake remains deferred. Review the documented provider/session
+in order, and demonstrate backup and restoration before the system carries a
+day's real tickets. The directory and the inventory are already live; do not
+repeat the imports. Public intake remains deferred. Review the documented provider/session
 schema and credential-fingerprint dependencies before any Auth upgrade.

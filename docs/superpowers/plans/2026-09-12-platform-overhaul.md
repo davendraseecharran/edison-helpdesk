@@ -35,7 +35,7 @@ Data layers: `src/lib/data/people.ts` + `people-actions.ts`, `devices.ts` + `dev
 Import: `src/lib/import/csv.ts`, `presets.ts`, `normalize.ts`, `index.ts` (relative imports only).
 AI: `src/lib/ai/crypto.ts`, `codex-auth.ts`, `connections.ts`, `responses-client.ts`, `tools.ts`, `prompt.ts`, `conversations.ts`, `ai-actions.ts`, `src/app/api/ai/chat/route.ts`; UI `src/components/ai/AiPanel.tsx`, `AiMessage.tsx`, `AiComposer.tsx`, `AiConnectCard.tsx`, `ToolApprovalCard.tsx`, `ConversationList.tsx`, `useSpeech.ts`, `markdown.ts`.
 Pages: `src/app/(app)/people/page.tsx`, `people/[id]/page.tsx`, `people/new/page.tsx`, `devices/page.tsx`, `devices/[id]/page.tsx`, `devices/new/page.tsx`, `insights/page.tsx`, `notifications/page.tsx`, `settings/page.tsx`, `admin/page.tsx` (tabs), `admin/import/page.tsx`, `admin/audit/page.tsx`, `admin/backups/page.tsx`; `src/app/pending/page.tsx`, `src/app/manifest.ts`.
-Migrations: `supabase/migrations/20260912100000_m5_foundation.sql` … `20260912101200_m5_ticket_notifications.sql` (see tasks).
+Migrations: `supabase/migrations/20260914100000_m5_foundation.sql` … `20260914101200_m5_ticket_notifications.sql` (see tasks).
 Tests: `tests/import/*.test.ts`, `tests/ai/*.test.ts`, `tests/db/m5-*.test.ts`, `tests/auth/google-link.test.ts`, `tests/db/support/identities.ts` (extend with `requester` and `denied`? no — keep; add `pendingApproval` and `denied` identities).
 Scripts/docs: `scripts/review-overhaul.cjs`, `scripts/import-directory.mts`, `scripts/generate-icons.cjs`, `docs/M5-PLATFORM-OVERHAUL.md`, `README.md`, `AGENTS.md`, `PROJECT_STATUS.md`, `.env.example`.
 
@@ -250,7 +250,7 @@ it('labels ticket age compactly', () => {
 ### Task 5: Foundation migration — notifications, record events, attribution
 
 **Files:**
-- Create: `supabase/migrations/20260912100000_m5_foundation.sql`, `tests/db/m5-foundation.test.ts`
+- Create: `supabase/migrations/20260914100000_m5_foundation.sql`, `tests/db/m5-foundation.test.ts`
 - Modify: `tests/db/support/harness.ts` (add `rpcOkAs(client, fn, args, headers)` helper that creates a client with `global: { headers }`), `src/lib/domain/types.ts` (add `performedVia`, `aiModel` to `ActivityEvent`; `Notification` type), `src/lib/data/mapping.ts` (`mapActivity` reads `performed_via`, `ai_model`)
 
 **Interfaces (SQL):**
@@ -314,7 +314,7 @@ RLS: `notifications` select/update own rows only (`account_id = auth.uid()` and 
 ### Task 6: Google sign-in, invites and access requests
 
 **Files:**
-- Create: `supabase/migrations/20260912100100_m5_account_states_invites.sql`, `src/lib/auth/google-actions.ts`, `src/app/auth/callback/route.ts`, `src/app/pending/page.tsx`, `src/components/auth/GoogleButton.tsx`, `src/lib/email/resend.ts`, `src/lib/data/invite-actions.ts`, `src/lib/data/access-actions.ts`, `src/components/admin/AccessScreen.tsx`, `src/components/admin/InvitesPanel.tsx`, `src/components/admin/AccessRequestsPanel.tsx`, `src/components/admin/PasswordAccountsPanel.tsx` (moved from AdministrationScreen), `tests/db/m5-invites.test.ts`, `tests/auth/google-link.test.ts`
+- Create: `supabase/migrations/20260914100100_m5_account_states_invites.sql`, `src/lib/auth/google-actions.ts`, `src/app/auth/callback/route.ts`, `src/app/pending/page.tsx`, `src/components/auth/GoogleButton.tsx`, `src/lib/email/resend.ts`, `src/lib/data/invite-actions.ts`, `src/lib/data/access-actions.ts`, `src/components/admin/AccessScreen.tsx`, `src/components/admin/InvitesPanel.tsx`, `src/components/admin/AccessRequestsPanel.tsx`, `src/components/admin/PasswordAccountsPanel.tsx` (moved from AdministrationScreen), `tests/db/m5-invites.test.ts`, `tests/auth/google-link.test.ts`
 - Modify: `src/lib/auth/session.ts` (statuses + reasons), `src/app/(app)/layout.tsx`, `src/app/login/page.tsx`, `src/app/restricted/page.tsx`, `src/lib/data/admin-view.ts`, `src/app/(app)/admin/page.tsx`, `supabase/config.toml` (`[auth.external.google] enabled = true; client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"; secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"; skip_nonce_check = false` and `additional_redirect_urls` includes `http://127.0.0.1:3000/auth/callback`), `.env.example`, `tests/db/support/identities.ts` (add keys `pendingApproval` status `pending_approval` and `denied` status `denied`; type union extended)
 
 **Interfaces (SQL):**
@@ -376,7 +376,7 @@ Also: `app_my_account()` unchanged; `app_directory()` excludes `pending_approval
 ### Task 8: People migration
 
 **Files:**
-- Create: `supabase/migrations/20260912100200_m5_people.sql`, `tests/db/m5-people.test.ts`
+- Create: `supabase/migrations/20260914100200_m5_people.sql`, `tests/db/m5-people.test.ts`
 
 **Interfaces (SQL):**
 
@@ -431,7 +431,7 @@ RLS: select for active accounts; insert/update/delete not granted (RPCs only).
 ### Task 9: Devices migration
 
 **Files:**
-- Create: `supabase/migrations/20260912100300_m5_devices.sql`, `tests/db/m5-devices.test.ts`
+- Create: `supabase/migrations/20260914100300_m5_devices.sql`, `tests/db/m5-devices.test.ts`
 
 **Interfaces (SQL):**
 
@@ -493,7 +493,7 @@ create function public.app_device_facets() returns jsonb; -- { types, statuses (
 ### Task 10: Ticket category, device links and person requesters
 
 **Files:**
-- Create: `supabase/migrations/20260912100400_m5_ticket_category_devices.sql`, `tests/db/m5-ticket-links.test.ts`
+- Create: `supabase/migrations/20260914100400_m5_ticket_category_devices.sql`, `tests/db/m5-ticket-links.test.ts`
 - Modify: `src/lib/domain/types.ts` (`TicketCategory`, `TICKET_CATEGORY_LABELS`, `Ticket.category`, `Ticket.deviceIds`), `src/lib/data/mapping.ts`, `src/lib/data/tickets.ts` (`QueueFilters.category`; `TicketDetail.devices` linked devices), `src/lib/data/actions.ts` (`createTicketAction` fields `category`, `personId`; `setCategoryAction`, `linkDeviceAction`, `unlinkDeviceAction`), `src/app/(app)/search-params.ts` (+ `category`), `tests/queue-params.test.ts`, `tests/intake.test.ts` (category default)
 
 **Interfaces (SQL):**
@@ -534,7 +534,7 @@ Check `tests/db/intake.test.ts` and `tests/db/lifecycle.test.ts` for calls to `a
 ### Task 11: Search migration
 
 **Files:**
-- Create: `supabase/migrations/20260912100500_m5_search.sql`, `tests/db/m5-search.test.ts`
+- Create: `supabase/migrations/20260914100500_m5_search.sql`, `tests/db/m5-search.test.ts`
 
 **Interfaces (SQL):**
 
@@ -594,7 +594,7 @@ Presets map exactly the AppSheet headers: students `Student ID:`, `Name`, `stude
 ### Task 12: Import migration
 
 **Files:**
-- Create: `supabase/migrations/20260912100600_m5_import.sql`, `tests/db/m5-import.test.ts`
+- Create: `supabase/migrations/20260914100600_m5_import.sql`, `tests/db/m5-import.test.ts`
 
 **Interfaces (SQL):**
 
@@ -628,7 +628,7 @@ create function public.app_admin_import_runs(p_limit integer default 20) returns
 ### Task 13: Insights migration
 
 **Files:**
-- Create: `supabase/migrations/20260912100700_m5_insights.sql`, `tests/db/m5-insights.test.ts`
+- Create: `supabase/migrations/20260914100700_m5_insights.sql`, `tests/db/m5-insights.test.ts`
 
 **Interfaces (SQL):**
 
@@ -646,7 +646,7 @@ create function public.app_insights(p_days integer default 30) returns jsonb; --
 ### Task 14: Attachments migration
 
 **Files:**
-- Create: `supabase/migrations/20260912100800_m5_attachments.sql`, `tests/db/m5-attachments.test.ts`
+- Create: `supabase/migrations/20260914100800_m5_attachments.sql`, `tests/db/m5-attachments.test.ts`
 
 **Interfaces (SQL):**
 
@@ -682,7 +682,7 @@ No storage policies are created (all storage access goes through server-issued s
 ### Task 15: AI and preferences migration
 
 **Files:**
-- Create: `supabase/migrations/20260912100900_m5_ai_preferences.sql`, `tests/db/m5-ai.test.ts`
+- Create: `supabase/migrations/20260914100900_m5_ai_preferences.sql`, `tests/db/m5-ai.test.ts`
 
 **Interfaces (SQL):**
 
@@ -739,7 +739,7 @@ create table public.ai_messages (
 ### Task 16: Audit log and ticket notification hooks
 
 **Files:**
-- Create: `supabase/migrations/20260912101000_m5_audit_notifications.sql`, `tests/db/m5-audit.test.ts`
+- Create: `supabase/migrations/20260914101000_m5_audit_notifications.sql`, `tests/db/m5-audit.test.ts`
 
 **Interfaces (SQL):**
 
@@ -988,7 +988,7 @@ Add `src/components/ai/ThinkingOrb.tsx` (+ `orb.css`): props `state: 'idle'|'lis
 ### Task 31: Phone scanner relay
 
 **Files:**
-- Create: `supabase/migrations/20260912101100_m5_scan_relay.sql`, `tests/db/m5-scan-relay.test.ts`, `src/lib/data/scan-actions.ts`, `src/app/scan/[session]/page.tsx` (outside the `(app)` group but requires an active account: use `loadActor()` and redirect to `/login?next=/scan/<id>` when anonymous — add optional `next` support to the login redirect only for paths starting with `/scan/`), `src/components/scan/{PhoneScanner,ScanPairingDialog,useScanRelay}.tsx`, `src/components/ui/QrCode.tsx`
+- Create: `supabase/migrations/20260914101100_m5_scan_relay.sql`, `tests/db/m5-scan-relay.test.ts`, `src/lib/data/scan-actions.ts`, `src/app/scan/[session]/page.tsx` (outside the `(app)` group but requires an active account: use `loadActor()` and redirect to `/login?next=/scan/<id>` when anonymous — add optional `next` support to the login redirect only for paths starting with `/scan/`), `src/components/scan/{PhoneScanner,ScanPairingDialog,useScanRelay}.tsx`, `src/components/ui/QrCode.tsx`
 - Modify: `src/components/shell/LookupBar.tsx` (action), `src/components/devices/DeviceForm.tsx` (scan buttons on serial/asset tag), `src/components/ticket/LinkedDevicesPanel.tsx`, `package.json` (`qrcode` + `@types/qrcode`)
 
 **Interfaces (SQL):**
