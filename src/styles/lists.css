@@ -244,3 +244,137 @@
   box-shadow: var(--focus);
   outline: none;
 }
+
+/* --- What the form already knows ----------------------------------------- */
+
+/*
+ * The suggested category and priority, read off the sentence above them. They
+ * sit under the issue box, which is the field they were read from and the field
+ * Tab accepts them out of.
+ */
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.suggestions-label {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.suggestion-chip {
+  display: inline-flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+}
+
+.suggestion-chip-accept {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 9px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-1);
+  cursor: pointer;
+}
+
+.suggestion-chip-why {
+  color: var(--ink-3);
+}
+
+.suggestion-chip-no {
+  padding: 0 8px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--fs-0);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .suggestion-chip-accept:hover {
+    background: var(--surface-3);
+  }
+
+  .suggestion-chip-no:hover {
+    color: var(--ink);
+  }
+}
+
+/* --- Somebody already reported this -------------------------------------- */
+
+/*
+ * A warning, never a block. The NetRider at the desk can see the person in
+ * front of them and this cannot; "you may not record that" would be the form
+ * overruling somebody who knows more than it does.
+ */
+.duplicate-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--warn-soft);
+}
+
+.duplicate-warning-glyph {
+  flex: none;
+  margin-top: 2px;
+  color: var(--warn);
+}
+
+.duplicate-warning-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.duplicate-warning-text p {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-1);
+}
+
+.duplicate-warning-text ul {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.duplicate-warning-text li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: var(--fs-1);
+}
+
+.duplicate-warning-sub {
+  color: var(--ink-3);
+}
+
+.duplicate-warning-no {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--fs-1);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}

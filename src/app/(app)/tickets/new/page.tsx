@@ -22,6 +22,8 @@ import {
   TICKET_CATEGORY_LABELS,
 } from '@/lib/domain/types';
 import { canChooseChannelAndOwner } from '@/lib/domain/permissions';
+import { DuplicateWarning } from '@/components/ticket/DuplicateWarning';
+import { IntakeSuggestions } from '@/components/ticket/IntakeSuggestions';
 import { createTicketAction } from '@/lib/data/actions';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { ChosenPerson, PersonPicker, type PersonSearchResult } from '@/components/people/PersonPicker';
@@ -314,6 +316,20 @@ export default function NewTicketPage() {
                 rows={4}
               />
             </Field>
+            {/* What the sentence above already said, offered back. Tab out of
+                the issue box takes it; nothing is filled in on its own. */}
+            <div className="form-grid-full">
+              <IntakeSuggestions
+                title={title}
+                issue={issue}
+                fieldId="issue"
+                category={category}
+                priority={priority}
+                onCategory={setCategory}
+                onPriority={setPriority}
+              />
+              <DuplicateWarning title={title} location={location} />
+            </div>
           </div>
         </IntakeSection>
 
