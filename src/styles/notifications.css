@@ -32,9 +32,11 @@
   text-align: left;
 }
 
-a.notification:hover {
-  background: var(--surface-2);
-  text-decoration: none;
+@media (hover: hover) and (pointer: fine) {
+  a.notification:hover {
+    background: var(--surface-2);
+    text-decoration: none;
+  }
 }
 
 .notification-glyph {
@@ -153,9 +155,9 @@ a.notification:hover {
 /* On the page the list is the card; in the popover the popover is. */
 .notifications-body .notification-rows,
 .notifications-screen .notification-group .notification-rows {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-4);
   background: var(--surface);
+  box-shadow: var(--shadow-1);
 }
 
 .notifications-screen .notification {
@@ -168,17 +170,17 @@ a.notification:hover {
 }
 
 .notifications-screen .notification:first-child {
-  border-radius: var(--radius-2) var(--radius-2) 0 0;
+  border-radius: var(--radius-4) var(--radius-4) 0 0;
 }
 
 .notifications-screen .notification:last-child {
-  border-radius: 0 0 var(--radius-2) var(--radius-2);
+  border-radius: 0 0 var(--radius-4) var(--radius-4);
 }
 
 .notifications-body .empty {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-4);
   background: var(--surface);
+  box-shadow: var(--shadow-1);
 }
 
 /* --- The dropdown ------------------------------------------------------- */

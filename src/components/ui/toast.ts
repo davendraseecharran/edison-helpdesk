@@ -12,6 +12,12 @@
  * or pushed out by the limit) its holds go with it, and the survivors' clocks
  * restart if that was the last one. Without this, closing a focused toast
  * would stop every other toast's clock for good.
+ *
+ * A hidden tab stops every clock as well, and it is not a hold: it belongs to
+ * no toast and it outlives all of them. Switch away while "Ticket resolved" is
+ * on screen and come back a minute later and the message is still there,
+ * because it was never read. `hidden` is tracked beside the holds and the
+ * clocks run only when both are clear.
  */
 
 export type ToastKind = 'success' | 'error';
@@ -45,6 +51,9 @@ export interface ToastState {
   /** Oldest first. */
   toasts: Toast[];
   holds: ToastHoldRecord[];
+  /** The tab is in the background. */
+  hidden: boolean;
+  /** True while the clocks are stopped, by a hold or by a hidden tab. */
   paused: boolean;
   nextId: number;
 }
@@ -54,6 +63,10 @@ export type ToastAction =
   | { type: 'dismiss'; id: number; now: number }
   | { type: 'hold'; by: ToastHold; toast: number; now: number }
   | { type: 'release'; by: ToastHold; toast: number; now: number }
+  /** The tab went to the background; nothing on screen is being read. */
+  | { type: 'hide'; now: number }
+  /** The tab came back; every clock that was not held resumes where it stopped. */
+  | { type: 'show'; now: number }
   | { type: 'expire'; now: number };
 
 export const TOAST_LIFETIME_MS = 5_000;
@@ -64,6 +77,7 @@ export const TOAST_LIMIT = 3;
 export const initialToastState: ToastState = {
   toasts: [],
   holds: [],
+  hidden: false,
   paused: false,
   nextId: 1,
 };
@@ -99,7 +113,7 @@ function sameHold(record: ToastHoldRecord, by: ToastHold, toast: number): boolea
  */
 function withToasts(state: ToastState, toasts: Toast[], now: number): ToastState {
   const holds = state.holds.filter((hold) => toasts.some((toast) => toast.id === hold.toast));
-  if (state.paused && holds.length === 0) {
+  if (state.paused && holds.length === 0 && !state.hidden) {
     return {
       ...state,
       toasts: toasts.map((toast) => startClock(toast, now)),
@@ -165,10 +179,33 @@ export function toastReducer(state: ToastState, action: ToastAction): ToastState
     case 'release': {
       if (!state.holds.some((hold) => sameHold(hold, action.by, action.toast))) return state;
       const holds = state.holds.filter((hold) => !sameHold(hold, action.by, action.toast));
-      if (holds.length > 0) return { ...state, holds };
+      if (holds.length > 0 || state.hidden) return { ...state, holds };
       return {
         ...state,
         holds,
+        paused: false,
+        toasts: state.toasts.map((toast) => startClock(toast, action.now)),
+      };
+    }
+
+    case 'hide': {
+      if (state.hidden) return state;
+      return {
+        ...state,
+        hidden: true,
+        paused: true,
+        toasts: state.paused
+          ? state.toasts
+          : state.toasts.map((toast) => stopClock(toast, action.now)),
+      };
+    }
+
+    case 'show': {
+      if (!state.hidden) return state;
+      if (state.holds.length > 0) return { ...state, hidden: false };
+      return {
+        ...state,
+        hidden: false,
         paused: false,
         toasts: state.toasts.map((toast) => startClock(toast, action.now)),
       };

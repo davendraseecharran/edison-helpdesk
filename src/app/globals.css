@@ -17,6 +17,7 @@
 @import '../styles/tickets.css';
 @import '../styles/directory.css';
 @import '../styles/motion.css';
+@import '../styles/lamp.css';
 
 /* --- Text utilities ----------------------------------------------------- */
 
@@ -65,10 +66,16 @@
   cursor: pointer;
 }
 
-.intake-form .search-select-option:hover,
 .intake-form .search-select-option-active {
   background: var(--brass-soft);
   color: var(--ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .intake-form .search-select-option:hover {
+    background: var(--brass-soft);
+    color: var(--ink);
+  }
 }
 
 .intake-form .search-select-status {
@@ -138,6 +145,142 @@
 
 /* --- Inventory management -------------------------------------------- */
 
+/*
+ * The owner's inventory screens arrived with their own markup and without the
+ * stylesheet that went with it, so they referenced half a dozen class names
+ * nothing in this project defines: `.card`, `.toolbar`, `.tickets`,
+ * `.table-wrap`, `.cell-title`, `.result-count`, `.notice`, `.small`,
+ * `.sr-only`. Unstyled, the tables ran their columns together -- "Hana
+ * SørensenStudent" -- and the caption sat in the middle of the page.
+ *
+ * These are those names, defined once against the tokens so the screens read
+ * like the rest of the application: a card is a panel at the resting
+ * elevation, a toolbar is a filter bar, a table is the shared table. It is
+ * presentation only and touches no component, because the data-model rewrite
+ * is replacing this markup; until it does, these screens are in the product
+ * and have to look like they belong to it.
+ */
+
+.card {
+  min-width: 0;
+  background: var(--surface);
+  border-radius: var(--radius-4);
+  box-shadow: var(--shadow-1);
+}
+
+.card > h2,
+.card > h3 {
+  padding: 12px 12px 0;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.result-count {
+  margin-left: auto;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.table-wrap {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.inventory-table th,
+.inventory-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.inventory-table thead th {
+  height: 40px;
+  padding-top: 0;
+  padding-bottom: 0;
+  background: var(--surface);
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.inventory-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/*
+ * The transition belongs to the row, not to the hovered state: declared only
+ * on `:hover` the fill fades in and snaps out, which reads as a glitch.
+ */
+.inventory-table tbody tr {
+  transition: background-color 100ms ease-out;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .inventory-table tbody tr:hover {
+    background: var(--surface-2);
+  }
+}
+
+/* The record's name over what kind of record it is. */
+.cell-title {
+  min-width: 0;
+}
+
+.cell-sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.notice {
+  padding: 10px 12px;
+  border-radius: var(--radius-1);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.notice-warning {
+  background: var(--warn-soft);
+  color: var(--ink);
+}
+
+.small {
+  font-size: var(--fs-1);
+}
+
+/* A caption a screen reader hears and nobody sees. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .inventory-manager {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.9fr);
@@ -159,23 +302,9 @@
 }
 
 .inventory-toolbar .field-search {
+  flex: 1 1 260px;
   min-width: 220px;
-}
-
-.inventory-manager input[type='search'] {
-  width: 100%;
-  padding: 7px 9px;
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius-2);
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-size: 13.5px;
-}
-
-.inventory-manager input[type='search']:focus-visible {
-  border-color: var(--brass);
-  box-shadow: var(--focus);
+  max-width: 420px;
 }
 
 .inventory-toolbar .field-hint {
@@ -183,7 +312,7 @@
 }
 
 .inventory-inline-error {
-  margin: 12px 16px 0;
+  margin: 12px 12px 0;
 }
 
 .inventory-loading {
@@ -200,8 +329,19 @@
   margin-bottom: 12px;
 }
 
+/*
+ * The row whose record is open in the editor beside it. It was filled with
+ * brass, which is the lamp painted across a whole row; the surface step says
+ * the same thing, and a neutral rule down its leading edge picks it out of the
+ * column without lighting a second lamp — the light belongs to whatever the
+ * keyboard is on (see lamp.css), and this row is merely the one being edited.
+ */
 .inventory-table .inventory-row-selected td {
-  background: var(--brass-soft);
+  background: var(--surface-3);
+}
+
+.inventory-table .inventory-row-selected td:first-child {
+  box-shadow: inset 3px 0 0 var(--line-2);
 }
 
 .inventory-row-select {
@@ -216,8 +356,10 @@
   cursor: pointer;
 }
 
-.inventory-row-select:hover {
-  text-decoration: underline;
+@media (hover: hover) and (pointer: fine) {
+  .inventory-row-select:hover {
+    text-decoration: underline;
+  }
 }
 
 .inventory-editor-card {
@@ -231,7 +373,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 12px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -241,11 +383,11 @@
 
 .inventory-editor-error,
 .inventory-editor-note {
-  margin: 12px 16px 0;
+  margin: 12px 12px 0;
 }
 
 .inventory-editor-form {
-  padding: 16px;
+  padding: 12px;
 }
 
 .inventory-form-actions {
@@ -257,8 +399,8 @@
 }
 
 .inventory-assigned-detail {
-  margin: 0 16px 16px;
-  padding-top: 14px;
+  margin: 0 12px 12px;
+  padding-top: 12px;
   border-top: 1px solid var(--line);
 }
 
@@ -291,7 +433,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  padding: 12px 16px;
+  padding: 12px;
   border-top: 1px solid var(--line);
 }
 
@@ -329,10 +471,16 @@
   cursor: pointer;
 }
 
-.inventory-manager .search-select-option:hover,
 .inventory-manager .search-select-option-active {
   background: var(--brass-soft);
   color: var(--ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .inventory-manager .search-select-option:hover {
+    background: var(--brass-soft);
+    color: var(--ink);
+  }
 }
 
 .inventory-manager .search-select-status {

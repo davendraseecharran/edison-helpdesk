@@ -6,9 +6,10 @@
  *
  *   - The only parameter read is `code`. There is still no `next` or
  *     `redirect_to` in the URL, so there is no open redirect and no way to
- *     steer the flow by editing it. The destination is this application's own
- *     /queue, and the app group's layout then routes the session by what the
- *     DATABASE says the account is — waiting for approval, declined,
+ *     steer the flow by editing it. The destination is one of this
+ *     application's own landings, chosen from the account's roles once
+ *     linking succeeds, and the app group's layout then routes the session by
+ *     what the DATABASE says the account is — waiting for approval, declined,
  *     deactivated or active.
  *   - The one exception is the phone scanner, and it does not travel through
  *     the URL either. `signInWithGoogleAction` writes an httpOnly cookie
@@ -35,6 +36,7 @@ import { createServerClient } from '@supabase/ssr';
 import { appOrigin, publicSupabaseConfig } from '@/lib/supabase/config';
 import { adminClient } from '@/lib/supabase/admin';
 import { isScanPath, SCAN_NEXT_COOKIE } from '@/lib/scan/relay';
+import { landingPath, normalizeRoles } from '@/lib/auth/roles';
 
 type LinkOutcome = 'existing' | 'invited' | 'requested' | 'unverified';
 
@@ -65,14 +67,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   // Where the sign-in was headed before it was interrupted. Checked here, not
   // trusted from the cookie: the same allow-list the action applied on the way
-  // out, applied again on the way in.
+  // out, applied again on the way in. This still wins over anything the
+  // account's roles would otherwise pick.
   const asked = request.cookies.get(SCAN_NEXT_COOKIE)?.value;
-  const landing = isScanPath(asked) ? asked : '/queue';
+  const scanLanding = isScanPath(asked) ? asked : null;
 
   // Use the configured origin: Next can normalize request.url from 127.0.0.1 to
   // localhost, which would strand host-only session cookies. Session cookies
-  // are attached to the exact redirect response that is returned.
-  const response = NextResponse.redirect(new URL(landing, appOrigin()));
+  // are attached to the exact redirect response that is returned. '/queue' is
+  // only the placeholder used while the session is still being established;
+  // an ordinary sign-in is re-routed by role below.
+  const response = NextResponse.redirect(new URL(scanLanding ?? '/queue', appOrigin()));
   // One sign-in, one use: cleared whether or not it was honoured.
   response.cookies.delete(SCAN_NEXT_COOKIE);
   response.headers.set('Referrer-Policy', 'no-referrer');
@@ -133,7 +138,24 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return fail('1');
   }
 
-  // An account now exists for this identity in one of five states. Where the
-  // person belongs is the app layout's decision, made from app_my_account().
+  // An account now exists for this identity in one of five states. Whether it
+  // may be here at all — pending, denied, unlinked — is still the app layout's
+  // decision, made from its own app_my_account() read. This is only choosing
+  // between the two landings an account with a decided set of roles gets: a
+  // skills officer with no queue should not land in one just to be bounced to
+  // /people a moment later.
+  if (scanLanding === null) {
+    const { data: rows } = await supabase.rpc('app_my_account');
+    const row = Array.isArray(rows) ? (rows[0] as { roles?: unknown } | undefined) : undefined;
+    const destination = landingPath(normalizeRoles(row?.roles));
+    if (destination !== '/queue') {
+      const redirected = NextResponse.redirect(new URL(destination, appOrigin()));
+      for (const cookie of response.cookies.getAll()) redirected.cookies.set(cookie);
+      redirected.headers.set('Referrer-Policy', 'no-referrer');
+      redirected.headers.set('Cache-Control', 'no-store');
+      return redirected;
+    }
+  }
+
   return response;
 }

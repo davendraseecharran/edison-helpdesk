@@ -362,3 +362,36 @@ describe('the text an assistant may send', () => {
     expect(validateArgs('add_note', { ticket: 'EDT-1042', body: 'x'.repeat(4_000) }).ok).toBe(true);
   });
 });
+
+describe('set_roles validates the role list itself', () => {
+  function adminCtx(): ToolContext {
+    return {
+      supabase: {
+        rpc: () => {
+          throw new Error('an invalid role list must be refused before any RPC call');
+        },
+      },
+      actor: { id: 'a', displayName: 'Pat Example', roles: ['admin'] },
+    } as unknown as ToolContext;
+  }
+
+  it('names the unknown token rather than silently granting netrider', async () => {
+    const result = await executeTool(
+      'set_roles',
+      { account: 'Dev Okafor', roles: 'admin, wizard' },
+      adminCtx(),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.summary).toMatch(/"wizard" is not a role/i);
+  });
+
+  it('refuses an empty role list instead of defaulting it', async () => {
+    const result = await executeTool(
+      'set_roles',
+      { account: 'Dev Okafor', roles: '  ,  ' },
+      adminCtx(),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.summary).toMatch(/name at least one role/i);
+  });
+});

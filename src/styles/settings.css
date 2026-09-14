@@ -41,10 +41,12 @@
   font-size: var(--fs-1);
 }
 
+/* The same resting card as a panel: the elevation carries it, not a border. */
 .settings-card {
+  overflow: clip;
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-4);
+  box-shadow: var(--shadow-1);
 }
 
 /* One rule between settings, and none above the first or below the last. */

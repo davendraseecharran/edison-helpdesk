@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { useRuntime } from '@/components/AppRuntime';
+import { useActorRoles, useRuntime } from '@/components/AppRuntime';
+import { canEditInventory } from '@/lib/auth/roles';
 import { EmptyState, Field, PageHeader } from '@/components/Primitives';
 import { SearchSelect } from '@/components/SearchSelect';
 import {
@@ -68,7 +69,7 @@ function personKindLabel(kind: PersonKind): string {
 function sectionTitle(section: InventorySection): string {
   if (section === 'students') return 'Students';
   if (section === 'staff') return 'Staff';
-  return 'Master Inventory';
+  return 'Master inventory';
 }
 
 function sectionDescription(section: InventorySection): string {
@@ -271,6 +272,11 @@ export function InventoryManager({ section }: { section: InventorySection }) {
   const personKind: PersonKind | null =
     section === 'students' ? 'student' : section === 'staff' ? 'staff' : null;
   const busy = pendingKey !== null;
+  // A skills officer reads the master inventory but does not change it; the
+  // student and staff directory is every role's to work. The hook always
+  // runs, whichever section this is, so it stays a hook.
+  const actorRoles = useActorRoles();
+  const canEdit = personSection || canEditInventory(actorRoles);
 
   const [listQuery, setListQuery] = useState('');
   const [listPageNumber, setListPageNumber] = useState(1);
@@ -693,14 +699,16 @@ export function InventoryManager({ section }: { section: InventorySection }) {
         title={pageLabel}
         description={sectionDescription(section)}
         actions={
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={busy}
-            onClick={personSection ? beginAddPerson : beginAddDevice}
-          >
-            {addLabel}
-          </button>
+          canEdit ? (
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={busy}
+              onClick={personSection ? beginAddPerson : beginAddDevice}
+            >
+              {addLabel}
+            </button>
+          ) : undefined
         }
       />
 
@@ -791,17 +799,21 @@ export function InventoryManager({ section }: { section: InventorySection }) {
             <EmptyState
               title={`Select a ${personSection ? 'person' : 'device'}`}
               action={
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={personSection ? beginAddPerson : beginAddDevice}
-                  disabled={busy}
-                >
-                  {addLabel}
-                </button>
+                canEdit ? (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={personSection ? beginAddPerson : beginAddDevice}
+                    disabled={busy}
+                  >
+                    {addLabel}
+                  </button>
+                ) : undefined
               }
             >
-              Choose a row to review or edit its details.
+              {canEdit
+                ? 'Choose a row to review or edit its details.'
+                : 'Choose a row to review its details. Skills officers can view devices but not add or edit them.'}
             </EmptyState>
           ) : personSection && personDraft ? (
             <PersonEditor
@@ -821,6 +833,10 @@ export function InventoryManager({ section }: { section: InventorySection }) {
                 if (personDraft.id) loadPersonAssignedPage(personDraft.id, pageNumber);
               }}
             />
+          ) : !personSection && deviceDraft && !canEdit ? (
+            <EmptyState title="View only">
+              Skills officers can view devices but not add or edit them.
+            </EmptyState>
           ) : !personSection && deviceDraft ? (
             <DeviceEditor
               draft={deviceDraft}

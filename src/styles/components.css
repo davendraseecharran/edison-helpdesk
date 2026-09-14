@@ -42,10 +42,6 @@
   transition-timing-function: ease-out;
 }
 
-.btn:hover {
-  text-decoration: none;
-}
-
 /*
  * Press feedback: the button gives under the finger and comes back. A
  * transition rather than a keyframe, so letting go halfway returns smoothly
@@ -64,6 +60,11 @@
 @media (hover: hover) and (pointer: fine) {
   .btn:hover:not(:disabled):not([aria-disabled='true']) {
     background: var(--surface-2);
+  }
+
+  /* A button that is an anchor must not pick up the link underline. */
+  .btn:hover {
+    text-decoration: none;
   }
 }
 
@@ -969,12 +970,18 @@ p.flash {
 
 /*
  * A row hover fires tens of times a minute, so it gets the cheapest possible
- * feedback: one colour, 100ms, nothing that moves.
+ * feedback: one colour, 100ms, nothing that moves. The transition lives on the
+ * row rather than on the hovered state: declared only on `:hover` it fades in
+ * and snaps out, and the eye reads that asymmetry as a glitch on every row the
+ * pointer crosses.
  */
+.table tbody tr {
+  transition: background-color 100ms ease-out;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .table tbody tr:hover {
     background: var(--surface-2);
-    transition: background-color 100ms ease-out;
   }
 }
 

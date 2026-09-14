@@ -81,8 +81,10 @@
   letter-spacing: -0.01em;
 }
 
-.brand:hover {
-  text-decoration: none;
+@media (hover: hover) and (pointer: fine) {
+  .brand:hover {
+    text-decoration: none;
+  }
 }
 
 /* Reserve the rail's width so the lookup starts where the main column does. */
@@ -149,9 +151,11 @@
     border-color 120ms ease-out;
 }
 
-.lookup-trigger:hover {
-  border-color: var(--line-2);
-  background: var(--surface);
+@media (hover: hover) and (pointer: fine) {
+  .lookup-trigger:hover {
+    border-color: var(--line-2);
+    background: var(--surface);
+  }
 }
 
 .lookup-trigger:focus-visible {
@@ -194,8 +198,8 @@
 /*
  * A dialog on desktop, hung near the top so results have room to grow
  * downwards; a full-height sheet on phones, where the keyboard takes the
- * lower half. The panel does not clip: the opening beam blooms a little past
- * its edge, and nothing inside reaches the corners.
+ * lower half. It opens with no animation at all — see the note in
+ * `LookupBar.tsx`.
  */
 .palette {
   width: min(640px, calc(100% - 32px));
@@ -294,6 +298,7 @@
   font-weight: 500;
 }
 
+/* 8px of list padding around an 8px row makes the 16px panel concentric. */
 .palette-list [cmdk-item] {
   position: relative;
   display: flex;
@@ -301,26 +306,22 @@
   gap: 12px;
   min-height: 40px;
   padding: 6px 10px;
-  border-radius: var(--radius-1);
+  border-radius: var(--radius-2);
   color: var(--ink);
   cursor: pointer;
   user-select: none;
 }
 
+/*
+ * The row the keyboard is on. While the palette is open it is the only thing
+ * on the screen that Enter will act on, so it takes the lamp — the same one
+ * the rail wears for the page you are on, which is behind the backdrop while
+ * this is up. The light itself is lit in lamp.css, which is the one place that
+ * decides who holds it. No transition: the selection moves on every arrow key,
+ * and at that frequency anything but an instant change is a lag.
+ */
 .palette-list [cmdk-item][data-selected='true'] {
   background: var(--surface-3);
-}
-
-/* The same brass marker the rail uses for the current page. */
-.palette-list [cmdk-item][data-selected='true']::before {
-  content: '';
-  position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 0;
-  width: 3px;
-  border-radius: 0 2px 2px 0;
-  background: var(--brass);
 }
 
 .palette-item-icon {
@@ -480,10 +481,6 @@
     border-radius: 0;
   }
 
-  .palette-sheet .open-beam-ghost {
-    border-radius: 0;
-  }
-
   .palette-input-row {
     padding: 0 8px 0 16px;
   }
@@ -538,9 +535,14 @@
   cursor: pointer;
 }
 
-.user-trigger:hover,
 .user-trigger[aria-expanded='true'] {
   background: var(--surface-3);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .user-trigger:hover {
+    background: var(--surface-3);
+  }
 }
 
 .account {
@@ -683,11 +685,13 @@
  * the same thing in a way that only worked on this one surface — the light
  * belongs to the row, so the same treatment carries to a queue row, a panel,
  * a field, and reads as one idea rather than four decorations.
+ *
+ * The surface step is unconditional; the light is lit in lamp.css, which takes
+ * it away again while the palette or an approval card is nearer the keyboard.
  */
 .rail-link[aria-current='page'] {
   background: var(--surface-3);
   color: var(--ink);
-  box-shadow: var(--edge-light);
 }
 
 .rail-link[aria-current='page'] .icon {
@@ -899,8 +903,10 @@
   cursor: pointer;
 }
 
-.fab-core:hover {
-  background: var(--brass-2);
+@media (hover: hover) and (pointer: fine) {
+  .fab-core:hover {
+    background: var(--brass-2);
+  }
 }
 
 .fab-satellite {
@@ -917,9 +923,11 @@
   transition: opacity 120ms ease-out;
 }
 
-.fab-satellite:hover {
-  background: var(--surface-3);
-  text-decoration: none;
+@media (hover: hover) and (pointer: fine) {
+  .fab-satellite:hover {
+    background: var(--surface-3);
+    text-decoration: none;
+  }
 }
 
 .fab[data-open='false'] .fab-satellite {

@@ -37,23 +37,30 @@
   gap: 12px;
 }
 
+/* A resting card, like every other: the elevation carries it, not a border. */
 .stat-tile {
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
-  padding: 14px 16px;
+  padding: 12px 16px;
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-4);
+  box-shadow: var(--shadow-1);
 }
 
 /*
- * The one live figure in a row of figures about a period. The keyline is a
- * marker, not an encoding: the tile says "right now" in words underneath.
+ * The one live figure in a row of figures about a period. This wore a brass
+ * keyline, which made it the second brass thing on a screen that already has
+ * the lit rail item, and the lamp only means "here" while it is alone. The
+ * tile already says "right now" in words underneath, and the marker is a
+ * neutral keyline that groups it with the numbers rather than shouting over
+ * them.
  */
 .stat-tile-accent {
-  box-shadow: inset 3px 0 0 var(--brass);
+  box-shadow:
+    var(--shadow-1),
+    inset 3px 0 0 var(--line-2);
 }
 
 .stat-tile-label {

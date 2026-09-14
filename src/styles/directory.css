@@ -534,12 +534,14 @@
   color: var(--ink);
 }
 
-.record-ticket-link:hover {
-  text-decoration: none;
-}
+@media (hover: hover) and (pointer: fine) {
+  .record-ticket-link:hover {
+    text-decoration: none;
+  }
 
-.record-ticket-link:hover .record-ticket-title {
-  text-decoration: underline;
+  .record-ticket-link:hover .record-ticket-title {
+    text-decoration: underline;
+  }
 }
 
 .record-ticket-number {
@@ -643,8 +645,11 @@
   cursor: default;
 }
 
-.picker-option[aria-disabled='true']:hover {
-  background: transparent;
+/* Takes back the hover fill from the rule that gives it, so it is gated with it. */
+@media (hover: hover) and (pointer: fine) {
+  .picker-option[aria-disabled='true']:hover {
+    background: transparent;
+  }
 }
 
 .picker-option-note {

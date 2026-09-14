@@ -54,8 +54,13 @@ export const SPRING: Transition = { type: 'spring', visualDuration: DURATION.slo
 /** The standard entrance: settle over 180ms. */
 export const EASE_OUT: Transition = { duration: DURATION.base, ease: 'easeOut' };
 
-/** The standard exit: gone in 120ms, quicker than arriving. */
-export const EASE_IN_FAST: Transition = { duration: DURATION.fast, ease: 'easeIn' };
+/**
+ * The standard exit: gone in 120ms, quicker than arriving, and still eased
+ * out. `ease-in` holds the first frame back, which is the frame the eye is on;
+ * a surface leaving on it reads as sluggish even though the clock says it was
+ * fast. Nothing in this product uses ease-in.
+ */
+export const EASE_OUT_FAST: Transition = { duration: DURATION.fast, ease: 'easeOut' };
 
 /** No transition at all, for reduced motion. */
 export const INSTANT: Transition = { duration: 0 };
@@ -194,6 +199,13 @@ export interface SpringSurfaceProps {
     'aria-describedby'?: string;
     tabIndex?: number;
   };
+  /**
+   * Opens and closes with no motion at all. For a surface somebody reaches for
+   * dozens of times a day: the command palette. An animation there is charged
+   * on every keystroke that opens it, and after the tenth time it is only a
+   * delay between asking and typing.
+   */
+  instant?: boolean;
   onBackdropPress: () => void;
   children: ReactNode;
 }
@@ -213,10 +225,11 @@ export function SpringSurface({
   panelRef,
   panelClassName,
   panelProps,
+  instant = false,
   onBackdropPress,
   children,
 }: SpringSurfaceProps) {
-  const reduced = useReducedMotion();
+  const reduced = useReducedMotion() || instant;
   const present = useIsPresent();
 
   const hidden =
@@ -244,7 +257,7 @@ export function SpringSurface({
         {...panelProps}
         initial={reduced ? false : hidden}
         animate={shown}
-        exit={reduced ? undefined : { ...hidden, transition: EASE_IN_FAST }}
+        exit={reduced ? undefined : { ...hidden, transition: EASE_OUT_FAST }}
         transition={reduced ? INSTANT : kind === 'dialog' ? EASE_OUT : SPRING}
       >
         {children}

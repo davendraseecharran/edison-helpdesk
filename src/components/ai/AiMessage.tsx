@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { useReducedMotion } from '@/components/ui/media';
 import { EASE_OUT, INSTANT } from '@/components/ui/Motion';
+import { runningLabel } from './chip-copy';
 import { renderMarkdown } from './markdown';
 import { Orb } from './Orb';
 import { momentForTool, type Moment } from './orb-state';
@@ -40,7 +41,9 @@ function Arrive({ children, className }: { children: React.ReactNode; className?
 }
 
 function ToolChip({ part }: { part: ToolPart }) {
-  const label = part.result ?? part.summary;
+  // Past tense once the tool has answered, present participle while it works,
+  // and the server's fuller description for anything the chip cannot phrase.
+  const label = part.result ?? runningLabel(part.name, part.args) ?? part.summary;
   return (
     <Arrive className="ai-chip-row">
       <span className="ai-chip" data-status={part.status}>

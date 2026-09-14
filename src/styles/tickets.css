@@ -99,7 +99,6 @@
 }
 
 .callout-warn {
-  border-color: var(--warn);
   background: var(--warn-soft);
   color: var(--ink);
 }
@@ -359,8 +358,13 @@
 }
 
 @media (min-width: 1024px) {
-  .queue-cell-title:hover .queue-peek,
   .queue-cell-title:focus-within .queue-peek {
+    opacity: 1;
+  }
+}
+
+@media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
+  .queue-cell-title:hover .queue-peek {
     opacity: 1;
   }
 }
@@ -883,6 +887,12 @@
     height: 64px;
   }
 
+  /*
+   * The page scrolls under this, so it is a raised thing and not a section of
+   * the page: the rule says where it starts and a soft lift upwards says it is
+   * on top. Without the lift a card scrolling behind it looked like a card cut
+   * in half.
+   */
   .ticket-bar {
     position: fixed;
     right: 0;
@@ -894,6 +904,7 @@
     padding: 10px 16px 26px;
     background: var(--surface);
     border-top: 1px solid var(--line);
+    box-shadow: 0 -10px 24px -14px color-mix(in srgb, var(--ink) 40%, transparent);
   }
 
   .ticket-bar .btn {
@@ -982,6 +993,7 @@
     padding: 10px 16px 26px;
     background: var(--surface);
     border-top: 1px solid var(--line);
+    box-shadow: 0 -10px 24px -14px color-mix(in srgb, var(--ink) 40%, transparent);
   }
 
   .intake-actions .btn-primary {
@@ -1080,8 +1092,10 @@
   text-align: left;
   cursor: pointer;
 }
-.picker-option:hover {
-  background: var(--surface-2);
+@media (hover: hover) and (pointer: fine) {
+  .picker-option:hover {
+    background: var(--surface-2);
+  }
 }
 .picker-option[aria-disabled='true'] {
   color: var(--ink-3);

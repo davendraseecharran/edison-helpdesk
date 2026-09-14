@@ -160,6 +160,42 @@ async function assertNoOverflow(page, where) {
   }
 }
 
+/**
+ * The lamp is never lit twice.
+ *
+ * `--edge-light` means "your next keystroke acts on this". A second lit
+ * element takes that meaning away from both, so the count is measured rather
+ * than trusted to the three rules in `src/styles/lamp.css`. The reference is
+ * read from a probe element rather than matched by colour, because the brass
+ * focus ring and the conversation list's brass rule are not the lamp.
+ */
+async function litElements(page) {
+  return page.evaluate(() => {
+    const probe = document.createElement('div');
+    probe.style.boxShadow = 'var(--edge-light)';
+    document.body.append(probe);
+    const lamp = getComputedStyle(probe).boxShadow;
+    probe.remove();
+    const lit = [];
+    for (const element of document.querySelectorAll('body *')) {
+      if (getComputedStyle(element).boxShadow !== lamp) continue;
+      const classes = (element.getAttribute('class') || '').trim();
+      lit.push(
+        element.tagName.toLowerCase() +
+          (classes ? `.${classes.split(/\s+/).join('.')}` : '') +
+          (element.hasAttribute('cmdk-item') ? '[cmdk-item]' : '') +
+          (element.getAttribute('aria-current') ? `[aria-current=${element.getAttribute('aria-current')}]` : ''),
+      );
+    }
+    return lit;
+  });
+}
+
+async function assertOneLamp(page, where) {
+  const lit = await litElements(page);
+  if (lit.length > 1) problems.push(`${where}: ${lit.length} elements wear the lamp (${lit.join(', ')})`);
+}
+
 /** Wait for the streaming skeletons to be replaced by the real thing. */
 async function settle(page) {
   await page.locator('main').first().waitFor();
@@ -400,8 +436,25 @@ async function shoot(page, theme, viewport, slug) {
           );
           if (route.title) assert.equal(await session.page.title(), route.title, `${label} ${route.path} title`);
           await assertNoOverflow(session.page, `${label} ${route.path}`);
+          await assertOneLamp(session.page, `${label} ${route.path}`);
           await shoot(session.page, theme, viewport, route.slug);
         }
+
+        // The palette takes the lamp off the rail. Both lit at once is the one
+        // failure the identity cannot survive, so it is asserted, not eyeballed.
+        stage = `${label} palette`;
+        await session.page.goto(`${base}/queue`);
+        await settle(session.page);
+        await session.page.keyboard.press('Control+k');
+        await session.page.locator('.palette-list [cmdk-item][data-selected="true"]').first().waitFor();
+        const litWithPalette = await litElements(session.page);
+        if (litWithPalette.length !== 1 || !litWithPalette[0].includes('cmdk-item')) {
+          problems.push(`${label} palette open: lamp on ${litWithPalette.join(', ') || 'nothing'}`);
+        }
+        await assertNoOverflow(session.page, `${label} palette`);
+        await shoot(session.page, theme, viewport, 'palette');
+        await session.page.keyboard.press('Escape');
+        await session.page.locator('.palette').waitFor({ state: 'detached' });
 
         // The assistant, unconnected: the top-bar sparkle on wide screens, the
         // Ask tab on a phone. Both open the same panel.
@@ -415,6 +468,7 @@ async function shoot(page, theme, viewport, slug) {
         await session.page.locator('.ai-connect').waitFor();
         await session.page.waitForTimeout(500);
         await assertNoOverflow(session.page, `${label} assistant panel`);
+        await assertOneLamp(session.page, `${label} assistant panel`);
         await shoot(session.page, theme, viewport, 'assistant');
         await session.context.close();
       }

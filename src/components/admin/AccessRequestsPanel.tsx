@@ -56,7 +56,14 @@ export function AccessRequestsPanel({
       align: 'right',
       cell: (account) => (
         <div className="btn-row admin-actions">
-          <Button variant="primary" size="sm" disabled={busy} onClick={() => onApprove(account)}>
+          {/*
+            Not the brass one. A waiting list of seven requests drew seven
+            brass Approve buttons down one column, which is brass used as a
+            highlighter rather than as a signal, and it read as a
+            recommendation to let everybody in. Neither answer is the default
+            here: the pair is quiet and the decision is the reader's.
+          */}
+          <Button size="sm" disabled={busy} onClick={() => onApprove(account)}>
             Approve
           </Button>
           <Button
