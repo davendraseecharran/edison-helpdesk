@@ -59,7 +59,7 @@ export default async function TicketDetailPage({
     <div
       className="ticket"
       data-page-kind="ticket"
-      data-page-id={ticket.number}
+      data-page-id={ticket.id}
       data-page-label={ticket.number}
     >
       <header className="ticket-head">

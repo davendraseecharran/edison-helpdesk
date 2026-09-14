@@ -67,6 +67,10 @@ export function AiConnectCard({
   const [copied, setCopied] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const alive = useRef(true);
+  // When the code on screen stops being worth asking about. Set once, where the
+  // code is issued, so a re-run of the poll effect cannot push the deadline out
+  // and leave an expired code saying "Waiting…" forever.
+  const expiresAt = useRef(0);
 
   useEffect(() => {
     alive.current = true;
@@ -84,6 +88,7 @@ export function AiConnectCard({
         setStep({ kind: 'error', message: result.error ?? 'ChatGPT did not answer. Try again.' });
         return;
       }
+      expiresAt.current = Date.now() + PAIRING_LIMIT_MS;
       setStep({
         kind: 'pairing',
         deviceAuthId: result.start.deviceAuthId,
@@ -100,17 +105,18 @@ export function AiConnectCard({
   const start = useCallback(() => setStep({ kind: 'starting' }), []);
 
   // The poll. Lives and dies with the pairing step: a cancel, an error, or
-  // the panel closing unmounts this effect and nothing asks again.
+  // the panel closing unmounts this effect and nothing asks again. The props it
+  // depends on are stable, so a parent re-render does not restart it; the
+  // deadline is held outside the effect in case one ever does.
   useEffect(() => {
     if (step.kind !== 'pairing') return;
     const { deviceAuthId, userCode, intervalSeconds } = step;
-    const startedAt = Date.now();
     let cancelled = false;
     let timer = 0;
 
     const ask = async () => {
       if (cancelled) return;
-      if (Date.now() - startedAt > PAIRING_LIMIT_MS) {
+      if (Date.now() > expiresAt.current) {
         setStep({ kind: 'error', message: 'That code has expired. Start again to get a new one.' });
         return;
       }

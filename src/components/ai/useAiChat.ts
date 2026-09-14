@@ -229,7 +229,10 @@ function settle(parts: TurnPart[]): TurnPart[] {
 export function momentForLine(line: Record<string, unknown>): Moment | null {
   switch (text(line.type)) {
     case 'phase':
-      return line.phase === 'writing' ? 'writing' : line.phase === 'tool' ? 'reading' : 'sending';
+      // `tool` says a tool is coming, not which one. The `tool_call` that
+      // follows names it, and that is what the orb should show: guessing
+      // "reading" here flashes the wrong orb before every write.
+      return line.phase === 'writing' ? 'writing' : line.phase === 'tool' ? null : 'sending';
     case 'reasoning':
       return 'reasoning';
     case 'delta':
@@ -341,6 +344,17 @@ export function useAiChat({
       : 'idle',
   );
 
+  // Everything that writes turns goes through `writeTurns`, which keeps this
+  // ref in step. A stream has to read the turn it is feeding part-way through,
+  // and reading it from here rather than from inside a `setTurns` updater keeps
+  // the updater pure — React calls those twice in development.
+  const turnsRef = useRef<Turn[]>(turns);
+  const writeTurns = useCallback((update: (current: Turn[]) => Turn[]) => {
+    const next = update(turnsRef.current);
+    turnsRef.current = next;
+    setTurns(next);
+  }, []);
+
   const controller = useRef<AbortController | null>(null);
   const lastMessage = useRef<string | null>(null);
   const conversationRef = useRef<string | null>(initial?.conversationId ?? null);
@@ -362,11 +376,14 @@ export function useAiChat({
     return out;
   }, [turns]);
 
-  const updateTurn = useCallback((id: string, update: (turn: AssistantTurn) => AssistantTurn) => {
-    setTurns((current) =>
-      current.map((turn) => (turn.role === 'assistant' && turn.id === id ? update(turn) : turn)),
-    );
-  }, []);
+  const updateTurn = useCallback(
+    (id: string, update: (turn: AssistantTurn) => AssistantTurn) => {
+      writeTurns((current) =>
+        current.map((turn) => (turn.role === 'assistant' && turn.id === id ? update(turn) : turn)),
+      );
+    },
+    [writeTurns],
+  );
 
   const stop = useCallback(() => {
     controller.current?.abort();
@@ -419,11 +436,13 @@ export function useAiChat({
                 : response.status === 401
                   ? 'signed_out'
                   : null;
-          if (block) callbacks.current.onBlocked?.(block, message);
-
-          if (response.status === 409 || response.status === 503) {
-            // Not a failed turn: the panel switches view. Drop the empty turn.
-            setTurns((current) => current.filter((turn) => turn.id !== turnId));
+          if (block) {
+            // Not a failed turn: the panel has been told and shows the
+            // connection card, the disabled note or a toast. Saying it twice —
+            // once there and once as an error inside the turn — is one time too
+            // many, so the empty turn goes.
+            callbacks.current.onBlocked?.(block, message);
+            writeTurns((current) => current.filter((turn) => turn.id !== turnId));
             setMoment('idle');
             return;
           }
@@ -439,11 +458,8 @@ export function useAiChat({
         if (!response.body) throw new Error('The reply had no body.');
 
         // The answer continues an existing turn (an approval) or starts a fresh one.
-        setTurns((current) => {
-          const turn = current.find((entry) => entry.id === turnId);
-          if (turn?.role === 'assistant') parts = turn.parts;
-          return current;
-        });
+        const existing = turnsRef.current.find((entry) => entry.id === turnId);
+        if (existing?.role === 'assistant') parts = existing.parts;
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -543,7 +559,7 @@ export function useAiChat({
         if (reply !== '') callbacks.current.onReply?.(reply);
       }
     },
-    [stop, transport, updateTurn],
+    [stop, transport, updateTurn, writeTurns],
   );
 
   const send = useCallback(
@@ -558,7 +574,7 @@ export function useAiChat({
 
       const userTurn: UserTurn = { id: newId(), role: 'user', text: message };
       const assistantTurn: AssistantTurn = { id: newId(), role: 'assistant', parts: [], streaming: true };
-      setTurns((current) => [...current, userTurn, assistantTurn]);
+      writeTurns((current) => [...current, userTurn, assistantTurn]);
 
       const pageContext = callbacks.current.page?.() ?? undefined;
       void run(
@@ -571,7 +587,7 @@ export function useAiChat({
         assistantTurn.id,
       );
     },
-    [pending, run],
+    [pending, run, writeTurns],
   );
 
   const answer = useCallback(
@@ -611,9 +627,9 @@ export function useAiChat({
     conversationRef.current = null;
     lastMessage.current = null;
     setConversationId(null);
-    setTurns([]);
+    writeTurns(() => []);
     setMoment('idle');
-  }, [stop]);
+  }, [stop, writeTurns]);
 
   const resume = useCallback(
     (id: string, transcript: Turn[]) => {
@@ -621,7 +637,7 @@ export function useAiChat({
       conversationRef.current = id;
       lastMessage.current = null;
       setConversationId(id);
-      setTurns(transcript);
+      writeTurns(() => transcript);
       setMoment(
         transcript.some(
           (turn) =>
@@ -632,7 +648,7 @@ export function useAiChat({
           : 'idle',
       );
     },
-    [stop],
+    [stop, writeTurns],
   );
 
   useEffect(() => stop, [stop]);

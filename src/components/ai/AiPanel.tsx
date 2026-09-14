@@ -50,6 +50,7 @@ import { turnsFromTranscript, useAiChat, type ChatBlock, type Turn } from './use
 import { useSpeaker, useSpeechRecognition } from './useSpeech';
 import '@/styles/ai.css';
 
+/** What the header says before the server has told the panel which model it runs. */
 const MODEL_LABEL = 'GPT-5.6 Luna';
 
 const REASONING_OPTIONS: { value: Reasoning; label: string }[] = [
@@ -165,6 +166,15 @@ export function AiPanel({
     },
   });
 
+  // The members, not the objects. `useAiChat`, `useSpeaker` and
+  // `useSpeechRecognition` each hand back a fresh object every render, so
+  // anything built on one of those objects changes identity every render too —
+  // which is how a child's effect ends up torn down and restarted for no
+  // reason. These three functions do not change.
+  const { send: sendToChat, newConversation: resetConversation } = chat;
+  const { cancel: stopSpeaking } = speaker;
+  const { stop: stopListening } = speech;
+
   // Dictation appends to whatever was typed; keep the base in step with edits.
   useEffect(() => {
     if (!speech.listening) dictationBase.current = draft;
@@ -182,12 +192,12 @@ export function AiPanel({
 
   const sendText = useCallback(
     (text: string) => {
-      speaker.cancel();
+      stopSpeaking();
       stickToBottom.current = true;
       setRequestedView('chat');
-      chat.send(text);
+      sendToChat(text);
     },
-    [chat, speaker],
+    [sendToChat, stopSpeaking],
   );
 
   /** A prompt handed in from elsewhere: sent if the assistant can, kept in the field if not. */
@@ -220,6 +230,21 @@ export function AiPanel({
     return next;
   }, [services, applyStatus]);
 
+  // Both are held steady on purpose. The connection card polls ChatGPT from an
+  // effect that depends on them, and an inline arrow here would restart that
+  // poll — and with it the wait for the person to type the code — every time
+  // anything else on the panel re-rendered.
+  const onConnected = useCallback(() => {
+    setConnectAtOnce(false);
+    void refreshStatus().then(() => setRequestedView('chat'));
+  }, [refreshStatus]);
+
+  const onDisconnected = useCallback(() => {
+    setConnectAtOnce(false);
+    resetConversation();
+    void refreshStatus();
+  }, [resetConversation, refreshStatus]);
+
   // The first open asks the server where things stand.
   useEffect(() => {
     if (!open || status !== null) return;
@@ -242,11 +267,14 @@ export function AiPanel({
   const close = useCallback(() => {
     setOpen(false);
     setMenuOpen(false);
-    if (speech.listening) speech.stop();
+    if (speech.listening) stopListening();
+    // Closing the panel ends the voice, both ways: nothing is listening and
+    // nothing carries on reading the last reply out to the room.
+    stopSpeaking();
     window.requestAnimationFrame(() => {
       document.querySelector<HTMLElement>('[data-ai-toggle]')?.focus();
     });
-  }, [speech]);
+  }, [speech.listening, stopListening, stopSpeaking]);
 
   useEffect(() => {
     function onOpenEvent(event: Event) {
@@ -482,7 +510,7 @@ export function AiPanel({
                     <h2 id={titleId} className="ai-title">
                       Assistant
                     </h2>
-                    <p className="ai-model">{MODEL_LABEL}</p>
+                    <p className="ai-model">{status?.modelLabel ?? MODEL_LABEL}</p>
                   </div>
                   <div className="ai-head-actions">
                     <span className="menu-anchor">
@@ -606,15 +634,8 @@ export function AiPanel({
                     }
                     notify={notify}
                     autoStart={connectAtOnce}
-                    onConnected={() => {
-                      setConnectAtOnce(false);
-                      void refreshStatus().then(() => setRequestedView('chat'));
-                    }}
-                    onDisconnected={() => {
-                      setConnectAtOnce(false);
-                      chat.newConversation();
-                      void refreshStatus();
-                    }}
+                    onConnected={onConnected}
+                    onDisconnected={onDisconnected}
                   />
                 ) : view === 'conversations' ? (
                   <ConversationList
