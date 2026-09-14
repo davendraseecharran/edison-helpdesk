@@ -737,12 +737,22 @@ p.flash {
 
 /* --- Tabs --------------------------------------------------------------- */
 
+/*
+ * Four tabs do not fit across a 390px phone. Wrapping put the second row
+ * below the grey rule, so the brass underline of the current tab no longer
+ * sat on it and the page lost a row of height; the strip scrolls sideways
+ * instead. The overflow lives on this one strip, so the page itself still
+ * never scrolls sideways, and `overscroll-behavior-x` keeps a flick at the
+ * end of the tabs from dragging the history gesture with it.
+ */
 .tabs {
   display: flex;
-  flex-wrap: wrap;
   gap: 4px;
   margin-bottom: 16px;
   border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
 }
 
 .tab {
@@ -767,6 +777,15 @@ p.flash {
 .tab[aria-current='page'] {
   border-bottom-color: var(--brass);
   color: var(--ink);
+}
+
+/*
+ * A scroll container clips on both axes, so the application's outset focus
+ * ring would be cut off above and below a tab. The same brass ring is drawn
+ * inside the tab instead: identical colour and width, nothing to clip.
+ */
+.tab:focus-visible {
+  box-shadow: inset var(--focus);
 }
 
 /* --- Data table --------------------------------------------------------- */
