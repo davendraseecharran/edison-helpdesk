@@ -4,11 +4,19 @@
  * Like `/auth/confirm`, this is a state-changing GET because a provider
  * redirect is necessarily a GET, and it is scoped just as narrowly:
  *
- *   - The only parameter read is `code`. There is no `next` or `redirect_to`,
- *     so there is no open redirect and no way to steer the flow by editing the
- *     URL. The destination is always this application's own /queue, and the app
- *     group's layout then routes the session by what the DATABASE says the
- *     account is — waiting for approval, declined, deactivated or active.
+ *   - The only parameter read is `code`. There is still no `next` or
+ *     `redirect_to` in the URL, so there is no open redirect and no way to
+ *     steer the flow by editing it. The destination is this application's own
+ *     /queue, and the app group's layout then routes the session by what the
+ *     DATABASE says the account is — waiting for approval, declined,
+ *     deactivated or active.
+ *   - The one exception is the phone scanner, and it does not travel through
+ *     the URL either. `signInWithGoogleAction` writes an httpOnly cookie
+ *     holding a path it has already checked against `isScanPath`; this route
+ *     reads it, checks it AGAIN, clears it, and will go nowhere but
+ *     `/scan/<uuid>` on this origin. A cookie an attacker could plant is
+ *     still only able to name that one shape of page, which is a page of this
+ *     application that shows the visitor's own pairing or nothing at all.
  *   - The code is exchanged immediately and the browser is redirected to a
  *     clean URL, so the credential does not linger in history or leak through a
  *     Referer header (also suppressed below).
@@ -26,6 +34,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { appOrigin, publicSupabaseConfig } from '@/lib/supabase/config';
 import { adminClient } from '@/lib/supabase/admin';
+import { isScanPath, SCAN_NEXT_COOKIE } from '@/lib/scan/relay';
 
 type LinkOutcome = 'existing' | 'invited' | 'requested' | 'unverified';
 
@@ -47,10 +56,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return failure('1');
   }
 
+  // Where the sign-in was headed before it was interrupted. Checked here, not
+  // trusted from the cookie: the same allow-list the action applied on the way
+  // out, applied again on the way in.
+  const asked = request.cookies.get(SCAN_NEXT_COOKIE)?.value;
+  const landing = isScanPath(asked) ? asked : '/queue';
+
   // Use the configured origin: Next can normalize request.url from 127.0.0.1 to
   // localhost, which would strand host-only session cookies. Session cookies
   // are attached to the exact redirect response that is returned.
-  const response = NextResponse.redirect(new URL('/queue', appOrigin()));
+  const response = NextResponse.redirect(new URL(landing, appOrigin()));
+  // One sign-in, one use: cleared whether or not it was honoured.
+  response.cookies.delete(SCAN_NEXT_COOKIE);
   response.headers.set('Referrer-Policy', 'no-referrer');
   response.headers.set('Cache-Control', 'no-store');
 

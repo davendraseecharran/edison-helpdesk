@@ -12,9 +12,16 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { useRuntime } from '@/components/AppRuntime';
 import { Flash } from '@/components/Primitives';
 import { AiPanel } from '@/components/ai/AiPanel';
+import { ScanPairingDialog } from '@/components/scan/ScanPairingDialog';
 import type { QueueCounts } from '@/lib/data/tickets';
 import { BottomTabs } from './BottomTabs';
-import { LookupBar } from './LookupBar';
+import {
+  LookupBar,
+  OPEN_LOOKUP_EVENT,
+  OPEN_SCANNER_EVENT,
+  openLookup,
+  readScanTarget,
+} from './LookupBar';
 import { navItems, RailNav } from './RailNav';
 import { TopBar } from './TopBar';
 
@@ -45,8 +52,33 @@ export function AppShell({
   const { actor } = useRuntime();
   const items = useMemo(() => navItems(actor.role, counts), [actor.role, counts]);
   const [lookupOpen, setLookupOpen] = useState(false);
-  const openLookup = useCallback(() => setLookupOpen(true), []);
+  const showLookup = useCallback(() => setLookupOpen(true), []);
   const closeLookup = useCallback(() => setLookupOpen(false), []);
+  // The pairing dialog for the palette's "Scan with your phone". A field's
+  // own scan button mounts its own, because only the field knows where the
+  // code goes; this one exists because the palette has no field to ask.
+  const [scanOpen, setScanOpen] = useState(false);
+  const closeScan = useCallback(() => setScanOpen(false), []);
+  const onScanned = useCallback((code: string) => openLookup(code), []);
+
+  useEffect(() => {
+    function onScanner(event: Event) {
+      // Only the lookup is answered here. A scanner event naming a field
+      // would have nowhere to put the code, so it is left to the button
+      // beside that field, which has the setter.
+      if (readScanTarget(event) !== 'lookup') return;
+      setScanOpen(true);
+    }
+    function onOpenLookup() {
+      setLookupOpen(true);
+    }
+    window.addEventListener(OPEN_SCANNER_EVENT, onScanner);
+    window.addEventListener(OPEN_LOOKUP_EVENT, onOpenLookup);
+    return () => {
+      window.removeEventListener(OPEN_SCANNER_EVENT, onScanner);
+      window.removeEventListener(OPEN_LOOKUP_EVENT, onOpenLookup);
+    };
+  }, []);
 
   // Cmd/Ctrl+K toggles the palette from anywhere; `/` opens it when nothing
   // editable has focus, so the slash never lands in a field. Neither opens it
@@ -84,15 +116,25 @@ export function AppShell({
       <TopBar
         unreadNotifications={unreadNotifications}
         notifyInApp={notifyInApp}
-        onOpenLookup={openLookup}
+        onOpenLookup={showLookup}
       />
       <RailNav items={items} />
       <main className="main" id="main-content" tabIndex={-1}>
         <Flash />
         {children}
       </main>
-      <BottomTabs items={items} onOpenLookup={openLookup} />
+      <BottomTabs items={items} onOpenLookup={showLookup} />
       <LookupBar open={lookupOpen} onClose={closeLookup} />
+      {/* The phone as a barcode scanner, for the palette. The first code
+          closes it and searches: the code IS the search, and two modal
+          surfaces must not be open over each other. */}
+      <ScanPairingDialog
+        open={scanOpen}
+        target="lookup"
+        label="Search"
+        onScan={onScanned}
+        onClose={closeScan}
+      />
       {/* The assistant. Owns its own opening: the toggle, Ctrl/Cmd+J and the
           `edison:open-assistant` event all land inside it. */}
       <AiPanel />

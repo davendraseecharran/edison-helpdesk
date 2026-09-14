@@ -35,6 +35,8 @@ export type Moment =
   | 'speaking'
   /** The ChatGPT device pairing is waiting on the browser tab. */
   | 'connecting'
+  /** A phone-scanner pairing dialog is waiting for the first scan. */
+  | 'pairing'
   /** The last turn failed. */
   | 'error';
 
@@ -50,6 +52,7 @@ export const MOMENTS: readonly Moment[] = [
   'listening',
   'speaking',
   'connecting',
+  'pairing',
   'error',
 ];
 
@@ -65,6 +68,9 @@ const STATE_FOR: Record<Moment, OrbState> = {
   listening: 'listening',
   speaking: 'listening',
   connecting: 'shaping',
+  // The same animation as the ChatGPT pairing, and for the same reason: two
+  // devices are being introduced to each other and neither has spoken yet.
+  pairing: 'shaping',
   // Frozen (see `orbAppearanceFor`): a still ring, tinted, reads as "stopped".
   error: 'breathing',
 };

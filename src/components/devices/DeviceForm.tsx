@@ -21,6 +21,7 @@ import {
 } from '@/lib/domain/types';
 import { useRuntime } from '@/components/AppRuntime';
 import { Field } from '@/components/Primitives';
+import { ScanTargetButton } from '@/components/scan/ScanTargetButton';
 import { Button } from '@/components/ui/Button';
 
 const TYPE_SUGGESTIONS = [
@@ -116,31 +117,43 @@ export function DeviceForm({
           error={errorFor('asset_tag')}
           hint={identifierError ? undefined : identifierHint}
         >
-          <input
-            id="device-asset-tag"
-            type="text"
-            className="mono"
-            value={draft.asset_tag}
-            autoComplete="off"
-            spellCheck={false}
-            aria-invalid={errorFor('asset_tag') ? 'true' : undefined}
-            onChange={(event) => set('asset_tag', event.target.value)}
-            placeholder="DOE-LN0000001"
-            data-autofocus
-          />
+          {/* The tag is printed on a sticker on the lid. A technician holding
+              the laptop reads it with the phone in their other hand rather
+              than typing thirteen characters twice. */}
+          <div className="field-with-scan">
+            <input
+              id="device-asset-tag"
+              type="text"
+              className="mono"
+              value={draft.asset_tag}
+              autoComplete="off"
+              spellCheck={false}
+              aria-invalid={errorFor('asset_tag') ? 'true' : undefined}
+              onChange={(event) => set('asset_tag', event.target.value)}
+              placeholder="DOE-LN0000001"
+              data-autofocus
+            />
+            <ScanTargetButton label="Asset tag" onScan={(code) => set('asset_tag', code)} />
+          </div>
         </Field>
         <Field label="Serial number" htmlFor="device-serial" optional error={errorFor('serial_number')}>
-          <input
-            id="device-serial"
-            type="text"
-            className="mono"
-            value={draft.serial_number}
-            autoComplete="off"
-            spellCheck={false}
-            aria-invalid={errorFor('serial_number') ? 'true' : undefined}
-            onChange={(event) => set('serial_number', event.target.value)}
-            placeholder="PF3HK2QJ"
-          />
+          <div className="field-with-scan">
+            <input
+              id="device-serial"
+              type="text"
+              className="mono"
+              value={draft.serial_number}
+              autoComplete="off"
+              spellCheck={false}
+              aria-invalid={errorFor('serial_number') ? 'true' : undefined}
+              onChange={(event) => set('serial_number', event.target.value)}
+              placeholder="PF3HK2QJ"
+            />
+            <ScanTargetButton
+              label="Serial number"
+              onScan={(code) => set('serial_number', code)}
+            />
+          </div>
         </Field>
         <Field
           label="Device ID"

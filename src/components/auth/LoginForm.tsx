@@ -6,7 +6,12 @@ import { signInAction } from '@/lib/auth/actions';
 import { Field } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
 
-export function LoginForm() {
+/**
+ * `next` is the page a phone was trying to reach before it was asked to sign
+ * in. The login page has already checked it; the action checks it again and
+ * returns what it decided, so this component never chooses a destination.
+ */
+export function LoginForm({ next }: { next?: string }) {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,15 +24,16 @@ export function LoginForm() {
     setError(null);
 
     startTransition(async () => {
-      const result = await signInAction(email, password);
+      const result = await signInAction(email, password, next);
       if (!result.ok) {
         setError(result.error ?? 'Sign-in failed.');
         setPassword('');
         return;
       }
       // The server decides where an authenticated identity belongs: an active
-      // account goes to the queue, a restricted one to its own screen.
-      router.replace('/queue');
+      // account goes to the queue (or back to the scanner page it came from),
+      // a restricted one to its own screen.
+      router.replace(result.next ?? '/queue');
       router.refresh();
     });
   }

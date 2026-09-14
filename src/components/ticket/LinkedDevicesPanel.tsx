@@ -136,6 +136,9 @@ export function LinkedDevicesPanel({ detail }: { detail: TicketDetail }) {
           <DevicePicker
             id={searchInputId}
             autoFocus
+            // The technician is standing next to the machine with the ticket
+            // open; the tag on its lid is the search.
+            scan
             disabled={busy}
             error={error}
             onSelect={(device) => void onLink(device.id)}

@@ -60,6 +60,14 @@ export interface SearchPickerProps<T> {
   /** Identifier searches (asset tags, serials) read better in mono. */
   mono?: boolean;
   emptyText?: (term: string) => string;
+  /**
+   * A control on the end of the input, given the picker's own setter.
+   *
+   * One caller: the phone-scanner button, which searches for the code the
+   * phone read. The query is this component's state, so a scanned code can
+   * only get in through a setter it hands out.
+   */
+  inputAction?: (apply: (value: string) => void) => ReactNode;
 }
 
 export function SearchPicker<T>({
@@ -79,6 +87,7 @@ export function SearchPicker<T>({
   error,
   mono,
   emptyText = (term) => `Nothing matches "${term}".`,
+  inputAction,
 }: SearchPickerProps<T>) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<T[]>([]);
@@ -202,28 +211,41 @@ export function SearchPicker<T>({
       );
     });
 
+  const field = (
+    <input
+      id={id}
+      type="search"
+      role="combobox"
+      autoComplete="off"
+      spellCheck={false}
+      aria-autocomplete="list"
+      aria-expanded={flat.length > 0}
+      aria-controls={flat.length > 0 ? listId : undefined}
+      aria-activedescendant={activeId}
+      aria-invalid={error ? 'true' : undefined}
+      className={mono ? 'mono' : undefined}
+      value={query}
+      placeholder={placeholder}
+      disabled={disabled}
+      data-autofocus={autoFocus || undefined}
+      onChange={(event) => setQuery(event.target.value)}
+      onKeyDown={onKeyDown}
+    />
+  );
+
   return (
     <div className="picker">
       <Field label={label} htmlFor={id} hint={hint} error={error}>
-        <input
-          id={id}
-          type="search"
-          role="combobox"
-          autoComplete="off"
-          spellCheck={false}
-          aria-autocomplete="list"
-          aria-expanded={flat.length > 0}
-          aria-controls={flat.length > 0 ? listId : undefined}
-          aria-activedescendant={activeId}
-          aria-invalid={error ? 'true' : undefined}
-          className={mono ? 'mono' : undefined}
-          value={query}
-          placeholder={placeholder}
-          disabled={disabled}
-          data-autofocus={autoFocus || undefined}
-          onChange={(event) => setQuery(event.target.value)}
-          onKeyDown={onKeyDown}
-        />
+        {/* The row exists only when something is on the end of the input, so
+            every picker without one keeps exactly the markup it had. */}
+        {inputAction ? (
+          <div className="picker-input-row">
+            {field}
+            {inputAction(setQuery)}
+          </div>
+        ) : (
+          field
+        )}
       </Field>
       {term.length >= PICKER_MIN_CHARS ? (
         <p className="picker-status" role="status">

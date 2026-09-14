@@ -35,6 +35,7 @@ const LABELS: Record<Moment, string> = {
   listening: 'Assistant, listening',
   speaking: 'Assistant, speaking',
   connecting: 'Assistant, waiting for ChatGPT',
+  pairing: 'Waiting for a scan from your phone',
   error: 'Assistant, the last request failed',
 };
 
@@ -74,7 +75,12 @@ export function Orb({
   const { resolved } = useTheme();
   const reduced = useReducedMotion();
   const { state, paused, tone } = orbAppearanceFor(moment);
-  const active = isBusyMoment(moment) || moment === 'listening' || moment === 'speaking' || moment === 'connecting';
+  const active =
+    isBusyMoment(moment) ||
+    moment === 'listening' ||
+    moment === 'speaking' ||
+    moment === 'connecting' ||
+    moment === 'pairing';
   const clamped = level === undefined ? 0 : Math.min(1, Math.max(0, level));
 
   return (

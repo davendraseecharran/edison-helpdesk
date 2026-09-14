@@ -13,9 +13,11 @@
  * request body or query string can never steer the provider at another host.
  */
 
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { appOrigin, publicSupabaseConfig } from '@/lib/supabase/config';
+import { isScanPath, SCAN_NEXT_COOKIE } from '@/lib/scan/relay';
 
 /**
  * Is the provider actually turned on for this deployment?
@@ -49,7 +51,23 @@ async function googleProviderEnabled(): Promise<boolean | null> {
   }
 }
 
-export async function signInWithGoogleAction(): Promise<never> {
+export async function signInWithGoogleAction(formData?: FormData): Promise<never> {
+  // The scanner page is the only screen that asks to be returned to. Anything
+  // else, including nothing at all, clears whatever an earlier attempt left.
+  const asked = formData?.get('next');
+  const jar = await cookies();
+  if (isScanPath(asked)) {
+    jar.set(SCAN_NEXT_COOKIE, asked, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: appOrigin().startsWith('https://'),
+      path: '/',
+      maxAge: 600,
+    });
+  } else {
+    jar.delete(SCAN_NEXT_COOKIE);
+  }
+
   if ((await googleProviderEnabled()) === false) redirect('/login?oauthError=1');
 
   const supabase = await createClient();

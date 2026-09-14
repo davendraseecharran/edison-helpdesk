@@ -25,6 +25,8 @@ const EXPECTED: Record<Moment, string> = {
   listening: 'listening',
   speaking: 'listening',
   connecting: 'shaping',
+  // Addendum 3: "phone-scanner pairing dialog waiting for scans `shaping`".
+  pairing: 'shaping',
   error: 'breathing',
 };
 

@@ -10,6 +10,7 @@
 import { searchDevicesAction, type DeviceSearchResult } from '@/lib/data/device-actions';
 import { DEVICE_STATUS_LABELS } from '@/lib/domain/types';
 import { SearchPicker } from '@/components/directory/SearchPicker';
+import { ScanTargetButton } from '@/components/scan/ScanTargetButton';
 
 export type { DeviceSearchResult };
 
@@ -24,6 +25,15 @@ export interface DevicePickerProps {
   autoFocus?: boolean;
   disabled?: boolean;
   error?: string | null;
+  /**
+   * Offer the phone as a scanner on the end of the search field.
+   *
+   * Off by default: this picker is used inside dialogs and forms that are
+   * already modal, and a second modal surface over one of those is a worse
+   * experience than typing six characters. Turned on where a technician is
+   * standing next to the machine — linking a device to a ticket.
+   */
+  scan?: boolean;
 }
 
 export function DevicePicker({
@@ -37,6 +47,7 @@ export function DevicePicker({
   autoFocus,
   disabled,
   error,
+  scan = false,
 }: DevicePickerProps) {
   return (
     <SearchPicker<DeviceSearchResult>
@@ -66,6 +77,13 @@ export function DevicePicker({
       disabled={disabled}
       error={error}
       emptyText={(term) => `No device in the inventory matches "${term}".`}
+      inputAction={
+        scan
+          ? (apply) => (
+              <ScanTargetButton label="Asset tag" disabled={disabled} onScan={apply} />
+            )
+          : undefined
+      }
     />
   );
 }

@@ -57,6 +57,46 @@ import { useLookup } from './useLookup';
 /** Dispatched on `window` to open the phone-scanner pairing dialog. `detail.target` names who wants the code. */
 export const OPEN_SCANNER_EVENT = 'edison:open-scanner';
 
+/** Who the scanner event says wants the code, or null when it did not say. */
+export function readScanTarget(event: Event): string | null {
+  const detail = (event as CustomEvent<unknown>).detail;
+  if (detail === null || typeof detail !== 'object') return null;
+  const target = (detail as Record<string, unknown>).target;
+  return typeof target === 'string' ? target : null;
+}
+
+/**
+ * Dispatched on `window` to open the palette with something already typed in
+ * it. `detail.query` is the text.
+ *
+ * It exists for one caller: a barcode arriving from a paired phone, which is
+ * a search the technician has already made with their hands. Two listeners
+ * answer it and they do different halves of the job — `AppShell` opens the
+ * palette, because it owns whether the palette is open, and `LookupBar` holds
+ * the text, because the palette's state is discarded on every close. Both fire
+ * in the same dispatch, so the palette mounts with the code already in it.
+ */
+export const OPEN_LOOKUP_EVENT = 'edison:open-lookup';
+
+/** The text an `edison:open-lookup` event carries, or null if it carried none. */
+export function readLookupQuery(event: Event): string | null {
+  const detail = (event as CustomEvent<unknown>).detail;
+  if (detail === null || typeof detail !== 'object') return null;
+  const query = (detail as Record<string, unknown>).query;
+  return typeof query === 'string' && query.trim() !== '' ? query : null;
+}
+
+/** Open the palette with `query` already in the field. */
+export function openLookup(query: string): void {
+  window.dispatchEvent(new CustomEvent(OPEN_LOOKUP_EVENT, { detail: { query } }));
+}
+
+/** One request to seed the palette. The counter makes a repeat a new request. */
+interface LookupSeed {
+  query: string;
+  at: number;
+}
+
 /** The palette's actions do not show counts, so the navigation needs none. */
 const NO_COUNTS: QueueCounts = {
   openQueue: 0,
@@ -118,6 +158,20 @@ export interface LookupBarProps {
  */
 export function LookupBar({ open, onClose }: LookupBarProps) {
   const phone = usePhone();
+  // Held here rather than in `Palette`, which is mounted only while the
+  // palette is open: a scan asks for the palette and its text in one event,
+  // and the text has to survive until the palette exists to receive it.
+  const [seed, setSeed] = useState<LookupSeed | null>(null);
+
+  useEffect(() => {
+    function onSeed(event: Event) {
+      const query = readLookupQuery(event);
+      if (query !== null) setSeed({ query, at: Date.now() });
+    }
+    window.addEventListener(OPEN_LOOKUP_EVENT, onSeed);
+    return () => window.removeEventListener(OPEN_LOOKUP_EVENT, onSeed);
+  }, []);
+
   // The portal exists only on the client, and only after hydration, so the
   // server and the hydrating render agree on rendering nothing here.
   const client = useSyncExternalStore(
@@ -129,13 +183,22 @@ export function LookupBar({ open, onClose }: LookupBarProps) {
 
   return createPortal(
     <AnimatePresence>
-      {open ? <Palette key="lookup" phone={phone} onClose={onClose} /> : null}
+      {open ? <Palette key="lookup" phone={phone} seed={seed} onClose={onClose} /> : null}
     </AnimatePresence>,
     document.body,
   );
 }
 
-function Palette({ phone, onClose }: { phone: boolean; onClose: () => void }) {
+function Palette({
+  phone,
+  seed,
+  onClose,
+}: {
+  phone: boolean;
+  /** Text a scan asked for. A new `at` is a new request, even for the same code. */
+  seed: LookupSeed | null;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const { actor, run, notify } = useRuntime();
   const { resolved } = useTheme();
@@ -153,6 +216,15 @@ function Palette({ phone, onClose }: { phone: boolean; onClose: () => void }) {
   useEscape(!scanOpen, onClose);
 
   const { remember, findTicket, setQuery } = lookup;
+
+  // A scanned code is a search the technician has already made with their
+  // hands, so it goes straight into the field. Keyed on the request rather
+  // than the text, so scanning the same asset tag twice searches twice.
+  const seedAt = seed?.at;
+  const seedQuery = seed?.query;
+  useEffect(() => {
+    if (seedAt !== undefined && seedQuery !== undefined) setQuery(seedQuery);
+  }, [seedAt, seedQuery, setQuery]);
 
   const openHit = useCallback(
     (hit: SearchHit) => {

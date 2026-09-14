@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 import { loadActor } from '@/lib/auth/session';
+import { isScanPath } from '@/lib/scan/relay';
 import { AuthFrame } from '@/components/auth/AuthFrame';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { GoogleButton } from '@/components/auth/GoogleButton';
@@ -28,12 +29,25 @@ export default async function LoginPage({
     setup?: string;
     oauthError?: string;
     invite?: string;
+    next?: string;
   }>;
 }) {
   const params = await searchParams;
   const actor = await loadActor();
 
-  if (actor.kind === 'active') redirect('/queue');
+  /**
+   * The one page this login will return somebody to.
+   *
+   * A phone that photographed a QR code was on its way to `/scan/<uuid>` when
+   * it was asked to sign in, and it has to arrive there or the technician
+   * walks back to the desktop and starts again. `isScanPath` is the whole
+   * allow-list: one shape, on this origin, and anything else — another route,
+   * another host, a full URL — is dropped without comment rather than
+   * corrected. Both sign-in paths check it again for themselves.
+   */
+  const next = isScanPath(params.next) ? params.next : undefined;
+
+  if (actor.kind === 'active') redirect(next ?? '/queue');
   if (actor.kind === 'restricted') {
     // Same routing as the app group, so arriving here signed-in never hides the
     // one thing the person needs to read.
@@ -53,8 +67,12 @@ export default async function LoginPage({
             ? 'Google sign-in did not complete. Try again, or sign in with a password.'
             : null;
 
-  const notice =
-    params.setup === 'done'
+  const notice = next
+    ? // A phone that was opening a pairing and was stopped here. Saying so is
+      // the difference between "why am I being asked to sign in" and "of
+      // course, this is the helpdesk".
+      'Sign in to send scans to your desktop.'
+    : params.setup === 'done'
       ? 'Your password is set. Sign in with it to start work.'
       : params.setup === 'recovered'
         ? 'Your password has been changed and other sessions were signed out. Sign in again.'
@@ -84,7 +102,7 @@ export default async function LoginPage({
       ) : null}
 
       <div className="auth-primary">
-        <GoogleButton />
+        <GoogleButton next={next} />
         <p className="auth-hint">
           Use the Google account your administrator invited. No invite yet? Sign in anyway and an
           administrator will review your request.
@@ -101,7 +119,7 @@ export default async function LoginPage({
             Use your school email address and the separate app password you chose for the
             helpdesk. This is not your Google password.
           </p>
-          <LoginForm />
+          <LoginForm next={next} />
         </div>
       </details>
 

@@ -1,0 +1,339 @@
+/*
+ * Phone as a barcode scanner.
+ *
+ * Two surfaces that never appear together: the pairing dialog on a desktop,
+ * and `/scan/<session>` on a phone held at arm's length. Imported by the
+ * components themselves, so neither costs anything on a page that has no
+ * scanner on it.
+ */
+
+/* --- The QR code -------------------------------------------------------- */
+
+/*
+ * The one place in this file that names a colour, and it is not a colour of
+ * the interface: it is the substrate of an optical target.
+ *
+ * `--ink` on `--surface` is a beautiful QR code in the light theme and an
+ * INVERTED one in dark, which a good many phone cameras will not read at all.
+ * Since the code exists to be photographed by a phone that knows nothing
+ * about themes, the tile stays white in both and the modules stay dark: the
+ * SVG carries its own black-on-white, and the tile extends that into the
+ * quiet zone the code needs around it (`margin: 0` on the generator, so the
+ * margin is here, where it can be a real ring of white rather than empty SVG).
+ */
+.qr-tile {
+  display: block;
+  width: fit-content;
+  margin-inline: auto;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: #ffffff;
+}
+
+.qr-code svg {
+  display: block;
+  width: var(--qr-size, 240px);
+  height: var(--qr-size, 240px);
+  /* The modules are square and small; smoothing them is what makes a code
+     unreadable at a distance. */
+  shape-rendering: crispEdges;
+}
+
+/* --- The pairing dialog, on the desktop --------------------------------- */
+
+.scan-pairing {
+  width: min(420px, calc(100% - 32px));
+}
+
+.scan-pairing-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.scan-qr-skeleton {
+  display: block;
+  width: 272px;
+  max-width: 100%;
+  height: 272px;
+  border-radius: var(--radius-2);
+}
+
+.scan-pairing-url {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  text-align: center;
+  /* A URL with a uuid in it has no spaces to break at. */
+  overflow-wrap: anywhere;
+}
+
+.scan-pairing-wait {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  text-align: center;
+}
+
+.scan-pairing-recent {
+  width: 100%;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.scan-pairing-recent-title {
+  margin: 0 0 6px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 600;
+}
+
+.scan-pairing-empty {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.scan-pairing-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scan-pairing-code {
+  padding: 6px 10px;
+  border-radius: var(--radius-1);
+  background: var(--surface-2);
+  font-size: var(--fs-1);
+  overflow-wrap: anywhere;
+}
+
+/* The newest code is the one that just landed in the field. */
+.scan-pairing-code:first-child {
+  background: var(--brass-soft);
+  color: var(--ink);
+}
+
+.scan-pairing-note {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  text-align: center;
+}
+
+/* --- The button beside a field ------------------------------------------ */
+
+.scan-target {
+  flex: 0 0 auto;
+}
+
+/* One input with a scan button on its end: the device form's identifiers and
+   the device search both use this. */
+.field-with-scan,
+.picker-input-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+/* --- The phone page ----------------------------------------------------- */
+
+.scan-phone {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-sizing: border-box;
+  min-height: 100dvh;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.scan-phone-head {
+  flex: 0 0 auto;
+}
+
+.scan-phone-title {
+  margin: 0;
+  font-size: var(--fs-4);
+}
+
+.scan-phone-sub {
+  margin: 4px 0 0;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+}
+
+/*
+ * The viewfinder. It takes whatever height is left after the controls,
+ * because the controls are what a thumb has to reach and the camera is what
+ * the eye is aimed with.
+ */
+.scan-phone-view {
+  position: relative;
+  display: grid;
+  flex: 1 1 auto;
+  place-items: center;
+  min-height: 180px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--surface-3);
+}
+
+.scan-phone-video,
+.scan-phone-view-skeleton {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scan-phone-reticle {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(72%, 260px);
+  aspect-ratio: 3 / 2;
+  border: 2px solid var(--brass);
+  border-radius: var(--radius-2);
+  color: var(--brass);
+}
+
+.scan-phone-placeholder {
+  position: relative;
+  max-width: 34ch;
+  margin: 0;
+  padding: 16px;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  text-align: center;
+}
+
+.scan-phone-panel {
+  display: flex;
+  /* Pushed to the bottom when there is no viewfinder taking up the slack:
+     these are the controls, and a thumb reaches the bottom of a phone. */
+  margin-top: auto;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--surface);
+}
+
+.scan-phone-status {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.scan-phone-type {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.scan-phone-label {
+  color: var(--ink);
+  font-size: var(--fs-1);
+  font-weight: 600;
+}
+
+.scan-phone-type-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Big, because it is the only control on the page for a browser that cannot
+   read a barcode, and because it is typed with a thumb. */
+.scan-phone-input {
+  height: 48px;
+  font-size: var(--fs-3);
+}
+
+.scan-phone-sent-title {
+  margin: 0 0 6px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 600;
+}
+
+.scan-phone-empty {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.scan-phone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.scan-phone-code {
+  padding: 6px 10px;
+  border-radius: var(--radius-1);
+  background: var(--surface-2);
+  font-size: var(--fs-1);
+  overflow-wrap: anywhere;
+}
+
+.scan-phone-code:first-child {
+  background: var(--brass-soft);
+}
+
+/* Nothing to scan into: no viewfinder, no controls, just what happened. */
+.scan-phone-gone {
+  justify-content: center;
+  text-align: center;
+}
+
+/* A pairing that has stopped keeps its layout but stops looking live. */
+.scan-phone:not([data-live]) .scan-phone-view {
+  background: var(--surface-2);
+}
+
+/*
+ * From a tablet up the page is a centred card rather than a stretched phone
+ * screen. A full-width viewfinder on a 1024px monitor is a large picture of a
+ * ceiling, and a stopped pairing stretched over 100dvh is a headline and a
+ * panel with a screenful of nothing between them.
+ *
+ * This is not the layout the feature is for — the phone is — but somebody
+ * will open the link on a laptop to see what it does, and it should look
+ * considered when they do.
+ */
+@media (min-width: 720px) {
+  .scan-phone {
+    width: min(520px, 100%);
+    margin-inline: auto;
+    justify-content: center;
+  }
+
+  .scan-phone-view {
+    flex: 0 0 auto;
+    height: min(50dvh, 380px);
+  }
+
+  .scan-phone-panel {
+    margin-top: 0;
+  }
+}

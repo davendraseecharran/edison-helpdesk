@@ -38,9 +38,15 @@ function Submit() {
   );
 }
 
-export function GoogleButton() {
+/**
+ * `next` rides in a hidden field rather than a query string on the provider
+ * URL: the action reads it from the form, checks it, and keeps it on this
+ * origin in a short-lived cookie. See `signInWithGoogleAction`.
+ */
+export function GoogleButton({ next }: { next?: string }) {
   return (
     <form action={signInWithGoogleAction}>
+      {next ? <input type="hidden" name="next" value={next} /> : null}
       <Submit />
     </form>
   );
