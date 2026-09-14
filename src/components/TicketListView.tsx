@@ -17,9 +17,11 @@ import {
   type IntakeChannel,
   type Priority,
   type Ticket,
+  type TicketCategory,
   type TicketStatus,
   CHANNEL_LABELS,
   PRIORITY_LABELS,
+  TICKET_CATEGORY_LABELS,
   TICKET_STATUS_LABELS,
 } from '@/lib/domain/types';
 import { canClaimTicket } from '@/lib/domain/permissions';
@@ -79,16 +81,27 @@ export function TicketListView({
       priority: searchParams.get('priority') ?? 'all',
       channel: searchParams.get('channel') ?? 'all',
       owner: searchParams.get('owner') ?? 'all',
+      category: searchParams.get('category') ?? 'all',
     }),
     [searchParams],
   );
 
+  /*
+   * Every filter the URL carries, including category.
+   *
+   * `toFilters` has always passed `?category=` through to the database, so a
+   * category-only queue was filtered but reported as unfiltered: no "Clear
+   * filters" action, and an emptied list explained itself with "the queue is
+   * clear" rather than "no tickets match these filters". Leaving one parameter
+   * out here is the whole bug, so the list reads the same keys as `toFilters`.
+   */
   const filtersActive =
     current.query.trim() !== '' ||
     current.status !== 'all' ||
     current.priority !== 'all' ||
     current.channel !== 'all' ||
-    current.owner !== 'all';
+    current.owner !== 'all' ||
+    current.category !== 'all';
 
   const ownerOptions = useMemo(
     () => directory.filter((account) => account.status === 'active'),
@@ -308,6 +321,20 @@ export function TicketListView({
               {(Object.keys(CHANNEL_LABELS) as IntakeChannel[]).map((channel) => (
                 <option key={channel} value={channel}>
                   {CHANNEL_LABELS[channel]}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Category" htmlFor="queue-category">
+            <select
+              id="queue-category"
+              value={current.category}
+              onChange={(event) => updateParam('category', event.target.value)}
+            >
+              <option value="all">Any category</option>
+              {(Object.keys(TICKET_CATEGORY_LABELS) as TicketCategory[]).map((category) => (
+                <option key={category} value={category}>
+                  {TICKET_CATEGORY_LABELS[category]}
                 </option>
               ))}
             </select>
