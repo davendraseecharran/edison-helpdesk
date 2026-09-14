@@ -105,10 +105,12 @@ export interface DeviceObservation {
   id: string;
   ticketId: TicketId;
   deviceType: string;
-  /** Manufacturer and model as observed, e.g. "Dell Latitude 3440". */
+  manufacturer?: string | null;
+  inventoryDeviceId?: string | null;
+  /** Snapshot of the model observed at service time. */
   model?: string | null;
   osVersion?: string | null;
-  /** `null` means unknown or not applicable; it must never block intake. */
+  /** Historical observations may lack a serial; new intake requires one. */
   serialNumber?: string | null;
   assetTag?: string | null;
   /** Set when the serial/asset tag is genuinely not applicable (e.g. a room drop). */

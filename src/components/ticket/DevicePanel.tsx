@@ -95,6 +95,10 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
                 </div>
                 <dl className="device-specs">
                   <div>
+                    <dt>Manufacturer</dt>
+                    <dd>{device.manufacturer ?? 'Unknown'}</dd>
+                  </div>
+                  <div>
                     <dt>Model</dt>
                     <dd>{device.model ?? 'Unknown'}</dd>
                   </div>

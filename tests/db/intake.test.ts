@@ -9,6 +9,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
+  adminServiceClient,
   createTicketAs,
   identity,
   rawEvents,
@@ -25,6 +26,18 @@ let owner: SupabaseClient;
 
 beforeAll(async () => {
   [admin, owner] = await Promise.all([signIn('admin'), signIn('owner')]);
+
+  // Catalog rows are operator-managed fixtures. The intake RPC must still
+  // accept only a tuple that exists in this catalog, even for an admin.
+  const service = adminServiceClient();
+  const { error } = await service.from('device_catalog').upsert(
+    [
+      { device_type: 'Laptop', manufacturer: 'Lenovo', model: '300w' },
+      { device_type: 'Chromebook', manufacturer: 'Acer', model: 'C733' },
+    ],
+    { onConflict: 'device_type,manufacturer,model' },
+  );
+  if (error) throw new Error(`Could not seed synthetic device catalog: ${error.message}`);
 });
 
 describe('admin intake', () => {
@@ -86,8 +99,18 @@ describe('admin intake', () => {
       ownerId: identity('owner').id,
       collaboratorIds: [identity('collaborator').id],
       devices: [
-        { deviceType: 'Laptop', model: 'Lenovo 300w', serialNumber: 'SYNTH-INT-0001' },
-        { deviceType: 'Laptop', identifiersNotApplicable: true },
+        {
+          deviceType: 'Laptop',
+          manufacturer: 'Lenovo',
+          model: '300w',
+          serialNumber: 'SYNTH-INT-0001',
+        },
+        {
+          deviceType: 'Chromebook',
+          manufacturer: 'Acer',
+          model: 'C733',
+          serialNumber: 'SYNTH-INT-0002',
+        },
       ],
     });
 
@@ -96,9 +119,11 @@ describe('admin intake', () => {
       .select('*')
       .eq('ticket_id', ticketId);
     expect(devices ?? []).toHaveLength(2);
-    // Unknown identifiers stay null rather than blocking the record.
-    const unknown = (devices ?? []).find((d: { serial_number: string | null }) => d.serial_number === null);
-    expect(unknown?.identifiers_not_applicable).toBe(true);
+    expect((devices ?? []).map((device) => device.serial_number).sort()).toEqual([
+      'SYNTH-INT-0001',
+      'SYNTH-INT-0002',
+    ]);
+    expect((devices ?? []).every((device) => device.identifiers_not_applicable === false)).toBe(true);
 
     const { data: collaborators } = await admin
       .from('ticket_collaborators')
@@ -115,20 +140,39 @@ describe('admin intake', () => {
     ]);
   });
 
-  it('rolls the whole intake back when one device entry is invalid', async () => {
+  it('requires a catalog tuple and serial, and rolls back the whole intake on failure', async () => {
     const before = await admin.from('tickets').select('id', { count: 'exact', head: true });
     const failure = await rpcFails(admin, 'app_create_ticket', {
       p_title: 'Partial intake probe',
       p_issue: 'One device entry is blank, so nothing may persist.',
       p_channel: 'walk_in',
       p_requester_unknown: true,
-      p_devices: [{ deviceType: 'Laptop' }, { deviceType: '   ' }],
+      p_collaborator_ids: [identity('collaborator').id],
+      p_devices: [
+        {
+          deviceType: 'Laptop',
+          manufacturer: 'Lenovo',
+          model: '300w',
+          serialNumber: 'SYNTH-ROLLBACK-0001',
+        },
+        {
+          deviceType: 'Laptop',
+          manufacturer: 'Lenovo',
+          model: '300w',
+          identifiersNotApplicable: true,
+        },
+      ],
     });
-    expect(failure.message).toMatch(/device type/i);
+    expect(failure.message).toMatch(/requires.*serial/i);
 
     const after = await admin.from('tickets').select('id', { count: 'exact', head: true });
-    // No ticket, no requester, no device survived the failed call.
+    // No ticket, collaborator, or device survives the failed transaction.
     expect(after.count).toBe(before.count);
+    const { data: devices } = await admin
+      .from('device_observations')
+      .select('id')
+      .eq('serial_number', 'SYNTH-ROLLBACK-0001');
+    expect(devices ?? []).toHaveLength(0);
   });
 
   it('accepts an explicitly unknown requester and an unknown location', async () => {
@@ -137,6 +181,17 @@ describe('admin intake', () => {
     expect(row.requester_unknown).toBe(true);
     expect(row.requester_id).toBeNull();
     expect(row.location).toBeNull();
+  });
+
+  it('rejects remote intake and requires the location field instead', async () => {
+    const failure = await rpcFails(admin, 'app_create_ticket', {
+      p_title: 'Remote intake attempt',
+      p_issue: 'Should be refused by the physical intake flow.',
+      p_channel: 'phone_call',
+      p_requester_unknown: true,
+      p_is_remote: true,
+    });
+    expect(failure.message).toMatch(/location field/i);
   });
 
   it('requires a requester or an explicit unknown marker', async () => {
@@ -148,12 +203,12 @@ describe('admin intake', () => {
     expect(failure.message).toMatch(/requester/i);
   });
 
-  it('rejects a blank title, a long title and a blank issue', async () => {
+  it('rejects invalid titles but allows empty notes', async () => {
     const base = { p_channel: 'walk_in', p_requester_unknown: true };
     expect(
       (await rpcFails(admin, 'app_create_ticket', { ...base, p_title: '   ', p_issue: 'Something.' }))
         .message,
-    ).toMatch(/title is required/i);
+    ).toMatch(/required/i);
     expect(
       (
         await rpcFails(admin, 'app_create_ticket', {
@@ -163,10 +218,8 @@ describe('admin intake', () => {
         })
       ).message,
     ).toMatch(/under 120 characters/i);
-    expect(
-      (await rpcFails(admin, 'app_create_ticket', { ...base, p_title: 'Fine', p_issue: '  ' }))
-        .message,
-    ).toMatch(/describe the issue/i);
+    const ticketId = await createTicketAs('admin', { title: 'No notes', issue: '' });
+    expect((await rawTicket(ticketId)).issue).toBe('');
   });
 });
 
@@ -224,15 +277,24 @@ describe('technician intake', () => {
     expect((data ?? [])[0]?.account_id).toBe(identity('collaborator').id);
   });
 
-  it('creates a minimal requester record when given a new name', async () => {
-    const ticketId = await createTicketAs('owner', { requesterName: 'Mr. Quintero' });
-    const row = await rawTicket(ticketId);
-    const { data } = await admin
+  it('rejects an inline requester name instead of creating a record', async () => {
+    const service = adminServiceClient();
+    const displayName = `Inline requester ${crypto.randomUUID()}`;
+    const before = await service
       .from('requesters')
-      .select('display_name, created_by')
-      .eq('id', String(row.requester_id))
-      .single();
-    expect(data?.display_name).toBe('Mr. Quintero');
-    expect(data?.created_by).toBe(identity('owner').id);
+      .select('id', { count: 'exact', head: true })
+      .eq('display_name', displayName);
+    const failure = await rpcFails(owner, 'app_create_ticket', {
+      p_title: 'Inline requester attempt',
+      p_issue: 'Should require an existing directory row.',
+      p_channel: 'walk_in',
+      p_requester_name: displayName,
+    });
+    expect(failure.message).toMatch(/existing requester|Requester Unknown/i);
+    const after = await service
+      .from('requesters')
+      .select('id', { count: 'exact', head: true })
+      .eq('display_name', displayName);
+    expect(after.count).toBe(before.count);
   });
 });

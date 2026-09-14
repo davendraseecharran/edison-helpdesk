@@ -167,6 +167,8 @@ export function mapDevice(row: {
   id: string;
   ticket_id: string;
   device_type: string;
+  manufacturer?: string | null;
+  inventory_device_id?: string | null;
   model: string | null;
   os_version: string | null;
   serial_number: string | null;
@@ -181,6 +183,8 @@ export function mapDevice(row: {
     id: row.id,
     ticketId: row.ticket_id,
     deviceType: row.device_type,
+    manufacturer: row.manufacturer,
+    inventoryDeviceId: row.inventory_device_id,
     model: row.model,
     osVersion: row.os_version,
     serialNumber: row.serial_number,

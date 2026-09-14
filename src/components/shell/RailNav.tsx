@@ -3,9 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  Boxes,
+  Briefcase,
   ChartColumn,
   CircleCheck,
   ClipboardList,
+  GraduationCap,
   Handshake,
   Inbox,
   Laptop,
@@ -17,7 +20,7 @@ import { Icon, type LucideIcon } from '../ui/Icon';
 import type { QueueCounts } from '../../lib/data/tickets';
 
 export type NavRole = 'admin' | 'technician';
-export type NavGroup = 'Work' | 'Directory' | 'Insights' | 'Admin';
+export type NavGroup = 'Work' | 'Directory' | 'Inventory' | 'Insights' | 'Admin';
 
 export interface NavItem {
   href: string;
@@ -29,14 +32,20 @@ export interface NavItem {
 }
 
 /** Rail order. Groups never interleave. */
-export const NAV_GROUPS: NavGroup[] = ['Work', 'Directory', 'Insights', 'Admin'];
+export const NAV_GROUPS: NavGroup[] = ['Work', 'Directory', 'Inventory', 'Insights', 'Admin'];
 
 /**
  * The primary navigation for a role, in rail order.
  *
  * Pure so the composition can be tested without rendering: technicians get
- * Work, Directory and Insights; admins also get the Admin group, whose "All
- * tickets" carries the total across every account.
+ * Work, Directory, Inventory and Insights; admins also get the Admin group,
+ * whose "All tickets" carries the total across every account.
+ *
+ * The Inventory group is the owner's live directory and device inventory
+ * (`requesters` / `inventory_devices`), which every active account may search
+ * and edit. It sits beside Directory rather than inside it because the M5
+ * `people`/`devices` pages read a different set of tables; the two are merged
+ * in a later task.
  */
 export function navItems(role: NavRole, counts: QueueCounts): NavItem[] {
   const items: NavItem[] = [
@@ -58,6 +67,9 @@ export function navItems(role: NavRole, counts: QueueCounts): NavItem[] {
     { href: '/resolved', label: 'Resolved', icon: CircleCheck, group: 'Work', count: counts.closed },
     { href: '/people', label: 'People', icon: Users, group: 'Directory' },
     { href: '/devices', label: 'Devices', icon: Laptop, group: 'Directory' },
+    { href: '/inventory/students', label: 'Students', icon: GraduationCap, group: 'Inventory' },
+    { href: '/inventory/staff', label: 'Staff', icon: Briefcase, group: 'Inventory' },
+    { href: '/inventory/devices', label: 'Master inventory', icon: Boxes, group: 'Inventory' },
     { href: '/insights', label: 'Insights', icon: ChartColumn, group: 'Insights' },
   ];
   if (role === 'admin') {

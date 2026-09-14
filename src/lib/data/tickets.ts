@@ -151,12 +151,19 @@ export const loadDirectory = cache(async (): Promise<Account[]> => {
   return ((data ?? []) as DirectoryRow[]).map(mapDirectoryAccount);
 });
 
+// MERGE-TODO: the owner's `requesters` table now holds the whole school
+// (3,448 students and 261 staff), so reading every row into the shell on every
+// page is no longer proportionate. The M5 intake page is the only caller; the
+// rewire task replaces it with `app_search_requesters(p_kind, p_query)`, which
+// is what their intake page uses. Bounded here so a full directory cannot be
+// pulled into a page render in the meantime.
 export const loadRequesters = cache(async (): Promise<Requester[]> => {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('requesters')
     .select('id, display_name, kind, descriptor')
-    .order('display_name');
+    .order('display_name')
+    .limit(200);
   if (error) return [];
   return (data ?? []).map(mapRequester);
 });
