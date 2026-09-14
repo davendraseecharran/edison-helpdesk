@@ -38,8 +38,18 @@ export function LoginForm({ next }: { next?: string }) {
     });
   }
 
+  /*
+   * `method="post"` on a form whose submit JavaScript always intercepts.
+   *
+   * It matters for the seconds before React has hydrated — a cold start, a slow
+   * link, a chunk that failed — when a press submits the form NATIVELY. With no
+   * method that is a GET, and a GET puts the password in the address bar, in
+   * the browser's history, in the server's request log and in the Referer of
+   * whatever the page loads next. As a POST it goes in a body this route does
+   * not read, which is a sign-in that did not work and nothing else.
+   */
   return (
-    <form className="auth-form" onSubmit={onSubmit} noValidate>
+    <form className="auth-form" method="post" onSubmit={onSubmit} noValidate>
       <Field label="School email" htmlFor="login-email">
         <input
           id="login-email"
