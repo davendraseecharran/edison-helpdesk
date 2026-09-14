@@ -89,12 +89,18 @@ create unique index devices_serial_idx on public.devices (upper(serial_number))
 create unique index devices_asset_tag_idx on public.devices (upper(asset_tag))
   where asset_tag is not null;
 
--- For Task 11's app_search, not for app_list_devices. Like people_search_trgm,
--- it is reachable ONLY from a predicate written over this identical expression,
--- verbatim:
---   where (coalesce(device_id,'') || ' ' || coalesce(serial_number,'') || ' ' ||
---          coalesce(asset_tag,'') || ' ' || coalesce(model,'')) % p_query
--- which is what lets the lookup bar find a machine from the middle of a serial.
+-- DROPPED by 20260912100510_m5_search_fixes.sql, on the terms set here. This
+-- index was created for Task 11's app_search, reachable only from a predicate
+-- written over this identical expression, and was meant to let the lookup bar
+-- find a machine from the middle of a serial. Task 11 measured that predicate
+-- before adopting it and it does not do that: similarity() divides shared
+-- trigrams by the union of both strings, so a short query against a long
+-- concatenation scores far below the threshold and matches NOTHING, while two
+-- long concatenations that share their shape — every asset tag starting `DOE-` —
+-- match each other whatever the identifiers are. Read 100510 for the numbers and
+-- for what the capability actually needs (word_similarity, `<%`). The statement
+-- below is kept as applied; the index it creates no longer exists.
+--
 -- app_list_devices below cannot use it and does not try: its search is one OR
 -- group whose first branch tests the search term rather than a column.
 create index devices_search_trgm on public.devices using gin (
