@@ -183,7 +183,7 @@ export function AppShell({
       />
       {/* The assistant. Owns its own opening: the toggle, Ctrl/Cmd+J and the
           `edison:open-assistant` event all land inside it. */}
-      <AiPanel />
+      <AiPanel queueCount={counts.openQueue} />
     </div>
   );
 }

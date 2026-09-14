@@ -8,6 +8,7 @@ import {
   nextThemeAfterSave,
   preferencePatch,
   preferencesFromRow,
+  REASONING_CHOICES,
   REASONING_EFFORTS,
   REASONING_LABELS,
   THEME_CHOICES,
@@ -30,11 +31,17 @@ describe('defaults', () => {
   it('offers dark first and labels every reasoning level', () => {
     expect(THEME_CHOICES[0]).toBe('dark');
     expect([...THEME_CHOICES].sort()).toEqual(['dark', 'light', 'system']);
-    expect(REASONING_EFFORTS).toEqual(['low', 'medium', 'high', 'xhigh']);
+    // The vocabulary keeps the two levels the interface no longer offers, so a
+    // row written before they were dropped still renders with something chosen.
+    expect(REASONING_EFFORTS).toEqual(['low', 'medium', 'high', 'xhigh', 'max']);
     for (const effort of REASONING_EFFORTS) {
       expect(REASONING_LABELS[effort]).toBeTruthy();
     }
     expect(REASONING_LABELS.xhigh).toBe('Extra high');
+    expect(REASONING_LABELS.max).toBe('Max');
+    // Three offered, and High first: it is the default.
+    expect(REASONING_CHOICES).toEqual(['high', 'xhigh', 'max']);
+    expect(DEFAULT_PREFERENCES.aiReasoning).toBe('high');
   });
 });
 
@@ -138,7 +145,7 @@ describe('preferencePatch', () => {
     });
     expect(preferencePatch({ aiReasoning: 'extreme' as never })).toEqual({
       ok: false,
-      error: 'Choose a reasoning level: low, medium, high or xhigh.',
+      error: 'Choose a reasoning level: high, xhigh or max.',
     });
   });
 

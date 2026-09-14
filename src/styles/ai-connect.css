@@ -1,0 +1,76 @@
+/*
+ * The connection card where it belongs: above the composer, not instead of it.
+ *
+ * The panel used to replace the whole conversation with a setup screen the
+ * moment the server said no ChatGPT account was linked, so the first thing
+ * anybody met was a form for a thing they had not asked for yet. Now the
+ * composer is always open, and this is the strip that appears between the
+ * conversation and the field when a message is actually sent — the first moment
+ * connecting is something you want.
+ *
+ * A separate stylesheet from `ai.css` because it is a separate idea, and
+ * because the panel's own sheet is being worked on elsewhere.
+ */
+
+.ai-foot {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ai-connect-inline {
+  margin: 0 12px 4px;
+  padding: 10px 12px 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--surface-2);
+}
+
+.ai-connect-inline-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ai-connect-inline-head p {
+  margin: 0;
+  padding-top: 5px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  line-height: 1.45;
+}
+
+/* The card inside sheds its own frame: this strip is the frame. */
+.ai-connect-inline .ai-connect {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.ai-connect-hint {
+  margin: 0 12px 6px;
+  font-size: var(--fs-1);
+  line-height: 1.45;
+}
+
+/*
+ * A button that reads as a link, for an action inside a sentence. It is a real
+ * button, because it does something rather than going somewhere.
+ */
+.link-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent, var(--signal));
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.link-button:focus-visible {
+  border-radius: var(--radius-1);
+  box-shadow: var(--focus);
+  outline: none;
+}

@@ -194,7 +194,14 @@ export function TodayScreen({
     : null;
 
   return (
-    <div className="today">
+    /*
+     * The briefing is published on the root element, the same way the ticket
+     * page publishes which ticket is open: the assistant panel reads it when it
+     * opens and uses it as its first line, so the panel and the screen say the
+     * same thing. The page renders one attribute and knows nothing about the
+     * panel.
+     */
+    <div className="today" data-today-briefing={sentence || 'Nothing needs you right now.'}>
       <header className="today-stage today-greet">
         <h1 className="today-hello">{greeting}</h1>
         {total > 0 ? (

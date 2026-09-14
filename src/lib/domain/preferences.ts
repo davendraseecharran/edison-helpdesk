@@ -20,10 +20,32 @@ import type { ThemePreference } from '@/components/shell/theme-script';
 export type ThemeChoice = ThemePreference;
 
 /** How hard the assistant thinks before it answers. */
-export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh';
+export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 export const THEME_CHOICES: readonly ThemeChoice[] = ['dark', 'light', 'system'];
-export const REASONING_EFFORTS: readonly ReasoningEffort[] = ['low', 'medium', 'high', 'xhigh'];
+/**
+ * Everything the database accepts.
+ *
+ * `low` and `medium` are still here because rows written before the levels were
+ * narrowed hold them, and a value this build could not read would leave a
+ * settings screen with nothing selected. They are no longer offered.
+ */
+export const REASONING_EFFORTS: readonly ReasoningEffort[] = [
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+];
+
+/**
+ * What the interface offers: three levels, and High is the default.
+ *
+ * Below High the assistant stops being worth asking — it is doing multi-step
+ * work against a real database, and a cheap answer to "who has this device"
+ * that is wrong costs more than the seconds it saved.
+ */
+export const REASONING_CHOICES: readonly ReasoningEffort[] = ['high', 'xhigh', 'max'];
 
 /** What the reasoning levels are called in the interface. */
 export const REASONING_LABELS: Record<ReasoningEffort, string> = {
@@ -31,6 +53,7 @@ export const REASONING_LABELS: Record<ReasoningEffort, string> = {
   medium: 'Medium',
   high: 'High',
   xhigh: 'Extra high',
+  max: 'Max',
 };
 
 export interface Preferences {
@@ -126,7 +149,7 @@ export function preferencePatch(patch: PreferencePatch): PatchResult {
 
   if (patch.aiReasoning !== undefined) {
     if (!isReasoningEffort(patch.aiReasoning)) {
-      return { ok: false, error: 'Choose a reasoning level: low, medium, high or xhigh.' };
+      return { ok: false, error: 'Choose a reasoning level: high, xhigh or max.' };
     }
     out.ai_reasoning = patch.aiReasoning;
   }
