@@ -5,6 +5,7 @@ import { ButtonLink } from '@/components/ui/Button';
 import { TicketListView } from '@/components/TicketListView';
 import type { QueueSearchParams } from '../search-params';
 import { toFilters } from '../search-params';
+import { requireTicketWorker } from '@/lib/auth/session';
 
 export const metadata = { title: 'Queue — Edison Helpdesk' };
 
@@ -13,6 +14,7 @@ export default async function OpenQueuePage({
 }: {
   searchParams: Promise<QueueSearchParams>;
 }) {
+  await requireTicketWorker();
   const page = await loadQueue('open_queue', toFilters(await searchParams));
 
   return (

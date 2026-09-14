@@ -16,6 +16,8 @@ export interface PeopleSearchParams {
   classOf?: SearchParamValue;
   archived?: SearchParamValue;
   page?: SearchParamValue;
+  /** Set when a ticket route sent this account here. See the people page. */
+  moved?: SearchParamValue;
 }
 
 export function firstParam(value: SearchParamValue): string | undefined {

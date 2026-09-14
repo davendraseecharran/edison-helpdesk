@@ -42,7 +42,7 @@ export function AppShell({
   const { actor } = useRuntime();
   const router = useRouter();
   const pathname = usePathname();
-  const items = useMemo(() => navItems(actor.role, counts), [actor.role, counts]);
+  const items = useMemo(() => navItems(actor.roles, counts), [actor.roles, counts]);
   const [lookupOpen, setLookupOpen] = useState(false);
   const showLookup = useCallback(() => setLookupOpen(true), []);
   const closeLookup = useCallback(() => setLookupOpen(false), []);

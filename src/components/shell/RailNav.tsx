@@ -17,9 +17,9 @@ import {
   Users,
 } from 'lucide-react';
 import { Icon, type LucideIcon } from '../ui/Icon';
+import { canWorkTickets, isAdmin, type AccountRole } from '../../lib/auth/roles';
 import type { QueueCounts } from '../../lib/data/tickets';
 
-export type NavRole = 'admin' | 'technician';
 export type NavGroup = 'Work' | 'Directory' | 'Inventory' | 'Insights' | 'Admin';
 
 export interface NavItem {
@@ -35,44 +35,72 @@ export interface NavItem {
 export const NAV_GROUPS: NavGroup[] = ['Work', 'Directory', 'Inventory', 'Insights', 'Admin'];
 
 /**
- * The primary navigation for a role, in rail order.
+ * The primary navigation for a role set, in rail order.
  *
- * Pure so the composition can be tested without rendering: technicians get
- * Work, Directory, Inventory and Insights; admins also get the Admin group,
- * whose "All tickets" carries the total across every account.
+ * Pure so the composition can be tested without rendering. NetRiders get Work,
+ * Directory, Inventory and Insights; admins also get the Admin group, whose
+ * "All tickets" carries the total across every account.
+ *
+ * A skills officer who is neither gets the directory and the inventory and
+ * nothing else — no Work group, no Insights, and no ticket route anywhere in
+ * the rail. That is not the security boundary (the database refuses them every
+ * ticket, and the routes redirect); it is what keeps the rail honest about the
+ * work this person can actually do.
  *
  * The Inventory group is the owner's live directory and device inventory
- * (`requesters` / `inventory_devices`), which every active account may search
- * and edit. It sits beside Directory rather than inside it because the M5
+ * (`requesters` / `inventory_devices`), which every active account may search.
+ * It sits beside Directory rather than inside it because the M5
  * `people`/`devices` pages read a different set of tables; the two are merged
  * in a later task.
  */
-export function navItems(role: NavRole, counts: QueueCounts): NavItem[] {
-  const items: NavItem[] = [
-    { href: '/queue', label: 'Queue', icon: Inbox, group: 'Work', count: counts.openQueue },
-    {
-      href: '/my-tickets',
-      label: 'My tickets',
-      icon: ClipboardList,
-      group: 'Work',
-      count: counts.myTickets,
-    },
-    {
-      href: '/collaborating',
-      label: 'Collaborating',
-      icon: Handshake,
-      group: 'Work',
-      count: counts.collaborating,
-    },
-    { href: '/resolved', label: 'Resolved', icon: CircleCheck, group: 'Work', count: counts.closed },
-    { href: '/people', label: 'People', icon: Users, group: 'Directory' },
-    { href: '/devices', label: 'Devices', icon: Laptop, group: 'Directory' },
+export function navItems(roles: readonly AccountRole[], counts: QueueCounts): NavItem[] {
+  const items: NavItem[] = [];
+
+  if (canWorkTickets(roles)) {
+    items.push(
+      { href: '/queue', label: 'Queue', icon: Inbox, group: 'Work', count: counts.openQueue },
+      {
+        href: '/my-tickets',
+        label: 'My tickets',
+        icon: ClipboardList,
+        group: 'Work',
+        count: counts.myTickets,
+      },
+      {
+        href: '/collaborating',
+        label: 'Collaborating',
+        icon: Handshake,
+        group: 'Work',
+        count: counts.collaborating,
+      },
+      {
+        href: '/resolved',
+        label: 'Resolved',
+        icon: CircleCheck,
+        group: 'Work',
+        count: counts.closed,
+      },
+    );
+  }
+
+  items.push({ href: '/people', label: 'People', icon: Users, group: 'Directory' });
+  // The M5 device pages can edit a machine, so they belong to the people who
+  // work tickets. A skills officer reads the master inventory instead.
+  if (canWorkTickets(roles)) {
+    items.push({ href: '/devices', label: 'Devices', icon: Laptop, group: 'Directory' });
+  }
+
+  items.push(
     { href: '/inventory/students', label: 'Students', icon: GraduationCap, group: 'Inventory' },
     { href: '/inventory/staff', label: 'Staff', icon: Briefcase, group: 'Inventory' },
     { href: '/inventory/devices', label: 'Master inventory', icon: Boxes, group: 'Inventory' },
-    { href: '/insights', label: 'Insights', icon: ChartColumn, group: 'Insights' },
-  ];
-  if (role === 'admin') {
+  );
+
+  if (canWorkTickets(roles)) {
+    items.push({ href: '/insights', label: 'Insights', icon: ChartColumn, group: 'Insights' });
+  }
+
+  if (isAdmin(roles)) {
     items.push(
       { href: '/all-tickets', label: 'All tickets', icon: Layers, group: 'Admin', count: counts.all },
       { href: '/admin', label: 'Administration', icon: Shield, group: 'Admin' },

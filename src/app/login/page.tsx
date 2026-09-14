@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 import { loadActor } from '@/lib/auth/session';
+import { landingPath } from '@/lib/auth/roles';
 import { isScanPath } from '@/lib/scan/relay';
 import { AuthFrame } from '@/components/auth/AuthFrame';
 import { LoginForm } from '@/components/auth/LoginForm';
@@ -47,7 +48,7 @@ export default async function LoginPage({
    */
   const next = isScanPath(params.next) ? params.next : undefined;
 
-  if (actor.kind === 'active') redirect(next ?? '/queue');
+  if (actor.kind === 'active') redirect(next ?? landingPath(actor.account.roles));
   if (actor.kind === 'restricted') {
     // Same routing as the app group, so arriving here signed-in never hides the
     // one thing the person needs to read.

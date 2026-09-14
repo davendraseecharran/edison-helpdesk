@@ -1,5 +1,5 @@
 import { loadQueue } from '@/lib/data/tickets';
-import { loadActor } from '@/lib/auth/session';
+import { loadActor, requireTicketWorker } from '@/lib/auth/session';
 import { requestTime } from '@/lib/format';
 import { PageHeader } from '@/components/Primitives';
 import { TicketListView } from '@/components/TicketListView';
@@ -13,6 +13,7 @@ export default async function ResolvedPage({
 }: {
   searchParams: Promise<QueueSearchParams>;
 }) {
+  await requireTicketWorker();
   const [page, actor] = await Promise.all([
     loadQueue('closed', toFilters(await searchParams)),
     loadActor(),

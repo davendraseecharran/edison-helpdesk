@@ -13,6 +13,7 @@ import { StatTile, formatHours } from '@/components/insights/StatTile';
 import { TechTable } from '@/components/insights/TechTable';
 import { toInsightsRange, type InsightsSearchParams } from './search-params';
 import '@/styles/insights.css';
+import { requireTicketWorker } from '@/lib/auth/session';
 
 export const metadata = { title: 'Insights — Edison Helpdesk' };
 
@@ -31,6 +32,7 @@ export default async function InsightsPage({
 }: {
   searchParams: Promise<InsightsSearchParams>;
 }) {
+  await requireTicketWorker();
   const days = toInsightsRange((await searchParams).days);
   const insights = await loadInsights(days);
 
