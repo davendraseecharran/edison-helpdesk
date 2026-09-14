@@ -3,8 +3,18 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   // Local setup links use this loopback hostname as well as localhost.
   allowedDevOrigins: ['127.0.0.1'],
-  // Setup/recovery callback URLs carry credentials; omit them from dev request logs.
-  logging: { incomingRequests: { ignore: [/\/auth\/confirm(?:\?|$)/] } },
+  logging: {
+    // Setup/recovery callback URLs carry credentials; omit them from dev
+    // request logs.
+    incomingRequests: { ignore: [/\/auth\/confirm(?:\?|$)/] },
+    // `next dev` otherwise prints every Server Function call with its
+    // arguments, so `signInAction(email, password)` put a real app password in
+    // plain text into the dev log (and into any transcript of it). Nothing in
+    // this application needs that trace, and several actions take a secret:
+    // sign-in, the password accounts panel, the assistant's API key. Off.
+    // This is development-only logging; it changes nothing in production.
+    serverFunctions: false,
+  },
   reactStrictMode: true,
   experimental: {
     serverActions: {
