@@ -8,9 +8,13 @@
  * because it disables the whole email provider, password LOGINS included, and
  * the administrator-issued setup and recovery flows depend on those.
  *
- * So the gate is `public.hook_before_user_created`, which GoTrue runs ONLY in
- * the public signup endpoint. These tests pin down that precision from both
- * sides: the one door it must close, and the three it must leave open.
+ * So the gate is `public.hook_before_user_created`. GoTrue runs it on both
+ * paths where it creates an auth user itself: the public signup endpoint AND a
+ * first sign-in through an external provider. It is safe on the second because
+ * it decides on `app_metadata.provider` rather than on the path — 'email' is
+ * refused, 'google' passes through — and the admin API does not run it at all.
+ * These tests pin that down from both sides: the one door it must close, and
+ * the three it must leave open.
  *
  * What was at risk is worth being specific about. An auth user with no
  * app_accounts row reaches nothing at all, so this was never a route to

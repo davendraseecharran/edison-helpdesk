@@ -17,15 +17,19 @@
 -- address with a password before they are invited, and the identity GoTrue later
 -- links to that address carries a password the attacker chose.
 --
--- Ruling 24: close it with GoTrue's Before User Created hook, which fires ONLY
--- in the public Signup endpoint. That precision is the whole point:
+-- Ruling 24: close it with GoTrue's Before User Created hook. The hook runs
+-- wherever GoTrue itself creates an auth user, which is TWO paths, not one: the
+-- public Signup endpoint AND a first sign-in through an external provider. It
+-- is safe on the second because it decides on the provider rather than on the
+-- path:
 --
 --   * public POST /auth/v1/signup with email+password → app_metadata.provider is
 --     'email' → rejected here with 403.
---   * an external-provider first sign-in → provider is 'google' (or another
---     provider id) → passes straight through, so Task 6b's invite and access
---     request flows are untouched.
---   * auth.admin.createUser → the ADMIN API does not run this hook at all, so
+--   * an external-provider first sign-in → the hook DOES run, sees provider
+--     'google' (or another provider id), and returns "no objection", so Task
+--     6b's invite and access request flows are untouched. Every later sign-in
+--     by that person reuses the auth user and does not reach the hook at all.
+--   * auth.admin.createUser → the ADMIN API does not run this hook, so
 --     administrator provisioning (app_admin_request_account →
 --     app_trusted_finalize_account), the hosted bootstrap, and every test
 --     fixture keep working unchanged.

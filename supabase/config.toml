@@ -327,9 +327,12 @@ max_frequency = "5s"
 # ENABLED (controller Ruling 24). [auth] enable_signup above must stay true so a
 # first external-provider sign-in can create its auth user, and [auth.email]
 # enable_signup cannot be used to close password sign-up because it disables
-# password LOGINS too. This hook fires ONLY in the public signup endpoint, so it
-# refuses email+password self-registration while leaving external-provider
-# sign-ins and admin-API provisioning untouched. The function ships in
+# password LOGINS too. The hook runs on both paths where GoTrue creates an auth
+# user itself — the public signup endpoint AND a first external-provider
+# sign-in — and decides on app_metadata.provider, not on the path: 'email' is
+# refused with 403, 'google' and every other provider pass through. The admin
+# API does not run the hook at all, so administrator provisioning is untouched.
+# The function ships in
 # supabase/migrations/20260912101200_m5_signup_hook.sql.
 [auth.hook.before_user_created]
 enabled = true
@@ -385,11 +388,11 @@ max_frequency = "5s"
 # skip_nonce_check stays false: the nonce is what binds the provider's response
 # to the request this application started.
 #
-# NOTE: [auth] enable_signup above is false, which stops GoTrue creating an auth
-# user for ANY first-time provider sign-in — invited or not. Turning it on also
-# reopens the email/password signup endpoint, so that trade-off is a decision to
-# make deliberately rather than a side effect of this block. See the Task 6b
-# report.
+# NOTE: [auth] enable_signup above is true, so GoTrue does create an auth user
+# on a first-time Google sign-in — which is what an invited colleague needs.
+# Turning it on also reopens the email/password signup endpoint; that endpoint
+# is closed instead by the [auth.hook.before_user_created] hook above, which
+# refuses provider 'email' and passes 'google' through. See the Task 6b report.
 [auth.external.google]
 enabled = true
 client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
