@@ -371,3 +371,20 @@
 .tech-blank {
   color: var(--ink-3);
 }
+
+/*
+ * The colleagues with nothing in the range and nothing open, named rather than
+ * tabled. Quiet type and a hanging label, so it reads as a footnote to the
+ * table above it and never competes with a row of it.
+ */
+.tech-quiet-note {
+  margin-top: 12px;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  line-height: 1.5;
+}
+
+.tech-quiet-label {
+  color: var(--ink-2);
+}
+

@@ -3,9 +3,13 @@
  * tickets each technician still owns.
  *
  * Resolved and time are the period's work; open is right now, which is why the
- * column says so. Every active administrator and technician is listed even with
- * nothing to show, because a table that quietly drops the people who resolved
- * nothing this week would be read as a team that is one person smaller.
+ * column says so. Nobody is dropped — a table that quietly loses the people who
+ * resolved nothing this week reads as a team that is one person smaller — but
+ * a colleague with no resolved tickets, no logged time and no open ticket adds
+ * a row of dashes and zeroes, and a school that has accumulated accounts over a
+ * few years ends up with more of those rows than real ones. They are named in a
+ * line under the table instead, so the table is the work and the line is the
+ * rest of the team.
  *
  * Sorted by resolved, descending, by the database. It stays that way: this is a
  * short list of colleagues, not a leaderboard to re-rank by clicking.
@@ -47,24 +51,47 @@ const columns: Column<InsightsTechnician>[] = [
   { key: 'open', header: 'Open now', align: 'right', cell: (row) => row.open },
 ];
 
+/** Nothing resolved, nothing logged and nothing open: a row of dashes. */
+function isQuiet(row: InsightsTechnician): boolean {
+  return row.resolved === 0 && row.minutes === 0 && row.open === 0;
+}
+
 export function TechTable({ rows, days }: { rows: InsightsTechnician[]; days: number }) {
+  const busy = rows.filter((row) => !isQuiet(row));
+  const quiet = rows.filter(isQuiet);
+  // With nobody to show, the table would be an empty state next to a line
+  // naming the whole team, which says the same thing twice and buries it in the
+  // smaller type. A team that did nothing this range keeps its table.
+  const tabled = busy.length === 0 ? rows : busy;
+  const named = busy.length === 0 ? [] : quiet;
+
   return (
-    <DataTable
-      columns={columns}
-      rows={rows}
-      rowKey={(row) => row.accountId}
-      cardTitle={(row) => (
-        <span className="tech-name">
-          <Avatar name={row.name} />
-          {row.name}
-        </span>
-      )}
-      caption={`Each technician's resolved tickets and logged time over the last ${days} days, and the tickets they own now`}
-      empty={
-        <EmptyState title="No technicians yet">
-          Accounts appear here once an administrator has added them.
-        </EmptyState>
-      }
-    />
+    <>
+      <DataTable
+        columns={columns}
+        rows={tabled}
+        rowKey={(row) => row.accountId}
+        cardTitle={(row) => (
+          <span className="tech-name">
+            <Avatar name={row.name} />
+            {row.name}
+          </span>
+        )}
+        caption={`Each technician's resolved tickets and logged time over the last ${days} days, and the tickets they own now`}
+        empty={
+          <EmptyState title="No technicians yet">
+            Accounts appear here once an administrator has added them.
+          </EmptyState>
+        }
+      />
+      {named.length > 0 ? (
+        <p className="tech-quiet-note">
+          <span className="tech-quiet-label">
+            No activity in the last {days} days, and nothing open:
+          </span>{' '}
+          {named.map((row) => row.name).join(', ')}
+        </p>
+      ) : null}
+    </>
   );
 }

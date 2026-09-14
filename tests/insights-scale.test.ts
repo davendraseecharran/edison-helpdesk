@@ -21,6 +21,7 @@ import {
   tickIndexes,
 } from '../src/components/insights/LineChart';
 import { BarChart } from '../src/components/insights/BarChart';
+import { TechTable } from '../src/components/insights/TechTable';
 import { DEFAULT_RANGE, toInsightsRange } from '../src/app/(app)/insights/search-params';
 import { StatTile, formatHours } from '../src/components/insights/StatTile';
 
@@ -252,5 +253,48 @@ describe('StatTile markup', () => {
     expect(html).toContain('Resolved');
     expect(html).toContain('18');
     expect(html).toContain('in the last 30 days');
+  });
+});
+
+describe('TechTable', () => {
+  const person = (name: string, resolved: number, minutes: number, open: number) => ({
+    accountId: name,
+    name,
+    resolved,
+    minutes,
+    open,
+  });
+
+  it('names the colleagues with nothing to show instead of tabling them', () => {
+    const html = renderToStaticMarkup(
+      h(TechTable, {
+        days: 30,
+        rows: [
+          person('Priya Raman', 24, 290, 101),
+          person('Casey Nakamura', 0, 0, 1),
+          person('Robin Alvarez', 0, 25, 0),
+          person('Sam Whitaker', 0, 0, 0),
+        ],
+      }),
+    );
+    // Everybody is still on the page.
+    for (const name of ['Priya Raman', 'Casey Nakamura', 'Robin Alvarez', 'Sam Whitaker']) {
+      expect(html).toContain(name);
+    }
+    // Only the one with nothing at all is in the line under the table.
+    expect(html).toContain('No activity in the last 30 days, and nothing open:');
+    const note = html.slice(html.indexOf('tech-quiet-label'));
+    expect(note).toContain('Sam Whitaker');
+    expect(note).not.toContain('Casey Nakamura');
+    expect(note).not.toContain('Robin Alvarez');
+  });
+
+  it('keeps the table when nobody has anything, rather than emptying it', () => {
+    const html = renderToStaticMarkup(
+      h(TechTable, { days: 7, rows: [person('Sam Whitaker', 0, 0, 0), person('Dev Okafor', 0, 0, 0)] }),
+    );
+    expect(html).not.toContain('tech-quiet-label');
+    expect(html).toContain('Sam Whitaker');
+    expect(html).toContain('Dev Okafor');
   });
 });
