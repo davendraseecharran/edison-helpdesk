@@ -3,6 +3,7 @@ import { CHANNEL_LABELS } from '@/lib/domain/types';
 import { loadDirectory, loadTicketDetail } from '@/lib/data/tickets';
 import { formatDateKey, formatDateTime, toDateKey } from '@/lib/format';
 import { EmptyState, TimeAgo } from '@/components/Primitives';
+import { AttachmentsPanel } from '@/components/attachments/AttachmentsPanel';
 import { PriorityBadge, StatusBadge } from '@/components/Badges';
 import { ButtonLink } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
@@ -94,6 +95,12 @@ export default async function TicketDetailPage({
           </section>
 
           <NotesPanel detail={detail} />
+          {/* Under the notes, because a photograph of a cracked screen is the
+              same kind of contribution: what somebody saw, recorded against the
+              ticket. Anyone who can read the ticket sees the files; only a
+              contributor is offered the upload control, and the database
+              decides which of those this is. */}
+          <AttachmentsPanel ticketId={ticket.id} />
           {/* Inventory machines first, then what a technician wrote down: the
               link is the stronger statement, and the observation may describe a
               machine the inventory has never heard of. */}

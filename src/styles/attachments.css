@@ -1,0 +1,343 @@
+/*
+ * Attachments: the wall of thumbnails on a ticket or a device, the control that
+ * adds to it, and the lightbox that opens one.
+ *
+ * A photograph is recognised rather than read, so the picture is the control:
+ * a fixed 4:3 tile, cropped to fill, big enough to tell a cracked screen from a
+ * docking station and small enough that six of them fit beside the notes. A PDF
+ * has nothing to show, so it takes the same tile with a glyph in it and lets
+ * its name do the recognising.
+ *
+ * Imported by the panel rather than by `globals.css`: nothing else in the
+ * application uses these classes, so nothing else should carry them.
+ *
+ * Built on the tokens and on the primitives in `components.css`. Nothing here
+ * names a colour, and every rule holds in both themes because every colour is a
+ * token that already has a dark value.
+ */
+
+/* --- The grid ----------------------------------------------------------- */
+
+.attachments-grid {
+  display: grid;
+  /* Four across a desktop column, two on a phone, without a breakpoint saying so. */
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attachment {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* The tile IS the button. */
+.attachment-open {
+  display: flex;
+  overflow: hidden;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.attachment-open:hover {
+  border-color: var(--line-2);
+}
+
+.attachment-open:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.attachment-thumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.attachment-glyph {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-3);
+}
+
+.attachment-kind {
+  font-size: var(--fs-0);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.attachment-meta {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+
+/* One line, clipped: the full name is in the title attribute and the lightbox. */
+.attachment-name {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: var(--fs-1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-sub,
+.attachment-size {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * Always visible, never a hover reveal: half the people using this are on a
+ * phone, where there is no hover, and the other half deserve to reach it with
+ * the keyboard without hunting.
+ */
+.attachment-remove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.attachment-remove:hover:not(:disabled) {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+/* --- Adding ------------------------------------------------------------- */
+
+.attachments-add {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.attachment-drop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+}
+
+/* The only feedback a drag gets, and the only one it needs. */
+.attachment-drop-over {
+  border-color: var(--brass);
+  background: var(--brass-soft);
+}
+
+.attachment-drop-glyph {
+  flex: none;
+  color: var(--ink-3);
+}
+
+.attachment-drop-text {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.attachment-drop-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+
+.attachment-drop-hint {
+  margin: 2px 0 0;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.attachment-drop-actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* --- One file on its way ------------------------------------------------ */
+
+.attachment-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attachment-job {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+}
+
+.attachment-job-bad {
+  border-color: var(--bad);
+  background: var(--bad-soft);
+}
+
+.attachment-job-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: var(--fs-1);
+}
+
+.attachment-job-name {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-job-stage {
+  flex: none;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-variant-numeric: tabular-nums;
+}
+
+.attachment-bar {
+  overflow: hidden;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+
+.attachment-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--brass);
+  transition: width 180ms ease-out;
+}
+
+.attachment-job-error {
+  margin: 4px 0 0;
+  color: var(--bad);
+  font-size: var(--fs-0);
+}
+
+.attachment-job-size {
+  margin: 4px 0 0;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .attachment-bar-fill {
+    transition: none;
+  }
+}
+
+/* --- One file, filling the window --------------------------------------- */
+
+.lightbox {
+  width: min(920px, calc(100% - 32px));
+}
+
+.lightbox-stage {
+  display: flex;
+  min-height: 200px;
+  align-items: center;
+  justify-content: center;
+}
+
+.lightbox-image {
+  display: block;
+  max-width: 100%;
+  max-height: min(68dvh, 620px);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+}
+
+.lightbox-file {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 0;
+  color: var(--ink-3);
+}
+
+.lightbox-message {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  text-align: center;
+}
+
+.lightbox-link {
+  color: var(--signal);
+  font-size: var(--fs-2);
+}
+
+.lightbox-foot {
+  display: flex;
+  width: 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lightbox-steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lightbox-count {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.lightbox-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+@media (max-width: 719.98px) {
+  .attachments-grid {
+    grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+    gap: 10px;
+  }
+
+  .attachment-drop-actions {
+    width: 100%;
+  }
+
+  .attachment-drop-actions .btn {
+    flex: 1 1 auto;
+  }
+}

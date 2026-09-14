@@ -32,6 +32,7 @@ import {
   type DeviceDetail as DeviceDetailData,
 } from '@/lib/domain/types';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
+import { AttachmentsPanel } from '@/components/attachments/AttachmentsPanel';
 import { DeviceStatusBadge } from '@/components/Badges';
 import { Avatar, TimeAgo } from '@/components/Primitives';
 import { CopyButton } from '@/components/directory/CopyButton';
@@ -355,6 +356,12 @@ export function DeviceDetail({ detail, facets }: { detail: DeviceDetailData; fac
               <RecordHistory events={detail.events} />
             </div>
           </section>
+
+          {/* Under the history, because that is what the files are: the
+              photograph of the cracked lid and the repair invoice belong to
+              this machine rather than to whichever ticket happened to notice
+              it. Inventory is shared, so any active account may add one. */}
+          <AttachmentsPanel deviceId={device.id} />
         </div>
 
         <div className="ticket-column">
