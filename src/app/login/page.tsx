@@ -63,9 +63,11 @@ export default async function LoginPage({
         ? 'That link is not valid. Ask the administrator for a new one.'
         : params.oauthError === 'unverified'
           ? 'Google did not confirm that email address. Use a Google account with a verified email.'
-          : params.oauthError
-            ? 'Google sign-in did not complete. Try again, or sign in with a password.'
-            : null;
+          : params.oauthError === 'full'
+            ? 'Access requests are full right now. Ask an administrator to review the waiting list.'
+            : params.oauthError
+              ? 'Google sign-in did not complete. Try again, or sign in with a password.'
+              : null;
 
   const notice = next
     ? // A phone that was opening a pairing and was stopped here. Saying so is

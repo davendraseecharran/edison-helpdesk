@@ -114,6 +114,12 @@ the invite is mailed, and if it is not, the screen hands over the message text
 to send by hand. An invite is a database row, not a link with a token in it, so
 a missing mail provider never blocks anybody.
 
+Fifty access requests may be outstanding at once. Beyond that a new uninvited
+sign-in is refused and told to come back, no account row is created and no
+administrator is notified, so nobody can bury the waiting list under thousands
+of rows; answering any request frees the slot immediately. An invite is never
+affected by the cap.
+
 Password sign-in is the break-glass path. Accounts for it are created by an
 administrator, who issues a single-use setup or recovery link and hands it over
 directly, exactly as in M3.

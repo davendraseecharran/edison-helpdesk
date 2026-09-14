@@ -38,6 +38,13 @@ import { isScanPath, SCAN_NEXT_COOKIE } from '@/lib/scan/relay';
 
 type LinkOutcome = 'existing' | 'invited' | 'requested' | 'unverified';
 
+/**
+ * `app_trusted_link_identity` raising `access_requests_full`, as PostgREST
+ * reports it. Fifty outstanding requests is the bound; see
+ * 20260912101400_m5_access_request_cap.sql.
+ */
+const REQUESTS_FULL = 'P9003';
+
 function failure(reason: string): NextResponse {
   const url = new URL('/login', appOrigin());
   url.searchParams.set('oauthError', reason);
@@ -101,12 +108,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     p_user: data.user.id,
   });
 
-  // The function raises rather than returning a row for an unknown user, and
-  // when the address already belongs to a different auth user. Every error is
-  // one failed sign-in with one message.
+  // The function raises rather than returning a row for an unknown user, when
+  // the address already belongs to a different auth user, and when the waiting
+  // list is full. The full list is the one refusal worth its own sentence,
+  // because the person can do nothing but wait and an administrator can fix it
+  // in a minute; everything else is one failed sign-in with one message.
   if (linkError) {
     await supabase.auth.signOut();
-    return fail('1');
+    const full =
+      linkError.code === REQUESTS_FULL || linkError.message?.includes('access_requests_full');
+    return fail(full ? 'full' : '1');
   }
 
   const outcome = (Array.isArray(linked) ? linked[0]?.outcome : undefined) as
