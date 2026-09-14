@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Liquid } from 'liquid-gooey';
 import { Ellipsis, MessageCircle, Plus, Search, Settings, X } from 'lucide-react';
 import { SignOutButton } from '@/components/auth/SignOutButton';
-import { Orb } from '@/components/ai/Orb';
+import { AiMark } from '@/components/ai/AiMark';
 import { Icon, type LucideIcon } from '@/components/ui/Icon';
 import { IconSwap } from '@/components/ui/Motion';
 import { Sheet } from '@/components/ui/Sheet';
@@ -305,7 +305,7 @@ export function BottomTabs({
       key: 'ask',
       label: 'Ask',
       icon: MessageCircle,
-      glyph: <Orb size={20} moment="idle" label="" />,
+      glyph: <AiMark size={20} />,
       onSelect: openAssistant,
     },
   ];

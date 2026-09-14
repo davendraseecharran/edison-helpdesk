@@ -7,8 +7,10 @@
  * comes back is a short code to type into chatgpt.com. The card shows the
  * code large, offers to copy it, opens the page in a new tab, and asks the
  * server on the interval the service named whether the code has been used.
- * The orb takes shape while that waits. Cancel stops the asking; so does
- * closing the panel.
+ * The provider's own mark turns slowly while that waits — this is the one
+ * place in the product that is about ChatGPT rather than about the assistant,
+ * so it wears ChatGPT's mark rather than the orb. Cancel stops the asking; so
+ * does closing the panel.
  *
  * When there already is a connection the same card says whose it is and
  * offers Disconnect, which is where Settings sends people.
@@ -18,7 +20,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Copy, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
-import { Orb } from './Orb';
+import { AiMark } from './AiMark';
 import type { AiServices } from './services';
 
 const VERIFY_URL = 'https://chatgpt.com/codex/device';
@@ -167,7 +169,7 @@ export function AiConnectCard({
     const plan = planLabel(connection.planType);
     return (
       <section className="ai-connect" aria-labelledby="ai-connect-title">
-        <Orb moment="idle" size={64} className="ai-connect-orb" />
+        <AiMark size={40} className="ai-connect-mark" />
         <h3 id="ai-connect-title" className="ai-connect-title">
           Connected to ChatGPT
         </h3>
@@ -193,7 +195,7 @@ export function AiConnectCard({
   if (step.kind === 'pairing') {
     return (
       <section className="ai-connect ai-connect-pairing" aria-labelledby="ai-connect-title">
-        <Orb moment="connecting" size={64} className="ai-connect-orb" />
+        <AiMark size={40} waiting className="ai-connect-mark" />
         <h3 id="ai-connect-title" className="ai-connect-title">
           Enter this code in ChatGPT
         </h3>
@@ -227,7 +229,7 @@ export function AiConnectCard({
 
   return (
     <section className="ai-connect" aria-labelledby="ai-connect-title">
-      <Orb moment={step.kind === 'error' ? 'error' : 'idle'} size={64} className="ai-connect-orb" />
+      <AiMark size={40} className="ai-connect-mark" />
       <h3 id="ai-connect-title" className="ai-connect-title">
         Connect ChatGPT
       </h3>

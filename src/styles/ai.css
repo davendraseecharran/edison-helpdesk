@@ -828,8 +828,67 @@
   text-align: center;
 }
 
-.ai-connect-orb {
+/*
+ * The provider's mark.
+ *
+ * `currentColor`, so it takes the ink of whatever it sits in and never becomes
+ * a second brand colour. One animation, and only while something is actually
+ * happening: a six-second turn with a two-and-a-half second breath under it.
+ * Slow enough to read as patience rather than as a spinner — a spinner says
+ * "wait for me", and this says "still thinking". Transform and opacity only,
+ * so it composites on its own layer; `paused` rather than removed, so the mark
+ * never jumps when it stops.
+ */
+.ai-mark {
+  display: inline-grid;
+  place-items: center;
+  color: inherit;
+}
+
+.ai-mark > svg {
+  animation:
+    ai-mark-turn 6s linear infinite paused,
+    ai-mark-breathe 2.4s ease-in-out infinite paused;
+}
+
+.ai-mark[data-waiting] > svg {
+  animation-play-state: running;
+}
+
+@keyframes ai-mark-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes ai-mark-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/*
+ * Reduced motion keeps the meaning and drops the movement: the mark holds
+ * still at the dim end of the breath, which still reads as "working".
+ */
+@media (prefers-reduced-motion: reduce) {
+  .ai-mark > svg {
+    animation: none;
+  }
+
+  .ai-mark[data-waiting] > svg {
+    opacity: 0.7;
+  }
+}
+
+.ai-connect-mark {
   margin-bottom: 4px;
+  color: var(--ink-2);
 }
 
 .ai-connect-title {

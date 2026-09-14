@@ -28,6 +28,7 @@
     "test:deploy:local": "vitest run --config vitest.deploy.config.mts"
   },
   "dependencies": {
+    "@lobehub/icons": "5.18.0",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.116.0",
     "border-beam": "1.3.0",

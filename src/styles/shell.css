@@ -670,14 +670,14 @@
   border-radius: var(--radius-2);
   color: var(--ink-2);
   font-weight: 500;
-  transition-property: background-color, color, border-color;
+  transition-property: background-color, color, border-color, box-shadow;
   transition-duration: var(--dur-hover);
   transition-timing-function: ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .rail-link:hover {
-    background: var(--surface-2);
+    background: var(--surface-3);
     color: var(--ink);
     text-decoration: none;
   }

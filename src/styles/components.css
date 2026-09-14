@@ -54,9 +54,10 @@
  */
 .btn,
 .pressable {
-  transition-property: background-color, border-color, color, scale;
-  transition-duration: var(--dur-hover), var(--dur-hover), var(--dur-hover), var(--dur-press);
-  transition-timing-function: ease, ease, ease, ease-out;
+  transition-property: background-color, border-color, color, box-shadow, scale;
+  transition-duration:
+    var(--dur-hover), var(--dur-hover), var(--dur-hover), var(--dur-hover), var(--dur-press);
+  transition-timing-function: ease, ease, ease, ease, ease-out;
 }
 
 .btn:active:not(:disabled):not([aria-disabled='true']):not(.btn-static),
@@ -90,24 +91,13 @@
 }
 
 /*
- * A keycap inside a button: the shortcut shown on the control it presses.
+ * No keycaps inside buttons.
  *
- * The shared `.kbd` is drawn for the top bar's search field and names its own
- * colours. Inside a button it has to sit on whatever that button is painted —
- * brass, quiet or ghost — so it borrows the button's own ink at low opacity
- * rather than choosing. Never the thing the eye lands on first: the label is.
+ * A cap has its own border and its own baseline, so inside a 36px control it
+ * crowds the label against the button's edge and clips at small sizes. The
+ * shortcut lives in the button's tooltip instead; `.kbd` is still drawn for
+ * the places a key belongs on its own — the lookup field, the palette's foot.
  */
-.kbd-in-button {
-  min-width: 18px;
-  height: 18px;
-  margin-left: 2px;
-  padding: 0 4px;
-  border-color: currentcolor;
-  border-bottom-width: 1px;
-  background: transparent;
-  color: inherit;
-  opacity: 0.55;
-}
 
 /* The quiet default: a hairline box on the panel's own surface. */
 .btn-secondary {
@@ -230,7 +220,7 @@
 
 @media (max-width: 719.98px) {
   .btn-collapse {
-    width: 40px;
+    width: 36px;
     padding: 0;
   }
 
@@ -644,10 +634,17 @@ p.flash {
   display: flex;
 }
 
+/*
+ * The page, still there and out of focus. It used to be `--ink` at 45%, which
+ * in the dark theme is near-white: a fog over the screen rather than a surface
+ * above it.
+ */
 .overlay-backdrop {
   position: absolute;
   inset: 0;
-  background: color-mix(in srgb, var(--ink) 45%, transparent);
+  background: var(--scrim);
+  -webkit-backdrop-filter: var(--scrim-blur);
+  backdrop-filter: var(--scrim-blur);
 }
 
 /*
@@ -889,9 +886,9 @@ p.flash {
   font: 500 var(--fs-1) / 1 var(--font-sans);
   white-space: nowrap;
   cursor: pointer;
-  transition-property: background-color, color;
+  transition-property: background-color, color, box-shadow;
   transition-duration: var(--dur-hover);
-  transition-timing-function: ease-out;
+  transition-timing-function: ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -907,7 +904,7 @@ p.flash {
 .segmented-option[aria-checked='true'] {
   background: var(--surface);
   color: var(--ink);
-  box-shadow: 0 0 0 1px var(--line-2);
+  box-shadow: 0 0 0 1px var(--line);
 }
 
 .segmented-option[aria-checked='true'] .icon {
@@ -951,22 +948,27 @@ p.flash {
   height: 40px;
   padding: 0 12px;
   border-bottom: 2px solid transparent;
-  border-radius: var(--radius-1) var(--radius-1) 0 0;
+  border-radius: var(--radius-2) var(--radius-2) 0 0;
   color: var(--ink-2);
   font-weight: 500;
   white-space: nowrap;
+  transition:
+    background-color var(--dur-hover) ease,
+    color var(--dur-hover) ease,
+    border-color var(--dur-surface) ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .tab:hover {
-    background: var(--surface-2);
+    background: var(--surface-3);
     color: var(--ink);
     text-decoration: none;
   }
 }
 
+/* The one place the accent marks a selection: the tab you are reading. */
 .tab[aria-current='page'] {
-  border-bottom-color: var(--brass);
+  border-bottom-color: var(--accent);
   color: var(--ink);
 }
 
@@ -992,9 +994,17 @@ p.flash {
   overflow-x: clip;
 }
 
+/*
+ * `separate` with zero spacing rather than `collapse`, which renders the same
+ * (every rule is a `border-bottom` on a cell, so nothing was being collapsed
+ * into anything) and buys one thing the keyboard model needs: a `<tr>` can
+ * carry a box-shadow. Under `collapse` a shadow on a row is simply not
+ * painted, and the lamp that marks the row the keyboard is on is a box-shadow.
+ */
 .table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: var(--fs-2);
   font-variant-numeric: tabular-nums;
 }
@@ -1057,7 +1067,8 @@ p.flash {
 .table tbody tr {
   transition:
     background-color var(--dur-hover) ease,
-    color var(--dur-hover) ease;
+    color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
 }
 
 @media (hover: hover) and (pointer: fine) {

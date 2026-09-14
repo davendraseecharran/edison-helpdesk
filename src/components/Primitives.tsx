@@ -7,7 +7,7 @@ import { X } from 'lucide-react';
 import { useToasts } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
 import { useReducedMotion } from '@/components/ui/media';
-import { AnimatePresence, EASE_OUT, EASE_OUT_FAST, INSTANT, motion } from '@/components/ui/Motion';
+import { AnimatePresence, INSTANT, motion } from '@/components/ui/Motion';
 import { nextDeadline, type Toast, type ToastAction, type ToastHold } from '@/components/ui/toast';
 import { useNow } from '@/lib/useNow';
 import { formatAge, formatDateTime, formatRelative, initialsOf } from '@/lib/format';
@@ -120,6 +120,14 @@ export function Flash() {
   );
 }
 
+/*
+ * A toast is the one surface in the product that arrives unasked, so it is
+ * also the one allowed to take its time arriving: 300ms up and out of a blur,
+ * 200ms away again.
+ */
+const TOAST_IN = { duration: 0.3, ease: 'easeOut' } as const;
+const TOAST_OUT = { duration: 0.2, ease: 'easeOut' } as const;
+
 /** One toast: its text, its close button, and the holds it puts on the clock. */
 function ToastItem({
   toast,
@@ -143,10 +151,17 @@ function ToastItem({
       className={toast.kind === 'success' ? 'toast toast-success' : 'toast toast-error'}
       role={toast.kind === 'error' ? 'alert' : 'status'}
       layout={reduced ? false : 'position'}
-      initial={reduced ? false : { opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={reduced ? undefined : { opacity: 0, y: 8, transition: EASE_OUT_FAST }}
-      transition={reduced ? INSTANT : EASE_OUT}
+      /*
+       * A toast rises from below the corner it lives in and resolves out of a
+       * soft blur, over 300ms — slow enough to be noticed arriving, which is
+       * the whole job. It leaves in 200ms, because a message that has been
+       * read should not make anybody wait for it; an exit as slow as its
+       * entrance reads as the interface being reluctant.
+       */
+      initial={reduced ? false : { opacity: 0, y: 16, filter: 'blur(2px)' }}
+      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+      exit={reduced ? undefined : { opacity: 0, y: 8, transition: TOAST_OUT }}
+      transition={reduced ? INSTANT : TOAST_IN}
       onPointerEnter={() => hold('hover')}
       onPointerLeave={() => release('hover')}
       onFocus={() => hold('focus')}

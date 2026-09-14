@@ -18,10 +18,66 @@ body {
 }
 
 body {
-  background: var(--paper);
+  background: var(--bg);
   color: var(--ink);
   font: 400 var(--fs-2) / 1.5 var(--font-sans), ui-sans-serif, system-ui;
   -webkit-font-smoothing: antialiased;
+}
+
+/*
+ * The parts of the interface the browser draws.
+ *
+ * Selection, the caret and the scrollbars ship with defaults that belong to no
+ * design system — a blue highlight and a light-grey bar on a near-black page
+ * are the two places a themed application usually forgets. They are the
+ * cheapest tell that a screen was assembled rather than built.
+ */
+::selection {
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+* {
+  caret-color: var(--accent);
+  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-width: thin;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+  background-color: var(--line-strong);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--ink-3);
+  }
+}
+
+/*
+ * Numbers that sit under one another — counts, ages, quantities, identifiers —
+ * line up. Geist ships proportional figures by default, which makes a column
+ * of them ripple.
+ */
+.num,
+.mono,
+td,
+th,
+.count-pill,
+.bell-count,
+.bottom-tab-count {
+  font-variant-numeric: tabular-nums;
 }
 
 h1,

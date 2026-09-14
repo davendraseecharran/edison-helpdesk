@@ -106,6 +106,16 @@
   --slate-soft: var(--surface-3);
 
   /*
+   * The scrim behind a modal surface. Translucent ground plus a real blur, not
+   * a wash of ink: `--ink` is near-white in the dark theme, so tinting with it
+   * whitened the whole page and the palette floated on fog. The page stays
+   * legible underneath, out of focus, which is what says "this is still your
+   * screen, and this is on top of it".
+   */
+  --scrim: rgb(251 251 252 / 0.6);
+  --scrim-blur: blur(12px) saturate(120%);
+
+  /*
    * Focus: a 2px accent ring held 2px off the control, drawn as two shadows so
    * it reads on a control that already has a border and takes no layout space.
    */
@@ -171,7 +181,7 @@
    * colours, and short enough that it never feels like waiting.
    */
   --dur-hover: 150ms;
-  --dur-press: 160ms;
+  --dur-press: 120ms;
   --dur-surface: 200ms;
 
   --rail-w: 240px;
@@ -224,6 +234,8 @@
   /* The same blue: it was chosen to hold on both grounds. */
   --accent: #0070f3;
   --accent-hover: #3291ff;
+
+  --scrim: rgb(15 15 16 / 0.55);
 
   --good: #29a36a;
   --warn: #d29922;

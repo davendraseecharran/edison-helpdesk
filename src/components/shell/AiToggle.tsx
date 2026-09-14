@@ -3,28 +3,30 @@
 /**
  * The assistant's place in the top bar.
  *
- * The orb, always: idle and calm when nothing is happening, and in whatever
- * state the panel would show while the assistant is working, so the work is
- * visible from anywhere. It used to be a sparkle, which is the icon every
- * generated product reaches for and says nothing about what this assistant is
- * doing. When a reply finishes unseen, a dot waits until the panel is opened.
+ * The provider's mark, in the bar's own ink: the assistant runs on the
+ * person's ChatGPT account, and this is the button that reaches it. While the
+ * panel is closed and a reply is on its way the mark turns slowly, so the work
+ * is visible from anywhere; when a reply finishes unseen, a dot waits until
+ * the panel is opened. The orb stays inside the panel, where it is the
+ * assistant's face during a conversation rather than a piece of chrome.
+ *
  * Pressing it opens the panel, or closes it, and the panel hands focus back
  * here when it goes.
  */
 
 import { useApplePlatform } from '@/components/ui/media';
-import { Orb } from '@/components/ai/Orb';
+import { AiMark } from '@/components/ai/AiMark';
 import { toggleAssistant, useAssistant } from '@/components/ai/assistant-store';
 
 export function AiToggle() {
-  const { open, moment, busy, unread } = useAssistant();
+  const { open, busy, unread } = useAssistant();
   const apple = useApplePlatform();
-  const showOrb = !open && busy;
+  const waiting = !open && busy;
   const shortcut = apple ? '⌘J' : 'Ctrl+J';
 
   const label = open
     ? 'Close the assistant'
-    : showOrb
+    : waiting
       ? 'Assistant is working. Open the assistant'
       : unread
         ? 'The assistant replied. Open the assistant'
@@ -41,7 +43,7 @@ export function AiToggle() {
         data-ai-toggle
         onClick={toggleAssistant}
       >
-        <Orb size={20} moment={showOrb ? moment : 'idle'} label="" />
+        <AiMark size={20} waiting={waiting} />
       </button>
       {unread && !open ? <span className="ai-toggle-dot" aria-hidden="true" /> : null}
     </span>

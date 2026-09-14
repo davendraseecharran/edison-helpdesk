@@ -107,21 +107,20 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
               <span className="person-text muted">Unassigned. Anyone can claim it from the queue.</span>
               {mayClaim ? (
                 <span className="person-end">
+                  {/* The shortcut is in the tooltip, not in the button. A
+                      keycap inside a control has its own border and its own
+                      baseline, and at this size it crowds the label against the
+                      button's edge; the button says what it does, and the
+                      tooltip says which key does it too. */}
                   <Button
                     variant="primary"
                     size="sm"
+                    title="Claim ticket (c)"
                     onClick={() => void onClaim()}
                     disabled={busy}
                     loading={pendingKey === `claim:${ticket.id}`}
                   >
                     Claim ticket
-                    {/* The keycap rides inside the button, so the shortcut is
-                        learned from the control it presses. Hidden from the
-                        accessibility tree: the button is already named, and a
-                        screen reader announcing "Claim ticket c" is noise. */}
-                    <kbd className="kbd kbd-in-button" aria-hidden="true">
-                      c
-                    </kbd>
                   </Button>
                 </span>
               ) : null}
