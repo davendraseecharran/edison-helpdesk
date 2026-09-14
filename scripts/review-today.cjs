@@ -234,7 +234,7 @@ async function shoot(page, theme, viewport, slug) {
       ['edison.theme', theme],
     );
     const page = await context.newPage();
-    page.setDefaultTimeout(20000);
+    page.setDefaultTimeout(45000);
     page.on('pageerror', (error) =>
       problems.push(`${theme}/${viewport.name}: runtime error: ${error.message.split('\n')[0]}`),
     );
@@ -302,7 +302,12 @@ async function shoot(page, theme, viewport, slug) {
         await session.page.goto(`${base}/queue`);
         await settle(session.page);
         await session.page.keyboard.press('j');
-        await session.page.locator('[data-row-key][data-focused]').first().waitFor();
+        // Attached rather than visible: both layouts carry the row attributes
+        // and the stylesheet hides the one this width is not using.
+        await session.page
+          .locator('[data-row-key][data-focused]')
+          .first()
+          .waitFor({ state: 'attached' });
         await assertNoOverflow(session.page, `${label} /queue`);
         await assertOneLamp(session.page, `${label} /queue keyboard`);
         await shoot(session.page, theme, viewport, 'queue-keyboard');

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { HTMLAttributes, KeyboardEvent, ReactNode } from 'react';
 import { StaggerItem, StaggerList } from './Motion';
 
 export interface Column<Row> {
@@ -37,6 +37,18 @@ export interface DataTableProps<Row> {
    * a refresh) appear in place. Off under `prefers-reduced-motion`.
    */
   settle?: boolean;
+  /**
+   * Attributes for each row, keyed by the row's identity. This is how the
+   * shared keyboard model (`useRowKeys`) reaches rows the table owns: the
+   * roving tabindex, the focus marker and the row's identity all arrive here,
+   * and a table with no keyboard passes nothing and renders exactly as before.
+   */
+  rowProps?: (key: string) => HTMLAttributes<HTMLElement> & Record<string, unknown>;
+  /** Attributes for the element that wraps both layouts: the arrow keys. */
+  listProps?: {
+    ref?: (element: HTMLElement | null) => void;
+    onKeyDown?: (event: KeyboardEvent) => void;
+  };
 }
 
 /**
@@ -60,6 +72,8 @@ export function DataTable<Row>({
   empty,
   caption,
   settle = false,
+  rowProps,
+  listProps,
 }: DataTableProps<Row>) {
   if (rows.length === 0) {
     return <div className="data-table-empty">{empty ?? <p className="muted">Nothing to show.</p>}</div>;
@@ -76,7 +90,7 @@ export function DataTable<Row>({
 
   return (
     <StaggerList generation={rows} enabled={settle}>
-      <div className="data-table">
+      <div className="data-table" {...listProps}>
         <table className="table">
           {caption ? <caption className="visually-hidden">{caption}</caption> : null}
           <thead>
@@ -95,7 +109,7 @@ export function DataTable<Row>({
           </thead>
           <tbody>
             {rows.map((row, index) => (
-              <StaggerItem as="tr" key={rowKey(row)} index={index}>
+              <StaggerItem as="tr" key={rowKey(row)} index={index} rest={rowProps?.(rowKey(row))}>
                 {columns.map((column) => (
                   <td key={column.key} className={cellClass(column)}>
                     {column.cell(row)}
@@ -110,7 +124,13 @@ export function DataTable<Row>({
           {rows.map((row, index) => {
             const meta = cardMeta?.(row);
             return (
-              <StaggerItem as="li" key={rowKey(row)} index={index} className="row-card">
+              <StaggerItem
+                as="li"
+                key={rowKey(row)}
+                index={index}
+                className="row-card"
+                rest={rowProps?.(rowKey(row))}
+              >
                 <div className="row-card-title">{cardTitle(row)}</div>
                 {meta ? <div className="row-card-meta">{meta}</div> : null}
                 {phoneColumns.length > 0 ? (

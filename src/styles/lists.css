@@ -1,0 +1,61 @@
+/*
+ * What a list looks like while somebody is driving it from the keyboard.
+ *
+ * The keys themselves are in `src/lib/lists/keys.ts` and the binding is in
+ * `useRowKeys`; this is the two-line presentation that goes with them. It is a
+ * separate stylesheet rather than a few rules inside the queue's because the
+ * model is shared: Today's list, the queue, and every list that adopts it next
+ * all read from here, and a rule that lives in one screen's stylesheet ends up
+ * being copied into the second screen's.
+ *
+ * Nothing here animates. This is the interaction repeated all day: the focus
+ * marker appears the instant the key is pressed, and the only transition is the
+ * 100ms background the rows already had under the pointer.
+ */
+
+/*
+ * The lamp is a box-shadow, and a shadow on a `<tr>` is not painted while the
+ * table collapses its borders — so the shared table sets `border-collapse:
+ * separate` with zero spacing (components.css). This rule is the reason.
+ */
+.table tr[data-row-key][data-focused] > td,
+.row-cards li[data-row-key][data-focused] {
+  background: var(--surface-3);
+}
+
+.table tr[data-row-key]:focus,
+.row-cards li[data-row-key]:focus,
+.today-row[data-row-key]:focus {
+  outline: none;
+}
+
+/*
+ * The keys, written where they are pressed.
+ *
+ * A shortcut nobody can see is a shortcut nobody uses, and a help page nobody
+ * opens is not where it becomes visible. They sit in the filter bar's end, in
+ * front of the result count, and disappear on a phone where there is no
+ * keyboard to press them with.
+ */
+.queue-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 12px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.queue-keys .kbd {
+  margin-left: 6px;
+}
+
+.queue-keys .kbd:first-child {
+  margin-left: 0;
+}
+
+@media (max-width: 719.98px) {
+  .queue-keys {
+    display: none;
+  }
+}

@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import type { TicketDetail } from '@/lib/domain/selectors';
 import { claimTicketAction, resumeWorkAction, returnTicketAction } from '@/lib/data/actions';
 import {
@@ -24,7 +25,7 @@ import {
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
 
-export type TicketIntent = 'resolve' | 'reopen';
+export type TicketIntent = 'resolve' | 'reopen' | 'note';
 
 const TICKET_INTENT_EVENT = 'edison:ticket-intent';
 
@@ -45,6 +46,38 @@ export function useTicketIntent(intent: TicketIntent, handler: () => void): void
     window.addEventListener(TICKET_INTENT_EVENT, onIntent);
     return () => window.removeEventListener(TICKET_INTENT_EVENT, onIntent);
   }, [intent]);
+}
+
+const INTENTS: readonly TicketIntent[] = ['resolve', 'reopen', 'note'];
+
+/**
+ * An intent carried in by the URL.
+ *
+ * `r` and `e` on a list row open the ticket with `?do=resolve` or `?do=note`,
+ * because the field they mean is on the ticket rather than on the row. This
+ * turns that back into the intent the panels already answer, once, after the
+ * page has painted — so the scroll and the focus land on a control that
+ * exists. It renders nothing.
+ *
+ * Read from the URL rather than passed as a prop so the detail page stays a
+ * server component, and dispatched rather than handled here so there is still
+ * exactly one channel between "somebody asked for the resolve field" and the
+ * panel that owns it.
+ */
+export function TicketIntentFromQuery() {
+  const searchParams = useSearchParams();
+  const raw = searchParams.get('do');
+  const intent = INTENTS.find((value) => value === raw) ?? null;
+
+  useEffect(() => {
+    if (intent === null) return;
+    // After paint: the panel that answers this is mounted in the same commit,
+    // and a focus call in the same frame would race its own effect.
+    const frame = window.requestAnimationFrame(() => requestTicketIntent(intent));
+    return () => window.cancelAnimationFrame(frame);
+  }, [intent]);
+
+  return null;
 }
 
 /** Scrolls a control to the middle of the viewport, clear of the pinned bars, then focuses it. */

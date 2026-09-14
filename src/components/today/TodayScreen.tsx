@@ -49,6 +49,7 @@ import {
 } from '@/lib/domain/today';
 import { PRIORITY_LABELS } from '@/lib/domain/types';
 import { greetingMoment, isFridayAfternoon, say, voiceLine } from '@/lib/voice/moments';
+import '@/styles/lists.css';
 import '@/styles/today.css';
 import '@/styles/voice.css';
 
@@ -116,8 +117,15 @@ export function TodayScreen({
    * A layout effect rather than an ordinary one: it runs before the browser
    * paints the newly inserted markup, which is the only moment at which
    * switching a CSS animation off is still switching it off rather than
-   * cutting it short. The page's own blocking script does the same job for a
-   * reload, where hydration is far too late.
+   * cutting it short. That covers every in-app return to Today, which is the
+   * case the rule is for: queue, ticket, back to Today, three times an hour.
+   *
+   * A full page load still plays it, and should. Hydration is far too late to
+   * stop an animation that started at first paint, and the only thing that
+   * would be early enough is a blocking script — which React re-renders on the
+   * client, warns about, and does not execute anyway. It is also the right
+   * answer: a reload is the application arriving, the same moment the bench
+   * lamp is drawn for, and the two belong together.
    */
   useLayoutEffect(() => {
     try {

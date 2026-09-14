@@ -40,13 +40,45 @@
   box-shadow: var(--edge-light);
 }
 
-/* 3. The row a list's keyboard is on, unless a modal surface is over it. */
-:root:not(:has(.palette)):not(:has(.ai-approval)) [data-row-key][data-focused] {
+/*
+ * 3. The row a list's keyboard is on, unless a modal surface is over it.
+ *
+ * A list renders both layouts and lets the stylesheet choose — a table above
+ * 720px, cards below — so both copies of the focused row carry the marker and
+ * only the one on screen may wear the light. Two lit rows is two lamps even
+ * when one of them is `display: none`.
+ */
+:root:not(:has(.palette)):not(:has(.ai-approval)) .today-row[data-row-key][data-focused],
+:root:not(:has(.palette)):not(:has(.ai-approval)) .table tr[data-row-key][data-focused],
+:root:not(:has(.palette)):not(:has(.ai-approval)) .row-cards li[data-row-key][data-focused] {
   box-shadow: var(--edge-light);
 }
 
-/* 4. The rail's current page, unless any of the above is asking. */
-:root:not(:has(.palette)):not(:has(.ai-approval)):not(:has([data-row-key][data-focused]))
+/* Same prefix as the rule above, so these win on source order rather than on
+   a specificity race `:has()` would otherwise decide the wrong way. */
+@media (max-width: 719.98px) {
+  :root:not(:has(.palette)):not(:has(.ai-approval)) .table tr[data-row-key][data-focused] {
+    box-shadow: none;
+  }
+}
+
+@media (min-width: 720px) {
+  :root:not(:has(.palette)):not(:has(.ai-approval)) .row-cards li[data-row-key][data-focused] {
+    box-shadow: none;
+  }
+}
+
+/*
+ * 4. The rail's current page, unless any of the above is asking.
+ *
+ * The first two conditions ask whether a surface is on screen, which `:has()`
+ * answers. The third asks whether a list is being driven from the keyboard,
+ * and that is state rather than structure: `useRowKeys` stamps
+ * `data-list-focused` on the document element, the same way the theme is
+ * stamped. Asking `:has()` a fourth question here was both slower and, in
+ * practice, less reliable than being told.
+ */
+:root:not(:has(.palette)):not(:has(.ai-approval)):not([data-list-focused])
   .rail-link[aria-current='page'] {
   box-shadow: var(--edge-light);
 }

@@ -114,6 +114,24 @@ export function useRowKeys<Row>({
     setFocusedKey((current) => (settled === current ? current : settled));
   }, [signature]);
 
+  /*
+   * Tell the document a list is being driven.
+   *
+   * The lamp rules read this to take the light off the rail while the keyboard
+   * is on a row (`lamp.css`). It is an attribute on `<html>` rather than
+   * something the rail could work out for itself, because the rail and the list
+   * are in different parts of the tree and neither owns the other.
+   */
+  useEffect(() => {
+    const root = document.documentElement;
+    if (focusedKey === null) {
+      root.removeAttribute('data-list-focused');
+      return;
+    }
+    root.setAttribute('data-list-focused', '');
+    return () => root.removeAttribute('data-list-focused');
+  }, [focusedKey]);
+
   // Move the browser's focus to follow the keyboard's, but only after a key
   // asked for it. `block: 'nearest'` and no smooth behaviour: a list driven
   // with `j` must not animate once per press.

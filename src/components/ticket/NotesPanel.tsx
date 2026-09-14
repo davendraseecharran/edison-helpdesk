@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { TicketDetail } from '@/lib/domain/selectors';
 import { canContribute } from '@/lib/domain/permissions';
 import { addNoteAction } from '@/lib/data/actions';
@@ -9,12 +9,18 @@ import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Field, TimeAgo } from '@/components/Primitives';
 import { ActorLabel } from '@/components/ui/ActorLabel';
 import { Button } from '@/components/ui/Button';
+import { revealControl, useTicketIntent } from './TicketActionBar';
 
 export function NotesPanel({ detail }: { detail: TicketDetail }) {
   const { directory, pendingKey, run } = useRuntime();
   const actor = useActorAccount();
   const [body, setBody] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const fieldRef = useRef<HTMLTextAreaElement>(null);
+
+  // `e` on a list row means "I want to write something on this ticket", which
+  // on this screen is the note box. The same channel the resolve field uses.
+  useTicketIntent('note', () => revealControl(fieldRef.current));
 
   const ticket = detail.ticket;
   const mayAdd = canContribute(ticket, actor);
@@ -73,6 +79,7 @@ export function NotesPanel({ detail }: { detail: TicketDetail }) {
             <Field label="Add a note" htmlFor={`note-body-${ticket.id}`} error={error}>
               <textarea
                 id={`note-body-${ticket.id}`}
+                ref={fieldRef}
                 value={body}
                 rows={3}
                 aria-invalid={error ? 'true' : undefined}

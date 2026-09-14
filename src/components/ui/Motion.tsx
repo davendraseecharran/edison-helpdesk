@@ -125,16 +125,24 @@ export function StaggerList({
 
 const STAGGER_ELEMENTS = { tr: motion.tr, li: motion.li, div: motion.div } as const;
 
-/** One row of a `StaggerList`. `index` sets its place in the sequence. */
+/**
+ * One row of a `StaggerList`. `index` sets its place in the sequence.
+ *
+ * `rest` is passed straight to the element, which is how the keyboard model
+ * puts a row's identity and roving tabindex on the same node the stagger
+ * animates. Nothing here reads it.
+ */
 export function StaggerItem({
   as = 'div',
   index,
   className,
+  rest,
   children,
 }: {
   as?: keyof typeof STAGGER_ELEMENTS;
   index: number;
   className?: string;
+  rest?: Record<string, unknown>;
   children: ReactNode;
 }) {
   const { active } = useContext(StaggerContext);
@@ -142,6 +150,7 @@ export function StaggerItem({
   return (
     <Element
       className={className}
+      {...rest}
       initial={active ? RISE : false}
       animate={SETTLED}
       transition={active ? { ...EASE_OUT, delay: staggerDelay(index) } : INSTANT}

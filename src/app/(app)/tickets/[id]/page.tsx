@@ -17,7 +17,7 @@ import { OwnershipPanel } from '@/components/ticket/OwnershipPanel';
 import { ProgressPanel } from '@/components/ticket/ProgressPanel';
 import { ResolvePanel } from '@/components/ticket/ResolvePanel';
 import { SolutionPanel } from '@/components/ticket/SolutionPanel';
-import { TicketActionBar } from '@/components/ticket/TicketActionBar';
+import { TicketActionBar, TicketIntentFromQuery } from '@/components/ticket/TicketActionBar';
 import { TimePanel } from '@/components/ticket/TimePanel';
 
 export const metadata = { title: 'Ticket — Edison Helpdesk' };
@@ -62,6 +62,9 @@ export default async function TicketDetailPage({
       data-page-id={ticket.id}
       data-page-label={ticket.number}
     >
+      {/* `r` and `e` on a queue row arrive here as `?do=`; this turns that back
+          into the intent the resolve and note panels already answer. */}
+      <TicketIntentFromQuery />
       <header className="ticket-head">
         <div className="ticket-head-text">
           <span className="ticket-number mono">{ticket.number}</span>

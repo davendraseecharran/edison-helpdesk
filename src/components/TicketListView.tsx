@@ -10,7 +10,7 @@
  * existence of tickets they may not see.
  */
 
-import { useMemo, useTransition, type ReactNode } from 'react';
+import { useCallback, useMemo, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -24,7 +24,7 @@ import {
   TICKET_CATEGORY_LABELS,
   TICKET_STATUS_LABELS,
 } from '@/lib/domain/types';
-import { canClaimTicket } from '@/lib/domain/permissions';
+import { canClaimTicket, canResolveTicket } from '@/lib/domain/permissions';
 import { claimTicketAction } from '@/lib/data/actions';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { ageLabel, formatDateTime } from '@/lib/format';
@@ -35,7 +35,10 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { Pagination } from '@/components/ui/Pagination';
+import { useRowKeys } from '@/components/ui/useRowKeys';
+import type { ListAction } from '@/lib/lists/keys';
 import type { QueuePage } from '@/lib/data/tickets';
+import '@/styles/lists.css';
 
 export interface TicketListViewProps {
   page: QueuePage;
@@ -125,9 +128,50 @@ export function TicketListView({
     return query ? `${pathname}?${query}` : pathname;
   }
 
-  async function onClaim(ticket: Ticket) {
-    await run(`claim:${ticket.id}`, () => claimTicketAction(ticket.id));
-  }
+  const onClaim = useCallback(
+    async (ticket: Ticket) => {
+      await run(`claim:${ticket.id}`, () => claimTicketAction(ticket.id));
+    },
+    [run],
+  );
+
+  /*
+   * The same keyboard as Today, on the same keys, for the same reasons.
+   *
+   * `j` and `k` move, the number keys jump, `o` opens, `c` claims, `r` opens
+   * the resolve field on the ticket and `e` puts the cursor in its note box.
+   * Every one of those presses a control that is on the row or on the page it
+   * opens; the shortcut is the short way, never the only way. Claiming happens
+   * in place — the row is the thing you were looking at, and leaving the queue
+   * to claim and coming back is the trip this removes.
+   */
+  const can = useCallback(
+    (action: ListAction, ticket: Ticket) => {
+      if (action === 'claim') return allowClaim && canClaimTicket(ticket, actor);
+      if (action === 'resolve') return canResolveTicket(ticket, actor);
+      return true;
+    },
+    [allowClaim, actor],
+  );
+
+  const onAction = useCallback(
+    (action: ListAction, ticket: Ticket) => {
+      if (action === 'claim') {
+        void onClaim(ticket);
+        return;
+      }
+      const intent = action === 'resolve' ? '?do=resolve' : action === 'edit' ? '?do=note' : '';
+      router.push(`/tickets/${ticket.id}${intent}`);
+    },
+    [onClaim, router],
+  );
+
+  const keys = useRowKeys<Ticket>({
+    rows: page.tickets,
+    keyOf: (ticket) => ticket.id,
+    onAction,
+    can,
+  });
 
   function requesterOf(ticket: Ticket): string {
     if (ticket.requesterUnknown || !ticket.requesterId) return 'Requester unknown';
@@ -409,6 +453,8 @@ export function TicketListView({
             rows={tickets}
             rowKey={(ticket) => ticket.id}
             caption="Tickets visible to this account"
+            rowProps={keys.rowProps}
+            listProps={keys.listProps}
             settle
             cardTitle={(ticket) => (
               <Link href={`/tickets/${ticket.id}`}>
