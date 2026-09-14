@@ -116,8 +116,17 @@ port = 54324
 # sender_name = "Admin"
 
 [storage]
-enabled = false
-# The maximum file size allowed (e.g. "5MB", "500KB").
+# ENABLED so the `attachments` bucket exists locally.
+#
+# Migration 20260912100800 creates the bucket row only when `storage.buckets`
+# is present, so with storage off a local reset produced a schema in which
+# attachments could be registered but never uploaded — and the bucket, which is
+# half of that feature's security (private, 8 MiB, five mime types), was never
+# exercised outside production. Turning it on costs one more container and
+# makes the local stack match the hosted project.
+enabled = true
+# The maximum file size allowed (e.g. "5MB", "500KB"). The `attachments` bucket
+# sets its own, much smaller, 8 MiB limit; this is only the outer bound.
 file_size_limit = "50MiB"
 
 # Uncomment to configure local storage buckets

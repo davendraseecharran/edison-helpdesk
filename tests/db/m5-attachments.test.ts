@@ -23,9 +23,16 @@
  *      Closing a ticket stops new uploads but never hides the ones already
  *      there.
  *
- * Everything is arranged through real signed-in sessions and read back with the
- * service role, so no test proves something about a privileged path the
- * application will never take.
+ * Reading and removing are still session calls, and are tested as such. WRITING
+ * is not: a registry row promises that an object exists in the bucket at that
+ * path, is one of five types and is that many bytes, and nothing in the
+ * database can check any of it. So registration moved behind the one caller
+ * that can — the upload endpoint, which holds the service role, reads the
+ * stored object back, and calls `app_trusted_register_attachment` with the
+ * account it has already verified. `app_register_attachment` is superseded and
+ * no longer reachable from a session; the trusted function is not reachable
+ * from one either. Both facts are proven below, and every arrangement in this
+ * file goes the way the server goes.
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -40,6 +47,7 @@ import {
   rpcFails,
   rpcOk,
   signIn,
+  type IdentityKey,
 } from './support/harness';
 
 /** insufficient_privilege, check_violation and no_data_found, as PostgREST reports them. */
@@ -102,12 +110,42 @@ function registerArgs(options: RegisterOptions): Record<string, unknown> {
   };
 }
 
+/**
+ * Which person each signed-in client is.
+ *
+ * The upload endpoint verifies a live session and then hands the trusted
+ * function that account's id, so a test that wants to register "as the owner"
+ * has to do the same. Keeping the tests written in terms of a CLIENT means the
+ * session half of every case — who may see the ticket, who may remove the file
+ * — still reads the way it always did.
+ */
+const actorKeys = new Map<SupabaseClient, IdentityKey>();
+
+function actorOf(client: SupabaseClient): string {
+  const key = actorKeys.get(client);
+  if (!key) throw new Error('That client was never signed in by this suite.');
+  return identity(key).id;
+}
+
+/** Registration exactly as the upload endpoint performs it. */
+function trustedArgs(actor: string | null, options: RegisterOptions): Record<string, unknown> {
+  return { p_actor: actor, ...registerArgs(options) };
+}
+
 async function register(client: SupabaseClient, options: RegisterOptions): Promise<string> {
-  return rpcOk<string>(client, 'app_register_attachment', registerArgs(options));
+  return rpcOk<string>(
+    service,
+    'app_trusted_register_attachment',
+    trustedArgs(actorOf(client), options),
+  );
 }
 
 async function registerFails(client: SupabaseClient, options: RegisterOptions) {
-  return rpcFails(client, 'app_register_attachment', registerArgs(options));
+  return rpcFails(
+    service,
+    'app_trusted_register_attachment',
+    trustedArgs(actorOf(client), options),
+  );
 }
 
 async function listAttachments(
@@ -170,6 +208,15 @@ beforeAll(async () => {
     signIn('pending'),
     signIn('denied'),
   ]);
+  const keys: Array<[SupabaseClient, IdentityKey]> = [
+    [admin, 'admin'],
+    [owner, 'owner'],
+    [helper, 'collaborator'],
+    [unrelated, 'unrelated'],
+    [pending, 'pending'],
+    [denied, 'denied'],
+  ];
+  for (const [client, key] of keys) actorKeys.set(client, key);
 });
 
 describe('attaching a file to a ticket', () => {
@@ -301,7 +348,8 @@ describe('what an attachment row is allowed to say', () => {
     const { ticketId } = await ownedTicket();
     const deviceId = await newDevice();
 
-    const both = await rpcFails(owner, 'app_register_attachment', {
+    const both = await rpcFails(service, 'app_trusted_register_attachment', {
+      p_actor: actorOf(owner),
       p_ticket: ticketId,
       p_device: deviceId,
       p_path: `ticket/${ticketId}/${nextName()}`,
@@ -312,7 +360,8 @@ describe('what an attachment row is allowed to say', () => {
     expect(both.code).toBe(REJECTED);
     expect(both.message).toMatch(/ticket or .*device/i);
 
-    const neither = await rpcFails(owner, 'app_register_attachment', {
+    const neither = await rpcFails(service, 'app_trusted_register_attachment', {
+      p_actor: actorOf(owner),
       p_ticket: null,
       p_device: null,
       p_path: `ticket/${ticketId}/${nextName()}`,
@@ -402,7 +451,8 @@ describe('what an attachment row is allowed to say', () => {
   it('refuses a file with no name', async () => {
     const { ticketId } = await ownedTicket();
 
-    const failure = await rpcFails(owner, 'app_register_attachment', {
+    const failure = await rpcFails(service, 'app_trusted_register_attachment', {
+      p_actor: actorOf(owner),
       p_ticket: ticketId,
       p_device: null,
       p_path: `ticket/${ticketId}/${nextName()}`,
@@ -424,6 +474,106 @@ describe('what an attachment row is allowed to say', () => {
 
     expect(failure.message).toMatch(/already been attached/i);
     expect(failure.message).not.toMatch(/duplicate key|attachments_path_key/i);
+  });
+});
+
+describe('registration is the server’s job alone', () => {
+  /**
+   * A session cannot write a registry row by either door. That is the whole
+   * point of the change: the three fields that describe the file are the ones
+   * the database cannot verify, so only the caller that has seen the stored
+   * object may supply them.
+   */
+  const CLOSED = /permission denied|does not exist|schema cache/i;
+
+  it('no longer lets any session call app_register_attachment', async () => {
+    const { ticketId } = await ownedTicket();
+    const args = registerArgs({ ticket: ticketId });
+
+    for (const client of [owner, admin, unrelated, anonClient()]) {
+      const failure = await rpcFails(client, 'app_register_attachment', args);
+      expect(failure.message).toMatch(CLOSED);
+    }
+
+    // And nothing was written by any of those attempts.
+    expect(await listAttachments(owner, { p_ticket: ticketId })).toHaveLength(0);
+  });
+
+  it('does not let a session reach the trusted function either, not even an admin', async () => {
+    const { ticketId } = await ownedTicket();
+
+    for (const client of [owner, admin, anonClient()]) {
+      const failure = await rpcFails(
+        client,
+        'app_trusted_register_attachment',
+        trustedArgs(identity('admin').id, { ticket: ticketId }),
+      );
+      expect(failure.message).toMatch(CLOSED);
+    }
+
+    expect(await listAttachments(owner, { p_ticket: ticketId })).toHaveLength(0);
+  });
+
+  it('judges the actor it is given rather than believing the server about them', async () => {
+    const { ticketId } = await ownedTicket();
+
+    // A technician who is neither the owner nor a collaborator: the same
+    // refusal they would have met in their own session.
+    const refused = await rpcFails(
+      service,
+      'app_trusted_register_attachment',
+      trustedArgs(identity('unrelated').id, { ticket: ticketId }),
+    );
+    expect(refused.code).toBe(REFUSED);
+    expect(refused.message).toMatch(/not available to this account|owner, a collaborator/i);
+
+    // An account that has not finished setup, and one nobody has approved.
+    for (const key of ['pending', 'denied'] as const) {
+      const restricted = await rpcFails(
+        service,
+        'app_trusted_register_attachment',
+        trustedArgs(identity(key).id, { ticket: ticketId }),
+      );
+      expect(restricted.code).toBe(REFUSED);
+      expect(restricted.message).toMatch(/cannot access helpdesk records/i);
+    }
+
+    // An actor id that names nobody, and none at all.
+    for (const actor of ['00000000-0000-4000-8000-000000000003', null]) {
+      const nobody = await rpcFails(
+        service,
+        'app_trusted_register_attachment',
+        trustedArgs(actor, { ticket: ticketId }),
+      );
+      expect(nobody.code).toBe(REFUSED);
+      expect(nobody.message).toMatch(/cannot access helpdesk records/i);
+    }
+
+    expect(await listAttachments(owner, { p_ticket: ticketId })).toHaveLength(0);
+  });
+
+  it('registers for the owner, attributed to them and recorded in their history', async () => {
+    const { ticketId } = await ownedTicket();
+    const filename = nextName();
+
+    const id = await rpcOk<string>(
+      service,
+      'app_trusted_register_attachment',
+      trustedArgs(identity('owner').id, { ticket: ticketId, filename }),
+    );
+
+    const row = await rawAttachment(id);
+    expect(row?.uploaded_by).toBe(identity('owner').id);
+    expect(row?.path).toBe(`ticket/${ticketId}/${filename}`);
+    // The owner sees it in their own session, through ordinary row-level
+    // security: the trusted write did not create a row only the server can read.
+    expect((await listAttachments(owner, { p_ticket: ticketId })).map((a) => a.id)).toEqual([id]);
+
+    const added = (await ticketEvents(ticketId)).find((e) => e.kind === 'attachment_added');
+    expect(added?.actor_id).toBe(identity('owner').id);
+    // Attribution stays a statement about the person, not about the service
+    // role that carried the write.
+    expect(added?.performed_via).toBe('user');
   });
 });
 
