@@ -39,6 +39,18 @@ export function AdminActionsPanel({ detail }: { detail: TicketDetail }) {
   );
 
   useTicketIntent('reopen', () => {
+    if (mode === 'reopen') {
+      /*
+       * The form is already open, so setMode would be a no-op and the effect
+       * below — which is what scrolls — would not run. On a phone that made a
+       * second tap on the pinned "Reopen ticket" do nothing at all: the
+       * technician had scrolled away from the form, tapped the bar to get back
+       * to it, and the page stayed exactly where it was. Reveal it here
+       * instead.
+       */
+      revealControl(reopenRef.current);
+      return;
+    }
     revealReopen.current = true;
     setMode('reopen');
   });
