@@ -49,6 +49,13 @@ export function TopBar({
       <div className="topbar-actions">
         <ButtonLink href="/tickets/new" variant="primary" icon={Plus} collapseOnPhone>
           New ticket
+          {/* The `n` shortcut AppShell binds, shown on the control it presses.
+              `collapseOnPhone` wraps these children in `.btn-label`, which is
+              visually hidden below 720px, so the keycap goes with the label on
+              a phone — where there is no hardware keyboard to press it. */}
+          <kbd className="kbd kbd-in-button" aria-hidden="true">
+            n
+          </kbd>
         </ButtonLink>
         <NotificationsBell unread={unreadNotifications} showCount={notifyInApp} />
         <AiToggle />

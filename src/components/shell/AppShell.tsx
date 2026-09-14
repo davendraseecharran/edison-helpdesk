@@ -9,10 +9,12 @@
  */
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { useRuntime } from '@/components/AppRuntime';
 import { Flash } from '@/components/Primitives';
 import { AiPanel } from '@/components/ai/AiPanel';
 import { ScanPairingDialog } from '@/components/scan/ScanPairingDialog';
+import { isEditable, modalOpen, useShortcut } from '@/components/ui/shortcuts';
 import type { QueueCounts } from '@/lib/data/tickets';
 import { BottomTabs } from './BottomTabs';
 import {
@@ -24,18 +26,6 @@ import {
 } from './LookupBar';
 import { navItems, RailNav } from './RailNav';
 import { TopBar } from './TopBar';
-
-/** Whether a keystroke would type into `target`: a field, or anything editable. */
-function isEditable(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable) return true;
-  const tag = target.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-}
-
-function modalOpen(): boolean {
-  return document.querySelector('[role="dialog"][aria-modal="true"]') !== null;
-}
 
 export function AppShell({
   counts,
@@ -50,6 +40,8 @@ export function AppShell({
   children: ReactNode;
 }) {
   const { actor } = useRuntime();
+  const router = useRouter();
+  const pathname = usePathname();
   const items = useMemo(() => navItems(actor.role, counts), [actor.role, counts]);
   const [lookupOpen, setLookupOpen] = useState(false);
   const showLookup = useCallback(() => setLookupOpen(true), []);
@@ -107,6 +99,17 @@ export function AppShell({
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [lookupOpen]);
+
+  /*
+   * `n` opens the intake form.
+   *
+   * The one action a technician at the desk repeats all day, and the reason
+   * the button beside it is the only primary in the top bar. Bound through
+   * useShortcut, so it is ignored while anything editable has focus or a modal
+   * surface owns the keyboard; and not bound at all on the intake form itself,
+   * where it would reload a half-filled draft away.
+   */
+  useShortcut('n', () => router.push('/tickets/new'), pathname !== '/tickets/new');
 
   return (
     <div className="shell">

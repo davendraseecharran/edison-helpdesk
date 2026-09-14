@@ -49,6 +49,26 @@
   flex: 0 0 auto;
 }
 
+/*
+ * A keycap inside a button: the shortcut shown on the control it presses.
+ *
+ * The shared `.kbd` is drawn for the top bar's search field and names its own
+ * colours. Inside a button it has to sit on whatever that button is painted —
+ * brass, quiet or ghost — so it borrows the button's own ink at low opacity
+ * rather than choosing. Never the thing the eye lands on first: the label is.
+ */
+.kbd-in-button {
+  min-width: 18px;
+  height: 18px;
+  margin-left: 2px;
+  padding: 0 4px;
+  border-color: currentcolor;
+  border-bottom-width: 1px;
+  background: transparent;
+  color: inherit;
+  opacity: 0.55;
+}
+
 /* The quiet default. Restates the base so the class always means something. */
 .btn-secondary {
   border-color: var(--line-2);

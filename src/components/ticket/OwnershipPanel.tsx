@@ -17,6 +17,7 @@ import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Avatar, Field, TimeAgo } from '@/components/Primitives';
 import { RoleBadge } from '@/components/Badges';
 import { Button } from '@/components/ui/Button';
+import { useShortcut } from '@/components/ui/shortcuts';
 
 /** Owner and collaborators, with claim, return and the collaborator list. */
 export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
@@ -44,6 +45,18 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
   async function onClaim() {
     await run(`claim:${ticket.id}`, () => claimTicketAction(ticket.id));
   }
+
+  /*
+   * `c` claims the ticket that is open.
+   *
+   * Claiming is the first thing a technician does with a queued ticket and the
+   * only reason many of them open one, so it is worth a key. Bound only while
+   * this account can actually claim THIS ticket and nothing else is in flight,
+   * so the key does nothing rather than failing at the server; the shortcut
+   * guards (no editable focus, no modal open) live in useShortcut. The keycap
+   * on the button is what makes it findable.
+   */
+  useShortcut('c', () => void onClaim(), mayClaim && !busy);
 
   async function onAdd(formEvent: React.FormEvent<HTMLFormElement>) {
     formEvent.preventDefault();
@@ -102,6 +115,13 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
                     loading={pendingKey === `claim:${ticket.id}`}
                   >
                     Claim ticket
+                    {/* The keycap rides inside the button, so the shortcut is
+                        learned from the control it presses. Hidden from the
+                        accessibility tree: the button is already named, and a
+                        screen reader announcing "Claim ticket c" is noise. */}
+                    <kbd className="kbd kbd-in-button" aria-hidden="true">
+                      c
+                    </kbd>
                   </Button>
                 </span>
               ) : null}
