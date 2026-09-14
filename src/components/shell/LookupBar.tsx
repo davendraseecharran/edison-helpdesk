@@ -33,7 +33,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { ThinkingOrb } from 'thinking-orbs';
-import { Hand, Plus, Search, Settings, Smartphone, Sparkles, SunMoon, X } from 'lucide-react';
+import { Hand, MessageCircle, Plus, Search, Settings, Smartphone, SunMoon, X } from 'lucide-react';
 import { useRuntime } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
@@ -42,6 +42,7 @@ import { useApplePlatform, usePhone } from '@/components/ui/media';
 import { AnimatePresence, SpringSurface } from '@/components/ui/Motion';
 import { claimTicketAction } from '@/lib/data/actions';
 import { matchesQuery, type RecentItem, type SearchHit } from '@/lib/data/search';
+import { targetKind } from '@/lib/lookup/recognise';
 import type { QueueCounts } from '@/lib/data/tickets';
 import type { ThemePreference } from './theme-script';
 import {
@@ -352,7 +353,7 @@ function Palette({
     list.push({
       id: 'ask',
       label: 'Ask the assistant',
-      icon: Sparkles,
+      icon: MessageCircle,
       keywords: ['ai', 'help', 'question'],
       subtitle: term ? `“${term}”` : undefined,
       always: true,
@@ -393,10 +394,22 @@ function Palette({
   const first = useMemo(() => {
     if (showRecent) return `recent:${hitValue(lookup.recent[0])}`;
     const { tickets, people, devices } = lookup.groups;
-    const hit = tickets[0] ?? people[0] ?? devices[0];
+    /*
+     * The row Enter opens.
+     *
+     * Normally the first record in rail order. But when the text was read as
+     * an identifier, the record it names outranks everything: paste an asset
+     * tag while a person of the same name happens to match and Enter still
+     * goes to the machine. That is the whole point of recognising the paste —
+     * one keystroke to the thing in your hand, with no arrow keys in between.
+     */
+    const named = targetKind(lookup.recognition.kind);
+    const preferred =
+      named === 'device' ? devices[0] : named === 'person' ? people[0] : named === 'ticket' ? tickets[0] : undefined;
+    const hit = preferred ?? tickets[0] ?? people[0] ?? devices[0];
     if (searchable && hit) return hitValue(hit);
     return visibleActions[0] ? actionValue(visibleActions[0]) : '';
-  }, [showRecent, lookup.recent, lookup.groups, searchable, visibleActions]);
+  }, [showRecent, lookup.recent, lookup.groups, lookup.recognition, searchable, visibleActions]);
 
   const [selected, setSelected] = useState(first);
   const [selectedFor, setSelectedFor] = useState(first);
@@ -496,7 +509,9 @@ function Palette({
               </Command.Group>
             ) : null}
 
-            {searchable ? <HitGroups groups={lookup.groups} onSelect={openHit} /> : null}
+            {searchable ? (
+              <HitGroups groups={lookup.groups} recognition={lookup.recognition} onSelect={openHit} />
+            ) : null}
 
             {nothingMatches ? (
               <p className="palette-empty" role="status">

@@ -28,6 +28,12 @@ import { canWorkTickets, landingPath } from '@/lib/auth/roles';
 import { navItems, RailNav } from './RailNav';
 import { TopBar } from './TopBar';
 
+/** Shorter than this and a stray paste would open the palette on nothing. */
+const PASTE_MIN_LENGTH = 2;
+
+/** A page of pasted email is still about one identifier; the rest is not a query. */
+const PASTE_MAX_LENGTH = 400;
+
 export function AppShell({
   counts,
   unreadNotifications = 0,
@@ -74,6 +80,32 @@ export function AppShell({
       window.removeEventListener(OPEN_LOOKUP_EVENT, onOpenLookup);
     };
   }, []);
+
+  /*
+   * Paste anything, anywhere.
+   *
+   * A NetRider at the desk works from a clipboard: an asset tag off a sticker,
+   * an OSIS out of a spreadsheet, a ticket number from an email. With nothing
+   * focused, a paste is not a paste — it is a lookup that has not been given
+   * anywhere to go, so it goes to the palette and the recogniser reads it.
+   * Aimed at a field, or with a modal surface holding the keyboard, it is left
+   * strictly alone: that paste has a destination and it is not this.
+   *
+   * The text is capped before it becomes a query. A page of copied email is
+   * still a paste worth answering — the recogniser digs the identifier out of
+   * it — but it is not worth putting a page of text in a search field.
+   */
+  useEffect(() => {
+    function onPaste(event: ClipboardEvent) {
+      if (lookupOpen || modalOpen() || isEditable(event.target)) return;
+      const text = event.clipboardData?.getData('text') ?? '';
+      if (text.trim().length < PASTE_MIN_LENGTH) return;
+      event.preventDefault();
+      openLookup(text.slice(0, PASTE_MAX_LENGTH));
+    }
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, [lookupOpen]);
 
   // Cmd/Ctrl+K toggles the palette from anywhere; `/` opens it when nothing
   // editable has focus, so the slash never lands in a field. Neither opens it

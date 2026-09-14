@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { searchAction } from '@/lib/data/search-actions';
+import { recognisePaste, type Recognition } from '@/lib/lookup/recognise';
 import {
   groupHits,
   parseRecent,
@@ -18,8 +19,15 @@ import {
 export interface LookupState {
   query: string;
   setQuery: (query: string) => void;
-  /** The trimmed query, what the search actually asks for. */
+  /**
+   * The term the search actually asks for: the recognised identifier where the
+   * text was one, otherwise the trimmed query. Typing `a91001` searches for
+   * `A-91001`, which is the spelling the sticker does not have and the database
+   * does.
+   */
   term: string;
+  /** What the text was read as: an asset tag, an OSIS, a ticket number, or nothing. */
+  recognition: Recognition;
   /** Whether `term` is long enough to search. */
   searchable: boolean;
   /** Hits for the current term, or the previous term's while the new answer is on its way. */
@@ -77,7 +85,17 @@ export function useLookup(): LookupState {
   const [answer, setAnswer] = useState<{ term: string; hits: SearchHit[] }>({ term: '', hits: [] });
   const sequence = useRef(0);
 
-  const term = query.trim();
+  /*
+   * What was typed or pasted, read before it is searched for.
+   *
+   * The recogniser is what lets a paste work at all: `a91001` and `A-91001`
+   * are the same sticker, `edt1042` and `EDT-1042` the same ticket, and a whole
+   * spreadsheet row pasted in one go is about the asset tag inside it. The
+   * normalised value is what goes to the database, so none of those spellings
+   * has to be a separate index.
+   */
+  const recognition = useMemo(() => recognisePaste(query), [query]);
+  const term = recognition.value;
   const searchable = term.length >= SEARCH_MIN_LENGTH;
 
   useEffect(() => {
@@ -99,7 +117,10 @@ export function useLookup(): LookupState {
   const groups = useMemo(() => groupHits(hits), [hits]);
   const loading = searchable && answer.term !== term;
   const empty = searchable && answer.term === term && hits.length === 0;
-  const ticketNumber = useMemo(() => ticketNumberFromQuery(query), [query]);
+  const ticketNumber = useMemo(
+    () => (recognition.kind === 'ticket' ? recognition.value : ticketNumberFromQuery(query)),
+    [recognition, query],
+  );
 
   const remember = useCallback((hit: SearchHit) => {
     setRecent((current) => {
@@ -126,6 +147,7 @@ export function useLookup(): LookupState {
     query,
     setQuery,
     term,
+    recognition,
     searchable,
     hits,
     groups,
