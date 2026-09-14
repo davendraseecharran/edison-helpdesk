@@ -356,25 +356,31 @@ select[aria-invalid='true'] {
   background: var(--badge-tone, var(--slate));
 }
 
+/*
+ * Status walks the gray ladder rather than a rainbow: brightest is the one
+ * nobody has picked up, and each step down is a step further from needing
+ * anybody. The word beside the dot is what actually says which state it is —
+ * the dot only says how loud.
+ */
 .status-open {
-  --badge-tone: var(--signal);
+  --badge-tone: var(--ink);
 }
 
 .status-assigned,
 .status-in_progress {
-  --badge-tone: var(--ink);
+  --badge-tone: var(--ink-2);
 }
 
 .status-waiting {
-  --badge-tone: var(--warn);
+  --badge-tone: var(--ink-3);
 }
 
 .status-resolved {
-  --badge-tone: var(--ok);
+  --badge-tone: var(--ink-3);
 }
 
 .status-cancelled {
-  --badge-tone: var(--slate);
+  --badge-tone: var(--ink-3);
   color: var(--ink-3);
 }
 
@@ -657,8 +663,8 @@ p.flash {
   position: relative;
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--line);
-  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  background: var(--overlay);
   box-shadow: var(--shadow-3);
   outline: none;
 }
@@ -770,8 +776,9 @@ p.flash {
   z-index: 40;
   min-width: 200px;
   padding: 4px;
-  border-radius: var(--radius-2);
-  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-3);
+  background: var(--overlay);
   box-shadow: var(--shadow-2);
   opacity: 1;
   scale: 1;

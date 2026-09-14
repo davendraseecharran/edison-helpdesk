@@ -1,12 +1,18 @@
 /*
  * Design tokens — the only place in the codebase that names a colour.
  *
- * The palette is neutral: near-black grounds in the dark theme, near-white in
- * the light one, hairline borders, text in three steps, one blue accent, and
- * semantic colours kept muted. There is no brand colour on a surface. Colour
- * is information here, so the only things that get to be coloured are a focus
- * ring, a link, the one primary action on a screen, and a status. The school's
- * navy and brass are retired.
+ * The palette is monochrome. Grounds, surfaces, lines and text are one gray
+ * ladder; the only colour left in the product is on two priorities — urgent
+ * and high — and even those are desaturated to the point of reading as
+ * temperature rather than paint. Everything a coloured accent used to carry —
+ * focus, links, the primary action, the selected row — is carried by contrast
+ * instead, which is what a gray ladder is good at.
+ *
+ * Depth comes from that ladder: six surface steps about 3–4% of luminance
+ * apart, each one meaning "further forward". A hairline separates two things
+ * on the same step; a shadow appears only under a surface that genuinely
+ * floats. The school's navy and brass are retired, and so is the blue that
+ * briefly replaced them.
  *
  * Every token is defined for both themes. The dark set overrides the light one
  * on `:root[data-theme="dark"]`, which the blocking boot script stamps before
@@ -34,8 +40,9 @@
   --bg: #fbfbfc;
   --paper: var(--bg);
   --surface: #ffffff;
-  --surface-2: #f6f6f7;
-  --surface-3: #efeff1;
+  --surface-2: #f7f7f8;
+  --surface-3: #f1f1f3;
+  --surface-4: #e9e9ec;
   --overlay: #ffffff;
 
   /* --- Lines ------------------------------------------------------------ */
@@ -60,20 +67,22 @@
   /* --- Accent ----------------------------------------------------------- */
 
   /*
-   * One blue, rationed: the focus ring, a link, the single call to action on a
-   * screen, the 2px marker on a selected row. Never a fill on a card, never a
-   * whole panel. The default primary button is ink on paper, not blue — the
-   * accent is kept for the one action a screen is actually asking for.
+   * The accent is the ink.
+   *
+   * There is no brand colour and no blue. What an accent was doing — marking
+   * the focused control, the current tab, the one action a screen is asking
+   * for — contrast does instead: the most contrasted thing on a screen is the
+   * thing being pointed at. `--accent-ink` is what sits on top of it.
    */
-  --accent: #0070f3;
-  --accent-hover: #0761d1;
-  --accent-soft: rgb(0 112 243 / 0.12);
+  --accent: #1b1b1f;
+  --accent-hover: #000000;
+  --accent-soft: rgb(27 27 31 / 0.1);
   --accent-ink: #ffffff;
 
   /*
    * The retired brass and signal names, pointed at the accent. Every rule that
-   * still says `--brass` means "the accent", and that is what carries the
-   * whole application onto one palette instead of leaving two.
+   * still says `--brass` or `--signal` now means "the ink", which is how two
+   * abandoned colour systems left the product without a screen being touched.
    */
   --brass: var(--accent);
   --brass-2: var(--accent-hover);
@@ -85,24 +94,28 @@
   /* --- Semantic --------------------------------------------------------- */
 
   /*
-   * Muted, so a table of statuses is not a fruit bowl. Each has a 12% wash for
-   * the chip it sits in. `--info` is Linear's violet and belongs to the
-   * assistant alone. `--ok` and `--good` are one colour under two names,
-   * because the screens already say `--ok`.
+   * The only colour left, and it is spent on one question: is this urgent. Both
+   * are desaturated far enough that a table of them is still a gray table with
+   * two warm rows in it.
+   *
+   * `--good` is gray on purpose: a resolved ticket is not an achievement, it is
+   * a finished thing, and the check beside it already says so. `--ok` is the
+   * name the screens use for it, and `--info` — the assistant's violet — is
+   * gone, because the assistant is monochrome too.
    */
-  --good: #17875b;
-  --good-soft: rgb(23 135 91 / 0.12);
+  --bad: #b0413a;
+  --bad-soft: rgb(176 65 58 / 0.1);
+  --warn: #8a6318;
+  --warn-soft: rgb(138 99 24 / 0.1);
+  --good: var(--ink-2);
+  --good-soft: var(--surface-3);
   --ok: var(--good);
   --ok-soft: var(--good-soft);
-  --warn: #a86b08;
-  --warn-soft: rgb(168 107 8 / 0.12);
-  --bad: #d0343a;
-  --bad-soft: rgb(208 52 58 / 0.12);
-  --info: #4b55b8;
-  --info-soft: rgb(75 85 184 / 0.12);
+  --info: var(--ink-2);
+  --info-soft: var(--surface-3);
 
   /* Neutral status: a thing that is simply not remarkable. */
-  --slate: var(--ink-2);
+  --slate: var(--ink-3);
   --slate-soft: var(--surface-3);
 
   /*
@@ -116,12 +129,15 @@
   --scrim-blur: blur(12px) saturate(120%);
 
   /*
-   * Focus: a 2px accent ring held 2px off the control, drawn as two shadows so
-   * it reads on a control that already has a border and takes no layout space.
+   * Focus: a 2px ink ring at 40%, held 2px off the control, drawn as two
+   * shadows so it reads on a control that already has a border and takes no
+   * layout space. At full strength a ring this contrasted shouts; at 40% it is
+   * unmistakable and still quiet.
    */
+  --focus-ring: rgb(27 27 31 / 0.4);
   --focus:
     0 0 0 2px var(--bg),
-    0 0 0 4px var(--accent);
+    0 0 0 4px var(--focus-ring);
 
   /*
    * The bench lamp, now a lift rather than a light.
@@ -217,30 +233,40 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
 
+  /*
+   * The ladder, six steps, each about 3–4% of luminance above the last, and
+   * each one meaning "further forward": the page, the rail and top bar, a card
+   * or a field, a row under the pointer, a menu or dialog, a control being
+   * pressed. With no colour to separate surfaces this is the whole depth
+   * system, and it is what a near-black interface is actually made of.
+   */
   --bg: #0f0f10;
-  --surface: #141415;
-  --surface-2: #1a1a1c;
-  --surface-3: #212124;
-  --overlay: #1a1a1c;
+  --surface: #131314;
+  --surface-2: #18181a;
+  --surface-3: #1f1f22;
+  --surface-4: #2a2a2e;
+  --overlay: #242427;
 
-  --line: #26262a;
-  --line-strong: #333338;
+  --line: #27272b;
+  --line-strong: #36363b;
   --line-focus: #f2f2f3;
 
   --ink: #f2f2f3;
-  --ink-2: #a3a3a8;
-  --ink-3: #6e6e75;
+  --ink-2: #a7a7ad;
+  --ink-3: #707078;
 
-  /* The same blue: it was chosen to hold on both grounds. */
-  --accent: #0070f3;
-  --accent-hover: #3291ff;
+  --accent: #f2f2f3;
+  --accent-hover: #ffffff;
+  --accent-soft: rgb(242 242 243 / 0.1);
+  --accent-ink: #0f0f10;
+  --focus-ring: rgb(242 242 243 / 0.4);
 
   --scrim: rgb(15 15 16 / 0.55);
 
-  --good: #29a36a;
-  --warn: #d29922;
-  --bad: #e5484d;
-  --info: #5e6ad2;
+  --bad: #c8564f;
+  --bad-soft: rgb(200 86 79 / 0.1);
+  --warn: #b98a3a;
+  --warn-soft: rgb(185 138 58 / 0.1);
 
   /* Dark leans on its borders; the shadows are only a darkening. */
   --shadow-1: 0 1px 2px rgb(0 0 0 / 0.6);
