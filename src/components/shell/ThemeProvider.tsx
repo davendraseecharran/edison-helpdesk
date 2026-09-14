@@ -42,8 +42,18 @@ const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : us
  * Two frames, not one: the first `requestAnimationFrame` runs before the
  * paint that uses the new colours, so removing the override there would let
  * the transitions start after all.
+ *
+ * Returns the undo, because the two frames are not guaranteed to arrive. A
+ * background tab is not painted, so `requestAnimationFrame` is not serviced:
+ * an operating-system theme change while the tab is hidden would otherwise
+ * leave `transition: none !important` in the head until somebody looked at the
+ * tab again, and every transition in the application would be dead until then.
+ * A timer is the floor under that — it runs in a hidden tab, and whichever
+ * lands first removes the stylesheet once.
  */
-function suppressTransitions(): void {
+const MUTE_FALLBACK_MS = 120;
+
+function suppressTransitions(): () => void {
   const style = document.createElement('style');
   style.append(document.createTextNode('*,*::before,*::after{transition:none !important}'));
   document.head.append(style);
@@ -51,9 +61,20 @@ function suppressTransitions(): void {
   // Read for the flush, not for the value.
   void document.body.offsetHeight;
 
+  let done = false;
+  const lift = () => {
+    if (done) return;
+    done = true;
+    window.clearTimeout(timer);
+    style.remove();
+  };
+
+  const timer = window.setTimeout(lift, MUTE_FALLBACK_MS);
   requestAnimationFrame(() => {
-    requestAnimationFrame(() => style.remove());
+    requestAnimationFrame(lift);
   });
+
+  return lift;
 }
 
 type ThemeContextValue = {
@@ -203,8 +224,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useIsomorphicLayoutEffect(() => {
     const root = document.documentElement;
     if (root.getAttribute('data-theme') === resolved) return;
-    suppressTransitions();
+    const lift = suppressTransitions();
     root.setAttribute('data-theme', resolved);
+    // Unmounting mid-switch — a sign-out, a route that drops the provider —
+    // must not leave the mute behind: the stylesheet is on `document.head`,
+    // which outlives this component.
+    return lift;
   }, [resolved]);
 
   const adoptServerTheme = useCallback((next: ThemePreference) => {

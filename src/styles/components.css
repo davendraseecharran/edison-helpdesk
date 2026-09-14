@@ -764,10 +764,10 @@ p.flash {
  * the trigger. Whether one reader notices is not the point — in aggregate
  * these are what make an interface feel built rather than assembled.
  *
- * `@starting-style` gives the entrance with no keyframe, so a menu closed and
- * reopened quickly picks up from wherever it had got to instead of restarting.
- * It starts from 0.97, never from 0: nothing in the world appears out of
- * nothing.
+ * `@starting-style` gives the entrance with no keyframe at all — no animation
+ * name, no fill mode, nothing to clean up. The menu unmounts when it closes, so
+ * every open starts from 0.97 rather than resuming a half-finished one; 0.97
+ * and never 0, because nothing in the world appears out of nothing.
  */
 .menu,
 .popover {
