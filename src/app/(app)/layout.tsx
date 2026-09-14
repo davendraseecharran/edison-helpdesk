@@ -7,6 +7,7 @@ import { loadCounts, loadDirectory, loadRequesters } from '@/lib/data/tickets';
 import { schoolToday } from '@/lib/format';
 import { AppRuntimeProvider } from '@/components/AppRuntime';
 import { AppShell } from '@/components/shell/AppShell';
+import { BootLamp } from '@/components/shell/BootLamp';
 import { ServerTheme } from '@/components/shell/ThemeProvider';
 
 /**
@@ -61,6 +62,11 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
       {/* The account's stored theme, handed up to the provider in the root
           layout, which is above this one and knows nothing about accounts. */}
       <ServerTheme theme={preferences.theme} />
+      {/* The one signature loading moment: the lamp warming up behind the
+          wordmark. It is here rather than in the root layout because this is
+          the layout a real page load mounts and an in-app navigation does not,
+          which is exactly the distinction the moment is supposed to draw. */}
+      <BootLamp />
       <AppShell
         counts={counts}
         unreadNotifications={unreadNotifications}
