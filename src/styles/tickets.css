@@ -300,8 +300,64 @@
 
 /* Two-line cells: the title link over the requester, the badge over a reason. */
 .queue-cell-title {
+  position: relative;
   display: block;
   min-width: 0;
+}
+
+/*
+ * The quick peek: the reported issue, under the title, on hover or focus.
+ *
+ * Absolutely positioned so nothing reflows — a row that grew on hover would
+ * push the rest of the queue down under the pointer. Faded rather than hidden,
+ * because `display: none` and `visibility: hidden` both take it out of the
+ * accessibility tree, and it is the title link's `aria-describedby`: a screen
+ * reader has to be able to read it even though it is never painted for that
+ * reader. `pointer-events: none` keeps the invisible box from swallowing
+ * clicks meant for the row underneath.
+ *
+ * Clamped to six lines. A peek is a glance at what the ticket says; a wall of
+ * text is a reason to open it.
+ *
+ * From 1024px only. Below that the table wrapper scrolls sideways
+ * (`.data-table` in components.css), which clips both axes, so a panel hanging
+ * below a row would be cut off; and below 720px there is no table at all.
+ */
+.queue-peek {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 3;
+  display: none;
+  max-width: 46ch;
+  padding: 8px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-2);
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  font-weight: 400;
+  line-height: 1.45;
+  white-space: normal;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease-out;
+}
+
+@media (min-width: 1024px) {
+  .queue-peek {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-line-clamp: 6;
+    line-clamp: 6;
+    -webkit-box-orient: vertical;
+  }
+
+  .queue-cell-title:hover .queue-peek,
+  .queue-cell-title:focus-within .queue-peek {
+    opacity: 1;
+  }
 }
 
 .queue-cell-status {

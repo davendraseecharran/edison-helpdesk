@@ -154,14 +154,41 @@ export function TicketListView({
       key: 'title',
       header: 'Title',
       hideOnPhone: true,
-      cell: (ticket) => (
-        <div className="queue-cell-title">
-          <Link href={`/tickets/${ticket.id}`} className="queue-title">
-            {ticket.title}
-          </Link>
-          <span className="queue-sub">{requesterOf(ticket)}</span>
-        </div>
-      ),
+      cell: (ticket) => {
+        /*
+         * Quick peek. The issue as it was reported is already on every queue
+         * row — `app_list_tickets` returns it — and the whole reason a
+         * technician opens a ticket from the queue is to read it. Hovering or
+         * tabbing to the title shows it in place instead.
+         *
+         * It is the link's `aria-describedby`, so a screen reader reads the
+         * title and then the issue, which is the same thing the eye gets, and
+         * the peek is never a second unlabelled copy of the row. A row with no
+         * issue text describes nothing rather than pointing at an empty box.
+         *
+         * The column is `hideOnPhone`, so this markup exists only in the table
+         * layout and the id cannot collide with the phone card's copy.
+         */
+        const issue = ticket.issue.trim();
+        const peekId = `queue-peek-${ticket.id}`;
+        return (
+          <div className="queue-cell-title">
+            <Link
+              href={`/tickets/${ticket.id}`}
+              className="queue-title"
+              aria-describedby={issue === '' ? undefined : peekId}
+            >
+              {ticket.title}
+            </Link>
+            <span className="queue-sub">{requesterOf(ticket)}</span>
+            {issue === '' ? null : (
+              <span className="queue-peek" id={peekId}>
+                {issue}
+              </span>
+            )}
+          </div>
+        );
+      },
     },
   ];
 
