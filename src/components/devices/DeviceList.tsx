@@ -7,13 +7,16 @@
  * `app_list_inventory` against the district's 4,278 machines: one search over
  * every field of a machine and its holder, which is the whole of the owner's
  * filter surface. Rows can be ticked, on the table or on the phone cards, and
- * a bar for the selection appears with the two things a technician does to a
- * batch: restatus them, or move them. Both go through
- * `app_bulk_update_inventory`, which snapshots every machine it changes.
+ * a bar for the selection carries the four things somebody does to a batch:
+ * restatus them, move them, hand them out, take them back.
  *
- * Handing a machine to somebody is not a batch operation and is not here. A
- * loan is one machine, one person and one note, so it lives on the machine's
- * own page.
+ * Status and location are a patch — one statement over a list of ids, through
+ * `app_bulk_update_inventory`, which snapshots every machine it changes.
+ * Assign and return are not: each writes a holder, a status and an
+ * `inventory_events` row together, and the version check that stops two people
+ * assigning the same machine is per machine. So those walk the selection one
+ * at a time and report what actually happened. A cart of thirty going out to a
+ * class is the reason they are here at all.
  */
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
@@ -21,7 +24,11 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import type { ActionResult } from '@/lib/data/actions';
-import { bulkUpdateDevicesAction } from '@/lib/data/device-actions';
+import {
+  bulkAssignDevicesAction,
+  bulkReturnDevicesAction,
+  bulkUpdateDevicesAction,
+} from '@/lib/data/device-actions';
 import type { BulkDevicePatch } from '@/lib/data/device-bulk';
 import type { DevicesPage } from '@/lib/data/devices';
 import { countLabel } from '@/lib/domain/records';
@@ -33,10 +40,12 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { Pagination } from '@/components/ui/Pagination';
+import { AssignDeviceDialog } from './AssignDeviceDialog';
 import { ChangeStatusDialog } from './ChangeStatusDialog';
 import { MoveDeviceDialog } from './MoveDeviceDialog';
+import { ReturnDeviceDialog } from './ReturnDeviceDialog';
 
-type BulkDialog = 'status' | 'move' | null;
+type BulkDialog = 'status' | 'move' | 'assign' | 'return' | null;
 
 const SEARCH_DEBOUNCE_MS = 250;
 const BULK_KEY = 'bulk-devices';
@@ -163,8 +172,20 @@ export function DeviceList({ page, statuses }: { page: DevicesPage; statuses: st
   }
 
   async function bulk(patch: BulkDevicePatch): Promise<ActionResult> {
+    return runOverSelection((ids) => bulkUpdateDevicesAction(ids, patch));
+  }
+
+  /*
+   * The selection is read once, before the call: a refresh half way through
+   * would otherwise change what "selected" means under the action. It is
+   * cleared only on success, so a failure leaves the rows ticked and the
+   * person can try again without picking thirty machines a second time.
+   */
+  async function runOverSelection(
+    call: (ids: string[]) => Promise<ActionResult>,
+  ): Promise<ActionResult> {
     const ids = [...selected];
-    const result = await run(BULK_KEY, () => bulkUpdateDevicesAction(ids, patch));
+    const result = await run(BULK_KEY, () => call(ids));
     if (result.ok) {
       setTicked(new Set());
       router.refresh();
@@ -354,6 +375,12 @@ export function DeviceList({ page, statuses }: { page: DevicesPage; statuses: st
                 <Button size="sm" disabled={bulkPending} onClick={() => setDialog('move')}>
                   Move to location
                 </Button>
+                <Button size="sm" disabled={bulkPending} onClick={() => setDialog('assign')}>
+                  Assign to
+                </Button>
+                <Button size="sm" disabled={bulkPending} onClick={() => setDialog('return')}>
+                  Return
+                </Button>
               </div>
               <Button
                 variant="ghost"
@@ -392,6 +419,30 @@ export function DeviceList({ page, statuses }: { page: DevicesPage; statuses: st
         locations={locations}
         pending={bulkPending}
         onSubmit={(location) => bulk({ location })}
+      />
+      {/* The note is offered only for a single machine: a handover's note is
+          about that machine and that person, and the same sentence copied onto
+          thirty histories is noise in all thirty. */}
+      <AssignDeviceDialog
+        open={dialog === 'assign'}
+        onClose={() => setDialog(null)}
+        subject={subject}
+        count={selected.size}
+        pending={bulkPending}
+        onSubmit={({ person, note }) =>
+          runOverSelection((ids) => bulkAssignDevicesAction(ids, person.id, note))
+        }
+      />
+      <ReturnDeviceDialog
+        open={dialog === 'return'}
+        onClose={() => setDialog(null)}
+        subject={subject}
+        count={selected.size}
+        statuses={statuses}
+        pending={bulkPending}
+        onSubmit={({ status, note }) =>
+          runOverSelection((ids) => bulkReturnDevicesAction(ids, status, note))
+        }
       />
     </section>
   );
