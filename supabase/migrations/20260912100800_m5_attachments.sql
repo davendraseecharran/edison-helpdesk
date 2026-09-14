@@ -32,6 +32,26 @@
 -- 4. Closing a ticket stops new uploads but never hides the ones already there.
 --    The files are part of the record. Removing one from a closed ticket is an
 --    administrator's decision, matching the rest of the closed-ticket rules.
+--
+-- 5. KNOWN AND ACCEPTED: deleting a parent leaves the bytes behind. The two
+--    parent columns cascade, so removing a ticket or a device removes its
+--    registry rows inside the database — where nothing knows about the bucket
+--    and nothing can reach it. Only `app_delete_attachment` returns a path for
+--    the server to delete the object with; a cascade returns nothing to
+--    anybody. Those objects are ORPHANED: unreferenced bytes in a private
+--    bucket with no policies, so no session can list or read them, and the
+--    signed-URL endpoint will never mint a link for a path with no row behind
+--    it. The cost is storage, not exposure.
+--
+--    It is left this way on purpose. A delete trigger cannot remove a storage
+--    object (no transaction spans both), and a queue table plus a worker is a
+--    great deal of machinery for a school helpdesk that deletes a ticket
+--    roughly never. The answer is a periodic sweep by an operator, run from
+--    the hosting project: list `storage.objects` in the `attachments` bucket,
+--    left-join `public.attachments` on `name = path`, and delete the objects
+--    with no match. It is safe to run at any time because a registered
+--    attachment always has its row committed before its bytes are referenced.
+--    See the deployment runbook's attachments line.
 
 -- ---------------------------------------------------------------------------
 -- The private bucket

@@ -22,6 +22,16 @@ import 'server-only';
  *
  * That division is the whole design. The registry is the authorization; the
  * bucket is only where the file happens to sit.
+ *
+ * One consequence is worth stating where the plumbing is. Deleting a ticket or
+ * a device cascades its `attachments` rows away inside the database, which has
+ * no way to reach the bucket, so the objects stay. They are orphaned rather
+ * than exposed: the bucket is private and carries no policies, and
+ * `signedDownloadUrl` only ever runs on a path the registry handed back, so
+ * bytes with no row behind them are unreachable by any caller. Clearing them
+ * is an operator's periodic sweep — objects in the bucket with no matching
+ * `attachments.path` — described in the attachments migration and the
+ * deployment runbook. See 20260912100800_m5_attachments.sql, decision 5.
  */
 
 import { createClient } from '@/lib/supabase/server';
