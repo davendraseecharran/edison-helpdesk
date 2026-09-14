@@ -365,46 +365,55 @@ describe('access requests', () => {
 });
 
 describe('role changes', () => {
-  it('sets another account’s role, and never the administrator’s own', async () => {
+  it('sets another account’s roles through the one door, admin_set_role is gone', async () => {
+    // Morgan is the only usable administrator among these fixtures, so this
+    // is refused by the same last-usable-administrator guard the dedicated
+    // account-roles suite exercises directly, not by a "your own role"
+    // special case — app_set_account_roles carries no such case.
     expect(
-      (await rpcFails(admin, 'app_admin_set_role', {
+      (await rpcFails(admin, 'app_set_account_roles', {
         p_account: identity('admin').id,
-        p_role: 'technician',
+        p_roles: ['netrider'],
       })).code,
     ).toBe(REFUSED);
 
     expect(
-      (await rpcFails(owner, 'app_admin_set_role', {
+      (await rpcFails(owner, 'app_set_account_roles', {
         p_account: identity('collaborator').id,
-        p_role: 'admin',
+        p_roles: ['admin'],
       })).code,
     ).toBe(REFUSED);
 
-    await rpcOk(admin, 'app_admin_set_role', {
+    await rpcOk(admin, 'app_set_account_roles', {
       p_account: identity('unrelated').id,
-      p_role: 'admin',
+      p_roles: ['admin'],
     });
     expect(await accountRow(identity('unrelated').id)).toMatchObject({ role: 'admin' });
     expect(await accountEventKinds(identity('unrelated').id)).toContain('role_changed');
 
-    // Setting the same role again, or a role on an account that has not been
-    // reviewed yet, is refused.
+    // Setting the same roles again is refused.
     expect(
-      (await rpcFails(admin, 'app_admin_set_role', {
+      (await rpcFails(admin, 'app_set_account_roles', {
         p_account: identity('unrelated').id,
-        p_role: 'admin',
-      })).code,
-    ).toBe(REJECTED);
-    expect(
-      (await rpcFails(admin, 'app_admin_set_role', {
-        p_account: identity('denied').id,
-        p_role: 'admin',
+        p_roles: ['admin'],
       })).code,
     ).toBe(REJECTED);
 
-    await rpcOk(admin, 'app_admin_set_role', {
+    // Unlike the dropped app_admin_set_role, a role change never asks whether
+    // the target has been reviewed: an administrator may prepare a denied
+    // account's roles for the day it is reconsidered, and status stays denied.
+    await rpcOk(admin, 'app_set_account_roles', {
+      p_account: identity('denied').id,
+      p_roles: ['admin'],
+    });
+    expect(await accountRow(identity('denied').id)).toMatchObject({
+      role: 'admin',
+      status: 'denied',
+    });
+
+    await rpcOk(admin, 'app_set_account_roles', {
       p_account: identity('unrelated').id,
-      p_role: 'technician',
+      p_roles: ['netrider'],
     });
     expect(await accountRow(identity('unrelated').id)).toMatchObject({ role: 'technician' });
   });

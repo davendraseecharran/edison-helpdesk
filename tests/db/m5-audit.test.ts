@@ -181,9 +181,9 @@ describe('the desk is told when a ticket comes back to the queue', () => {
   it('tells the other administrators but not the administrator who returned it', async () => {
     // A second administrator, made one through the real RPC and put back
     // afterwards, so the queue notice has somewhere to go that is not the actor.
-    await rpcOk(admin, 'app_admin_set_role', {
+    await rpcOk(admin, 'app_set_account_roles', {
       p_account: identity('unrelated').id,
-      p_role: 'admin',
+      p_roles: ['admin'],
     });
     try {
       // Admin-owned from the start, so the person returning it is the owner AND
@@ -201,9 +201,9 @@ describe('the desk is told when a ticket comes back to the queue', () => {
       expect(forOther[0].kind).toBe('ticket_returned');
       expect(forOther[0].href).toBe(`/tickets/${ticketId}`);
     } finally {
-      await rpcOk(admin, 'app_admin_set_role', {
+      await rpcOk(admin, 'app_set_account_roles', {
         p_account: identity('unrelated').id,
-        p_role: 'technician',
+        p_roles: ['netrider'],
       });
     }
   });

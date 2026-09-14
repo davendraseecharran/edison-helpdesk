@@ -220,6 +220,26 @@ describe('what each kind of account reaches', () => {
       p_id: savedId,
     });
     expect(person.displayName).toBe('Synthetic Skills Officer Entry');
+
+    // The directory lookups a skills officer's own screens use: staff picklist
+    // options, the requester search behind an inline requester field, and the
+    // devices already assigned to one requester.
+    const options = await rpcOk<{ departments: unknown[]; roles: unknown[] }>(
+      skills,
+      'app_staff_directory_options',
+    );
+    expect(Array.isArray(options.departments)).toBe(true);
+
+    const found = await rpcOk<Array<Record<string, unknown>>>(skills, 'app_search_requesters', {
+      p_kind: 'staff',
+      p_query: 'Synthetic Directory',
+    });
+    expect(found.some((row) => row.id === requesterId)).toBe(true);
+
+    const devices = await rpcOk<unknown[]>(skills, 'app_assigned_devices', {
+      p_requester: requesterId,
+    });
+    expect(Array.isArray(devices)).toBe(true);
   });
 
   it('lets a skills officer read the inventory but not change it', async () => {
