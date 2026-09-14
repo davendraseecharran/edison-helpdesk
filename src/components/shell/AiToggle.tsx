@@ -3,16 +3,15 @@
 /**
  * The assistant's place in the top bar.
  *
- * A sparkle when nothing is happening. While the panel is closed and the
- * assistant is working, the sparkle gives way to the small orb in whatever
- * state the panel would show, so the work is visible from anywhere; when a
- * reply finishes unseen, a brass dot waits until the panel is opened.
+ * The orb, always: idle and calm when nothing is happening, and in whatever
+ * state the panel would show while the assistant is working, so the work is
+ * visible from anywhere. It used to be a sparkle, which is the icon every
+ * generated product reaches for and says nothing about what this assistant is
+ * doing. When a reply finishes unseen, a dot waits until the panel is opened.
  * Pressing it opens the panel, or closes it, and the panel hands focus back
  * here when it goes.
  */
 
-import { Sparkles } from 'lucide-react';
-import { Icon } from '@/components/ui/Icon';
 import { useApplePlatform } from '@/components/ui/media';
 import { Orb } from '@/components/ai/Orb';
 import { toggleAssistant, useAssistant } from '@/components/ai/assistant-store';
@@ -42,7 +41,7 @@ export function AiToggle() {
         data-ai-toggle
         onClick={toggleAssistant}
       >
-        {showOrb ? <Orb size={20} moment={moment} label="" /> : <Icon icon={Sparkles} size={18} />}
+        <Orb size={20} moment={showOrb ? moment : 'idle'} label="" />
       </button>
       {unread && !open ? <span className="ai-toggle-dot" aria-hidden="true" /> : null}
     </span>

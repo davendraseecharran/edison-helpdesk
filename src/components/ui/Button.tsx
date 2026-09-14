@@ -5,8 +5,14 @@ import Link from 'next/link';
 import { LoaderCircle } from 'lucide-react';
 import { Icon, type LucideIcon } from './Icon';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
-export type ButtonSize = 'sm' | 'md';
+/*
+ * `primary` is ink on ground: the most contrasted control on the screen, and
+ * the one a screen normally has one of. `accent` is the blue, and it is for the
+ * single call to action a screen is actually making — the intake form's submit,
+ * the one thing Today is asking for — never for "this is the main button here".
+ */
+export type ButtonVariant = 'primary' | 'accent' | 'secondary' | 'ghost' | 'danger';
+export type ButtonSize = 'sm' | 'md' | 'lg';
 
 interface SharedProps {
   variant?: ButtonVariant;
@@ -48,7 +54,7 @@ export function buttonClass({
   className?: string;
 }): string {
   const parts = ['btn', `btn-${variant}`];
-  if (size === 'sm') parts.push('btn-sm');
+  if (size !== 'md') parts.push(`btn-${size}`);
   if (block) parts.push('btn-block');
   if (iconOnly) parts.push('btn-icon');
   if (isStatic) parts.push('btn-static');

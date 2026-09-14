@@ -60,33 +60,20 @@
   border-left: 0;
 }
 
-/*
- * The beam wrapper is the panel's flex column; the layer sits on its edge.
- * The library reads the frame's top-left radius and falls back to its own
- * 16px when that is zero, so a square panel asks for 1px: square in effect,
- * and not mistaken for "unset".
- */
+/* The panel's flex column. It no longer wears a beam: a light travelling
+   round a whole panel is a frame drawing attention to itself, and the one
+   that is left runs on the composer, where it says where to start typing. */
 .ai-frame {
   position: relative;
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 0;
-  border-radius: 1px;
 }
 
-.ai-root[data-layout='scrim'] .ai-frame {
-  border-radius: inherit;
-}
-
-.ai-frame > .open-beam-layer {
-  border-radius: inherit;
-}
-
-.open-beam-ghost {
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
+/* The library reads the surface's radius from the ghost, so it matches. */
+.ai-composer-beam .open-beam-ghost {
+  border-radius: var(--radius-3);
 }
 
 /* --- Header ------------------------------------------------------------- */
@@ -537,12 +524,6 @@
 
 /* --- Approval card ------------------------------------------------------ */
 
-/* The beam traces the card's own edge, so it carries the card's radius. */
-.ai-approval-beam {
-  width: 100%;
-  border-radius: var(--radius-3);
-}
-
 /*
  * The one thing on the panel that stops and asks. It carries the lamp, because
  * while it is open it is the only thing on the screen that needs a decision,
@@ -636,22 +617,26 @@
   font-size: var(--fs-0);
 }
 
+/* The beam runs on this box's own edge, so the wrapper carries its radius. */
+.ai-composer-beam {
+  border-radius: var(--radius-3);
+}
+
 .ai-composer-row {
   display: flex;
   align-items: flex-end;
   gap: 6px;
   padding: 4px 4px 4px 12px;
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius-2);
-  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--surface);
   transition:
-    border-color 120ms ease-out,
-    box-shadow 120ms ease-out;
+    border-color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
 }
 
 .ai-composer-row:focus-within {
-  border-color: var(--brass);
-  box-shadow: 0 0 0 1px var(--brass);
+  border-color: var(--line-focus);
 }
 
 .ai-composer[data-listening] .ai-composer-row {

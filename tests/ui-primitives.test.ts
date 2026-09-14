@@ -30,14 +30,16 @@ describe('ActorLabel', () => {
     expect(html).not.toContain('title=');
   });
 
-  it("renders <name>'s AI with a sparkle and the model in the tooltip", () => {
+  it("renders <name>'s with an AI tag and the model in the tooltip", () => {
     const html = renderToStaticMarkup(
       h(ActorLabel, { name: 'Morgan Ellis', via: 'ai', model: 'claude-fable-5-1' }),
     );
-    expect(html).toContain("Morgan Ellis&#x27;s AI");
+    expect(html).toContain('Morgan Ellis&#x27;s');
     expect(html).toContain('title="Made by Morgan Ellis&#x27;s AI (claude-fable-5-1)"');
-    expect(html).toContain('<svg');
-    expect(html).toContain('aria-hidden="true"');
+    // The tag is real text in a hairline box, not an icon: a screen reader, a
+    // greyscale print and a glance all read "Morgan Ellis's AI".
+    expect(html).toContain('<span class="actor-ai-tag">AI</span>');
+    expect(html).not.toContain('<svg');
   });
 
   it('keeps apostrophe-s after a name ending in s', () => {

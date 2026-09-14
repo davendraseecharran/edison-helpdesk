@@ -23,6 +23,7 @@ import {
 import { ArrowUp, FileText, Mic, Square } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
+import { OpenBeam } from '@/components/ui/OpenBeam';
 import type { PageContext } from './page-context';
 import type { SpeechRecognitionHandle } from './useSpeech';
 
@@ -112,7 +113,8 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
           </span>
         </div>
       ) : null}
-      <div className="ai-composer-row">
+      <OpenBeam className="ai-composer-beam">
+        <div className="ai-composer-row">
         <textarea
           ref={textarea}
           className="ai-composer-field"
@@ -154,8 +156,9 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
               onClick={onSend}
             />
           )}
+          </div>
         </div>
-      </div>
+      </OpenBeam>
       <p className="ai-composer-hint subtle">Enter to send, Shift+Enter for a new line</p>
     </div>
   );

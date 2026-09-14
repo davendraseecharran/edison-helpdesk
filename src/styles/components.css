@@ -27,11 +27,11 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 40px;
-  padding: 0 14px;
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius-1);
-  background: var(--surface);
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
   color: var(--ink);
   font: 500 var(--fs-2) / 1 var(--font-sans);
   white-space: nowrap;
@@ -46,7 +46,7 @@
  * translated (the collapsed phone button, the FAB satellites) keeps its
  * place. `.btn-static` switches it off where the motion would distract.
  *
- * Both halves — the 0.96 and the 160ms that carries it — are declared once,
+ * Both halves — the 0.98 and the 160ms that carries it — are declared once,
  * here. Anything pressable that is not a `.btn` (the assistant's push-to-talk
  * microphone) wears `.pressable` and gets the same contract, rather than
  * copying the numbers into another stylesheet where the next pressable would
@@ -61,7 +61,7 @@
 
 .btn:active:not(:disabled):not([aria-disabled='true']):not(.btn-static),
 .pressable:active:not(:disabled):not([aria-disabled='true']) {
-  scale: 0.96;
+  scale: 0.98;
 }
 
 /*
@@ -70,7 +70,7 @@
  */
 @media (hover: hover) and (pointer: fine) {
   .btn:hover:not(:disabled):not([aria-disabled='true']) {
-    background: var(--surface-2);
+    background: var(--surface-3);
   }
 
   /* A button that is an anchor must not pick up the link underline. */
@@ -109,18 +109,33 @@
   opacity: 0.55;
 }
 
-/* The quiet default. Restates the base so the class always means something. */
+/* The quiet default: a hairline box on the panel's own surface. */
 .btn-secondary {
-  border-color: var(--line-2);
-  background: var(--surface);
+  border-color: var(--line);
+  background: var(--surface-2);
   color: var(--ink);
 }
 
+/*
+ * Primary is ink on ground — white on black in the dark theme — not the
+ * accent. A screen usually has one primary, and it should be the most
+ * contrasted thing on it rather than the most coloured; the accent is spent on
+ * focus, links and the single call to action a screen is actually making,
+ * which asks for `.btn-accent`.
+ */
 .btn-primary {
-  border-color: var(--brass);
-  background: var(--brass);
-  color: var(--brass-ink);
-  font-weight: 600;
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--bg);
+  font-weight: 500;
+}
+
+/* The one call to action on a screen that has one. */
+.btn-accent {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 500;
 }
 
 .btn-ghost {
@@ -136,8 +151,13 @@
 
 @media (hover: hover) and (pointer: fine) {
   .btn-primary:hover:not(:disabled):not([aria-disabled='true']) {
-    border-color: var(--brass-2);
-    background: var(--brass-2);
+    border-color: var(--ink-2);
+    background: var(--ink-2);
+  }
+
+  .btn-accent:hover:not(:disabled):not([aria-disabled='true']) {
+    border-color: var(--accent-hover);
+    background: var(--accent-hover);
   }
 
   .btn-ghost:hover:not(:disabled):not([aria-disabled='true']) {
@@ -157,13 +177,23 @@
   font-size: var(--fs-1);
 }
 
+/* The one size above the default: a form's submit, a screen's main action. */
+.btn-lg {
+  height: 40px;
+  padding: 0 16px;
+}
+
 .btn-icon {
-  width: 40px;
+  width: 36px;
   padding: 0;
 }
 
 .btn-icon.btn-sm {
   width: 32px;
+}
+
+.btn-icon.btn-lg {
+  width: 40px;
 }
 
 .btn-block {
@@ -264,13 +294,16 @@ input[type='tel'],
 select,
 textarea {
   width: 100%;
-  height: 40px;
-  padding: 0 12px;
-  border: 1px solid var(--line-2);
-  border-radius: var(--radius-1);
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
   background: var(--surface);
   color: var(--ink);
   font: 400 var(--fs-2) / 1.4 var(--font-sans);
+  transition:
+    border-color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
 }
 
 textarea {
@@ -286,10 +319,15 @@ textarea::placeholder {
   color: var(--ink-3);
 }
 
+/*
+ * The field holding the keyboard takes a near-ink edge, and the accent ring
+ * sits outside it. Two signals rather than one: at this contrast a border
+ * change alone is easy to miss on a dense form.
+ */
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  border-color: var(--brass);
+  border-color: var(--line-focus);
   box-shadow: var(--focus);
 }
 
@@ -430,8 +468,24 @@ select[aria-invalid='true'] {
   gap: 4px;
 }
 
-.actor-sparkle {
-  color: var(--brass-2);
+/*
+ * "Tanav's AI": a 10px mono tag in a hairline box. It is a label, not a badge
+ * — no fill, no colour — because who made a change is information of exactly
+ * the same weight as the name beside it.
+ */
+.actor-ai-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 16px;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-1);
+  color: var(--ink-2);
+  font-family: var(--font-mono), ui-monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  line-height: 1;
 }
 
 /* --- Flash, empty, skeleton --------------------------------------------- */
@@ -596,11 +650,18 @@ p.flash {
   background: color-mix(in srgb, var(--ink) 45%, transparent);
 }
 
+/*
+ * Anything that floats — a dialog, a sheet, the palette — is the raised
+ * surface with a hairline round it and the deepest shadow under it. On a
+ * near-black ground the border is what says "this is a separate thing"; the
+ * shadow only says how far away it is.
+ */
 .overlay-panel {
   position: relative;
   display: flex;
   flex-direction: column;
-  background: var(--surface);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
   box-shadow: var(--shadow-3);
   outline: none;
 }
@@ -957,20 +1018,24 @@ p.flash {
   padding-right: 12px;
 }
 
+/*
+ * Sentence case, 12px, secondary ink. Never uppercase: a column name is a
+ * label, not an announcement.
+ */
 .table thead th {
   position: sticky;
   top: var(--topbar-h);
   z-index: 1;
-  height: 40px;
-  background: var(--surface);
-  color: var(--ink-3);
+  height: 36px;
+  background: var(--bg);
+  color: var(--ink-2);
   font-size: var(--fs-0);
   font-weight: 500;
   white-space: nowrap;
 }
 
 .table td {
-  height: 44px;
+  height: 40px;
 }
 
 /*

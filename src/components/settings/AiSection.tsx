@@ -16,7 +16,7 @@
  */
 
 import { useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Plug } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import type { AiConnectionView } from '@/lib/data/preferences';
@@ -97,7 +97,7 @@ export function AiSection({
           </span>
         }
       >
-        <Button variant="secondary" icon={Sparkles} onClick={openAssistantConnection}>
+        <Button variant="secondary" icon={Plug} onClick={openAssistantConnection}>
           {connection.connected ? 'Disconnect' : 'Connect ChatGPT'}
         </Button>
       </SettingRow>

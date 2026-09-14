@@ -4,8 +4,9 @@ import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Liquid } from 'liquid-gooey';
-import { Ellipsis, Plus, Search, Settings, Sparkles, X } from 'lucide-react';
+import { Ellipsis, MessageCircle, Plus, Search, Settings, X } from 'lucide-react';
 import { SignOutButton } from '@/components/auth/SignOutButton';
+import { Orb } from '@/components/ai/Orb';
 import { Icon, type LucideIcon } from '@/components/ui/Icon';
 import { IconSwap } from '@/components/ui/Motion';
 import { Sheet } from '@/components/ui/Sheet';
@@ -87,6 +88,12 @@ interface ClusterAction {
   key: string;
   label: string;
   icon: LucideIcon;
+  /*
+   * A drawing that is not an icon. The assistant's action carries the orb,
+   * which is its face everywhere else in the product; `icon` stays as the
+   * fallback and as the type's default so nothing else has to change.
+   */
+  glyph?: ReactNode;
   href?: string;
   onSelect?: () => void;
 }
@@ -143,7 +150,7 @@ function GooeyCluster({
         </Liquid.Item>
         {actions.map((action, index) => {
           const at = open ? positions[index] : { x: 0, y: 0 };
-          const content = <Icon icon={action.icon} size={20} weight="medium" />;
+          const content = action.glyph ?? <Icon icon={action.icon} size={20} weight="medium" />;
           return (
             <Liquid.Item
               key={action.key}
@@ -219,7 +226,7 @@ function PlainCluster({
           {actions.map((action) =>
             action.href ? (
               <Link key={action.key} href={action.href} className="menu-item" onClick={onSelect}>
-                <Icon icon={action.icon} size={16} weight="medium" />
+                {action.glyph ?? <Icon icon={action.icon} size={16} weight="medium" />}
                 <span>{action.label}</span>
               </Link>
             ) : (
@@ -232,7 +239,7 @@ function PlainCluster({
                   action.onSelect?.();
                 }}
               >
-                <Icon icon={action.icon} size={16} weight="medium" />
+                {action.glyph ?? <Icon icon={action.icon} size={16} weight="medium" />}
                 <span>{action.label}</span>
               </button>
             ),
@@ -294,7 +301,13 @@ export function BottomTabs({
     ...(canCreateTickets
       ? [{ key: 'new', label: 'New ticket', icon: Plus, href: '/tickets/new' } as ClusterAction]
       : []),
-    { key: 'ask', label: 'Ask', icon: Sparkles, onSelect: openAssistant },
+    {
+      key: 'ask',
+      label: 'Ask',
+      icon: MessageCircle,
+      glyph: <Orb size={20} moment="idle" label="" />,
+      onSelect: openAssistant,
+    },
   ];
 
   const cluster: ReactNode = reduced ? (

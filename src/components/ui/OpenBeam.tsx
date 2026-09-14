@@ -12,11 +12,11 @@ import { BorderBeam } from 'border-beam';
 import { useReducedMotion } from './media';
 
 /**
- * Seconds per rotation of the beam. `border-beam`'s `md` preset rotates in
- * 1.96s by default; an opening flourish wants it quicker than that, and 1.4s
- * is the pace the plan settled on.
+ * Seconds for the single pass. One slow lap reads as the surface coming to
+ * life; two quick ones read as a loading spinner, which is the thing this must
+ * never be mistaken for.
  */
-export const BEAM_CYCLE_S = 1.4;
+export const BEAM_CYCLE_S = 3;
 
 /*
  * The layer sits 1px outside the surface it covers, so the stroke runs on the
@@ -29,8 +29,8 @@ const LAYER_STYLE = {
   inset: '-1px',
   zIndex: 2,
   pointerEvents: 'none',
-  '--beam-bloom-opacity': 3,
-  '--beam-inner-opacity': 1.5,
+  '--beam-bloom-opacity': 1.6,
+  '--beam-inner-opacity': 1,
 } as CSSProperties;
 
 /** The stroke: a 2px ring on the surface's border, lit where the beam's head is. */
@@ -70,18 +70,21 @@ function readThemeOnServer(): 'dark' | 'light' {
 /**
  * A traveling light around a surface as it opens, then nothing.
  *
- * The beam plays for `cycles` rotations after mount and fades out; once its
- * fade has finished the layer is removed, and the wrapper is inert. It is a
- * sibling layer over the children rather than a wrapper around them, so
- * removing it never remounts what is underneath (a palette input would lose
- * its focus and text otherwise). The layer ignores the pointer.
+ * One slow lap after mount, then it fades and the layer is removed and the
+ * wrapper is inert. It is a sibling layer over the children rather than a
+ * wrapper around them, so removing it never remounts what is underneath (an
+ * input would lose its focus and its text otherwise), and it ignores the
+ * pointer.
  *
- * Two moments use it: the command palette opening and the assistant panel
- * opening. Under `prefers-reduced-motion` the layer is never rendered.
+ * It goes around an input — the assistant's composer — and nothing else. Around
+ * a whole panel it was a frame drawing attention to itself; around the box you
+ * are about to type in, it says where to start. Nothing runs while the
+ * assistant is streaming: the orb carries that. Under
+ * `prefers-reduced-motion` the layer is never rendered.
  */
 export function OpenBeam({
   children,
-  cycles = 2,
+  cycles = 1,
   className,
 }: {
   children: ReactNode;
@@ -129,7 +132,7 @@ export function OpenBeam({
           size="md"
           colorVariant="mono"
           theme={theme}
-          strength={0.6}
+          strength={0.35}
           duration={BEAM_CYCLE_S}
           staticColors
           active={phase === 'on'}

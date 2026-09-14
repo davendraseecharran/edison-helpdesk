@@ -33,7 +33,6 @@ import { Icon } from '@/components/ui/Icon';
 import { useBodyScrollLock, useEscape, useFocusTrap, useOutsidePress } from '@/components/ui/focus';
 import { useMediaQuery, usePhone, useReducedMotion } from '@/components/ui/media';
 import { AnimatePresence, DURATION, EASE_OUT_FAST, INSTANT, SPRING } from '@/components/ui/Motion';
-import { OpenBeam } from '@/components/ui/OpenBeam';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import type { ConversationSummary } from '@/lib/ai/conversations';
 import type { Reasoning } from '@/lib/ai/responses-client';
@@ -493,7 +492,7 @@ export function AiPanel({
             exit={reduced ? undefined : { ...hidden, transition: EASE_OUT_FAST }}
             transition={reduced ? INSTANT : SPRING}
           >
-            <OpenBeam className="ai-frame">
+            <div className="ai-frame">
               <header className="ai-head">
                 <div className="ai-head-row">
                   {headerOrb ? (
@@ -702,7 +701,7 @@ export function AiPanel({
                   placeholder={status ? undefined : 'Getting ready'}
                 />
               ) : null}
-            </OpenBeam>
+            </div>
           </motion.div>
         </div>
       ) : null}

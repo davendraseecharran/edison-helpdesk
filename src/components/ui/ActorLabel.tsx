@@ -1,6 +1,3 @@
-import { Sparkles } from 'lucide-react';
-import { Icon } from './Icon';
-
 export type PerformedVia = 'user' | 'ai';
 
 export interface ActorLabelProps {
@@ -33,10 +30,11 @@ export function actorLabelText(name: string, via?: PerformedVia | null): string 
 /**
  * Who did a thing: the person, or the person's AI.
  *
- * Attribution never hides behind an icon alone. The AI form carries the words
- * "'s AI" in the text itself, so a screen reader, a greyscale print and a
- * quick glance all say the same thing; the sparkle is decoration and the
- * tooltip adds the model for anyone who wants it.
+ * Attribution never hides behind an icon. The AI form is the possessive name
+ * followed by a small mono `AI` tag — real text, so a screen reader, a
+ * greyscale print and a quick glance all say the same thing, and it reads as a
+ * label rather than as decoration. It replaced a sparkle, which is the mark
+ * every generated product wears. The tooltip adds the model.
  */
 export function ActorLabel({ name, via, model, className }: ActorLabelProps) {
   if (via !== 'ai') {
@@ -46,8 +44,8 @@ export function ActorLabel({ name, via, model, className }: ActorLabelProps) {
   const title = `Made by ${label}${model ? ` (${model})` : ''}`;
   return (
     <span className={className ? `actor actor-ai ${className}` : 'actor actor-ai'} title={title}>
-      {label}
-      <Icon icon={Sparkles} size={14} className="actor-sparkle" />
+      {possessive(name)}
+      <span className="actor-ai-tag">AI</span>
     </span>
   );
 }
