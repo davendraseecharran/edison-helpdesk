@@ -985,6 +985,31 @@ p.flash {
   border-bottom: 1px solid var(--line);
 }
 
+/*
+ * On the wide layout the filter bar stays put while the list scrolls under it:
+ * narrowing a long queue stops meaning "scroll back to the top first". Only
+ * from 1024px, because below that the bar wraps onto two or three rows, and
+ * only while it has NOT wrapped — `data-tall`, set by FilterBar from its own
+ * measured height, takes the pin away rather than spending a quarter of the
+ * viewport on controls nobody is touching.
+ *
+ * The bar has to be opaque, because rows scroll behind it, and above the table
+ * header, which sticks too; the header's `top` adds `--filter-h`, the same
+ * measurement, so the two never overlap and no gap opens between them.
+ */
+@media (min-width: 1024px) {
+  .filter-bar:not([data-tall]) {
+    position: sticky;
+    top: var(--topbar-h);
+    z-index: 2;
+    background: var(--surface);
+  }
+
+  .table thead th {
+    top: calc(var(--topbar-h) + var(--filter-h, 0px));
+  }
+}
+
 .filter-bar-fields {
   display: flex;
   flex: 1 1 auto;
