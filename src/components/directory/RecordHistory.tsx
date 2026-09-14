@@ -15,6 +15,13 @@
  * plain words; any other detail is shown as written.
  */
 
+import type { RecordEvent } from '@/lib/domain/types';
+import { describeFieldList } from '@/lib/domain/records';
+import { nameOf } from '@/lib/directory';
+import { useRuntime } from '@/components/AppRuntime';
+import { TimeAgo } from '@/components/Primitives';
+import { ActorLabel } from '@/components/ui/ActorLabel';
+
 function detailOf(event: RecordEvent): string | null {
   if (event.kind === 'created' || event.kind === 'updated') {
     const fields = describeFieldList(event.detail);
@@ -22,13 +29,6 @@ function detailOf(event: RecordEvent): string | null {
   }
   return event.detail;
 }
-
-import type { RecordEvent } from '@/lib/domain/types';
-import { describeFieldList } from '@/lib/domain/records';
-import { nameOf } from '@/lib/directory';
-import { useRuntime } from '@/components/AppRuntime';
-import { TimeAgo } from '@/components/Primitives';
-import { ActorLabel } from '@/components/ui/ActorLabel';
 
 export function RecordHistory({ events, emptyText = 'No history recorded yet.' }: {
   events: RecordEvent[];

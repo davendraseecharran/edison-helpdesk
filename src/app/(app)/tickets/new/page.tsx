@@ -9,7 +9,7 @@
  * them anyway rather than silently correcting a forged value.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import {
@@ -24,8 +24,8 @@ import {
 } from '@/lib/domain/types';
 import { canChooseChannelAndOwner } from '@/lib/domain/permissions';
 import { createTicketAction } from '@/lib/data/actions';
-import { searchPeopleAction, type PersonSearchResult } from '@/lib/data/people-actions';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
+import { ChosenPerson, PersonPicker, type PersonSearchResult } from '@/components/people/PersonPicker';
 import { Field, PageHeader } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
@@ -41,9 +41,6 @@ const DEVICE_TYPE_SUGGESTIONS = [
   'Phone',
   'Network equipment',
 ];
-
-/** Long enough that somebody has stopped typing, short enough to feel live. */
-const PERSON_DEBOUNCE_MS = 200;
 
 type RequesterMode = 'existing' | 'new' | 'unknown';
 
@@ -111,11 +108,7 @@ export default function NewTicketPage() {
   const [category, setCategory] = useState<TicketCategory>('other');
   const [requesterMode, setRequesterMode] = useState<RequesterMode>('existing');
   const [requesterId, setRequesterId] = useState('');
-  const [personQuery, setPersonQuery] = useState('');
-  const [personResults, setPersonResults] = useState<PersonSearchResult[]>([]);
   const [person, setPerson] = useState<PersonSearchResult | null>(null);
-  /** The term `personResults` belongs to. Anything else on screen is stale. */
-  const [searchedPeople, setSearchedPeople] = useState('');
   const [requesterName, setRequesterName] = useState('');
   const [requesterKind, setRequesterKind] = useState<Requester['kind']>('staff');
   const [requesterDescriptor, setRequesterDescriptor] = useState('');
@@ -144,42 +137,6 @@ export default function NewTicketPage() {
   );
 
   const submitting = pendingKey === 'create-ticket';
-
-  // Only the newest search may write to state: a slow early request must not
-  // overwrite the results of the one the operator is actually waiting for.
-  const personSearchId = useRef(0);
-
-  useEffect(() => {
-    if (requesterMode !== 'existing' || person) return;
-    const term = personQuery.trim();
-    if (term.length < 2) return;
-    const id = personSearchId.current + 1;
-    personSearchId.current = id;
-    const timer = setTimeout(() => {
-      searchPeopleAction(term).then(
-        (found) => {
-          if (personSearchId.current !== id) return;
-          setPersonResults(found);
-          setSearchedPeople(term);
-        },
-        () => {
-          // A dropped connection must not leave the status on "Searching…"
-          // forever. Marking the term as searched with no results says what is
-          // true: nothing to offer, try again.
-          if (personSearchId.current !== id) return;
-          setPersonResults([]);
-          setSearchedPeople(term);
-        },
-      );
-    }, PERSON_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [personQuery, requesterMode, person]);
-
-  // Derived rather than stored, so nothing has to be cleared: a term the
-  // results do not belong to shows nothing, which is what "still typing" means.
-  const personTerm = personQuery.trim();
-  const shownPeople =
-    searchedPeople === personTerm && personTerm.length >= 2 ? personResults : [];
 
   function errorFor(field: string): string | null {
     return fieldError?.field === field ? fieldError.error : null;
@@ -292,78 +249,24 @@ export default function NewTicketPage() {
             {requesterMode === 'existing' ? (
               <div className="form-grid-full picker">
                 {person ? (
-                  <div className="picker-chosen">
-                    <span className="person-text">
-                      <span className="person-name">{person.displayName}</span>
-                      <span className="person-meta">
-                        {person.kind === 'student' ? 'Student' : 'Staff'}
-                        {person.descriptor ? `, ${person.descriptor}` : ''}
-                      </span>
-                    </span>
-                    <span className="person-end">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setPerson(null);
-                          setPersonQuery('');
-                          setPersonResults([]);
-                          setSearchedPeople('');
-                        }}
-                      >
-                        Change
-                      </Button>
-                    </span>
-                  </div>
+                  <ChosenPerson person={person} onChange={() => setPerson(null)} />
                 ) : (
                   <>
-                    <Field
+                    {/* The directory type-ahead the device screens use: grouped
+                        results, keyboard walkable, announced as a combobox. */}
+                    <PersonPicker
+                      id="person-query"
                       label="Search the directory"
-                      htmlFor="person-query"
-                      hint="Search by name, OSIS, staff id or email address."
-                    >
-                      <input
-                        id="person-query"
-                        type="search"
-                        autoComplete="off"
-                        value={personQuery}
-                        onChange={(event) => setPersonQuery(event.target.value)}
-                        placeholder="Whitfield"
-                      />
-                    </Field>
-                    <p className="picker-status" role="status">
-                      {personTerm.length < 2
-                        ? 'Type at least two characters.'
-                        : searchedPeople !== personTerm
-                          ? 'Searching…'
-                          : `${shownPeople.length} ${shownPeople.length === 1 ? 'match' : 'matches'}`}
-                    </p>
-                    {shownPeople.length > 0 ? (
-                      <ul className="picker-results">
-                        {shownPeople.map((result) => (
-                          <li key={result.id}>
-                            <button
-                              type="button"
-                              className="picker-option"
-                              onClick={() => {
-                                setPerson(result);
-                                // A directory person and a legacy requester row
-                                // are two answers to one question; choosing one
-                                // clears the other rather than sending both.
-                                setRequesterId('');
-                                setPersonResults([]);
-                              }}
-                            >
-                              <span className="picker-option-name">{result.displayName}</span>
-                              <span className="picker-option-meta">
-                                {result.kind === 'student' ? 'Student' : 'Staff'}
-                                {result.descriptor ? `, ${result.descriptor}` : ''}
-                              </span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : null}
+                      hint="Search by name, OSIS, staff ID or email address."
+                      placeholder="Whitfield"
+                      onSelect={(result) => {
+                        setPerson(result);
+                        // A directory person and a legacy requester row are two
+                        // answers to one question; choosing one clears the
+                        // other rather than sending both.
+                        setRequesterId('');
+                      }}
+                    />
 
                     {/* Everybody recorded before the directory existed, and
                         everybody who is not on the roster: a parent, a vendor,

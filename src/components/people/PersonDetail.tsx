@@ -181,9 +181,7 @@ export function PersonDetail({
               <h2 className="panel-title" id="person-devices-heading">
                 Devices
               </h2>
-              <span className="panel-aside">
-                {current.length} {current.length === 1 ? 'held now' : 'held now'}
-              </span>
+              <span className="panel-aside">{current.length} held now</span>
             </div>
             <div className="panel-body stack">
               {current.length === 0 ? (
