@@ -1461,10 +1461,28 @@ export async function executeTool(
   try {
     return await spec.run(checked.value, ctx);
   } catch (error) {
-    const message =
-      error instanceof Error && error.message.trim() !== ''
-        ? error.message
-        : 'That change did not go through.';
+    /*
+     * Only a ToolError's message is written to be read.
+     *
+     * Every refusal this module raises deliberately is a ToolError whose
+     * `message` has already been through `safeRpcMessage`; its `raw` and `code`
+     * are kept apart precisely so the driver's own text never becomes the
+     * answer. Anything else caught here is a bug or a transport failure, and its
+     * message is whatever the driver felt like saying — a PostgREST body, a SQL
+     * fragment, a hostname and port, a `fetch failed`. Forwarding that verbatim
+     * would put it in front of the operator AND send it to the model, which then
+     * repeats it back and stores it in the conversation. So it goes to the
+     * server log, where an administrator can find it, and the turn gets one
+     * plain sentence.
+     */
+    if (error instanceof ToolError && error.message.trim() !== '') {
+      return { ok: false, result: { error: error.message }, summary: error.message };
+    }
+    console.error('[ai] tool threw', {
+      tool: name,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    const message = 'That did not go through. Try it on the page itself to see why.';
     return { ok: false, result: { error: message }, summary: message };
   }
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   ADMIN_TOOLS,
   ALWAYS_CONFIRM,
@@ -9,6 +9,7 @@ import {
   normaliseTicketNumber,
   READ_TOOLS,
   requiresApproval,
+  ToolError,
   toolsFor,
   validateArgs,
   WRITE_TOOLS,
@@ -277,5 +278,43 @@ describe('describeCall', () => {
       status: 'retired',
     });
     expect(described).toContain('35 more');
+  });
+});
+
+describe('what a failed tool tells the model', () => {
+  function ctxThatThrows(error: unknown): ToolContext {
+    return {
+      supabase: {
+        rpc: () => {
+          throw error;
+        },
+      },
+      actor: { id: 'a', displayName: 'Pat Example', role: 'admin' },
+    } as unknown as ToolContext;
+  }
+
+  it('passes a ToolError message through, because it was written to be read', async () => {
+    const result = await executeTool(
+      'get_ticket',
+      { ticket: 'EDT-1042' },
+      ctxThatThrows(new ToolError('No ticket EDT-1042 is visible to you.', 'PGRST116', 'raw driver text')),
+    );
+    expect(result.ok).toBe(false);
+    expect(result.summary).toBe('No ticket EDT-1042 is visible to you.');
+  });
+
+  it('never forwards another error message verbatim', async () => {
+    const leak = 'connect ECONNREFUSED 127.0.0.1:55322 while running select * from app_accounts';
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const result = await executeTool('get_ticket', { ticket: 'EDT-1042' }, ctxThatThrows(new Error(leak)));
+      expect(result.ok).toBe(false);
+      expect(result.summary).not.toContain('ECONNREFUSED');
+      expect(JSON.stringify(result.result)).not.toContain('ECONNREFUSED');
+      // It is still findable by whoever runs the server.
+      expect(spy).toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

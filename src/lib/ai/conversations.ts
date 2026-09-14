@@ -208,7 +208,46 @@ export function trimItems(items: readonly InputItem[], limit = MAX_REPLAY_ITEMS)
     }
     kept.push(item);
   }
-  return kept;
+  return dropUnanchoredReasoning(kept);
+}
+
+/** An assistant turn a reasoning item is allowed to introduce. */
+function anchorsReasoning(item: InputItem): boolean {
+  if (item.type === 'function_call') return true;
+  return item.type === 'message' && item.role === 'assistant';
+}
+
+/**
+ * Drops reasoning items that introduce nothing.
+ *
+ * The route stores every completed output item the moment it arrives, so a
+ * round that fails part-way — the model emitted its reasoning summary and then
+ * the stream errored, before any message or function_call — leaves a
+ * `reasoning` item as the last thing in the conversation. The Responses API
+ * refuses input that carries a reasoning item without the item it is required
+ * to precede, so replaying that history fails; and because the failure is in
+ * the history rather than in the request, EVERY later turn fails the same way.
+ * One dropped answer would become a conversation that can never be used again.
+ *
+ * Scanned backwards so consecutive reasoning items are judged as a group: a
+ * turn may legitimately emit several before one function_call, and each of
+ * those is anchored by it. Dropping an unanchored one costs nothing — it is an
+ * encrypted summary of thinking that was never acted on.
+ */
+function dropUnanchoredReasoning(items: readonly InputItem[]): InputItem[] {
+  const out: InputItem[] = [];
+  let anchored = false;
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (item.type === 'reasoning') {
+      if (anchored) out.push(item);
+      continue;
+    }
+    anchored = anchorsReasoning(item);
+    out.push(item);
+  }
+  out.reverse();
+  return out;
 }
 
 export async function loadConversation(
@@ -221,11 +260,68 @@ export async function loadConversation(
 }
 
 /**
+ * The most JSON one `ai_messages` row is given before a batch is split.
+ *
+ * `ai_messages_content_size` (20260912100910_m5_ai_bounds.sql) refuses a row
+ * whose `content` measures over 256 KiB as it arrives. One assistant round can
+ * come close honestly: several encrypted reasoning items and a function_call
+ * whose arguments carry a pasted spreadsheet. Letting the insert fail would
+ * lose the model's own output and end the turn with a raw check-constraint
+ * message, so an oversized batch is written as SEVERAL rows instead.
+ *
+ * 200 KB rather than 256 KiB because this measures the JSON text and the
+ * constraint measures the stored datum, and the two are not the same number:
+ * the budget leaves room for that difference and for what the driver wraps
+ * around the array.
+ */
+export const MAX_ROW_BYTES = 200_000;
+
+const utf8Bytes = new TextEncoder();
+
+/**
+ * Splits a batch into groups that each fit the row budget.
+ *
+ * Order is preserved and no item is ever divided: an item larger than the
+ * budget on its own goes in a group by itself, where the 256 KiB constraint —
+ * the real limit — still gives it room. Pure, and exported for the unit suite.
+ */
+export function splitForRows(
+  items: readonly InputItem[],
+  budget = MAX_ROW_BYTES,
+): InputItem[][] {
+  const groups: InputItem[][] = [];
+  let group: InputItem[] = [];
+  let size = 2; // the enclosing [] of the array this becomes
+
+  for (const item of items) {
+    // +1 for the comma this item needs once it is not the first in its group.
+    // TextEncoder rather than Buffer: this module is deliberately free of
+    // `server-only` so its rules can be unit-tested, and it must not need Node.
+    const cost = utf8Bytes.encode(JSON.stringify(item)).length + 1;
+    if (group.length > 0 && size + cost > budget) {
+      groups.push(group);
+      group = [];
+      size = 2;
+    }
+    group.push(item);
+    size += cost;
+  }
+  if (group.length > 0) groups.push(group);
+  return groups;
+}
+
+/**
  * Stores one batch as ONE row, `content` holding the ordered array.
  *
  * This is the fix for replay order. See the module header: a per-item insert
  * puts every row of the batch at the same `created_at`, and no column left can
  * break that tie in the order the model produced them.
+ *
+ * A batch over the row budget becomes several rows, inserted one after another
+ * rather than in one call — again for ordering. Each PostgREST call is its own
+ * transaction, so `created_at` advances between them and the rows read back in
+ * the order they were written; a single insert of an array would put them all
+ * at the same instant and reintroduce the tie this function exists to avoid.
  */
 export async function appendItems(
   supabase: SupabaseClient,
@@ -234,10 +330,12 @@ export async function appendItems(
   items: InputItem[],
 ): Promise<void> {
   if (items.length === 0) return;
-  const { error } = await supabase
-    .from('ai_messages')
-    .insert({ conversation_id: conversationId, role, content: items });
-  if (error) throw new Error(error.message);
+  for (const group of splitForRows(items)) {
+    const { error } = await supabase
+      .from('ai_messages')
+      .insert({ conversation_id: conversationId, role, content: group });
+    if (error) throw new Error(error.message);
+  }
 }
 
 export async function appendPending(

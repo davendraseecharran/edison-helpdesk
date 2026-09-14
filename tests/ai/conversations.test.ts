@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   flattenStored,
   MAX_REPLAY_ITEMS,
+  MAX_ROW_BYTES,
+  splitForRows,
   toolOutputItem,
   trimItems,
   userItem,
@@ -125,6 +127,91 @@ describe('trimItems', () => {
       { type: 'function_call', call_id: 'call_p', name: 'resolve_ticket', arguments: '{}' },
     ];
     expect(trimItems(items, 10)).toEqual(items);
+  });
+
+  it('keeps reasoning that introduces a function call', () => {
+    const items = [userItem('claim EDT-1042'), ...TURN];
+    expect(trimItems(items, 10)).toEqual(items);
+  });
+
+  it('keeps several reasoning items introducing one function call', () => {
+    const items = [
+      userItem('claim EDT-1042'),
+      { type: 'reasoning', id: 'rs_a', encrypted_content: 'a', summary: [] },
+      { type: 'reasoning', id: 'rs_b', encrypted_content: 'b', summary: [] },
+      TURN[1],
+    ];
+    expect(trimItems(items, 10)).toEqual(items);
+  });
+
+  it('keeps reasoning that introduces the assistant reply', () => {
+    const items = [
+      userItem('how many are open'),
+      { type: 'reasoning', id: 'rs_c', encrypted_content: 'c', summary: [] },
+      { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'Twelve.' }] },
+    ];
+    expect(trimItems(items, 10)).toEqual(items);
+  });
+
+  it('drops a trailing reasoning item left by a round that failed', () => {
+    // The API refuses a reasoning item without the item it has to precede, and
+    // the item is in the HISTORY, so every later turn would fail the same way.
+    const items = [
+      userItem('claim EDT-1042'),
+      { type: 'reasoning', id: 'rs_lost', encrypted_content: 'x', summary: [] },
+    ];
+    expect(trimItems(items, 10)).toEqual([items[0]]);
+  });
+
+  it('drops a reasoning item stranded mid-history by a failed round', () => {
+    const items = [
+      userItem('claim EDT-1042'),
+      { type: 'reasoning', id: 'rs_lost', encrypted_content: 'x', summary: [] },
+      userItem('are you there'),
+      { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'Yes.' }] },
+    ];
+    expect(trimItems(items, 10).map((item) => item.id)).not.toContain('rs_lost');
+    expect(trimItems(items, 10)).toHaveLength(3);
+  });
+});
+
+describe('splitForRows', () => {
+  const big = (bytes: number, id: string) => ({ type: 'reasoning', id, encrypted_content: 'x'.repeat(bytes) });
+
+  it('leaves an ordinary batch as one row', () => {
+    expect(splitForRows(TURN)).toEqual([TURN]);
+  });
+
+  it('writes nothing for an empty batch', () => {
+    expect(splitForRows([])).toEqual([]);
+  });
+
+  it('splits a batch over the budget into sequential rows, in order', () => {
+    const items = [big(80_000, 'a'), big(80_000, 'b'), big(80_000, 'c')];
+    const groups = splitForRows(items, 200_000);
+    expect(groups.length).toBeGreaterThan(1);
+    expect(groups.flat()).toEqual(items);
+  });
+
+  it('never puts more than the budget in one row', () => {
+    const items = Array.from({ length: 9 }, (_, at) => big(40_000, `i${at}`));
+    for (const group of splitForRows(items, 200_000)) {
+      expect(JSON.stringify(group).length).toBeLessThanOrEqual(200_000);
+    }
+  });
+
+  it('gives an item larger than the budget a row of its own', () => {
+    const items = [big(10, 'small'), big(300_000, 'huge'), big(10, 'after')];
+    const groups = splitForRows(items, 200_000);
+    expect(groups.map((group) => group.map((item) => item.id))).toEqual([
+      ['small'],
+      ['huge'],
+      ['after'],
+    ]);
+  });
+
+  it('stays under the 256 KiB row constraint by default', () => {
+    expect(MAX_ROW_BYTES).toBeLessThan(262_144);
   });
 });
 

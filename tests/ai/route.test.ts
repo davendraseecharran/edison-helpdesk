@@ -223,6 +223,19 @@ describe('POST /api/ai/chat', () => {
     expect(response.status).toBe(400);
   });
 
+  it('refuses a message too long for one turn, before opening a conversation', async () => {
+    const response = await POST(request({ message: 'x'.repeat(30_001) }));
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ error: 'message_too_long' });
+    expect(state.inserted).toEqual([]);
+  });
+
+  it('accepts a long message that is still within the cap', async () => {
+    state.events = textTurn('Read it.');
+    const response = await POST(request({ message: 'x'.repeat(30_000) }));
+    expect(response.status).toBe(200);
+  });
+
   it('streams the conversation id, the reply and done', async () => {
     state.events = textTurn('Claimed it.');
     const events = await lines(await POST(request({ message: 'what is open?' })));

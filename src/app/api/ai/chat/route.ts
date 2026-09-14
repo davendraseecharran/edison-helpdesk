@@ -75,6 +75,18 @@ export const dynamic = 'force-dynamic';
 /** A turn that keeps calling tools is a turn that has stopped making progress. */
 const MAX_TOOL_ROUNDS = 12;
 
+/**
+ * The longest message this endpoint accepts, in characters.
+ *
+ * Nothing capped it before: `body.message` went straight into an input item and
+ * from there into an `ai_messages` row, whose only bound is the 256 KiB
+ * check constraint — reached with a raw database error rather than a sentence.
+ * Thirty thousand characters is a long pasted error log and several times any
+ * question anybody types; past that the request is refused here, where the
+ * message can say what to do about it.
+ */
+const MAX_MESSAGE_CHARS = 30_000;
+
 interface ChatBody {
   conversationId?: string;
   message?: string;
@@ -138,6 +150,13 @@ export async function POST(request: NextRequest): Promise<Response> {
   const answering = (body.approve ?? []).length > 0 || (body.reject ?? []).length > 0;
   if (!hasMessage && !answering) {
     return problem(400, 'bad_request', 'Send a message, or an answer to a pending change.');
+  }
+  if ((body.message ?? '').length > MAX_MESSAGE_CHARS) {
+    return problem(
+      413,
+      'message_too_long',
+      'That message is too long for one turn. Send the important part, or attach the file to the ticket instead.',
+    );
   }
 
   let connection: Awaited<ReturnType<typeof loadConnection>>;
