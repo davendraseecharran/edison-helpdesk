@@ -520,3 +520,75 @@ describe('who did it', () => {
     expect(byKind.get('bulk_updated')?.ai_model).toBe(MODEL);
   });
 });
+
+/**
+ * The Backups screen reads the district's own tables.
+ *
+ * `src/lib/data/backup-actions.ts` enumerated four tables this milestone
+ * dropped, so the three that actually hold the district's records could not be
+ * backed up at all. Two of them have row-level security with no policies, so a
+ * session client cannot read them however privileged the account: those go
+ * through `app_backup_rows` / `app_backup_count`, which carry the screen's own
+ * administrator-only gate.
+ */
+describe('backing up the district tables', () => {
+  it('lets an administrator read rows out of each of the three', async () => {
+    const device = await seedInventoryDevice();
+    await rpcOk(netrider, 'app_assign_inventory_device', {
+      p_device: device.id,
+      p_requester: student.id,
+    });
+
+    // requesters keeps the owner's policy: any active account may read it, and
+    // the screen's own admin check is what narrows it.
+    const { data: people, error: peopleError } = await admin
+      .from('requesters')
+      .select('*')
+      .limit(5);
+    expect(peopleError).toBeNull();
+    expect((people ?? []).length).toBeGreaterThan(0);
+
+    for (const table of ['inventory_devices', 'inventory_events']) {
+      const rows = await rpcOk<Array<Record<string, unknown>>>(admin, 'app_backup_rows', {
+        p_table: table,
+        p_limit: 5,
+        p_offset: 0,
+      });
+      expect(rows.length).toBeGreaterThan(0);
+      expect(rows[0].id).toBeTruthy();
+
+      const total = await rpcOk<number>(admin, 'app_backup_count', { p_table: table });
+      expect(Number(total)).toBeGreaterThan(0);
+    }
+  });
+
+  it('pages, newest first, without repeating a row', async () => {
+    const first = await rpcOk<Array<Record<string, unknown>>>(admin, 'app_backup_rows', {
+      p_table: 'inventory_events',
+      p_limit: 2,
+      p_offset: 0,
+    });
+    const second = await rpcOk<Array<Record<string, unknown>>>(admin, 'app_backup_rows', {
+      p_table: 'inventory_events',
+      p_limit: 2,
+      p_offset: 2,
+    });
+    const ids = [...first, ...second].map((row) => String(row.id));
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('refuses a NetRider, a skills officer, and a table that is not on the list', async () => {
+    for (const client of [netrider, officer]) {
+      expect(
+        (await rpcFails(client, 'app_backup_rows', { p_table: 'inventory_devices' })).code,
+      ).toBe(REFUSED);
+      expect(
+        (await rpcFails(client, 'app_backup_count', { p_table: 'inventory_devices' })).code,
+      ).toBe(REFUSED);
+    }
+
+    const wrong = await rpcFails(admin, 'app_backup_rows', { p_table: 'app_accounts' });
+    expect(wrong.code).toBe(REJECTED);
+    expect(wrong.message).toContain('not a table this screen can export');
+  });
+});

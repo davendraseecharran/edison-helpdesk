@@ -458,3 +458,123 @@ $$;
 revoke execute on function
   public.app_link_device(public.tickets, uuid, public.app_accounts)
 from public, anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- Backups of the two tables that have no policies.
+--
+-- The Backups screen reads every table through the administrator's own session
+-- client, so row-level security decides what comes back exactly as it does
+-- everywhere else. Two of the district's tables cannot be read that way at all:
+-- public.inventory_devices (20260912220000) and public.inventory_events
+-- (20260913150000) have RLS enabled, no policies, and every privilege revoked
+-- from authenticated. Read access to the inventory is by bounded RPC, and a
+-- backup is one more bounded read.
+--
+-- So these two are SECURITY DEFINER with the gate in the body, and the gate is
+-- the one the screen already states: an administrator, and nobody else. No
+-- policy is added to the owner's tables and no grant on them changes.
+--
+-- The table name is matched against a fixed list and the matched CONSTANT is
+-- what the query names, so no caller's string ever reaches a relation. A name
+-- that is not on the list is refused rather than ignored.
+-- ---------------------------------------------------------------------------
+
+create function public.app_backup_count(p_table text)
+returns bigint
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor public.app_accounts;
+  v_total bigint;
+begin
+  v_actor := public.app_require_actor();
+  if v_actor.role <> 'admin' then
+    raise exception 'Only an administrator can download a backup.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if p_table = 'inventory_devices' then
+    select pg_catalog.count(*) into v_total from public.inventory_devices;
+  elsif p_table = 'inventory_events' then
+    select pg_catalog.count(*) into v_total from public.inventory_events;
+  else
+    raise exception 'That is not a table this screen can export.'
+      using errcode = 'check_violation';
+  end if;
+
+  return v_total;
+end;
+$$;
+
+comment on function public.app_backup_count(text) is
+  'How many rows one of the two policy-less inventory tables holds, for the Backups screen. Administrators only.';
+
+create function public.app_backup_rows(
+  p_table text,
+  p_limit integer default 1000,
+  p_offset integer default 0
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_actor public.app_accounts;
+  -- One PostgREST page is a thousand rows, and this read is paged by the same
+  -- ceiling whatever the caller asks for.
+  v_limit integer := least(greatest(coalesce(p_limit, 1000), 1), 1000);
+  v_offset integer := greatest(coalesce(p_offset, 0), 0);
+  v_rows jsonb;
+begin
+  v_actor := public.app_require_actor();
+  if v_actor.role <> 'admin' then
+    raise exception 'Only an administrator can download a backup.'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  -- Newest first with the primary key as the tiebreaker, which is what the
+  -- screen asks of every other table, so paging is deterministic and a capped
+  -- export keeps the most recent rows rather than an arbitrary thousand.
+  if p_table = 'inventory_devices' then
+    select coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(d) order by d.imported_at desc, d.id desc), '[]'::jsonb)
+      into v_rows
+    from public.inventory_devices d
+    where d.id in (
+      select i.id from public.inventory_devices i
+      order by i.imported_at desc, i.id desc
+      limit v_limit offset v_offset
+    );
+  elsif p_table = 'inventory_events' then
+    select coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(e) order by e.at desc, e.id desc), '[]'::jsonb)
+      into v_rows
+    from public.inventory_events e
+    where e.id in (
+      select v.id from public.inventory_events v
+      order by v.at desc, v.id desc
+      limit v_limit offset v_offset
+    );
+  else
+    raise exception 'That is not a table this screen can export.'
+      using errcode = 'check_violation';
+  end if;
+
+  return v_rows;
+end;
+$$;
+
+comment on function public.app_backup_rows(text, integer, integer) is
+  'One page of one of the two policy-less inventory tables, newest first, as a JSON array of whole rows. Administrators only. The Backups screen reads every other table through its own session client; these two have row-level security with no policies, so this is their bounded read.';
+
+revoke execute on function
+  public.app_backup_count(text),
+  public.app_backup_rows(text, integer, integer)
+from public, anon;
+
+grant execute on function
+  public.app_backup_count(text),
+  public.app_backup_rows(text, integer, integer)
+to authenticated;
+
