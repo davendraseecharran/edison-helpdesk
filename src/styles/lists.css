@@ -96,3 +96,118 @@
   display: flex;
   gap: 8px;
 }
+
+/* --- Saved views --------------------------------------------------------- */
+
+/*
+ * The filter sets somebody named. A chip is one press where rebuilding the
+ * combination is six controls and a search box.
+ *
+ * They sit above the filter bar rather than inside it, because they are the
+ * shortcut past the bar and reading them should not mean reading it first.
+ * Nothing animates: these are pressed all day.
+ */
+.saved-views {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px 0;
+}
+
+.saved-view {
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  transition: background-color 100ms ease-out;
+}
+
+.saved-view[data-current] {
+  border-color: var(--line-strong, var(--line-2));
+  background: var(--surface-3);
+}
+
+.saved-view-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 4px 0 9px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.saved-view[data-current] .saved-view-open {
+  color: var(--ink);
+}
+
+.saved-view-forget {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 7px 0 3px;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.saved-view-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px dashed var(--line-strong, var(--line-2));
+  border-radius: var(--radius-2);
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--fs-1);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .saved-view:hover {
+    background: var(--surface-3);
+  }
+
+  .saved-view-forget:hover,
+  .saved-view-add:hover {
+    color: var(--ink);
+  }
+}
+
+.saved-view-open:focus-visible,
+.saved-view-forget:focus-visible,
+.saved-view-add:focus-visible {
+  border-radius: var(--radius-1);
+  box-shadow: var(--focus);
+  outline: none;
+}
+
+.saved-view-namer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.saved-view-name {
+  width: 180px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong, var(--line-2));
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-1);
+}
+
+.saved-view-error {
+  color: var(--bad);
+  font-size: var(--fs-1);
+}

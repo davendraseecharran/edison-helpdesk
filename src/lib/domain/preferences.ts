@@ -12,6 +12,7 @@
  */
 
 import type { ThemePreference } from '@/components/shell/theme-script';
+import { parseSavedViews, type SavedView } from './saved-views';
 
 /**
  * The theme vocabulary, taken from the provider rather than retyped, so a
@@ -58,6 +59,8 @@ export const REASONING_LABELS: Record<ReasoningEffort, string> = {
 
 export interface Preferences {
   theme: ThemeChoice;
+  /** Filter sets this account named. Newest first. */
+  savedViews: SavedView[];
   aiReasoning: ReasoningEffort;
   /** Whether the assistant stops to ask before it applies a change. */
   aiConfirmChanges: boolean;
@@ -72,6 +75,7 @@ export interface Preferences {
  */
 export const DEFAULT_PREFERENCES: Preferences = {
   theme: 'dark',
+  savedViews: [],
   aiReasoning: 'high',
   aiConfirmChanges: false,
   aiSpeakReplies: false,
@@ -98,6 +102,7 @@ export function preferencesFromRow(row: unknown): Preferences {
   const source = row as Record<string, unknown>;
   return {
     theme: isThemeChoice(source.theme) ? source.theme : DEFAULT_PREFERENCES.theme,
+    savedViews: parseSavedViews(source.saved_views),
     aiReasoning: isReasoningEffort(source.ai_reasoning)
       ? source.ai_reasoning
       : DEFAULT_PREFERENCES.aiReasoning,

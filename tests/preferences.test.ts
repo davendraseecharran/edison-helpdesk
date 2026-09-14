@@ -25,6 +25,7 @@ describe('defaults', () => {
       aiConfirmChanges: false,
       aiSpeakReplies: false,
       notifyInApp: true,
+      savedViews: [],
     });
   });
 
@@ -75,6 +76,7 @@ describe('preferencesFromRow', () => {
       aiConfirmChanges: true,
       aiSpeakReplies: true,
       notifyInApp: false,
+      savedViews: [],
     });
   });
 

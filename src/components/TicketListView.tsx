@@ -35,6 +35,7 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { Pagination } from '@/components/ui/Pagination';
+import { SavedViews } from '@/components/ui/SavedViews';
 import { useRowKeys } from '@/components/ui/useRowKeys';
 import type { ListAction } from '@/lib/lists/keys';
 import type { QueuePage } from '@/lib/data/tickets';
@@ -68,7 +69,7 @@ export function TicketListView({
   allowClaim = false,
   history = false,
 }: TicketListViewProps) {
-  const { directory, pendingKey, run } = useRuntime();
+  const { directory, pendingKey, run, savedViews } = useRuntime();
   const actor = useActorAccount();
   const router = useRouter();
   const pathname = usePathname();
@@ -328,6 +329,8 @@ export function TicketListView({
 
   return (
     <section className="panel queue" data-busy={busy || undefined} aria-busy={busy || undefined}>
+      {/* Above the bar, because they are the shortcut past it. */}
+      <SavedViews path={pathname} query={searchParams.toString()} stored={savedViews} />
       <FilterBar
         label="Ticket filters"
         active={filtersActive}
