@@ -6,7 +6,7 @@ database permissions and transactions, M3 connected real accounts and ticket
 workflows, M4 deployed it, and M5 — the platform overhaul — added Google
 sign-in with invites and approvals, the district's own directory and
 inventory, search and a command palette, attachments,
-notifications, an audit log, insights, a phone that works as a barcode scanner,
+notifications, an audit log, a phone that works as a barcode scanner,
 and an assistant that can do the work rather than only describe it.
 
 Current state and review results: [PROJECT_STATUS.md](PROJECT_STATUS.md).
@@ -97,7 +97,7 @@ Detailed auth contracts and limitations:
   devices, actions and what you looked at last.
 - **The phone as a scanner.** Pair from a QR code and send scanned serials and
   asset tags straight into the open form.
-- **Attachments, notifications, audit log and insights.**
+- **Attachments, notifications and an audit log.**
 - **The assistant.** `Ctrl/Cmd+J`, on the technician's own ChatGPT account.
   Every change it makes is recorded as that person's AI.
 - **Dark by default**, with light and system in Settings.

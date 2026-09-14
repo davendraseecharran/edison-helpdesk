@@ -38,7 +38,7 @@ Updated September 14, 2026. **M5, the platform overhaul, is built and reviewed o
 
 ## M5 — platform overhaul (branch `platform-overhaul`)
 
-Google sign-in with invites and an approval queue, the district's own directory and inventory (`requesters` / `inventory_devices`), ticket categories and device links, search with a command palette, attachments, in-app notifications, an audit log, insights, the phone as a barcode scanner, an AI assistant on each technician's own ChatGPT account, and a dark-first design system. What it is and how to turn it on: **[docs/M5-PLATFORM-OVERHAUL.md](docs/M5-PLATFORM-OVERHAUL.md)** — the owner runbook is ordered, and step 2 (enable the Before User Created hook) must happen before step 3 (allow sign-ups).
+Google sign-in with invites and an approval queue, the district's own directory and inventory (`requesters` / `inventory_devices`), ticket categories and device links, search with a command palette, attachments, in-app notifications, an audit log, the phone as a barcode scanner, an AI assistant on each technician's own ChatGPT account, and a dark-first design system. What it is and how to turn it on: **[docs/M5-PLATFORM-OVERHAUL.md](docs/M5-PLATFORM-OVERHAUL.md)** — the owner runbook is ordered, and step 2 (enable the Before User Created hook) must happen before step 3 (allow sign-ups).
 
 Per-task briefs, reports and review rounds are in `.superpowers/sdd/2026-09-12-platform-overhaul/`; `progress.md` there is the ledger of what was implemented, reviewed and ruled on.
 
@@ -64,7 +64,7 @@ Hosted counts are unchanged: **1 app account, 1 Auth user, 0 tickets**. No real 
 ## Verification
 
 - M5 is verified locally, per task, in the reports under `.superpowers/sdd/2026-09-12-platform-overhaul/`. Each task ran typecheck, lint and the unit suite; DB-lane tasks ran their DB and auth suites.
-- `scripts/review-overhaul.cjs` (new) walks login, queue, ticket detail, new ticket, my tickets, people (students and staff), a person, devices, a device, insights, administration (access, audit), settings, notifications and the assistant panel at 1440×900, 1024×768 and 390×844 on both themes, asserting no horizontal overflow and no browser console errors. It creates its own synthetic accounts through the local admin API and seeds through the ordinary RPCs.
+- `scripts/review-overhaul.cjs` (new) walks login, queue, ticket detail, new ticket, my tickets, people (students and staff), a person, devices, a device, administration (access, audit), settings, notifications and the assistant panel at 1440×900, 1024×768 and 390×844 on both themes, asserting no horizontal overflow and no browser console errors. It creates its own synthetic accounts through the local admin API and seeds through the ordinary RPCs.
 - Still to run on this branch: the full `npm run check` (the one place the production build runs) and `npm run test:local`. Those are Task 30b, after the polish pass lands.
 - M4 results stand: hosted schema with RLS on every public table, signup disabled, minimum password 12, HTTPS site/callback; live browser tests for signup denial, password login, session persistence, technician admin denial, walk-in intake, logout, setup, recovery and old-browser revocation.
 

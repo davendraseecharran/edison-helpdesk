@@ -3,7 +3,7 @@
 The helpdesk that M3 built around tickets is now the school's IT system: the
 same tickets, plus the people and the machines they are about, read from the
 district's own directory and inventory, a phone that works as a barcode scanner,
-attachments, notifications, an audit log, insights, and an assistant that can
+attachments, notifications, an audit log, and an assistant that can
 do the work rather than only describe it. Sign-in moved to Google, with invites
 and an approval queue for anybody who was not invited.
 
@@ -20,7 +20,6 @@ the owner out of band.
 - [Search and the command palette](#search-and-the-command-palette)
 - [The phone as a scanner](#the-phone-as-a-scanner)
 - [Attachments, notifications and the audit log](#attachments-notifications-and-the-audit-log)
-- [Insights](#insights)
 - [The assistant](#the-assistant)
 - [Attribution](#attribution)
 - [Owner runbook for the hosted project](#owner-runbook-for-the-hosted-project)
@@ -36,7 +35,7 @@ the owner out of band.
   disclosure under the Google button, as the administrator's way back in when
   Google is unavailable.
 - **Navigation.** The queue, My tickets, Collaborating and Resolved are still
-  the work; People, Devices and Insights are new; All tickets and
+  the work; People and Devices are new; All tickets and
   Administration are still administrator-only. A rail on wide screens, a
   bottom bar on phones.
 - **Tickets** carry a category, a requester who can be a real person from the
@@ -62,7 +61,7 @@ what exists.
 | Tokens and theme | `src/styles/tokens.css`, `src/components/shell/ThemeProvider.tsx` | One palette, two themes, stamped before first paint |
 | Shell | `src/components/shell/**` | Rail, top bar, bottom tabs, palette, bell, assistant toggle |
 | Session DAL | `src/lib/auth/session.ts` | `getUser()` verification plus role and status from `app_accounts` |
-| Reads | `src/lib/data/*.ts` | Queues, people, devices, insights, search — all on the person's own client |
+| Reads | `src/lib/data/*.ts` | Queues, people, devices, search — all on the person's own client |
 | Writes | `src/lib/data/*-actions.ts` | One reviewed RPC per mutation |
 | Admin client | `src/lib/supabase/admin.ts` | Service role. Auth users, links, storage, `app_trusted_*` only |
 | Assistant | `src/lib/ai/**`, `src/app/api/ai/chat/route.ts` | Device-code OAuth, encrypted tokens, streamed tool loop |
@@ -195,14 +194,6 @@ Notifications are rows written only by `app_notify` and `app_notify_admins`,
 never by a client. The bell shows the unread count and the last few; the
 notifications page shows the rest. The audit log (Administration → Audit)
 records account changes, imports, approvals and role changes, append-only.
-
-## Insights
-
-Insights answers the questions a person running the helpdesk actually asks:
-how much came in and how much was closed over the last N days, how long
-tickets take to resolve, where the work is coming from, and which kinds of
-machine keep turning up. It is one `app_insights` call, computed in the
-database, and every number it shows is one the caller is allowed to see.
 
 ## The assistant
 

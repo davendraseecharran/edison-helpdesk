@@ -6,7 +6,7 @@ Read AGENTS.md and PROJECT_STATUS.md first, then **[docs/M5-PLATFORM-OVERHAUL.md
 
 ## What is on the branch
 
-Google sign-in with invites and an approval queue; the district's own directory and inventory (`requesters` / `inventory_devices`), which M5 now builds on rather than beside; ticket categories, directory requesters and device links; search with a `Ctrl/Cmd+K` command palette; attachments; in-app notifications; an audit log; insights; the phone as a barcode scanner; an AI assistant on each technician's own ChatGPT account, with every change it makes attributed as that person's AI; and a dark-first design system with tokens, streaming skeletons and phone layouts.
+Google sign-in with invites and an approval queue; the district's own directory and inventory (`requesters` / `inventory_devices`), which M5 now builds on rather than beside; ticket categories, directory requesters and device links; search with a `Ctrl/Cmd+K` command palette; attachments; in-app notifications; an audit log; the phone as a barcode scanner; an AI assistant on each technician's own ChatGPT account, with every change it makes attributed as that person's AI; and a dark-first design system with tokens, streaming skeletons and phone layouts.
 
 Migrations `20260914100000_m5_foundation.sql` through `20260914160000_m5_public_totals.sql`, all additive, applied to the local stack only. Every M5 migration is numbered `20260914` so that all of them apply AFTER the owner's four.
 
