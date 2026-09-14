@@ -680,12 +680,27 @@ p.flash {
   border-radius: var(--radius-4) 0 0 var(--radius-4);
 }
 
+/*
+ * A bottom sheet is a drawer: vaul positions and drags it, and these are the
+ * things about it that belong to this product rather than to the library — how
+ * tall it may grow, the safe area under it, and the corner radius.
+ */
 .sheet-bottom {
-  width: 100%;
   max-height: min(88dvh, 720px);
-  margin-top: auto;
   padding-bottom: env(safe-area-inset-bottom);
   border-radius: var(--radius-4) var(--radius-4) 0 0;
+  box-shadow: var(--shadow-3);
+}
+
+/*
+ * The drawer's scrim. The same treatment every modal surface gets — the page
+ * behind, out of focus — rather than the library's flat black at 50%, which on
+ * a near-black ground is just a dimmer near-black.
+ */
+.drawer-scrim {
+  background: var(--scrim);
+  -webkit-backdrop-filter: var(--scrim-blur);
+  backdrop-filter: var(--scrim-blur);
 }
 
 .dialog {
