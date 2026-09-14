@@ -14,12 +14,23 @@
  * The device flow is deliberately split into start and poll. A single action
  * that waited for the browser to finish would hold a server function open for up
  * to fifteen minutes; instead the client asks again on the interval the service
- * named, and closing the panel simply stops the asking.
+ * named, and closing the panel simply stops the asking. The half of that flow
+ * that must not be public — the device auth id — never reaches the browser at
+ * all: it is sealed into an httpOnly cookie bound to this account, and the poll
+ * reads it from there rather than from its caller. See `device-cookie.ts`.
  */
 
+import { cookies } from 'next/headers';
 import { activeAccount } from '@/lib/auth/session';
+import { appOrigin } from '@/lib/supabase/config';
 import { createClient } from '@/lib/supabase/server';
 import { aiEnabled } from './crypto';
+import {
+  DEVICE_COOKIE,
+  DEVICE_COOKIE_MAX_AGE,
+  openDeviceAuth,
+  sealDeviceAuth,
+} from './device-cookie';
 import { pollDeviceAuth, startDeviceAuth, type DeviceAuthStart } from './codex-auth';
 import { disconnect, loadConnection, saveConnection } from './connections';
 import {
@@ -67,14 +78,38 @@ function failureText(error: unknown): string {
     : 'That did not work. Try again.';
 }
 
+const PAIRING_OVER = 'That sign-in has expired. Start it again.';
+
+async function writeDeviceCookie(accountId: string, deviceAuthId: string): Promise<void> {
+  const jar = await cookies();
+  jar.set(DEVICE_COOKIE, sealDeviceAuth(accountId, deviceAuthId), {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: appOrigin().startsWith('https://'),
+    path: '/',
+    maxAge: DEVICE_COOKIE_MAX_AGE,
+  });
+}
+
+async function clearDeviceCookie(): Promise<void> {
+  const jar = await cookies();
+  jar.delete(DEVICE_COOKIE);
+}
+
 export async function startCodexAuthAction(): Promise<DeviceAuthStarted> {
   const account = await activeAccount();
   if (!account) return { ok: false, error: SIGNED_OUT };
   if (!aiEnabled()) return { ok: false, error: DISABLED };
 
   try {
-    return { ok: true, start: await startDeviceAuth() };
+    const start = await startDeviceAuth();
+    await writeDeviceCookie(account.id, start.deviceAuthId);
+    // The browser is told the code to type and where to type it, and nothing
+    // else: the id it would have carried back is already in the cookie, and an
+    // id on screen is an id somebody else can poll with.
+    return { ok: true, start: { ...start, deviceAuthId: '' } };
   } catch (error) {
+    await clearDeviceCookie();
     return { ok: false, error: failureText(error) };
   }
 }
@@ -82,25 +117,38 @@ export async function startCodexAuthAction(): Promise<DeviceAuthStarted> {
 /**
  * One poll. `complete` means the tokens are already encrypted and stored, so the
  * panel's next status read will say connected.
+ *
+ * The first argument is whatever the panel held for the device auth id; it is
+ * ignored. The id comes from the cookie `startCodexAuthAction` wrote, which
+ * binds it to this account, so a code read off a colleague's screen cannot be
+ * polled from another session into another account's connection.
  */
 export async function pollCodexAuthAction(
-  deviceAuthId: string,
+  _deviceAuthId: string,
   userCode: string,
 ): Promise<DeviceAuthPolled> {
   const account = await activeAccount();
   if (!account) return { ok: false, error: SIGNED_OUT };
   if (!aiEnabled()) return { ok: false, error: DISABLED };
 
-  if (typeof deviceAuthId !== 'string' || typeof userCode !== 'string') {
-    return { ok: false, error: 'That sign-in has expired. Start it again.' };
+  const jar = await cookies();
+  const deviceAuthId = openDeviceAuth(jar.get(DEVICE_COOKIE)?.value, account.id);
+  if (deviceAuthId === null || typeof userCode !== 'string' || userCode === '') {
+    await clearDeviceCookie();
+    return { ok: false, error: PAIRING_OVER };
   }
 
   try {
     const result = await pollDeviceAuth(deviceAuthId, userCode);
     if (result.status === 'pending') return { ok: true, status: 'pending' };
     await saveConnection(account.id, result.tokens);
+    await clearDeviceCookie();
     return { ok: true, status: 'complete' };
   } catch (error) {
+    // Any answer other than "still waiting" ends this pairing: the code has
+    // expired, been refused or been answered somewhere else, and the panel is
+    // about to show its error. Nothing is left for a later poll to use.
+    await clearDeviceCookie();
     return { ok: false, error: failureText(error) };
   }
 }
@@ -111,6 +159,7 @@ export async function disconnectCodexAction(): Promise<AiActionResult> {
 
   try {
     await disconnect(account.id);
+    await clearDeviceCookie();
     return { ok: true };
   } catch (error) {
     return { ok: false, error: failureText(error) };
