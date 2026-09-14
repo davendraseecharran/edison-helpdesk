@@ -17,6 +17,7 @@
 @import '../styles/tickets.css';
 @import '../styles/directory.css';
 @import '../styles/motion.css';
+@import '../styles/lamp.css';
 
 /* --- Text utilities ----------------------------------------------------- */
 
@@ -317,16 +318,17 @@
 
 /*
  * The row whose record is open in the editor beside it. It was filled with
- * brass, which is the lamp painted across a whole row; the edge-light says the
- * same thing without taking the accent, and the surface step keeps it legible
- * against its neighbours.
+ * brass, which is the lamp painted across a whole row; the surface step says
+ * the same thing, and a neutral rule down its leading edge picks it out of the
+ * column without lighting a second lamp — the light belongs to whatever the
+ * keyboard is on (see lamp.css), and this row is merely the one being edited.
  */
 .inventory-table .inventory-row-selected td {
   background: var(--surface-3);
 }
 
 .inventory-table .inventory-row-selected td:first-child {
-  box-shadow: inset 3px 0 0 var(--brass);
+  box-shadow: inset 3px 0 0 var(--line-2);
 }
 
 .inventory-row-select {

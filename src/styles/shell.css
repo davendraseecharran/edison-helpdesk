@@ -312,12 +312,12 @@
  * The row the keyboard is on. While the palette is open it is the only thing
  * on the screen that Enter will act on, so it takes the lamp — the same one
  * the rail wears for the page you are on, which is behind the backdrop while
- * this is up. No transition: the selection moves on every arrow key, and at
- * that frequency anything but an instant change is a lag.
+ * this is up. The light itself is lit in lamp.css, which is the one place that
+ * decides who holds it. No transition: the selection moves on every arrow key,
+ * and at that frequency anything but an instant change is a lag.
  */
 .palette-list [cmdk-item][data-selected='true'] {
   background: var(--surface-3);
-  box-shadow: var(--edge-light);
 }
 
 .palette-item-icon {
@@ -676,11 +676,13 @@
  * the same thing in a way that only worked on this one surface — the light
  * belongs to the row, so the same treatment carries to a queue row, a panel,
  * a field, and reads as one idea rather than four decorations.
+ *
+ * The surface step is unconditional; the light is lit in lamp.css, which takes
+ * it away again while the palette or an approval card is nearer the keyboard.
  */
 .rail-link[aria-current='page'] {
   background: var(--surface-3);
   color: var(--ink);
-  box-shadow: var(--edge-light);
 }
 
 .rail-link[aria-current='page'] .icon {

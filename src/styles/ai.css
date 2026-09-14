@@ -546,13 +546,14 @@
 /*
  * The one thing on the panel that stops and asks. It carries the lamp, because
  * while it is open it is the only thing on the screen that needs a decision,
- * and its radius is concentric with the 8px inset around its own controls.
+ * and its radius is concentric with the 8px inset around its own controls. The
+ * light is lit in lamp.css, which puts out the rail's while this card is up —
+ * docked beside the rail, the two of them lit at once would say nothing.
  */
 .ai-approval {
   padding: 12px 14px 14px;
   border-radius: var(--radius-3);
   background: var(--surface);
-  box-shadow: var(--edge-light);
 }
 
 .ai-approval-head {

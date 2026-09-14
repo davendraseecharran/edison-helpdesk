@@ -1,0 +1,43 @@
+/*
+ * The lamp, and who is holding it.
+ *
+ * `--edge-light` is the one warm light on the screen. It means "this is the
+ * thing your next keystroke acts on", and that meaning survives only while
+ * exactly one element wears it: two lit things say as much as none.
+ *
+ * So the light is taken, never added. Every rule in the codebase that can wear
+ * it lives here, in one list, in the order of how near the element is to the
+ * keyboard, and each one is switched off while something nearer has claimed
+ * it:
+ *
+ *   1. the palette's selected row — modal, drawn over everything, and the one
+ *      thing Enter will act on while it is up;
+ *   2. an approval card the assistant is waiting on — the only decision open
+ *      on the screen (the stream ends at the first call that needs approval,
+ *      so the panel never shows two), and on a wide screen the panel is docked
+ *      rather than modal, so without this it would sit lit beside a lit rail;
+ *   3. the rail's current page — the resting state, worn whenever nothing
+ *      above has claimed the light.
+ *
+ * `:has()` on the document element is what makes this one owner rather than
+ * three scattered rules: the palette portals to `<body>`, the assistant's
+ * panel portals beside it, and the rail is inside the shell, so no single
+ * React component sees all three states to hand down a class.
+ *
+ * Adding a fourth lamp means adding a line here, not a `box-shadow` elsewhere.
+ */
+
+/* 1. The palette's selected row. Nothing outranks it, so it is unconditional. */
+.palette-list [cmdk-item][data-selected='true'] {
+  box-shadow: var(--edge-light);
+}
+
+/* 2. The approval card, unless the palette is up over it. */
+:root:not(:has(.palette)) .ai-approval {
+  box-shadow: var(--edge-light);
+}
+
+/* 3. The rail's current page, unless either of the above is asking. */
+:root:not(:has(.palette)):not(:has(.ai-approval)) .rail-link[aria-current='page'] {
+  box-shadow: var(--edge-light);
+}
