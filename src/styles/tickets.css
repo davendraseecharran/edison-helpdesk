@@ -317,18 +317,27 @@
  * clicks meant for the row underneath.
  *
  * Clamped to six lines. A peek is a glance at what the ticket says; a wall of
- * text is a reason to open it.
+ * text is a reason to open it. The clamp is in the base rule, not the
+ * 1024px media query below, because the column itself is only `hideOnPhone`
+ * (present from 720px up): gating `display` behind 1024px would take the
+ * node out of the accessibility tree between 720 and 1023px, where
+ * `aria-describedby` still points at it.
  *
- * From 1024px only. Below that the table wrapper scrolls sideways
- * (`.data-table` in components.css), which clips both axes, so a panel hanging
- * below a row would be cut off; and below 720px there is no table at all.
+ * The hover/focus reveal is the part gated to 1024px only. Below that the
+ * table wrapper scrolls sideways (`.data-table` in components.css), which
+ * clips both axes, so a panel hanging below a row would be cut off — it
+ * stays in the tree, at `opacity: 0`, but is never painted.
  */
 .queue-peek {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
   z-index: 3;
-  display: none;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+  -webkit-box-orient: vertical;
   max-width: 46ch;
   padding: 8px 10px;
   border: 1px solid var(--line-2);
@@ -346,14 +355,6 @@
 }
 
 @media (min-width: 1024px) {
-  .queue-peek {
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-line-clamp: 6;
-    line-clamp: 6;
-    -webkit-box-orient: vertical;
-  }
-
   .queue-cell-title:hover .queue-peek,
   .queue-cell-title:focus-within .queue-peek {
     opacity: 1;

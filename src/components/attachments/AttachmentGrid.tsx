@@ -32,6 +32,9 @@ import { Lightbox } from './Lightbox';
 /** One shared empty map, so a render with no links does not make a new object. */
 const NO_URLS: Record<string, string> = {};
 
+/** One shared empty map, so a render with no re-sign rounds does not make a new object. */
+const NO_ROUNDS: Record<string, number> = {};
+
 /**
  * How many times a failing thumbnail may ask for a fresh link.
  *
@@ -71,9 +74,14 @@ export function AttachmentGrid({ items, onDeleted }: AttachmentGridProps) {
   });
   const [open, setOpen] = useState<number | null>(null);
   const [confirming, setConfirming] = useState<Attachment | null>(null);
-  // Rounds of re-signing asked for by a failing tile, tied to the set of
-  // pictures they were asked for so a new set starts over.
-  const [resign, setResign] = useState<{ key: string; rounds: number }>({ key: '', rounds: 0 });
+  // Rounds of re-signing asked for by a failing tile, keyed by attachment id
+  // so one attachment's exhausted budget does not stop another's tile from
+  // asking for its own fresh link, and tied to the set of pictures they were
+  // asked for so a new set starts over.
+  const [resign, setResign] = useState<{ key: string; rounds: Record<string, number> }>({
+    key: '',
+    rounds: NO_ROUNDS,
+  });
 
   // Only the pictures need a link up front: a PDF tile shows a glyph, and asks
   // for its URL when somebody actually opens it.
@@ -83,14 +91,15 @@ export function AttachmentGrid({ items, onDeleted }: AttachmentGridProps) {
     .join(',');
 
   const urls = links.key === imageKey ? links.urls : NO_URLS;
-  const rounds = resign.key === imageKey ? resign.rounds : 0;
+  const rounds = resign.key === imageKey ? resign.rounds : NO_ROUNDS;
 
   /** A tile whose link has expired asks for a new one, a bounded number of times. */
   function onThumbnailError(id: string) {
     setResign((previous) => {
-      const current = previous.key === imageKey ? previous.rounds : 0;
-      if (current >= MAX_RESIGN_ROUNDS) return previous;
-      return { key: imageKey, rounds: current + 1 };
+      const current = previous.key === imageKey ? previous.rounds : NO_ROUNDS;
+      const attempts = current[id] ?? 0;
+      if (attempts >= MAX_RESIGN_ROUNDS) return previous;
+      return { key: imageKey, rounds: { ...current, [id]: attempts + 1 } };
     });
     // Drop the dead link so the tile shows its placeholder rather than a broken
     // image while the new one is being signed.
