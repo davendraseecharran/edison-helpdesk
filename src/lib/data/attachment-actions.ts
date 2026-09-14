@@ -234,7 +234,7 @@ export async function registerAttachmentAction(
   if ('error' in registered) {
     // Nothing points at the object now, and nothing ever will.
     await removeObject(request.path);
-    return { ok: false, error: registered.error };
+    return { ok: false, error: registryMessage({ code: registered.code, message: registered.error }) };
   }
 
   const attachment = await loadVisibleAttachment(registered.id);

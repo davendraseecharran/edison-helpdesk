@@ -364,6 +364,16 @@ describe('registryMessage', () => {
     expect(
       registryMessage({ code: 'P0002', message: 'That attachment is no longer available.' }),
     ).toBe('That attachment is no longer available.');
+    // 23514 (check_violation) and 23505 (unique_violation): the codes
+    // app_trusted_register_attachment raises for its own deliberate refusals
+    // ("Attach a JPEG, PNG, WebP, GIF or PDF.", "That file has already been
+    // attached."), same as P0002 and 42501 are for app_delete_attachment.
+    expect(
+      registryMessage({ code: '23514', message: 'Attach a JPEG, PNG, WebP, GIF or PDF.' }),
+    ).toBe('Attach a JPEG, PNG, WebP, GIF or PDF.');
+    expect(
+      registryMessage({ code: '23505', message: 'That file has already been attached.' }),
+    ).toBe('That file has already been attached.');
   });
 
   it('keeps the plumbing to itself and says what to do instead', () => {

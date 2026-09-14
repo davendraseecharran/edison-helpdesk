@@ -299,7 +299,7 @@ export interface RegisterInput {
  */
 export async function registerAttachment(
   input: RegisterInput,
-): Promise<{ id: string } | { error: string }> {
+): Promise<{ id: string } | { error: string; code: string | null }> {
   const { data, error } = await adminClient().rpc('app_trusted_register_attachment', {
     p_actor: input.actorId,
     p_ticket: input.target.ticketId ?? null,
@@ -309,7 +309,11 @@ export async function registerAttachment(
     p_mime: input.mime,
     p_bytes: input.bytes,
   });
-  if (error) return { error: error.message };
+  // The code travels with the message so the caller can run it through
+  // registryMessage, the same as app_delete_attachment's error already does:
+  // one wording rule for both, not the raw PostgREST text for one and the
+  // considered sentence for the other.
+  if (error) return { error: error.message, code: error.code ?? null };
   return { id: data as string };
 }
 
@@ -317,14 +321,24 @@ export async function registerAttachment(
  * What to say when one of the attachment RPCs refuses.
  *
  * The RPCs raise sentences meant for the person at the screen — "Only the
- * person who attached this file, or an administrator, can remove it." — and
- * mark each one with an errcode. Anything else PostgREST hands back describes
- * the plumbing rather than the decision, and is no use to a technician, so it
- * becomes the one sentence that tells them what to do next.
+ * person who attached this file, or an administrator, can remove it.",
+ * "Attach a JPEG, PNG, WebP, GIF or PDF.", "That file has already been
+ * attached." — and mark each one with an errcode. Anything else PostgREST
+ * hands back describes the plumbing rather than the decision, and is no use
+ * to a technician, so it becomes the one sentence that tells them what to do
+ * next.
  */
 export function registryMessage(error: { code?: string | null; message?: string | null }): string {
-  // no_data_found and insufficient_privilege: the two the RPCs raise on purpose.
-  const deliberate = error.code === 'P0002' || error.code === '42501';
+  // no_data_found and insufficient_privilege: app_delete_attachment's two.
+  // check_violation and unique_violation: app_trusted_register_attachment's
+  // validation failures and its "already attached" re-raise. All four are
+  // codes these RPCs raise ON PURPOSE, each carrying a sentence meant to be
+  // read, never a raw constraint name.
+  const deliberate =
+    error.code === 'P0002' ||
+    error.code === '42501' ||
+    error.code === '23514' ||
+    error.code === '23505';
   const said = (error.message ?? '').trim();
   if (deliberate && said !== '') return said;
   return 'That change could not be saved. Refresh the page and try again.';
