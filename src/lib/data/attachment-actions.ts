@@ -10,9 +10,10 @@
  *   2. The browser PUTs the file to that URL. It has no other access to the
  *      bucket: the bucket is private and carries no storage policies at all.
  *   3. `registerAttachmentAction` — the server reads the stored object BACK,
- *      and writes the registry row from what storage actually accepted. This is
- *      why registration is service-role-only: the size and the content type in
- *      the registry are facts about the file, not claims about it.
+ *      size from the bucket and type from the file's own first bytes, and
+ *      writes the registry row from that. This is why registration is
+ *      service-role-only: the size and the content type in the registry are
+ *      facts about the file, not claims about it.
  *   4. `attachmentUrlAction` / `deleteAttachmentAction` — both begin in the
  *      user's own session, so row-level security decides whether the row exists
  *      at all before the service role is used to touch the object.
@@ -20,8 +21,9 @@
  * The shape of that is deliberate. The registry is the whole of attachment
  * authorization, because the bytes can only ever be reached through a URL the
  * server signs after the database has agreed. So nothing here trusts a path, a
- * size, a type or an actor from the browser: the path is rebuilt, the size and
- * type are re-read, and the actor comes from the verified session.
+ * size, a type or an actor from the browser: the path is rebuilt, the size is
+ * re-read, the type is read out of the bytes, and the actor comes from the
+ * verified session.
  */
 
 import { revalidatePath } from 'next/cache';
@@ -32,6 +34,7 @@ import {
   attachmentPath,
   attachmentRefusal,
   sanitiseFilename,
+  sniffMime,
   uniqueFilename,
   type Attachment,
 } from '@/lib/attachments';
@@ -41,8 +44,10 @@ import {
   loadAttachments,
   loadVisibleAttachment,
   parentOf,
+  readObjectHead,
   readStoredObject,
   registerAttachment,
+  registryMessage,
   removeObject,
   signedDownloadUrl,
   storageMessage,
@@ -56,6 +61,20 @@ export type AttachmentResult<T> = ({ ok: true } & T) | { ok: false; error: strin
 const SIGN_IN_AGAIN = 'Your session is not able to make changes. Sign in again.';
 const NOT_ALLOWED = 'You cannot attach a file to that record. Refresh the page and try again.';
 const GONE = 'That attachment is no longer available.';
+
+/**
+ * The one page this file belongs to.
+ *
+ * An attachment appears on its record and nowhere else — the queue counts no
+ * files and no badge changes — so re-rendering that page is the whole of what a
+ * new or removed file affects. The paths match the links: a record is reached
+ * by its id, not by its number.
+ */
+function revalidateRecord(target: AttachmentTarget): void {
+  const parent = parentOf(target);
+  if (!parent) return;
+  revalidatePath(`/${parent.kind === 'ticket' ? 'tickets' : 'devices'}/${parent.id}`);
+}
 
 /* --- Reading -------------------------------------------------------------- */
 
@@ -187,6 +206,20 @@ export async function registerAttachmentAction(
     return { ok: false, error: 'That file did not finish uploading. Try attaching it again.' };
   }
 
+  // The type storage reports is the one the browser declared when it asked for
+  // the upload URL; the bucket does not open the file. So the file is asked
+  // itself, and a PDF that turns out to be something else never gets a row —
+  // nor does it stay in the bucket.
+  const head = await readObjectHead(request.path);
+  const actualMime = head === null ? null : sniffMime(head);
+  if (actualMime === null || actualMime !== stored.mime.split(';')[0].trim().toLowerCase()) {
+    await removeObject(request.path);
+    return {
+      ok: false,
+      error: 'That file is not the kind it claims to be. Attach a JPEG, PNG, WebP, GIF or PDF.',
+    };
+  }
+
   const filename = sanitiseFilename(request.filename ?? request.path.slice(prefix.length));
 
   const registered = await registerAttachment({
@@ -194,7 +227,7 @@ export async function registerAttachmentAction(
     target: { ticketId: request.ticketId ?? null, deviceId: request.deviceId ?? null },
     path: request.path,
     filename,
-    mime: stored.mime,
+    mime: actualMime,
     bytes: stored.bytes,
   });
 
@@ -207,8 +240,8 @@ export async function registerAttachmentAction(
   const attachment = await loadVisibleAttachment(registered.id);
   if (!attachment) return { ok: false, error: GONE };
 
-  // The history gained an event, so every panel that shows it needs re-reading.
-  revalidatePath('/', 'layout');
+  // The history gained an event, so the record's own page needs re-reading.
+  revalidateRecord(request);
   return { ok: true, attachment };
 }
 
@@ -261,14 +294,20 @@ export async function deleteAttachmentAction(id: string): Promise<ActionResult> 
   const actor = await activeAccount();
   if (!actor) return { ok: false, error: SIGN_IN_AGAIN };
 
+  // Read the row before it goes: its record is the page that needs re-rendering
+  // afterwards, and by then there is nothing left to ask.
+  const attachment = await loadVisibleAttachment(id);
+
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('app_delete_attachment', { p_id: id });
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: registryMessage(error) };
 
   if (typeof data === 'string' && data !== '') {
     await removeObject(data);
   }
 
-  revalidatePath('/', 'layout');
+  if (attachment) {
+    revalidateRecord({ ticketId: attachment.ticketId, deviceId: attachment.deviceId });
+  }
   return { ok: true, message: 'Attachment removed.' };
 }

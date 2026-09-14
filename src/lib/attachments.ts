@@ -181,3 +181,38 @@ export function attachmentRefusal(file: { name: string; type: string; size: numb
   }
   return null;
 }
+
+/**
+ * How many bytes from the front of a file are enough to recognise it. WebP is
+ * the longest of the five: `RIFF`, four bytes of length, then `WEBP`.
+ */
+export const MIME_SIGNATURE_BYTES = 12;
+
+function startsWith(head: Uint8Array, bytes: number[], offset = 0): boolean {
+  if (head.length < offset + bytes.length) return false;
+  return bytes.every((byte, index) => head[offset + index] === byte);
+}
+
+/**
+ * Which of the five types a file really is, from its first bytes.
+ *
+ * A content type is a claim: the browser sends one with the upload and storage
+ * records what it was told, so a `.pdf` full of something else is recorded as a
+ * PDF unless somebody looks. These five all begin with a fixed signature, and
+ * looking is one comparison. Anything else — including a file too short to have
+ * a signature — comes back null, which the server treats as a refusal.
+ */
+export function sniffMime(head: Uint8Array): AttachmentMime | null {
+  if (startsWith(head, [0xff, 0xd8, 0xff])) return 'image/jpeg';
+  if (startsWith(head, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return 'image/png';
+  // 'GIF87a' and 'GIF89a'.
+  if (startsWith(head, [0x47, 0x49, 0x46, 0x38]) && (head[4] === 0x37 || head[4] === 0x39) && head[5] === 0x61) {
+    return 'image/gif';
+  }
+  // 'RIFF' …four bytes of length… 'WEBP'.
+  if (startsWith(head, [0x52, 0x49, 0x46, 0x46]) && startsWith(head, [0x57, 0x45, 0x42, 0x50], 8)) {
+    return 'image/webp';
+  }
+  if (startsWith(head, [0x25, 0x50, 0x44, 0x46, 0x2d])) return 'application/pdf';
+  return null;
+}

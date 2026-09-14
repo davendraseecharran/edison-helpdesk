@@ -24,12 +24,9 @@ import 'server-only';
  * bucket is only where the file happens to sit.
  */
 
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { adminClient } from '@/lib/supabase/admin';
-import { publicSupabaseConfig, serviceRoleKey } from '@/lib/supabase/config';
-import type { Attachment, AttachmentTarget } from '@/lib/attachments';
+import { MIME_SIGNATURE_BYTES, type Attachment, type AttachmentTarget } from '@/lib/attachments';
 
 export type { AttachmentTarget };
 
@@ -171,10 +168,15 @@ export interface StoredObject {
 /**
  * What storage actually accepted, read back from the bucket.
  *
- * This is the reason registration is server-side at all. The size and the
- * content type recorded in the registry come from HERE, never from what the
- * browser said it was about to upload, so a row cannot promise a 24 KiB PNG
- * that is really an 8 MiB something else.
+ * This is the reason registration is server-side at all: the SIZE recorded in
+ * the registry comes from HERE, never from what the browser said it was about
+ * to upload, so a row cannot promise a 24 KiB PNG that is really an 8 MiB
+ * something else.
+ *
+ * The content type is weaker evidence. Storage repeats the type the uploader
+ * declared; it does not open the file. `readObjectHead` below is what turns
+ * that claim into a fact, and registration refuses anything whose first bytes
+ * disagree with it.
  *
  * `info` is the direct question; not every storage version answers it, so a
  * listing of the containing folder is the fallback. Both report the object the
@@ -204,6 +206,43 @@ export async function readStoredObject(path: string): Promise<StoredObject | nul
   return { bytes: size, mime };
 }
 
+/**
+ * The first bytes of a stored object, for a signature check.
+ *
+ * The download is taken as a stream and dropped as soon as there are enough
+ * bytes to recognise the file, so an 8 MB PDF costs one chunk rather than a
+ * round trip for the whole thing. Null when the object cannot be read at all,
+ * which registration treats the same way as a file it cannot recognise.
+ */
+export async function readObjectHead(
+  path: string,
+  count = MIME_SIGNATURE_BYTES,
+): Promise<Uint8Array | null> {
+  const { data, error } = await bucket().download(path).asStream();
+  if (error || !data) return null;
+
+  const reader = data.getReader();
+  const head = new Uint8Array(count);
+  let filled = 0;
+  try {
+    while (filled < count) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = value as Uint8Array;
+      const take = Math.min(count - filled, chunk.length);
+      head.set(chunk.subarray(0, take), filled);
+      filled += take;
+    }
+  } catch {
+    return null;
+  } finally {
+    // Nothing else wants the rest of the file.
+    void reader.cancel().catch(() => {});
+  }
+
+  return filled === 0 ? null : head.subarray(0, filled);
+}
+
 /** A short-lived link to one object. The caller has already earned it. */
 export async function signedDownloadUrl(
   path: string,
@@ -229,44 +268,15 @@ export async function removeObject(path: string): Promise<void> {
 
 /* --- Trusted registration ------------------------------------------------ */
 
-/**
- * How a change was made, for the history row.
- *
- * Nothing sets this today: an upload is somebody pressing a button. The hook is
- * here because the assistant's tool executor already sends these two headers on
- * every write it makes, and the day it learns to attach a file the history has
- * to say "Mercedes Ortiz's AI" rather than quietly claiming she did it herself.
- * Attribution never widens access — `app_request_via()` fails closed to 'user'
- * and the actor still comes from the verified session.
- */
-export interface Attribution {
-  via?: string | null;
-  aiModel?: string | null;
-}
-
-function serviceClient(attribution?: Attribution): SupabaseClient {
-  const headers: Record<string, string> = {};
-  if (attribution?.via) headers['x-edison-via'] = attribution.via;
-  if (attribution?.aiModel) headers['x-edison-ai-model'] = attribution.aiModel;
-  if (Object.keys(headers).length === 0) return adminClient();
-
-  const { url } = publicSupabaseConfig();
-  return createSupabaseClient(url, serviceRoleKey(), {
-    auth: { persistSession: false, autoRefreshToken: false },
-    global: { headers },
-  });
-}
-
 export interface RegisterInput {
   /** The account the server verified. Never a value the browser supplied. */
   actorId: string;
   target: AttachmentTarget;
   path: string;
   filename: string;
-  /** Read back from the stored object, not claimed by the uploader. */
+  /** Read back from the stored object's own bytes, not claimed by the uploader. */
   mime: string;
   bytes: number;
-  attribution?: Attribution;
 }
 
 /**
@@ -282,8 +292,7 @@ export interface RegisterInput {
 export async function registerAttachment(
   input: RegisterInput,
 ): Promise<{ id: string } | { error: string }> {
-  const client = serviceClient(input.attribution);
-  const { data, error } = await client.rpc('app_trusted_register_attachment', {
+  const { data, error } = await adminClient().rpc('app_trusted_register_attachment', {
     p_actor: input.actorId,
     p_ticket: input.target.ticketId ?? null,
     p_device: input.target.deviceId ?? null,
@@ -294,6 +303,23 @@ export async function registerAttachment(
   });
   if (error) return { error: error.message };
   return { id: data as string };
+}
+
+/**
+ * What to say when one of the attachment RPCs refuses.
+ *
+ * The RPCs raise sentences meant for the person at the screen — "Only the
+ * person who attached this file, or an administrator, can remove it." — and
+ * mark each one with an errcode. Anything else PostgREST hands back describes
+ * the plumbing rather than the decision, and is no use to a technician, so it
+ * becomes the one sentence that tells them what to do next.
+ */
+export function registryMessage(error: { code?: string | null; message?: string | null }): string {
+  // no_data_found and insufficient_privilege: the two the RPCs raise on purpose.
+  const deliberate = error.code === 'P0002' || error.code === '42501';
+  const said = (error.message ?? '').trim();
+  if (deliberate && said !== '') return said;
+  return 'That change could not be saved. Refresh the page and try again.';
 }
 
 /**

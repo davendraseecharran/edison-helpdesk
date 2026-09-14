@@ -14,7 +14,14 @@
  * browser before they are uploaded, and which must be left exactly as chosen.
  */
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// `src/lib/data/attachments.ts` opens with `import 'server-only'`, which
+// throws outside a Server Component. Its pure exports never touch a database
+// or the bucket, so the marker is the only thing standing between this test
+// and them; stub it out the same way tests/ai/route.test.ts does.
+vi.mock('server-only', () => ({}));
+
 import {
   ATTACHMENT_MAX_BYTES,
   attachmentPath,
@@ -23,9 +30,11 @@ import {
   isAllowedMime,
   isImageMime,
   sanitiseFilename,
+  sniffMime,
   splitExtension,
   uniqueFilename,
 } from '../src/lib/attachments';
+import { registryMessage } from '../src/lib/data/attachments';
 import {
   asJpegName,
   fitWithin,
@@ -34,6 +43,7 @@ import {
   JPEG_QUALITY,
   MAX_EDGE,
   PNG_KEEP_MAX_BYTES,
+  prepareUpload,
   resizeDecision,
 } from '../src/lib/image/resize';
 
@@ -276,5 +286,67 @@ describe('asJpegName', () => {
     expect(asJpegName('IMG_0042.HEIC')).toBe('IMG_0042.jpg');
     expect(asJpegName('screenshot.png')).toBe('screenshot.jpg');
     expect(asJpegName('scan')).toBe('scan.jpg');
+  });
+});
+
+describe('sniffMime', () => {
+  const bytes = (...values: number[]) => Uint8Array.from(values);
+  const ascii = (text: string, ...rest: number[]) =>
+    Uint8Array.from([...[...text].map((c) => c.charCodeAt(0)), ...rest]);
+
+  it('recognises each of the five types the bucket takes', () => {
+    expect(sniffMime(bytes(0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10))).toBe('image/jpeg');
+    expect(sniffMime(bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00))).toBe('image/png');
+    expect(sniffMime(ascii('GIF89a'))).toBe('image/gif');
+    expect(sniffMime(ascii('GIF87a'))).toBe('image/gif');
+    // 'RIFF', four bytes of length, then 'WEBP'.
+    expect(sniffMime(Uint8Array.from([...ascii('RIFF'), 0x1a, 0x00, 0x00, 0x00, ...ascii('WEBP')]))).toBe(
+      'image/webp',
+    );
+    expect(sniffMime(ascii('%PDF-1.7'))).toBe('application/pdf');
+  });
+
+  it('refuses a file whose declared type is the only thing PDF about it', () => {
+    expect(sniffMime(ascii('PK', 0x03, 0x04))).toBeNull();
+    expect(sniffMime(ascii('<?xml version="1.0"?>'))).toBeNull();
+  });
+
+  it('refuses anything too short, or too nearly right, to carry a signature', () => {
+    expect(sniffMime(bytes())).toBeNull();
+    expect(sniffMime(bytes(0xff, 0xd8))).toBeNull();
+    // A RIFF container that is not a WebP.
+    expect(sniffMime(Uint8Array.from([...ascii('RIFF'), 0x1a, 0x00, 0x00, 0x00, ...ascii('AVI ')]))).toBeNull();
+  });
+});
+
+describe('registryMessage', () => {
+  it('passes on the sentence the RPC raised for the person', () => {
+    expect(
+      registryMessage({
+        code: '42501',
+        message: 'Only the person who attached this file, or an administrator, can remove it.',
+      }),
+    ).toBe('Only the person who attached this file, or an administrator, can remove it.');
+    expect(
+      registryMessage({ code: 'P0002', message: 'That attachment is no longer available.' }),
+    ).toBe('That attachment is no longer available.');
+  });
+
+  it('keeps the plumbing to itself and says what to do instead', () => {
+    expect(registryMessage({ code: 'PGRST202', message: 'Could not find the function' })).toMatch(
+      /Refresh the page and try again/,
+    );
+    expect(
+      registryMessage({ code: '42883', message: 'operator does not exist: uuid = text' }),
+    ).not.toMatch(/operator/);
+  });
+});
+
+describe('prepareUpload', () => {
+  it('refuses a file that is neither an image nor a PDF instead of uploading it', async () => {
+    const chosen = new File([Uint8Array.from([0x50, 0x4b])], 'stuff.zip', {
+      type: 'application/zip',
+    });
+    await expect(prepareUpload(chosen)).rejects.toThrow(/JPEG, PNG, WebP, GIF or PDF/);
   });
 });

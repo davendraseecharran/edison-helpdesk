@@ -29,6 +29,9 @@ import { Icon } from '@/components/ui/Icon';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Lightbox } from './Lightbox';
 
+/** One shared empty map, so a render with no links does not make a new object. */
+const NO_URLS: Record<string, string> = {};
+
 export interface AttachmentGridProps {
   items: Attachment[];
   /** Called once the row is gone, so the panel can drop it from its list. */
@@ -39,7 +42,14 @@ export function AttachmentGrid({ items, onDeleted }: AttachmentGridProps) {
   const { directory, pendingKey, run } = useRuntime();
   const actor = useActorAccount();
 
-  const [urls, setUrls] = useState<Record<string, string>>({});
+  // The links, with the exact set of pictures they were fetched for. Holding the
+  // key alongside them is what keeps a link from an earlier set off the screen:
+  // when the set changes — a file removed, the last picture gone — the map no
+  // longer matches and nothing is shown until the new links arrive.
+  const [links, setLinks] = useState<{ key: string; urls: Record<string, string> }>({
+    key: '',
+    urls: {},
+  });
   const [open, setOpen] = useState<number | null>(null);
   const [confirming, setConfirming] = useState<Attachment | null>(null);
 
@@ -49,6 +59,8 @@ export function AttachmentGrid({ items, onDeleted }: AttachmentGridProps) {
     .filter((item) => isImageMime(item.mime))
     .map((item) => item.id)
     .join(',');
+
+  const urls = links.key === imageKey ? links.urls : NO_URLS;
 
   useEffect(() => {
     const wanted = imageKey === '' ? [] : imageKey.split(',');
@@ -64,7 +76,7 @@ export function AttachmentGrid({ items, onDeleted }: AttachmentGridProps) {
       if (!current) return;
       const next: Record<string, string> = {};
       for (const pair of pairs) if (pair) next[pair[0]] = pair[1];
-      setUrls(next);
+      setLinks({ key: imageKey, urls: next });
     });
 
     return () => {
@@ -143,7 +155,7 @@ export function AttachmentGrid({ items, onDeleted }: AttachmentGridProps) {
                   size="sm"
                   icon={Trash2}
                   aria-label={`Remove ${item.filename}`}
-                  disabled={pendingKey !== null}
+                  disabled={pendingKey === `attachment:delete:${item.id}`}
                   onClick={() => setConfirming(item)}
                 />
               ) : null}

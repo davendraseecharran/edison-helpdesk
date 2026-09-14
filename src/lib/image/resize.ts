@@ -134,12 +134,16 @@ export function asJpegName(name: string): string {
  * The file to actually upload: the original, or a smaller JPEG of it.
  *
  * Failure here is never fatal on its own — an image the canvas cannot re-encode
- * is uploaded as it was chosen, provided it is small enough — except for HEIC,
- * where the original is of no use to anybody either and the person is told what
- * to do instead.
+ * is uploaded as it was chosen, provided it is small enough. Two things are
+ * refused rather than tried: a HEIC this browser cannot decode, where the
+ * original is of no use to anybody either, and a file that is neither an image
+ * nor a PDF. Both throw the sentence the person needs to read.
  */
 export async function prepareUpload(file: File): Promise<File> {
   const decision = resizeDecision(file);
+  // Neither an image nor a PDF: there is nothing to shrink and nothing worth
+  // uploading. The uploader shows `reason` where the file was dropped.
+  if (decision.action === 'refuse') throw new Error(decision.reason);
   if (decision.action !== 'encode') return file;
 
   let bitmap: ImageBitmap;
