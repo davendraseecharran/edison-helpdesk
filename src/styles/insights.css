@@ -1,0 +1,373 @@
+/*
+ * The insights page: figures, charts and the two tables that read as charts.
+ *
+ * Built on the tokens and on `.panel` from `tickets.css`; nothing here names a
+ * colour or a font. Both themes come free of that, because the marks are drawn
+ * with `--signal` and `--ok`, which are already selected for each theme's own
+ * surface rather than flipped from one another.
+ *
+ * The one structural idea worth knowing: the line chart's paths live in a
+ * `preserveAspectRatio="none"` viewBox and stretch to whatever width the panel
+ * has, while every label, tick and dot is HTML positioned by percentage over the
+ * same box. Text therefore never scales with the plot — the reason the axis is
+ * the same size on a phone as on a desktop — and the plot height is the single
+ * `--plot-h` custom property below, so one media query resizes the whole chart.
+ *
+ * Nothing on this page animates. A chart that draws itself in is a chart you
+ * cannot read for the first half-second, and there is no value in it.
+ */
+
+.insights {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* The column gap already separates the header from the first row of figures;
+   the header's own margin tops it up to the 24px every other page uses. */
+.insights .page-header {
+  margin-bottom: 8px;
+}
+
+/* --- Figures ------------------------------------------------------------ */
+
+.insights-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+}
+
+/*
+ * The one live figure in a row of figures about a period. The keyline is a
+ * marker, not an encoding: the tile says "right now" in words underneath.
+ */
+.stat-tile-accent {
+  box-shadow: inset 3px 0 0 var(--brass);
+}
+
+.stat-tile-label {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.stat-tile-value {
+  color: var(--ink);
+  font-size: var(--fs-6);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.stat-tile-meta {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+/* --- Chart shell -------------------------------------------------------- */
+
+.chart {
+  --plot-h: 224px;
+  margin: 0;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-bottom: 14px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.chart-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A short stroke of the series colour, mirroring the mark it stands for. */
+.chart-key-line {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 2px;
+  border-radius: 2px;
+}
+
+.chart-frame {
+  display: flex;
+  align-items: flex-start;
+}
+
+.chart-y {
+  position: relative;
+  flex: 0 0 34px;
+  height: var(--plot-h);
+}
+
+.chart-y-tick {
+  position: absolute;
+  right: 8px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-variant-numeric: tabular-nums;
+  transform: translateY(-50%);
+}
+
+.chart-main {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.chart-plot {
+  position: relative;
+  height: var(--plot-h);
+}
+
+/* Visible overflow so a value sitting on the axis maximum keeps both pixels
+   of its stroke instead of being shaved by the viewport edge. */
+.chart-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.chart-grid line {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+
+.chart-path {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chart-path.chart-opened {
+  stroke: var(--signal);
+}
+
+.chart-path.chart-resolved {
+  stroke: var(--ok);
+}
+
+.chart-key-line.chart-opened,
+.chart-dot.chart-opened {
+  background: var(--signal);
+}
+
+.chart-key-line.chart-resolved,
+.chart-dot.chart-resolved {
+  background: var(--ok);
+}
+
+/* The ring is the surface, so the two end dots stay separate where they meet. */
+.chart-dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 999px;
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.chart-end {
+  display: none;
+}
+
+.chart-hits {
+  display: flex;
+  position: absolute;
+  inset: 0;
+}
+
+.chart-hit {
+  height: 100%;
+}
+
+.chart-x {
+  position: relative;
+  height: 16px;
+  margin-top: 10px;
+}
+
+.chart-x-tick {
+  position: absolute;
+  top: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+/* The first and last dates are pulled inside the plot so neither hangs off it. */
+.chart-x-first {
+  transform: none;
+}
+
+.chart-x-last {
+  transform: translateX(-100%);
+}
+
+/*
+ * From 720px there is room for a gutter, and the two lines can name themselves
+ * where they end. Below it the legend does that job alone: a label crammed
+ * against the right edge of a phone would cover the data it belongs to.
+ */
+@media (min-width: 720px) {
+  .chart-main {
+    padding-right: 92px;
+  }
+
+  .chart-end {
+    display: block;
+    position: absolute;
+    left: calc(100% + 10px);
+    color: var(--ink-2);
+    font-size: var(--fs-0);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    transform: translateY(-50%);
+  }
+}
+
+@media (max-width: 719.98px) {
+  .chart {
+    --plot-h: 170px;
+  }
+
+  .chart-y {
+    flex-basis: 28px;
+  }
+
+  /*
+   * Seven dates are two too many across a phone, and "Aug 16Aug 21" is worse
+   * than no label at all. Every second one is dropped rather than the axis
+   * re-thinned on the server, which cannot know the width: with an odd number
+   * of ticks — which is what seven evenly spaced ones are — that keeps both
+   * ends, and the `:not(:last-child)` guard keeps the last date if a very
+   * short range ever leaves an even number behind.
+   */
+  .chart-x-tick:nth-child(even):not(:last-child) {
+    display: none;
+  }
+
+  .stat-tile-value {
+    font-size: var(--fs-5);
+  }
+}
+
+/* --- Bars --------------------------------------------------------------- */
+
+.bars {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Block padding only. The gutters belong to the label and the count, and a
+   `padding` shorthand here would out-specify them — `.bars td` beats
+   `.bars-value` — and leave every number touching the end of its own bar. */
+.bars th,
+.bars td {
+  padding-block: 6px;
+  vertical-align: middle;
+}
+
+.bars-label {
+  width: 1%;
+  padding-inline: 0 12px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+
+/* The track takes whatever the label and the count leave. */
+.bars-track {
+  width: 100%;
+  min-width: 48px;
+}
+
+.bars-value {
+  width: 1%;
+  padding-inline: 12px 0;
+  color: var(--ink);
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.bars-svg {
+  display: block;
+  width: 100%;
+  height: 12px;
+}
+
+.bars-fill {
+  fill: var(--signal);
+}
+
+@media (max-width: 719.98px) {
+  .bars-label {
+    max-width: 44%;
+    white-space: normal;
+  }
+}
+
+/* --- Sections ----------------------------------------------------------- */
+
+.insights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.insights-grid-wide {
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
+}
+
+.insights-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px 24px;
+}
+
+.chart-block {
+  min-width: 0;
+}
+
+.chart-heading {
+  margin-bottom: 6px;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  font-weight: 600;
+}
+
+/* --- Technicians -------------------------------------------------------- */
+
+.tech-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tech-blank {
+  color: var(--ink-3);
+}
