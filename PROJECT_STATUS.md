@@ -21,7 +21,7 @@ Vercel repository connection still fails private-repository access; automatic de
 
 ## First administrator — user action required (M4, unchanged)
 
-Jessie Kalloo / jkalloo@schools.nyc.gov exists as a setup-pending super admin on the hosted project; the password is not chosen yet, and the September 12 private setup link has expired. If it is still pending, rerun the guarded hosted bootstrap with the same identity to issue a new private link; if it has since been activated, use normal recovery, not bootstrap. Do not paste a link or token into chat.
+The first administrator (identity recorded in docs/handoffs/M4-PRE-LAUNCH-STATUS.md) exists as a setup-pending super admin on the hosted project; the password is not chosen yet, and the September 12 private setup link has expired. If it is still pending, rerun the guarded hosted bootstrap with the same identity to issue a new private link; if it has since been activated, use normal recovery, not bootstrap. Do not paste a link or token into chat.
 
 Hosted counts are unchanged: **1 app account, 1 Auth user, 0 tickets**. No real student/staff/ticket/inventory imports have happened anywhere.
 

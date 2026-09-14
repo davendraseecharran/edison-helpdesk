@@ -6,9 +6,10 @@
 > See [M5-PLATFORM-OVERHAUL.md](M5-PLATFORM-OVERHAUL.md).
 
 The approved interface now runs on real local Supabase Auth and persisted data.
-Technicians sign in with a school email and a separate app password they choose
-themselves; administrators create accounts and hand over single-use setup and
-recovery links in person. Everything is local and synthetic: no hosted project,
+Password sign-in (since M5 the administrator's break-glass path; technicians
+normally sign in with Google) uses a school email and a separate app password
+the person chooses themselves; administrators create password accounts and
+hand over single-use setup and recovery links in person. Everything is local and synthetic: no hosted project,
 no deployment, no real school data.
 
 ## Contents
