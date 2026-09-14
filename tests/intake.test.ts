@@ -155,7 +155,7 @@ describe('admin intake', () => {
         ownerId: IDS.alex,
       }),
     );
-    expect(error).toMatch(/active technician/i);
+    expect(error).toMatch(/active NetRider/i);
   });
 });
 

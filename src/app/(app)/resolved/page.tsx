@@ -27,7 +27,7 @@ export default async function ResolvedPage({
         description={
           admin
             ? 'Every resolved and cancelled ticket, with the solution, the resolver and the original owner kept apart. Cancellations never count as resolutions.'
-            : 'Resolved and cancelled tickets you owned or helped with. Work belonging to other technicians is not listed here.'
+            : 'Resolved and cancelled tickets you owned or helped with. Work belonging to other NetRiders is not listed here.'
         }
       />
       <TicketListView

@@ -8,7 +8,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Edison Helpdesk',
   applicationName: 'Edison Helpdesk',
-  description: 'Internal helpdesk for Edison technicians.',
+  description: 'Internal helpdesk for the Edison NetRiders.',
   // An internal tool with real accounts should not be indexed.
   robots: { index: false, follow: false },
   manifest: '/manifest.webmanifest',

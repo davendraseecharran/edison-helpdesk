@@ -41,7 +41,7 @@ export default async function TicketDetailPage({
           title="Ticket not available"
           action={<ButtonLink href="/queue">Back to the queue</ButtonLink>}
         >
-          This ticket does not exist, or it belongs to work you are not part of. Technicians see
+          This ticket does not exist, or it belongs to work you are not part of. NetRiders see
           the queue plus the tickets they own or collaborate on.
         </EmptyState>
       </div>

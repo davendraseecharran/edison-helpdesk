@@ -142,7 +142,7 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
               </Button>
             </div>
             <p className="panel-note">
-              Cannot finish it? Release the ticket for another technician. Notes, devices, time,
+              Cannot finish it? Release the ticket for another NetRider. Notes, devices, time,
               collaborators and history all stay with it.
             </p>
           </div>

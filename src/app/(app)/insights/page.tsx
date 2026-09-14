@@ -186,7 +186,7 @@ export default async function InsightsPage({
       <section className="panel" aria-labelledby="insights-team-heading">
         <div className="panel-head">
           <h2 className="panel-title" id="insights-team-heading">
-            Technicians
+            NetRiders
           </h2>
           <span className="panel-aside">{rangeLabel}</span>
         </div>
@@ -236,7 +236,7 @@ export default async function InsightsPage({
           <div className="panel-body">
             {ticketDeviceRows.length === 0 ? (
               <EmptyState title={`No devices recorded on tickets ${since}`}>
-                A technician can note the machine a ticket is about while working on it.
+                A NetRider can note the machine a ticket is about while working on it.
               </EmptyState>
             ) : (
               <BarChart

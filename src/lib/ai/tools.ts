@@ -518,7 +518,7 @@ const TOOLS: Record<string, ToolSpec> = {
 
   list_my_tickets: {
     group: 'read',
-    description: 'The tickets this technician owns right now.',
+    description: 'The tickets this NetRider owns right now.',
     fields: {
       limit: { type: 'integer', description: 'How many to return. Default 25, at most 100.' },
     },
@@ -609,7 +609,7 @@ const TOOLS: Record<string, ToolSpec> = {
 
   list_notifications: {
     group: 'read',
-    description: "This technician's own notifications, newest first.",
+    description: "This NetRider's own notifications, newest first.",
     fields: {
       unread_only: { type: 'boolean', description: 'Only the ones not yet read.' },
       limit: { type: 'integer', description: 'How many to return. Default 20, at most 100.' },
@@ -713,7 +713,7 @@ const TOOLS: Record<string, ToolSpec> = {
 
   add_note: {
     group: 'write',
-    description: 'Add a work note to a ticket. Notes are permanent and are attributed to this technician.',
+    description: 'Add a work note to a ticket. Notes are permanent and are attributed to this NetRider.',
     fields: {
       ticket: { type: 'string', required: true, description: 'Ticket number or id.' },
       body: { type: 'string', required: true, description: 'What to record.' },

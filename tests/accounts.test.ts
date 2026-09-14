@@ -47,7 +47,7 @@ describe('creating accounts', () => {
       expectFail(
         createTechnicianAccount(data, contextFor(IDS.admin), { displayName: ' ', email: 'a@b.co' }),
       ),
-    ).toMatch(/technician name/i);
+    ).toMatch(/their name/i);
     expect(
       expectFail(
         createTechnicianAccount(data, contextFor(IDS.admin), {

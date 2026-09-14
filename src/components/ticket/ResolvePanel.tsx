@@ -68,7 +68,7 @@ export function ResolvePanel({ detail }: { detail: TicketDetail }) {
                   setSolution(event.target.value);
                   setError(null);
                 }}
-                placeholder="What fixed it, and anything the next technician should know."
+                placeholder="What fixed it, and anything the next NetRider should know."
               />
             </Field>
             <div className="form-actions">
