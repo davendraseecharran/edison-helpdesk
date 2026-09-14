@@ -672,6 +672,45 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  // --- Write --------------------------------------------------------------
+
+  create_ticket: {
+    group: 'write',
+    description:
+      'Open a new ticket. Name the requester from the directory, or leave them out when there is nobody to name.',
+    fields: {
+      title: { type: 'string', required: true, description: 'A short summary of the problem.' },
+      issue: { type: 'string', required: true, description: 'What the requester reported, in full.' },
+      channel: { type: 'string', required: true, description: 'How the request arrived.', choices: CHANNELS },
+      priority: { type: 'string', description: 'Default normal.', choices: PRIORITIES },
+      category: { type: 'string', description: 'Default other.', choices: CATEGORIES },
+      person: { type: 'string', description: 'The requester as a directory record: name, email, OSIS or staff id. Leave it out when nobody is named.' },
+      location: { type: 'string', description: 'Room or area the problem is in.' },
+      claim: { type: 'boolean', description: 'True to take ownership immediately instead of leaving it in the queue.' },
+    },
+    run: async (args, ctx) => {
+      // The directory is the district's, so a requester is somebody already in
+      // it or nobody at all. There is no inline "new requester" path, and the
+      // database refuses one.
+      const person = args.person === undefined ? null : await resolvePerson(ctx, String(args.person));
+      const id = await rpc(ctx, 'app_create_ticket', {
+        p_title: args.title,
+        p_issue: args.issue,
+        p_channel: args.channel,
+        p_priority: args.priority ?? 'normal',
+        p_requester_id: person?.id ?? null,
+        p_requester_unknown: person === null,
+        p_location: args.location ?? null,
+        p_owner_id: args.claim === true ? ctx.actor.id : null,
+        p_category: args.category ?? 'other',
+      });
+      const detail = await rpc(ctx, 'app_ticket_detail', { p_ticket: id });
+      const ticket = isRecord(detail) && isRecord(detail.ticket) ? detail.ticket : {};
+      const number = textOf(ticket.number) || 'the ticket';
+      return outcome({ id, number }, `Opened ${number}: ${String(args.title)}`);
+    },
+  },
+
   claim_ticket: {
     group: 'write',
     description: 'Take ownership of an unclaimed ticket.',
