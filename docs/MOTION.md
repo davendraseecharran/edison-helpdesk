@@ -30,7 +30,9 @@ Two rules hold everywhere and are not repeated per row:
 | Dialogs | open | `opacity`, `scale` 0.98 → 1, centred | 220 ms (`DURATION.slow`) | spring, no bounce | none |
 | Dialogs | close | `opacity`, `scale` | 120 ms (`DURATION.fast`) | `easeOut` | none |
 | Scrim behind any modal surface | open | `opacity`; the ground is `--scrim` with `backdrop-filter: blur(12px) saturate(120%)` | 200 ms | `--ease-out` | opacity only |
-| Sheets (phone) | open | `translateY(100% → 0)` | 220 ms | spring, no bounce | none |
+| Drawers (phone bottom sheets) | open | `translateY(100% → 0)`, then the finger | vaul's own | vaul's own | none |
+| Drawers | drag | follows the pointer, damped past the boundary; released above the velocity threshold it dismisses, below it returns | — | — | drag still works; nothing else moves |
+| Sheets (desktop, from the right) | open | `translateX(100% → 0)` | 220 ms | spring, no bounce | none |
 | Command palette | open | **none** — no scale, no slide | 0 | — | — |
 | Palette selection | arrow key | **none** | 0 | — | — |
 | Assistant composer | panel opens | one border-beam lap | 3 s, once | linear | not rendered |
@@ -73,6 +75,22 @@ another stylesheet is how a design system starts drifting.
 **One lit element.** `--edge-light` is not motion, but it belongs in the same
 discipline: `src/styles/lamp.css` is the only place that decides which element
 wears it, and it is taken from whatever held it rather than added.
+
+## Where the behaviour comes from
+
+Some of these primitives are ours and some are shadcn/ui's, copied into
+`src/components/ui/shadcn/` and ported to our tokens. The rule for taking one:
+we keep it while ours is as good, and swap when theirs is better at the thing
+that is hard — dragging, focus, dismissal, the keyboard — because none of that
+is where this product's ideas are.
+
+| Primitive | Behaviour from | Why |
+| --- | --- | --- |
+| `Sheet` (bottom) | shadcn Drawer, on vaul | A bottom sheet is dragged. Ours slid on a spring and ignored the finger; vaul brings the drag, the velocity threshold, the boundary damping and the handle. Our header, body and footer markup, our tokens, our scrim. |
+| `Sheet` (right), `Dialog` | ours (`Overlay` + `SpringSurface`) | Nothing drags a desktop side panel, and the focus trap, the scroll lock and the exit are already right. |
+| Command palette | cmdk | Unchanged, and staying: the layout, the groups and the instant open are the product's own. |
+| Toasts | ours (`toast.ts` reducer) | Sonner is in the repository and not yet wired: our reducer carries tested behaviour Sonner does not have — a hold while the tab is hidden, a hold while a toast has focus, and a deadline armed from the reducer's own clock. Swapping it would delete tests, so it waits for a decision. |
+| Buttons, inputs, tables, menus, tabs, badges | ours | Every one of them is a class over our tokens, and there is nothing shadcn does with them that this product needs and does not have. |
 
 ## Verifying
 
