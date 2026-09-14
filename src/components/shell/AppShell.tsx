@@ -120,6 +120,7 @@ export function AppShell({
         unreadNotifications={unreadNotifications}
         notifyInApp={notifyInApp}
         onOpenLookup={showLookup}
+        newTicketShortcut={pathname !== '/tickets/new'}
       />
       <RailNav items={items} />
       <main className="main" id="main-content" tabIndex={-1}>

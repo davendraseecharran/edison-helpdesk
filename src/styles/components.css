@@ -982,6 +982,7 @@ p.flash {
   align-items: flex-end;
   gap: 12px;
   padding: 12px 16px;
+  min-height: 64px;
   border-bottom: 1px solid var(--line);
 }
 
@@ -995,7 +996,12 @@ p.flash {
  *
  * The bar has to be opaque, because rows scroll behind it, and above the table
  * header, which sticks too; the header's `top` adds `--filter-h`, the same
- * measurement, so the two never overlap and no gap opens between them.
+ * measurement, so the two never overlap and no gap opens between them. The
+ * fallback matches `.filter-bar`'s `min-height` (its single-row height, 40px
+ * of controls plus 12px of padding on each side): FilterBar's `useEffect`
+ * only publishes `--filter-h` after hydration, so before that the fallback
+ * has to already match the bar's real height or the sticky header sits under
+ * it for a frame.
  */
 @media (min-width: 1024px) {
   .filter-bar:not([data-tall]) {
@@ -1006,7 +1012,7 @@ p.flash {
   }
 
   .table thead th {
-    top: calc(var(--topbar-h) + var(--filter-h, 0px));
+    top: calc(var(--topbar-h) + var(--filter-h, 64px));
   }
 }
 

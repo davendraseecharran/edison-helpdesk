@@ -30,10 +30,17 @@ export function isEditable(target: EventTarget | null): boolean {
  *
  * The palette, the sheets, the dialogs and the account and bell popovers all
  * carry `role="dialog"` with `aria-modal="true"`, which is both the honest
- * accessibility answer and the one selector everything here can agree on.
+ * accessibility answer and the one selector everything here can agree on. The
+ * assistant panel is a partial exception: on desktop it sits beside the page
+ * rather than over it, so it only sets `aria-modal` in the phone layout — but
+ * it still owns the keyboard while it has focus, so it marks its root with
+ * `data-keyboard-owner` for this check to catch either way.
  */
 export function modalOpen(): boolean {
-  return document.querySelector('[role="dialog"][aria-modal="true"]') !== null;
+  return (
+    document.querySelector('[role="dialog"][aria-modal="true"]') !== null ||
+    document.querySelector('[data-keyboard-owner]') !== null
+  );
 }
 
 /** A plain press of `key`: no modifier, no repeat, not mid-composition. */

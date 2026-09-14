@@ -27,11 +27,16 @@ export function TopBar({
   unreadNotifications,
   notifyInApp = true,
   onOpenLookup,
+  newTicketShortcut = true,
 }: {
   unreadNotifications: number;
   /** The account's `notify_in_app` setting. False hides the bell's count. */
   notifyInApp?: boolean;
   onOpenLookup: () => void;
+  /** Whether AppShell has the `n` shortcut bound right now. False on
+   * `/tickets/new` itself, where the keycap would promise a key that does
+   * nothing. */
+  newTicketShortcut?: boolean;
 }) {
   return (
     <header className="topbar">
@@ -52,10 +57,13 @@ export function TopBar({
           {/* The `n` shortcut AppShell binds, shown on the control it presses.
               `collapseOnPhone` wraps these children in `.btn-label`, which is
               visually hidden below 720px, so the keycap goes with the label on
-              a phone — where there is no hardware keyboard to press it. */}
-          <kbd className="kbd kbd-in-button" aria-hidden="true">
-            n
-          </kbd>
+              a phone — where there is no hardware keyboard to press it. Hidden
+              on `/tickets/new` itself, where AppShell leaves `n` unbound. */}
+          {newTicketShortcut ? (
+            <kbd className="kbd kbd-in-button" aria-hidden="true">
+              n
+            </kbd>
+          ) : null}
         </ButtonLink>
         <NotificationsBell unread={unreadNotifications} showCount={notifyInApp} />
         <AiToggle />

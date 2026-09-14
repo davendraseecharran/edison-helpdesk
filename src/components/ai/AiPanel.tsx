@@ -469,7 +469,7 @@ export function AiPanel({
   return createPortal(
     <AnimatePresence onExitComplete={() => setExiting(false)}>
       {open ? (
-        <div key="assistant" className="ai-root" data-layout={layout}>
+        <div key="assistant" className="ai-root" data-layout={layout} data-keyboard-owner="true">
           {modal ? (
             <motion.div
               className="ai-scrim"
