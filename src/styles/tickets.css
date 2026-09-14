@@ -99,7 +99,6 @@
 }
 
 .callout-warn {
-  border-color: var(--warn);
   background: var(--warn-soft);
   color: var(--ink);
 }
@@ -883,6 +882,12 @@
     height: 64px;
   }
 
+  /*
+   * The page scrolls under this, so it is a raised thing and not a section of
+   * the page: the rule says where it starts and a soft lift upwards says it is
+   * on top. Without the lift a card scrolling behind it looked like a card cut
+   * in half.
+   */
   .ticket-bar {
     position: fixed;
     right: 0;
@@ -894,6 +899,7 @@
     padding: 10px 16px 26px;
     background: var(--surface);
     border-top: 1px solid var(--line);
+    box-shadow: 0 -10px 24px -14px color-mix(in srgb, var(--ink) 40%, transparent);
   }
 
   .ticket-bar .btn {
@@ -982,6 +988,7 @@
     padding: 10px 16px 26px;
     background: var(--surface);
     border-top: 1px solid var(--line);
+    box-shadow: 0 -10px 24px -14px color-mix(in srgb, var(--ink) 40%, transparent);
   }
 
   .intake-actions .btn-primary {
