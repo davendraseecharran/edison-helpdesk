@@ -114,13 +114,23 @@ create unique index people_email_idx on public.people (email) where email is not
 --     where p.display_name % p_query
 --     order by extensions.similarity(p.display_name, p_query) desc
 --
---   people_search_trgm is kept on the same terms, and is usable ONLY by a
+--   people_search_trgm was kept on the same terms, and was usable ONLY by a
 --   predicate written over the identical expression, verbatim:
 --     where (coalesce(p.email,'') || ' ' || coalesce(p.osis,'') || ' ' ||
 --            coalesce(p.staff_id,'')) % p_query
---   which is what lets the lookup bar find somebody from the middle of an OSIS
---   or a staff id rather than only from its start. If Task 11 does not write it
---   that way, this index serves nothing and should be dropped there.
+--   which was meant to let the lookup bar find somebody from the middle of an
+--   OSIS or a staff id rather than only from its start. The terms were "if Task
+--   11 does not write it that way, this index serves nothing and should be
+--   dropped there", and that is what happened:
+--   20260912100510_m5_search_fixes.sql DROPS people_search_trgm. Task 11
+--   measured the predicate before adopting it and it does not do what this
+--   paragraph promised — similarity() divides shared trigrams by the union of
+--   both strings, so a short query against a long concatenation scores far under
+--   the threshold and matches NOTHING, while two long concatenations that share
+--   their shape (every address ending `@edison.example`) match each other
+--   whatever the identifiers are. Read 100510 for the numbers and for what the
+--   capability actually needs (word_similarity, `<%`). The statement below is
+--   kept as applied; the index it creates no longer exists.
 create index people_display_name_trgm
   on public.people using gin (display_name extensions.gin_trgm_ops);
 create index people_search_trgm
