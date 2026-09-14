@@ -123,7 +123,7 @@ describe('trusted writers are unreachable from a session', () => {
     [
       'app_log_record_event',
       {
-        p_entity_type: 'person',
+        p_entity_type: 'requester',
         p_entity_id: '00000000-0000-0000-0000-000000000000',
         p_kind: 'forged',
         p_actor: null,
@@ -290,7 +290,7 @@ describe('record events', () => {
     // the column default. Splitting them also proves the default applies.
     const plain = await service.from('record_events').insert([
       {
-        entity_type: 'person',
+        entity_type: 'requester',
         entity_id: personId,
         kind: 'person_created',
         actor_id: identity('admin').id,
@@ -307,7 +307,7 @@ describe('record events', () => {
     if (plain.error) throw new Error(`Could not seed record events: ${plain.error.message}`);
 
     const assisted = await service.from('record_events').insert({
-      entity_type: 'device',
+      entity_type: 'inventory_device',
       entity_id: deviceId,
       kind: 'device_created',
       actor_id: identity('admin').id,
@@ -332,7 +332,7 @@ describe('record events', () => {
     const { data, error } = await owner.from('record_events').select('entity_type, entity_id');
     expect(error).toBeNull();
     const types = new Set((data ?? []).map((row) => row.entity_type));
-    expect(types).toEqual(new Set(['person', 'device']));
+    expect(types).toEqual(new Set(['requester', 'inventory_device']));
   });
 
   it('lets an admin read account history too', async () => {
@@ -345,8 +345,8 @@ describe('record events', () => {
     // this file depend on which other suite happened to run first, because
     // record events are append-only and other M5 suites write admin-only kinds
     // (invites, imports) into the same table.
-    expect(types).toContain('person');
-    expect(types).toContain('device');
+    expect(types).toContain('requester');
+    expect(types).toContain('inventory_device');
     expect(types).toContain('account');
   });
 
@@ -371,7 +371,7 @@ describe('record events', () => {
 
   it('cannot be written, rewritten or erased from a session', async () => {
     const insert = await admin.from('record_events').insert({
-      entity_type: 'person',
+      entity_type: 'requester',
       entity_id: personId,
       kind: 'forged',
       summary: 'Fabricated history',
@@ -409,7 +409,7 @@ describe('record events', () => {
     expect(badType.error?.message).toMatch(/record_events_entity_type_valid/);
 
     const badVia = await service.from('record_events').insert({
-      entity_type: 'person',
+      entity_type: 'requester',
       entity_id: personId,
       kind: 'person_created',
       summary: 'Wrong attribution',

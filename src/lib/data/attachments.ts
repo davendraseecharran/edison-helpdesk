@@ -31,7 +31,7 @@ import 'server-only';
  * bytes with no row behind them are unreachable by any caller. Clearing them
  * is an operator's periodic sweep — objects in the bucket with no matching
  * `attachments.path` — described in the attachments migration and the
- * deployment runbook. See 20260912100800_m5_attachments.sql, decision 5.
+ * deployment runbook. See 20260914100800_m5_attachments.sql, decision 5.
  */
 
 import { createClient } from '@/lib/supabase/server';

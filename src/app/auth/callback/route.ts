@@ -43,7 +43,7 @@ type LinkOutcome = 'existing' | 'invited' | 'requested' | 'unverified';
 /**
  * `app_trusted_link_identity` raising `access_requests_full`, as PostgREST
  * reports it. Fifty outstanding requests is the bound; see
- * 20260912101400_m5_access_request_cap.sql.
+ * 20260914101400_m5_access_request_cap.sql.
  */
 const REQUESTS_FULL = 'P9003';
 

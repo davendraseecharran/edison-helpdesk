@@ -5,13 +5,13 @@
 -- a SECURITY DEFINER RPC that re-derives the actor inside the database, and
 -- history is append-only.
 --
--- Three pieces land here because the later people/device/invite/audit migrations
+-- Three pieces land here because the later directory/inventory/invite/audit migrations
 -- all build on them:
 --
 --   1. `notifications` — per-account, private, written only by trusted code.
 --   2. `record_events` — the append-only history for non-ticket records
---      (people, devices, invites, imports, accounts), mirroring what
---      `activity_events` does for tickets.
+--      (requesters, inventory devices, invites, imports, accounts), mirroring
+--      what `activity_events` does for tickets.
 --   3. Attribution — every event now records whether it was performed by a
 --      person working directly or by an AI assistant acting on their behalf,
 --      and which model that was.
@@ -139,14 +139,16 @@ create table public.record_events (
   at timestamptz not null default now(),
   summary text not null,
   detail text,
+  -- The people and devices this application records history for are the
+  -- district's own: public.requesters and public.inventory_devices.
   constraint record_events_entity_type_valid check (
-    entity_type in ('person', 'device', 'invite', 'import', 'account')
+    entity_type in ('requester', 'inventory_device', 'invite', 'import', 'account')
   ),
   constraint record_events_performed_via_valid check (performed_via in ('user', 'ai'))
 );
 
 comment on table public.record_events is
-  'Append-only history for people, devices, invites, imports and accounts. Detail text must never contain a link, token, or password.';
+  'Append-only history for requesters, inventory devices, invites, imports and accounts. Detail text must never contain a link, token, or password.';
 
 create index record_events_entity_idx on public.record_events (entity_type, entity_id, at);
 
@@ -360,14 +362,14 @@ create policy notifications_update_own
 -- Deliberately absent: INSERT and DELETE policies. Notices are created by
 -- trusted code and are never erased from a session.
 
--- People and devices are shared helpdesk records, so their history is readable
--- by any active account. Account history stays with administrators, matching the
--- account_events policy from M3.
+-- Requesters and inventory devices are shared helpdesk records, so their
+-- history is readable by any active account. Account history stays with
+-- administrators, matching the account_events policy from M3.
 create policy record_events_select_visible
   on public.record_events for select to authenticated
   using (
     public.app_active_account_id() is not null
-    and (entity_type in ('person', 'device') or public.app_is_admin())
+    and (entity_type in ('requester', 'inventory_device') or public.app_is_admin())
   );
 
 -- ---------------------------------------------------------------------------

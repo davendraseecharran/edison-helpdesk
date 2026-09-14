@@ -3,13 +3,17 @@
 /**
  * The inventory list.
  *
- * Filters and pagination live in the URL and are applied by the database
- * (`app_list_devices`, SECURITY INVOKER) against the rows RLS allows. Rows
- * can be ticked, on the table or on the phone cards, and a bar for the
- * selection appears with the four things a technician does to a batch:
- * hand them to somebody, change their status, move them, take them back.
- * Each goes through `app_bulk_update_devices`, which applies nothing at all
- * when any device refuses and names that device in its message.
+ * The search term and the page live in the URL and are applied by
+ * `app_list_inventory` against the district's 4,278 machines: one search over
+ * every field of a machine and its holder, which is the whole of the owner's
+ * filter surface. Rows can be ticked, on the table or on the phone cards, and
+ * a bar for the selection appears with the two things a technician does to a
+ * batch: restatus them, or move them. Both go through
+ * `app_bulk_update_inventory`, which snapshots every machine it changes.
+ *
+ * Handing a machine to somebody is not a batch operation and is not here. A
+ * loan is one machine, one person and one note, so it lives on the machine's
+ * own page.
  */
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
@@ -19,14 +23,9 @@ import { Plus } from 'lucide-react';
 import type { ActionResult } from '@/lib/data/actions';
 import { bulkUpdateDevicesAction } from '@/lib/data/device-actions';
 import type { BulkDevicePatch } from '@/lib/data/device-bulk';
-import type { DeviceFacets, DevicesPage, HolderFilter } from '@/lib/data/devices';
+import type { DevicesPage } from '@/lib/data/devices';
 import { countLabel } from '@/lib/domain/records';
-import {
-  DEVICE_STATUS_LABELS,
-  DEVICE_STATUSES,
-  deviceLabel,
-  type DeviceSummary,
-} from '@/lib/domain/types';
+import { deviceLabel, type DeviceSummary } from '@/lib/domain/types';
 import { useRuntime } from '@/components/AppRuntime';
 import { DeviceStatusBadge } from '@/components/Badges';
 import { EmptyState, Field, TimeAgo } from '@/components/Primitives';
@@ -34,22 +33,10 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { Pagination } from '@/components/ui/Pagination';
-import { SegmentedControl } from '@/components/ui/SegmentedControl';
-import { AssignDeviceDialog } from './AssignDeviceDialog';
 import { ChangeStatusDialog } from './ChangeStatusDialog';
 import { MoveDeviceDialog } from './MoveDeviceDialog';
-import { ReturnDeviceDialog } from './ReturnDeviceDialog';
 
-type HolderChoice = 'all' | HolderFilter;
-
-const HOLDER_OPTIONS: { value: HolderChoice; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'student', label: 'Students' },
-  { value: 'staff', label: 'Staff' },
-  { value: 'none', label: 'In stock' },
-];
-
-type BulkDialog = 'assign' | 'status' | 'move' | 'return' | null;
+type BulkDialog = 'status' | 'move' | null;
 
 const SEARCH_DEBOUNCE_MS = 250;
 const BULK_KEY = 'bulk-devices';
@@ -81,7 +68,7 @@ function RowCheck({
   );
 }
 
-export function DeviceList({ page, facets }: { page: DevicesPage; facets: DeviceFacets }) {
+export function DeviceList({ page, statuses }: { page: DevicesPage; statuses: string[] }) {
   const { pendingKey, run } = useRuntime();
   const router = useRouter();
   const pathname = usePathname();
@@ -91,25 +78,17 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
   const current = useMemo(
     () => ({
       query: searchParams.get('query') ?? '',
-      type: searchParams.get('type') ?? 'all',
-      status: searchParams.get('status') ?? 'all',
-      location: searchParams.get('location') ?? 'all',
-      holder: (searchParams.get('holder') ?? 'all') as HolderChoice,
+      requester: searchParams.get('requester') ?? '',
     }),
     [searchParams],
   );
 
-  const filtersActive =
-    current.query.trim() !== '' ||
-    current.type !== 'all' ||
-    current.status !== 'all' ||
-    current.location !== 'all' ||
-    current.holder !== 'all';
+  const filtersActive = current.query.trim() !== '' || current.requester !== '';
 
   function updateParams(changes: Record<string, string>) {
     const next = new URLSearchParams(searchParams.toString());
     for (const [name, value] of Object.entries(changes)) {
-      if (value === '' || value === 'all') next.delete(name);
+      if (value === '') next.delete(name);
       else next.set(name, value);
     }
     next.delete('page');
@@ -145,6 +124,14 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
 
   const { devices, total, pageCount } = page;
 
+  // The locations already in use on this page, offered as suggestions so a
+  // cart keeps one spelling. There is no facet RPC over 4,278 machines, and a
+  // page of fifty is where an operator's next move usually is.
+  const locations = useMemo(
+    () => [...new Set(devices.map((device) => device.location).filter(Boolean))].sort(),
+    [devices],
+  );
+
   // Ticked ids. Only the ones on the current page count: a filter or a page
   // change cannot leave a hidden row in the selection, and the ids fall out of
   // the set the next time it is rebuilt.
@@ -178,7 +165,10 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
   async function bulk(patch: BulkDevicePatch): Promise<ActionResult> {
     const ids = [...selected];
     const result = await run(BULK_KEY, () => bulkUpdateDevicesAction(ids, patch));
-    if (result.ok) setTicked(new Set());
+    if (result.ok) {
+      setTicked(new Set());
+      router.refresh();
+    }
     return result;
   }
 
@@ -219,8 +209,8 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
           </Link>
           {device.serialNumber && device.assetTag ? (
             <span className="dir-serial mono">{device.serialNumber}</span>
-          ) : device.deviceId && (device.assetTag || device.serialNumber) ? (
-            <span className="dir-serial mono">{device.deviceId}</span>
+          ) : device.assetTag || device.serialNumber ? (
+            <span className="dir-serial mono">{device.externalId}</span>
           ) : null}
         </div>
       ),
@@ -231,15 +221,19 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
       hideOnPhone: true,
       cell: (device) => (
         <div className="dir-cell-title">
-          <span className="dir-name">{device.model ?? <span className="dir-quiet">Unknown model</span>}</span>
-          <span className="dir-sub">{device.type}</span>
+          <span className="dir-name">
+            {device.model || <span className="dir-quiet">Unknown model</span>}
+          </span>
+          <span className="dir-sub">
+            {[device.manufacturer, device.deviceType].filter(Boolean).join(', ')}
+          </span>
         </div>
       ),
     },
     {
       key: 'status',
       header: 'Status',
-      width: 120,
+      width: 140,
       cell: (device) => <DeviceStatusBadge status={device.status} />,
     },
     {
@@ -247,10 +241,10 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
       header: 'Holder',
       width: 200,
       cell: (device) =>
-        device.holderId && device.holderName ? (
-          <Link href={`/people/${device.holderId}`}>{device.holderName}</Link>
+        device.assignedRequesterId && device.assignedName ? (
+          <Link href={`/people/${device.assignedRequesterId}`}>{device.assignedName}</Link>
         ) : (
-          <span className="dir-quiet">{device.status === 'in_stock' ? 'In stock' : 'Nobody'}</span>
+          <span className="dir-quiet">Nobody</span>
         ),
     },
     {
@@ -258,7 +252,7 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
       header: 'Location',
       hideOnPhone: true,
       width: 160,
-      cell: (device) => device.location ?? <span className="dir-quiet">Not recorded</span>,
+      cell: (device) => device.location || <span className="dir-quiet">Not recorded</span>,
     },
     {
       key: 'updated',
@@ -289,7 +283,7 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
               type="search"
               name="query"
               autoComplete="off"
-              placeholder="Asset tag, serial, device ID or model"
+              placeholder="Asset tag, serial, model, room or holder"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               onKeyDown={(event) => {
@@ -297,67 +291,23 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
               }}
             />
           </Field>
-          <Field label="Type" htmlFor="devices-type">
-            <select
-              id="devices-type"
-              value={current.type}
-              onChange={(event) => updateParams({ type: event.target.value })}
-            >
-              <option value="all">Any type</option>
-              {facets.types.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Status" htmlFor="devices-status">
-            <select
-              id="devices-status"
-              value={current.status}
-              onChange={(event) => updateParams({ status: event.target.value })}
-            >
-              <option value="all">Any status</option>
-              {DEVICE_STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {DEVICE_STATUS_LABELS[status]}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Location" htmlFor="devices-location">
-            <select
-              id="devices-location"
-              value={current.location}
-              onChange={(event) => updateParams({ location: event.target.value })}
-            >
-              <option value="all">Anywhere</option>
-              {facets.locations.map((location) => (
-                <option key={location} value={location}>
-                  {location}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <div className="field field-segmented">
-            <span className="field-label">Holder</span>
-            <SegmentedControl
-              label="Holder"
-              value={current.holder}
-              options={HOLDER_OPTIONS}
-              onChange={(value) => updateParams({ holder: value })}
-            />
-          </div>
         </div>
       </FilterBar>
+
+      {current.requester ? (
+        <p className="panel-note">
+          Showing one person&apos;s devices. <Link href={pathname}>Show the whole inventory</Link>.
+        </p>
+      ) : null}
 
       {devices.length === 0 ? (
         filtersActive ? (
           <EmptyState
-            title="No devices match these filters"
-            action={<ButtonLink href={pathname}>Clear filters</ButtonLink>}
+            title="No devices match this search"
+            action={<ButtonLink href={pathname}>Clear the search</ButtonLink>}
           >
-            Try fewer characters of the tag or serial, or clear a filter.
+            Try fewer characters of the tag or serial. The search reads every field of a machine
+            and of whoever is holding it.
           </EmptyState>
         ) : (
           <EmptyState
@@ -368,7 +318,7 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
               </ButtonLink>
             }
           >
-            Import the inventory or add a device.
+            The inventory is empty. Add a machine, or ask an administrator to load it.
           </EmptyState>
         )
       ) : (
@@ -387,7 +337,9 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
                 </Link>
               </span>
             )}
-            cardMeta={(device) => `${device.model ?? 'Unknown model'}, ${device.type}`}
+            cardMeta={(device) =>
+              [device.model || 'Unknown model', device.deviceType].filter(Boolean).join(', ')
+            }
           />
 
           {selected.size > 0 ? (
@@ -396,17 +348,11 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
                 {selected.size} selected
               </span>
               <div className="bulk-bar-actions">
-                <Button size="sm" disabled={bulkPending} onClick={() => setDialog('assign')}>
-                  Assign to person
-                </Button>
                 <Button size="sm" disabled={bulkPending} onClick={() => setDialog('status')}>
                   Change status
                 </Button>
                 <Button size="sm" disabled={bulkPending} onClick={() => setDialog('move')}>
                   Move to location
-                </Button>
-                <Button size="sm" disabled={bulkPending} onClick={() => setDialog('return')}>
-                  Return
                 </Button>
               </div>
               <Button
@@ -421,44 +367,31 @@ export function DeviceList({ page, facets }: { page: DevicesPage; facets: Device
             </div>
           ) : null}
 
-          <Pagination page={page.page} pageCount={pageCount} hrefFor={hrefForPage} label="Inventory pages" />
+          <Pagination
+            page={page.page}
+            pageCount={pageCount}
+            hrefFor={hrefForPage}
+            label="Inventory pages"
+          />
         </>
       )}
 
-      <AssignDeviceDialog
-        open={dialog === 'assign'}
-        onClose={() => setDialog(null)}
-        subject={subject}
-        count={selected.size}
-        allowNote={false}
-        pending={bulkPending}
-        onSubmit={({ person }) => bulk({ personId: person.id })}
-      />
       <ChangeStatusDialog
         open={dialog === 'status'}
         onClose={() => setDialog(null)}
         subject={subject}
-        count={selected.size}
+        statuses={statuses}
         pending={bulkPending}
-        onSubmit={({ status, reason }) => bulk({ status, reason })}
+        onSubmit={({ status }) => bulk({ status })}
       />
       <MoveDeviceDialog
         open={dialog === 'move'}
         onClose={() => setDialog(null)}
         subject={subject}
         count={selected.size}
-        locations={facets.locations}
+        locations={locations}
         pending={bulkPending}
         onSubmit={(location) => bulk({ location })}
-      />
-      <ReturnDeviceDialog
-        open={dialog === 'return'}
-        onClose={() => setDialog(null)}
-        subject={subject}
-        count={selected.size}
-        allowNote={false}
-        pending={bulkPending}
-        onSubmit={({ status }) => bulk({ return: true, status })}
       />
     </section>
   );

@@ -18,8 +18,9 @@ import { createClient } from '@/lib/supabase/server';
 import { loadActor } from '@/lib/auth/session';
 import { cappedExportMessage, csvFileName, CSV_ROW_CAP, toCsv } from '@/lib/csv';
 import { DEVICE_CSV_COLUMNS, deviceCsvRow } from '@/lib/data/device-csv';
-import { deviceListArgs, DEVICES_RPC_LIMIT, type DeviceFilters } from '@/lib/data/devices';
-import type { DeviceSummaryRow } from '@/lib/data/mapping';
+import { DEVICES_PAGE_SIZE, type DeviceFilters } from '@/lib/data/devices';
+import { mapInventoryDevice, mapInventoryPage } from '@/lib/data/mapping';
+import type { DeviceSummary } from '@/lib/domain/types';
 import { schoolToday } from '@/lib/format';
 
 export interface CsvExportResult {
@@ -39,11 +40,9 @@ export interface CsvExportResult {
 /**
  * The current inventory filter as a spreadsheet, in the order the list shows it.
  *
- * `app_list_devices` orders by `updated_at` descending, so the pages arrive
- * newest first and a filter larger than the shared cap keeps the machines
- * touched most recently rather than an arbitrary slice. The RPC also carries
- * the filter's full `total_count` on every row, so the caller can be told what
- * was left out without a second query.
+ * `app_list_inventory` pages at fifty and carries the filter's full `total` in
+ * every envelope, so the caller can be told what was left out without a second
+ * query. The pages are walked until the cap or the end, whichever comes first.
  */
 export async function exportDevicesCsvAction(filters: DeviceFilters): Promise<CsvExportResult> {
   const actor = await loadActor();
@@ -52,21 +51,21 @@ export async function exportDevicesCsvAction(filters: DeviceFilters): Promise<Cs
   }
 
   const supabase = await createClient();
-  const rows: DeviceSummaryRow[] = [];
+  const rows: DeviceSummary[] = [];
   let total = 0;
   let reachedEnd = false;
 
-  for (let offset = 0; offset < CSV_ROW_CAP && !reachedEnd; offset += DEVICES_RPC_LIMIT) {
-    const size = Math.min(DEVICES_RPC_LIMIT, CSV_ROW_CAP - offset);
-    const { data, error } = await supabase.rpc(
-      'app_list_devices',
-      deviceListArgs(filters, size, offset),
-    );
+  for (let page = 1; rows.length < CSV_ROW_CAP && !reachedEnd; page += 1) {
+    const { data, error } = await supabase.rpc('app_list_inventory', {
+      p_query: filters.query?.trim() ?? '',
+      p_page: page,
+      p_requester: filters.requesterId ?? null,
+    });
     if (error) return { ok: false, error: `The export stopped: ${error.message}` };
-    const page = (data ?? []) as DeviceSummaryRow[];
-    if (offset === 0) total = Number(page[0]?.total_count ?? 0);
-    rows.push(...page);
-    reachedEnd = page.length < size;
+    const mapped = mapInventoryPage(data as never, mapInventoryDevice);
+    if (page === 1) total = mapped.total;
+    rows.push(...mapped.rows.slice(0, CSV_ROW_CAP - rows.length));
+    reachedEnd = mapped.rows.length < (mapped.pageSize || DEVICES_PAGE_SIZE);
   }
 
   const capped = !reachedEnd && total > rows.length;

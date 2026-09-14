@@ -10,30 +10,46 @@ import { PERSON_KIND_LABELS, type PersonKind } from './types';
 /**
  * The form field a person-record message belongs next to.
  *
- * The database writes one message per rejected field, in words an operator
- * reads ("An OSIS number is 6 to 12 digits..."). Matching on those words is
- * how the message lands beside the input rather than at the foot of the form;
- * a message nothing matches goes to the foot, which is still correct.
+ * app_save_person and app_validate_profile write one message per rejected
+ * field, some in an operator's words ("OSIS must contain numbers only.") and
+ * some naming the JSON key ("Enter a valid phone number for guardianPhone.").
+ * Matching on either is how the message lands beside the input rather than at
+ * the foot of the form; a message nothing matches goes to the foot, which is
+ * still correct, and is where a message about the WHOLE record belongs anyway.
  */
 export function personErrorField(message: string): string | null {
   const text = message.toLowerCase();
-  if (text.includes('osis')) return 'osis';
-  if (text.includes('staff id')) return 'staff_id';
-  if (text.includes('email') || text.includes('address ')) return 'email';
-  if (text.includes('student or staff')) return 'kind';
-  if (text.includes("person's name") || text.includes('enter this person')) return 'first_name';
+  // The optimistic lock is about the whole record, so it goes to the foot.
+  if (text.includes('changed since you opened it')) return null;
+  if (text.includes('osis')) return 'externalId';
+  if (text.includes('email')) return 'email';
+  if (text.includes('guardianphone')) return 'guardianPhone';
+  if (text.includes('homephone')) return 'homePhone';
+  if (text.includes('class of') || text.includes('classof')) return 'classOf';
+  if (text.includes('enrollment status') || text.includes('studentstatus')) return 'studentStatus';
+  if (text.includes('staff or student') || text.includes('student or staff')) return 'kind';
+  if (text.includes('a name is required') || text.includes('displayname')) return 'displayName';
+  if (text.includes('address')) return 'address';
+  if (text.includes('notes')) return 'notes';
   return null;
 }
 
 /** The form field a device-record message belongs next to. */
 export function deviceErrorField(message: string): string | null {
   const text = message.toLowerCase();
-  if (text.includes('device id')) return 'device_id';
-  if (text.includes('serial number')) return 'serial_number';
-  if (text.includes('asset tag')) return 'asset_tag';
-  if (text.includes('status') || text.includes('deployed') || text.includes('assigned to someone')) {
-    return 'status';
-  }
+  if (text.includes('changed since you opened it')) return null;
+  // "Device type, manufacturer, model and serial number are required." names
+  // four fields at once, so it belongs at the foot rather than beside one of
+  // them; the serial is the only one of the four with a rule of its own.
+  if (text.includes('are required')) return null;
+  if (text.includes('serial number') || text.includes('serialnumber')) return 'serialNumber';
+  if (text.includes('asset tag') || text.includes('assettag')) return 'assetTag';
+  if (text.includes('device type') || text.includes('devicetype')) return 'deviceType';
+  if (text.includes('manufacturer')) return 'manufacturer';
+  if (text.includes('model')) return 'model';
+  if (text.includes('assignment') || text.includes('assignedrequesterid')) return 'assignedRequesterId';
+  if (text.includes('status')) return 'status';
+  if (text.includes('location')) return 'location';
   return null;
 }
 
@@ -68,7 +84,7 @@ export function personSubtitle(person: {
   officialClass?: string | null;
   classOf?: string | null;
   department?: string | null;
-  roleTitle?: string | null;
+  staffRole?: string | null;
 }): string {
   const parts = [PERSON_KIND_LABELS[person.kind]];
   if (person.kind === 'student') {
@@ -76,7 +92,7 @@ export function personSubtitle(person: {
     else if (person.classOf) parts.push(`class of ${person.classOf}`);
   } else {
     if (person.department) parts.push(person.department);
-    else if (person.roleTitle) parts.push(person.roleTitle);
+    else if (person.staffRole) parts.push(person.staffRole);
   }
   return parts.join(', ');
 }
@@ -87,7 +103,7 @@ export function personPlacement(person: {
   officialClass?: string | null;
   classOf?: string | null;
   department?: string | null;
-  roleTitle?: string | null;
+  staffRole?: string | null;
 }): string {
   const parts: string[] = [];
   if (person.kind === 'student') {
@@ -95,7 +111,7 @@ export function personPlacement(person: {
     if (person.classOf) parts.push(`class of ${person.classOf}`);
   } else {
     if (person.department) parts.push(person.department);
-    if (person.roleTitle) parts.push(person.roleTitle);
+    if (person.staffRole) parts.push(person.staffRole);
   }
   return parts.join(', ');
 }
@@ -131,28 +147,28 @@ export const RECORD_FIELD_LABELS: Record<string, string> = {
   last_name: 'last name',
   display_name: 'display name',
   email: 'email',
-  osis: 'OSIS',
-  staff_id: 'staff ID',
+  external_id: 'OSIS or staff ID',
+  source_external_id: 'source ID',
   school_dbn: 'school DBN',
   department: 'department',
-  role_title: 'role',
+  staff_role: 'role',
   official_class: 'official class',
   class_of: 'class of',
-  parent_name: 'parent or guardian',
-  parent_phone: 'parent phone',
+  student_status: 'enrolment status',
+  guardian_name: 'parent or guardian',
+  guardian_phone: 'guardian phone',
   home_phone: 'home phone',
   address: 'address',
   notes: 'notes',
-  source: 'source',
-  device_id: 'device ID',
+  device_type: 'type',
   serial_number: 'serial number',
   asset_tag: 'asset tag',
-  type: 'type',
   manufacturer: 'manufacturer',
   model: 'model',
-  os: 'OS',
+  os_version: 'OS',
   status: 'status',
   location: 'location',
+  assigned_requester_id: 'assignment',
 };
 
 /**

@@ -15,7 +15,6 @@ import { Plus } from 'lucide-react';
 import {
   type IntakeChannel,
   type Priority,
-  type Requester,
   type TicketCategory,
   CHANNEL_LABELS,
   PRIORITY_LABELS,
@@ -26,6 +25,7 @@ import { canChooseChannelAndOwner } from '@/lib/domain/permissions';
 import { createTicketAction } from '@/lib/data/actions';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { ChosenPerson, PersonPicker, type PersonSearchResult } from '@/components/people/PersonPicker';
+import { DevicePicker, type DeviceSearchResult } from '@/components/devices/DevicePicker';
 import { Field, PageHeader } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
@@ -42,11 +42,19 @@ const DEVICE_TYPE_SUGGESTIONS = [
   'Network equipment',
 ];
 
-type RequesterMode = 'existing' | 'new' | 'unknown';
+/**
+ * Two modes, not three.
+ *
+ * The directory is the district's own: 3,448 students and 261 staff, each with
+ * a source identifier from the roster. A requester is somebody already in it,
+ * or plainly nobody. Typing a third kind of person here would make a row with
+ * no identifier beside 3,709 rows that have one, and app_create_ticket refuses
+ * exactly that.
+ */
+type RequesterMode = 'existing' | 'unknown';
 
 const REQUESTER_MODES: { value: RequesterMode; label: string }[] = [
   { value: 'existing', label: 'Known' },
-  { value: 'new', label: 'New' },
   { value: 'unknown', label: 'Unknown' },
 ];
 
@@ -95,7 +103,7 @@ function IntakeSection({
 }
 
 export default function NewTicketPage() {
-  const { directory, requesters, today, pendingKey, run } = useRuntime();
+  const { directory, today, pendingKey, run } = useRuntime();
   const actor = useActorAccount();
   const router = useRouter();
   const isAdminIntake = canChooseChannelAndOwner(actor);
@@ -107,13 +115,9 @@ export default function NewTicketPage() {
   const [submittedOn, setSubmittedOn] = useState(today);
   const [category, setCategory] = useState<TicketCategory>('other');
   const [requesterMode, setRequesterMode] = useState<RequesterMode>('existing');
-  const [requesterId, setRequesterId] = useState('');
   const [person, setPerson] = useState<PersonSearchResult | null>(null);
-  const [requesterName, setRequesterName] = useState('');
-  const [requesterKind, setRequesterKind] = useState<Requester['kind']>('staff');
-  const [requesterDescriptor, setRequesterDescriptor] = useState('');
   const [location, setLocation] = useState('');
-  const [isRemote, setIsRemote] = useState(false);
+  const [linked, setLinked] = useState<DeviceSearchResult[]>([]);
   const [ownerId, setOwnerId] = useState<string>('');
   const [collaboratorIds, setCollaboratorIds] = useState<string[]>([]);
   const [devices, setDevices] = useState<DeviceDraft[]>([]);
@@ -131,11 +135,6 @@ export default function NewTicketPage() {
       ),
     [activeAccounts, isAdminIntake, ownerId, actor?.id],
   );
-  const sortedRequesters = useMemo(
-    () => [...requesters].sort((a, b) => a.displayName.localeCompare(b.displayName)),
-    [requesters],
-  );
-
   const submitting = pendingKey === 'create-ticket';
 
   function errorFor(field: string): string | null {
@@ -179,17 +178,9 @@ export default function NewTicketPage() {
         priority,
         submittedOn: isAdminIntake ? submittedOn : null,
         category,
-        // A directory person wins when one is chosen; the legacy requester row
-        // is the fallback for somebody who is not on the roster.
-        personId: requesterMode === 'existing' && person ? person.id : null,
-        requesterId:
-          requesterMode === 'existing' && !person && requesterId ? requesterId : null,
-        requesterName: requesterMode === 'new' ? requesterName : null,
-        requesterKind: requesterMode === 'new' ? requesterKind : null,
-        requesterDescriptor: requesterMode === 'new' ? requesterDescriptor : null,
+        requesterId: requesterMode === 'existing' && person ? person.id : null,
         requesterUnknown: requesterMode === 'unknown',
         location,
-        isRemote,
         ownerId: isAdminIntake ? (ownerId || null) : null,
         collaboratorIds,
         devices: devices.map((device) => ({
@@ -200,6 +191,7 @@ export default function NewTicketPage() {
           assetTag: device.assetTag,
           identifiersNotApplicable: device.identifiersNotApplicable,
         })),
+        deviceIds: linked.map((device) => device.id),
       }),
     );
 
@@ -228,7 +220,7 @@ export default function NewTicketPage() {
         <IntakeSection
           id="who"
           title="Who is asking"
-          help="Pick a known requester, add a new one, or record the request as unidentified."
+          help="Find them in the directory, or record the request as unidentified."
         >
           <div className="form-grid">
             <div className="field form-grid-full">
@@ -251,92 +243,19 @@ export default function NewTicketPage() {
                 {person ? (
                   <ChosenPerson person={person} onChange={() => setPerson(null)} />
                 ) : (
-                  <>
-                    {/* The directory type-ahead the device screens use: grouped
-                        results, keyboard walkable, announced as a combobox. */}
-                    <PersonPicker
-                      id="person-query"
-                      label="Search the directory"
-                      hint="Search by name, OSIS, staff ID or email address."
-                      placeholder="Whitfield"
-                      onSelect={(result) => {
-                        setPerson(result);
-                        // A directory person and a legacy requester row are two
-                        // answers to one question; choosing one clears the
-                        // other rather than sending both.
-                        setRequesterId('');
-                      }}
-                    />
-
-                    {/* Everybody recorded before the directory existed, and
-                        everybody who is not on the roster: a parent, a vendor,
-                        a visiting coach. They stay pickable. */}
-                    <Field
-                      label="Previous requesters"
-                      htmlFor="requester-id"
-                      optional
-                      hint="Somebody recorded before, who may not be in the directory."
-                    >
-                      <select
-                        id="requester-id"
-                        value={requesterId}
-                        onChange={(event) => setRequesterId(event.target.value)}
-                      >
-                        <option value="">Choose a requester</option>
-                        {sortedRequesters.map((requester) => (
-                          <option key={requester.id} value={requester.id}>
-                            {requester.displayName}
-                            {requester.descriptor ? ` (${requester.descriptor})` : ''}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                  </>
+                  /* The directory type-ahead the device screens use: grouped
+                     results, keyboard walkable, announced as a combobox. It
+                     searches the district's own requesters, so the person it
+                     finds is the person the ticket names. */
+                  <PersonPicker
+                    id="person-query"
+                    label="Search the directory"
+                    hint="Search by name, OSIS or staff ID."
+                    placeholder="Whitfield"
+                    onSelect={setPerson}
+                  />
                 )}
               </div>
-            ) : null}
-
-            {requesterMode === 'new' ? (
-              <>
-                <Field label="Name" htmlFor="requester-name">
-                  <input
-                    id="requester-name"
-                    type="text"
-                    value={requesterName}
-                    onChange={(event) => setRequesterName(event.target.value)}
-                    placeholder="Ms. Calloway"
-                  />
-                </Field>
-                <Field label="Type" htmlFor="requester-kind">
-                  <select
-                    id="requester-kind"
-                    value={requesterKind}
-                    onChange={(event) =>
-                      setRequesterKind(event.target.value as Requester['kind'])
-                    }
-                  >
-                    <option value="staff">Staff</option>
-                    <option value="student">Student</option>
-                    <option value="role">Role or desk</option>
-                    <option value="unknown">Unspecified</option>
-                  </select>
-                </Field>
-                <Field
-                  label="Department or detail"
-                  htmlFor="requester-descriptor"
-                  optional
-                  className="form-grid-full"
-                  hint="Only what a NetRider needs to do the job."
-                >
-                  <input
-                    id="requester-descriptor"
-                    type="text"
-                    value={requesterDescriptor}
-                    onChange={(event) => setRequesterDescriptor(event.target.value)}
-                    placeholder="Grade 6 ELA"
-                  />
-                </Field>
-              </>
             ) : null}
 
             {requesterMode === 'unknown' ? (
@@ -398,29 +317,69 @@ export default function NewTicketPage() {
           </div>
         </IntakeSection>
 
-        <IntakeSection id="where" title="Where" help="The room or area, or mark it remote.">
+        <IntakeSection id="where" title="Where" help="The room or area the problem is in.">
           <div className="form-grid">
             <Field label="Location" htmlFor="location" optional hint="Leave blank if unknown.">
               <input
                 id="location"
                 type="text"
                 value={location}
-                disabled={isRemote}
                 onChange={(event) => setLocation(event.target.value)}
                 placeholder="Room 212"
               />
             </Field>
-            <div className="field">
-              <span className="field-label">Remote</span>
-              <label className="check">
-                <input
-                  type="checkbox"
-                  checked={isRemote}
-                  onChange={(event) => setIsRemote(event.target.checked)}
-                />
-                <span className="check-text">No physical location, handled remotely</span>
-              </label>
-            </div>
+          </div>
+        </IntakeSection>
+
+        <IntakeSection
+          id="linked"
+          title="Inventory"
+          help="Name the machines from the inventory this ticket is about, so the ticket shows in their history."
+        >
+          <div className="stack-sm">
+            {linked.length === 0 ? (
+              <p className="panel-note">
+                No machine from the inventory is named yet. A room-wide fault may legitimately
+                have none.
+              </p>
+            ) : (
+              <ul className="linked-devices">
+                {linked.map((device) => (
+                  <li className="linked-device" key={device.id}>
+                    <span className="person-text">
+                      <span className="person-name mono">{device.label}</span>
+                      <span className="person-meta">
+                        {device.type}
+                        {device.model ? `, ${device.model}` : ''}
+                      </span>
+                    </span>
+                    <span className="person-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          setLinked((current) => current.filter((one) => one.id !== device.id))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <DevicePicker
+              id="intake-link-device"
+              label="Find a machine"
+              scan
+              onSelect={(device) =>
+                setLinked((current) =>
+                  current.some((one) => one.id === device.id) ? current : [...current, device],
+                )
+              }
+              excludeIds={linked.map((device) => device.id)}
+              excludeNote="already named"
+            />
           </div>
         </IntakeSection>
 

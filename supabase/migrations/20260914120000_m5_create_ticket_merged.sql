@@ -1,63 +1,45 @@
 -- ---------------------------------------------------------------------------
--- One app_create_ticket for both intake models.
+-- One app_create_ticket, on the district's own directory and inventory.
 --
--- The owner's `20260912220000_directory_inventory.sql` replaced
--- app_create_ticket with a FIFTEEN-argument signature; `20260912100350` (M5)
--- had already replaced it with an EIGHTEEN-argument one. Both survive on a
--- merged database, and PostgREST cannot choose between them: a call that names
--- only the fifteen shared parameters matches the M5 function too, because its
--- three extra parameters all have defaults. That is an "ambiguous function"
--- error at intake, not a preference.
---
--- So both signatures are dropped and ONE function is created with the union of
--- the two parameter lists. The union happens to equal the M5 list: the owner's
--- fifteen are its first fifteen, in the same order, and p_category,
--- p_person_id and p_device_ids follow.
+-- Two branches each replaced app_create_ticket and Postgres tells overloads
+-- apart by their type signature, so both survived a merge and PostgREST could
+-- not choose between them. This file is the reconciliation: the earlier M5
+-- signature is no longer created at all (see 20260914100350), the owner's
+-- fifteen-argument one is dropped here, and ONE function is created with the
+-- union of the two parameter lists — their fifteen, in order, then
+-- p_category and p_device_ids.
 --
 -- Where the two bodies disagreed, the resolution is:
 --
---   * Their `p_devices` bounds (an array, at most 50) -- ADOPTED. Purely a
---     bound; nothing that used to succeed stops succeeding.
---   * Their empty-issue allowance and 6000-character cap -- ADOPTED. Their
+--   * Their `p_devices` bounds (an array, at most 50) — ADOPTED.
+--   * Their empty-notes allowance and 6000-character cap — ADOPTED. Their
 --     migration dropped `tickets_issue_present`, so the column permits it, and
 --     a walk-in recorded at the desk genuinely has no notes yet.
 --   * Their `inventoryDeviceId` snapshot, `manufacturer` column and
---     device_catalog check -- ADOPTED, but scoped: an entry that NAMES a
+--     device_catalog check — ADOPTED, but scoped: an entry that NAMES a
 --     manufacturer is claiming to be a catalogued machine and is held to the
 --     catalogue's standard (type, manufacturer, model and serial, all matching
 --     a device_catalog row); an entry that names none is a free-text
---     observation of something the inventory does not hold, which is what the
---     M5 intake page records. This is the one rule where the two models can
---     coexist without either page losing a field.
---   * Their "one requester option only" check -- ADOPTED.
---   * M5's category, p_person_id directory lookup, p_device_ids inventory
---     links, attribution stamps (performed_via / ai_model) and event wording
---     -- KEPT. These are the M5 intake page, which this merge keeps.
+--     observation of something the inventory does not hold — a projector in
+--     a room, a cable, somebody's own laptop.
+--   * Their requester rules — ADOPTED IN FULL, which is the change this
+--     milestone makes. `public.requesters` is the district's real directory of
+--     3,448 students and 261 staff, so a ticket names somebody who is already
+--     in it, or says plainly that the requester is unknown. A free-text
+--     `p_requester_name` is refused rather than quietly adding a row with no
+--     source identifier beside 3,709 rows that have one, and `p_is_remote` is
+--     refused because intake here is physical and the location field is where
+--     a room goes. Both parameters stay in the signature so that a caller that
+--     still sends them is TOLD, rather than having its value ignored.
+--   * M5's category, its p_device_ids inventory links, its attribution stamps
+--     (performed_via / ai_model) and its event wording — KEPT.
 --
--- MERGE-TODO: two of their rules are NOT adopted, because adopting them would
--- break fields the M5 intake page still shows and the merge brief says to keep
--- that page:
---
---   1. They refuse `p_requester_name` outright ("Select an existing requester
---      or Requester Unknown"), so that nothing can add a row to `requesters`
---      that has no external id from the source sheets. The M5 page's "someone
---      new" requester mode does exactly that, and so does its p_person_id
---      path. Their `tests/db/intake.test.ts` test "rejects an inline requester
---      name instead of creating a record" therefore FAILS against this
---      function. The rewire task that retires the M5 people/devices model
---      should adopt their rule and delete the M5 mode with it.
---   2. They refuse `p_is_remote` ("Use the location field for intake"),
---      because their intake is physical. The M5 page has a "no physical
---      location" toggle. Their test "rejects remote intake and requires the
---      location field instead" therefore FAILS. Same rewire task.
+-- Gone with the M5 people table: `p_person_id`. A requester row was once a
+-- shadow of a `public.people` row and had to be found or created for it; now
+-- `public.requesters` IS the directory, and a ticket points at it directly.
 --
 -- Additive: no table changes, no data changes.
 -- ---------------------------------------------------------------------------
-
-drop function public.app_create_ticket(
-  text, text, text, text, date, uuid, text, text, text, boolean, text, boolean,
-  uuid, uuid[], jsonb, text, uuid, uuid[]
-);
 
 drop function public.app_create_ticket(
   text, text, text, text, date, uuid, text, text, text, boolean, text, boolean,
@@ -81,7 +63,6 @@ create function public.app_create_ticket(
   p_collaborator_ids uuid[] default '{}',
   p_devices jsonb default '[]',
   p_category text default 'other',
-  p_person_id uuid default null,
   p_device_ids uuid[] default '{}'
 )
 returns uuid
@@ -97,7 +78,6 @@ declare
   v_requester uuid := p_requester_id;
   v_submitted date := coalesce(p_submitted_on, public.app_today());
   v_category text := coalesce(nullif(pg_catalog.btrim(coalesce(p_category, '')), ''), 'other');
-  v_person public.people;
   v_ticket public.tickets;
   v_ticket_id uuid;
   v_collaborator uuid;
@@ -128,6 +108,16 @@ begin
   -- none yet) but not unbounded.
   if length(coalesce(p_issue, '')) > 6000 then
     raise exception 'Keep notes under 6000 characters.' using errcode = 'check_violation';
+  end if;
+  -- Their rule, adopted: the directory is the district's, and a requester is
+  -- somebody already in it. Typing a name here would make a row with no source
+  -- identifier beside 3,709 rows that have one.
+  if length(btrim(coalesce(p_requester_name, ''))) > 0 then
+    raise exception 'Select an existing requester or Requester Unknown.' using errcode = 'check_violation';
+  end if;
+  -- Their rule, adopted: intake here is physical, and a room goes in location.
+  if coalesce(p_is_remote, false) then
+    raise exception 'Use the location field for intake.' using errcode = 'check_violation';
   end if;
   -- Their bound, checked before any row is written so an oversized list costs
   -- one message rather than a long transaction.
@@ -169,58 +159,20 @@ begin
     raise exception 'Choose an active technician as the owner.' using errcode = 'check_violation';
   end if;
 
-  -- Requester: explicitly unknown, somebody in the directory, an existing
-  -- requester record, or a new minimal record typed in by hand.
+  -- Requester: explicitly unknown, or a staff or student row that already
+  -- exists in the district's directory. Nothing else.
   if coalesce(p_requester_unknown, false) then
     -- Their check: "unknown" and a named requester in the same call is a caller
     -- that has not decided, not a request to prefer one of them.
-    if p_requester_id is not null or p_person_id is not null then
+    if p_requester_id is not null then
       raise exception 'Choose one requester option.' using errcode = 'check_violation';
     end if;
     v_requester := null;
-  elsif p_person_id is not null then
-    -- SECURITY DEFINER, so this read is not under RLS. app_require_actor above
-    -- has already established an active account, and an active account may read
-    -- every person anyway.
-    select * into v_person from public.people p where p.id = p_person_id;
-    if not found then
-      raise exception 'That person is not in the directory. Search for them again.'
-        using errcode = 'no_data_found';
-    end if;
-
-    -- One requester row per person: found, or made once and reused forever --
-    -- in ONE statement, so two technicians recording a walk-in for the same
-    -- student at the same moment both succeed. The `do update` is a no-op that
-    -- exists so RETURNING yields the existing row's id; `do nothing` would
-    -- return no row at all. Nothing else on the existing requester is
-    -- overwritten: that row is the authoritative one.
-    insert into public.requesters (display_name, kind, descriptor, created_by, person_id)
-    values (
-      v_person.display_name,
-      v_person.kind,
-      nullif(btrim(coalesce(v_person.department, v_person.official_class, '')), ''),
-      v_actor.id,
-      p_person_id
-    )
-    on conflict (person_id) where person_id is not null
-      do update set person_id = excluded.person_id
-    returning id into v_requester;
-  elsif v_requester is not null then
-    if not exists (select 1 from public.requesters r where r.id = v_requester) then
-      raise exception 'That requester record no longer exists.' using errcode = 'check_violation';
-    end if;
-  elsif length(btrim(coalesce(p_requester_name, ''))) > 0 then
-    insert into public.requesters (display_name, kind, descriptor, created_by)
-    values (
-      btrim(p_requester_name),
-      coalesce(nullif(btrim(coalesce(p_requester_kind, '')), ''), 'staff'),
-      nullif(btrim(coalesce(p_requester_descriptor, '')), ''),
-      v_actor.id
-    )
-    returning id into v_requester;
-  else
-    raise exception 'Select an existing requester, name one, or mark the requester as unknown.'
-      using errcode = 'check_violation';
+  elsif v_requester is null or not exists (
+    select 1 from public.requesters r
+    where r.id = v_requester and r.kind in ('staff', 'student')
+  ) then
+    raise exception 'Select an existing requester or Requester Unknown.' using errcode = 'check_violation';
   end if;
 
   insert into public.tickets (
@@ -380,15 +332,15 @@ begin
 end;
 $$;
 
-comment on function public.app_create_ticket(text, text, text, text, date, uuid, text, text, text, boolean, text, boolean, uuid, uuid[], jsonb, text, uuid, uuid[]) is
-  'Records one request, for both intake models. p_requester_id names a row in the owner''s directory; p_person_id names somebody in the M5 people table and finds or creates their single requester row in one statement, so two concurrent intakes for the same person both succeed. A device entry carrying inventoryDeviceId is snapshotted from inventory_devices; one carrying a manufacturer must match a device_catalog row and carry a serial; one carrying neither is a free-text observation. p_device_ids links M5 inventory machines. Rejects a forged channel, owner, date or category rather than correcting it.';
+comment on function public.app_create_ticket(text, text, text, text, date, uuid, text, text, text, boolean, text, boolean, uuid, uuid[], jsonb, text, uuid[]) is
+  'Records one request. p_requester_id names a staff or student row in the district directory, or p_requester_unknown says there is nobody to name; a free-text requester name and remote intake are both refused. A device entry carrying inventoryDeviceId is snapshotted from inventory_devices; one carrying a manufacturer must match a device_catalog row and carry a serial; one carrying neither is a free-text observation. p_device_ids links inventory machines to the ticket. Rejects a forged channel, owner, date or category rather than correcting it.';
 
 -- The drops above took the old ACLs with them, so the grants are made again
 -- rather than merely restated.
 revoke execute on function
-  public.app_create_ticket(text, text, text, text, date, uuid, text, text, text, boolean, text, boolean, uuid, uuid[], jsonb, text, uuid, uuid[])
+  public.app_create_ticket(text, text, text, text, date, uuid, text, text, text, boolean, text, boolean, uuid, uuid[], jsonb, text, uuid[])
 from public, anon;
 
 grant execute on function
-  public.app_create_ticket(text, text, text, text, date, uuid, text, text, text, boolean, text, boolean, uuid, uuid[], jsonb, text, uuid, uuid[])
+  public.app_create_ticket(text, text, text, text, date, uuid, text, text, text, boolean, text, boolean, uuid, uuid[], jsonb, text, uuid[])
 to authenticated;

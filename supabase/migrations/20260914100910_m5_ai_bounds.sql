@@ -1,6 +1,6 @@
 -- M5: bounds on the AI conversation tables.
 --
--- 20260912100900 made `ai_conversations` and `ai_messages` the one place in this
+-- 20260914100900 made `ai_conversations` and `ai_messages` the one place in this
 -- schema a signed-in session writes a table DIRECTLY. The policies there decide
 -- WHOSE rows a caller may write. They say nothing about HOW MANY or HOW BIG, and
 -- for every other table in this schema that question is answered by the RPC that

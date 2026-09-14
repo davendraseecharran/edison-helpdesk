@@ -14,7 +14,6 @@ import {
   type Role,
   type TicketStatus,
   ACCOUNT_STATUS_LABELS,
-  DEVICE_STATUS_LABELS,
   PERSON_KIND_LABELS,
   PRIORITY_LABELS,
   TICKET_STATUS_LABELS,
@@ -97,15 +96,25 @@ export function AccountStatusBadge({ status }: { status: AccountStatus }) {
 }
 
 /**
- * Inventory status: a coloured dot beside its label. Deployed is the working
- * state and sits in the signal blue; in stock is ready and green; in repair is
- * the amber of waiting; retired and surplus are slate; lost is the one red.
+ * Inventory status: a coloured dot beside its label.
+ *
+ * `inventory_devices.status` is free text with no CHECK constraint, so the
+ * status IS the label and there is nothing to look up. The class name is the
+ * status slugged, which gives the five seeded words their tone and leaves
+ * anything the district invents on the default one — a word this application
+ * has never seen is better plain than miscoloured.
  */
+export function deviceStatusClass(status: DeviceStatus): string {
+  const slug = status.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return slug ? `device-${slug}` : 'device-no-status';
+}
+
 export function DeviceStatusBadge({ status }: { status: DeviceStatus }) {
+  const label = status.trim() || 'No status';
   return (
-    <span className={`badge badge-status device-${status}`}>
+    <span className={`badge badge-status ${deviceStatusClass(label)}`}>
       <span className="badge-dot" aria-hidden="true" />
-      {DEVICE_STATUS_LABELS[status]}
+      {label}
     </span>
   );
 }

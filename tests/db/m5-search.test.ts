@@ -1,5 +1,6 @@
 /**
- * M5 global lookup: one search box over tickets, people and devices.
+ * M5 global lookup: one search box over tickets, the directory and the
+ * inventory.
  *
  * Two properties matter more than the matching itself.
  *
@@ -27,6 +28,8 @@ import {
   rawTicket,
   rpcFails,
   rpcOk,
+  seedInventoryDevice,
+  seedRequester,
   signIn,
 } from './support/harness';
 
@@ -112,49 +115,45 @@ beforeAll(async () => {
   unrelated = await signIn('unrelated');
   pending = await signIn('pending');
 
-  personId = await rpcOk<string>(admin, 'app_upsert_person', {
-    p_person: {
-      kind: 'student',
-      first_name: 'Wren',
-      last_name: `Calloway-${RUN}`,
-      display_name: PERSON_NAME,
-      osis: OSIS,
-      official_class: '9R',
-    },
-  });
+  ({ id: personId } = await seedRequester('student', {
+    display_name: PERSON_NAME,
+    first_name: 'Wren',
+    last_name: `Calloway-${RUN}`,
+    external_id: OSIS,
+    source_external_id: OSIS,
+    official_class: '9R',
+  }));
 
-  exactDeviceId = await rpcOk<string>(owner, 'app_upsert_device', {
-    p_device: {
-      asset_tag: EXACT_TAG,
-      serial_number: `SR${RUN}0001`,
-      model: 'ThinkPad E14',
-      type: 'Laptop',
-    },
+  ({ id: exactDeviceId } = await seedInventoryDevice({
+    asset_tag: EXACT_TAG,
+    serial_number: `SR${RUN}0001`,
+    model: 'ThinkPad E14',
+    device_type: 'Laptop',
+  }));
+  ({ id: longerDeviceId } = await seedInventoryDevice({
+    asset_tag: LONGER_TAG,
+    serial_number: `SR${RUN}0002`,
+    model: 'ThinkPad E14',
+    device_type: 'Laptop',
+  }));
+  await rpcOk(owner, 'app_assign_inventory_device', {
+    p_device: exactDeviceId,
+    p_requester: personId,
   });
-  longerDeviceId = await rpcOk<string>(owner, 'app_upsert_device', {
-    p_device: {
-      asset_tag: LONGER_TAG,
-      serial_number: `SR${RUN}0002`,
-      model: 'ThinkPad E14',
-      type: 'Laptop',
-    },
-  });
-  await rpcOk(owner, 'app_assign_device', { p_device: exactDeviceId, p_person: personId });
 
   // Two characters is the shortest query the lookup answers, so one fixture is
   // reachable by exactly two.
-  shortQueryDeviceId = await rpcOk<string>(owner, 'app_upsert_device', {
-    p_device: {
-      asset_tag: `${SHORT_TAG_PREFIX}${RUN}0003`,
-      model: 'Latitude 3120',
-      type: 'Laptop',
-    },
-  });
+  ({ id: shortQueryDeviceId } = await seedInventoryDevice({
+    asset_tag: `${SHORT_TAG_PREFIX}${RUN}0003`,
+    model: 'Latitude 3120',
+    device_type: 'Laptop',
+  }));
 
-  // Named explicitly: the owner's harness change made "requester unknown" the
-  // default, and this ticket's whole job below is to prove that a ticket found
-  // by number carries its requester's name as the subtitle.
-  ({ ticketId } = await ownedTicket({ title: OWNED_TITLE, requesterName: 'Ms. Calloway' }));
+  // Named explicitly: a ticket with no requester is the harness default, and
+  // this ticket's whole job below is to prove that a ticket found by number
+  // carries its requester's name as the subtitle.
+  const staff = await seedRequester('staff', { display_name: `Ms. Calloway-${RUN}` });
+  ({ ticketId } = await ownedTicket({ title: OWNED_TITLE, requesterId: staff.id }));
   ticketNumber = String((await rawTicket(ticketId)).number);
 
   // Admin-created and unclaimed: the Open Queue, which every active technician
@@ -162,10 +161,11 @@ beforeAll(async () => {
   queuedTicketId = await openTicket({ title: `Queued cable tidy ${RUN}` });
   queuedTicketNumber = String((await rawTicket(queuedTicketId)).number);
 
+  const secretRequester = await seedRequester('staff', { display_name: SECRET_REQUESTER });
   ({ ticketId: secretTicketId } = await ownedTicket({
     title: SECRET_TITLE,
     issue: SECRET_ISSUE,
-    requesterName: SECRET_REQUESTER,
+    requesterId: secretRequester.id,
   }));
   secretTicketNumber = String((await rawTicket(secretTicketId)).number);
 });
@@ -181,7 +181,7 @@ describe('what the lookup finds', () => {
     expect(found?.subtitle).toContain('ThinkPad E14');
     expect(found?.subtitle).toContain('Laptop');
     // Status plus whoever is holding it right now.
-    expect(found?.meta).toContain('Deployed');
+    expect(found?.meta).toContain('Assigned');
     expect(found?.meta).toContain(PERSON_NAME);
   });
 
@@ -209,7 +209,7 @@ describe('what the lookup finds', () => {
     expect(asWritten).toBeDefined();
     expect(asWritten?.title).toContain(ticketNumber);
     expect(asWritten?.title).toContain(`Smartboard pen missing ${RUN}`);
-    expect(asWritten?.subtitle).toBe('Ms. Calloway');
+    expect(asWritten?.subtitle).toBe(`Ms. Calloway-${RUN}`);
     // Rendered text, like every other kind's `meta`: not the `assigned` the
     // column stores.
     expect(asWritten?.meta).toBe('Assigned');
@@ -423,12 +423,10 @@ describe('ranking and limits', () => {
     // under test rather than the size of the fixture.
     const crowded = `DOE-CP${RUN}`;
     for (let index = 0; index < 26; index += 1) {
-      await rpcOk(owner, 'app_upsert_device', {
-        p_device: {
-          asset_tag: `${crowded}${String(index).padStart(3, '0')}`,
-          model: 'Chromebook 3110',
-          type: 'Chromebook',
-        },
+      await seedInventoryDevice({
+        asset_tag: `${crowded}${String(index).padStart(3, '0')}`,
+        model: 'Chromebook 3110',
+        device_type: 'Chromebook',
       });
     }
 

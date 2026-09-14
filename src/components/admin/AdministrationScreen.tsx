@@ -2,7 +2,7 @@
  * Administration.
  *
  * One tab today. It exists as a tab set rather than a bare heading because the
- * page is going to grow (devices, imports, settings), and because a section
+ * page is going to grow (devices, settings), and because a section
  * this consequential should always say which part of it you are looking at.
  * The work itself lives in AccessScreen and the panels it composes.
  */
@@ -24,7 +24,6 @@ export function AdminTabs({ accountCount }: { accountCount?: number }) {
     <Tabs
       items={[
         { href: '/admin', label: 'People & access', count: accountCount },
-        { href: '/admin/import', label: 'Import' },
         { href: '/admin/audit', label: 'Audit log' },
         { href: '/admin/backups', label: 'Backups' },
       ]}

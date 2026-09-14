@@ -52,7 +52,7 @@ export type TicketStatus =
  * uncategorised ticket is not a miscategorised one.
  *
  * Mirrors the `tickets_category_valid` constraint and `app_category_labels()`
- * in 20260912100350_m5_ticket_category_devices.sql. The database REFUSES a value
+ * in 20260914100350_m5_ticket_category_devices.sql. The database REFUSES a value
  * outside this set rather than folding it to `other`.
  */
 export type TicketCategory =
@@ -134,13 +134,15 @@ export interface DeviceObservation {
 export interface LinkedDevice {
   /** The inventory record's id. */
   id: string;
-  /** The managed-device identifier, e.g. `PW0FYJ9B-WIN`. Often absent. */
-  deviceId: string | null;
+  /** The inventory's own identifier, e.g. `DEV-4F2A9C1B77E0`. */
+  externalId: string | null;
   serialNumber: string | null;
   assetTag: string | null;
   type: string;
+  manufacturer: string | null;
   model: string | null;
   status: string;
+  location: string | null;
   linkedAt: string;
   linkedById: AccountId;
 }
@@ -403,6 +405,17 @@ export function isActiveStatus(status: TicketStatus): boolean {
 
 /* --- Directory and inventory ------------------------------------------- */
 
+/**
+ * The district's own directory and inventory.
+ *
+ * Both live in the owner's tables — `public.requesters` and
+ * `public.inventory_devices` — and both are read and written only through
+ * SECURITY DEFINER functions. The shapes below are the JSON those functions
+ * return, key for key: `app_person_json` and `app_inventory_device_json`.
+ * Every text field arrives as a string, never null, because the database
+ * coalesces them; a missing value is an empty string.
+ */
+
 export type PersonKind = 'student' | 'staff';
 
 export const PERSON_KIND_LABELS: Record<PersonKind, string> = {
@@ -414,171 +427,134 @@ export function isPersonKind(value: unknown): value is PersonKind {
   return value === 'student' || value === 'staff';
 }
 
+/** Where a student is in their time at the school. Staff always read `current`. */
+export type StudentStatus = 'current' | 'graduated' | 'other';
+
+export const STUDENT_STATUS_LABELS: Record<StudentStatus, string> = {
+  current: 'Current',
+  graduated: 'Graduated',
+  other: 'Other',
+};
+
+export const STUDENT_STATUSES = Object.keys(STUDENT_STATUS_LABELS) as StudentStatus[];
+
+export function isStudentStatus(value: unknown): value is StudentStatus {
+  return typeof value === 'string' && value in STUDENT_STATUS_LABELS;
+}
+
 /**
- * One directory record, as `public.people` stores it.
+ * One person in the directory, exactly as `app_person_json` returns them.
  *
- * Holds a home address and a parent's phone number, so it is only ever loaded
- * by an active account through the person's own page; a list row carries
- * `PersonSummary` instead.
+ * Carries a home address and a guardian's phone number, so it is only ever
+ * loaded by an active account. `version` is the optimistic lock: a form must
+ * send back the version it read, or the save is refused.
  */
 export interface Person {
   id: string;
   kind: PersonKind;
+  displayName: string;
+  /** OSIS for a student; the staff id derived from the email for staff. */
+  externalId: string;
   firstName: string;
   lastName: string;
-  displayName: string;
-  email: string | null;
-  /** New York student identifier, digits only. Students only. */
-  osis: string | null;
-  /** Staff identifier, stored upper-cased. Staff only. */
-  staffId: string | null;
-  schoolDbn: string | null;
-  department: string | null;
-  roleTitle: string | null;
-  officialClass: string | null;
-  classOf: string | null;
-  parentName: string | null;
-  parentPhone: string | null;
-  homePhone: string | null;
-  address: string | null;
-  notes: string | null;
-  /** False archives the record: out of the default listing, still on its tickets and devices. */
-  active: boolean;
-  source: 'manual' | 'import';
-  createdAt: string;
+  email: string;
+  schoolDbn: string;
+  department: string;
+  staffRole: string;
+  classOf: string;
+  studentStatus: StudentStatus;
+  officialClass: string;
+  guardianName: string;
+  guardianPhone: string;
+  homePhone: string;
+  address: string;
+  notes: string;
+  version: number;
   updatedAt: string;
-}
-
-/** A directory list row: what the people screen shows, with its two counts. */
-export interface PersonSummary {
-  id: string;
-  kind: PersonKind;
-  displayName: string;
-  email: string | null;
-  osis: string | null;
-  staffId: string | null;
-  department: string | null;
-  roleTitle: string | null;
-  officialClass: string | null;
-  classOf: string | null;
-  active: boolean;
-  /** Devices this person holds right now. */
+  /** Machines assigned to them right now. */
   deviceCount: number;
-  /** Live tickets they asked for THAT THE VIEWER MAY SEE. Viewer-relative. */
-  openTicketCount: number;
-}
-
-export type DeviceStatus = 'in_stock' | 'deployed' | 'in_repair' | 'retired' | 'lost' | 'surplus';
-
-/** Sentence case, in the database's fixed order. */
-export const DEVICE_STATUS_LABELS: Record<DeviceStatus, string> = {
-  in_stock: 'In stock',
-  deployed: 'Deployed',
-  in_repair: 'In repair',
-  retired: 'Retired',
-  lost: 'Lost',
-  surplus: 'Surplus',
-};
-
-export const DEVICE_STATUSES = Object.keys(DEVICE_STATUS_LABELS) as DeviceStatus[];
-
-export function isDeviceStatus(value: unknown): value is DeviceStatus {
-  return typeof value === 'string' && value in DEVICE_STATUS_LABELS;
 }
 
 /**
- * The statuses a device can be put in by hand. `deployed` is missing on
- * purpose: it means, and only means, that somebody is holding the device, so
- * it is set by assigning and cleared by returning.
+ * A directory list row. The owner's `app_list_people` returns whole person
+ * records rather than a narrower row, so a list entry and a detail record are
+ * the same shape and nothing has to be re-fetched to open one.
  */
-export const MANUAL_DEVICE_STATUSES: DeviceStatus[] = DEVICE_STATUSES.filter(
-  (status) => status !== 'deployed',
-);
+export type PersonSummary = Person;
 
 /**
- * No database check constrains `device_assignments.note`; it is `text`,
- * unbounded. The nearest real ceiling is the one the assistant's own
- * `assign_device`/`return_device` tools already enforce on this same
- * argument before it ever reaches `app_assign_device`/`app_return_device`
- * (`MAX_TEXT` in `src/lib/ai/tools.ts`). The form uses the same number so a
- * note a person types is never longer than one the assistant is allowed to
- * send on their behalf.
+ * What a person's page may change. `id`, `version`, `updatedAt` and
+ * `deviceCount` are the database's to set; `kind` is fixed once the record
+ * exists, because a student does not become a member of staff.
  */
-export const DEVICE_NOTE_MAX = 4000;
+export type PersonInput = Omit<Person, 'id' | 'version' | 'updatedAt' | 'deviceCount'>;
 
-/** One inventory record, as `public.devices` stores it. */
+/**
+ * An inventory status.
+ *
+ * Deliberately a plain string. `inventory_devices.status` has no CHECK
+ * constraint: the vocabulary is whatever the district has written, and
+ * `app_inventory_statuses()` is the authority on what to offer — every value
+ * in use, plus the five it seeds. A closed union here would quietly drop the
+ * statuses the real inventory already carries.
+ */
+export type DeviceStatus = string;
+
+/** What `app_inventory_statuses()` seeds, for a screen that has not loaded it yet. */
+export const SEED_DEVICE_STATUSES: DeviceStatus[] = [
+  'Available',
+  'Assigned',
+  'In repair',
+  'Retired',
+  'Lost',
+];
+
+/** The status app_assign_inventory_device sets, and the one it clears to. */
+export const ASSIGNED_STATUS = 'Assigned';
+export const AVAILABLE_STATUS = 'Available';
+
+/**
+ * No database check constrains an assignment note; the RPCs cap it at 500
+ * characters, and the form uses the same number so a note a person types is
+ * never longer than one the database will take.
+ */
+export const DEVICE_NOTE_MAX = 500;
+
+/** One machine in the inventory, exactly as `app_inventory_device_json` returns it. */
 export interface Device {
   id: string;
-  /** The managed-device identifier, e.g. `PW0FYJ9B-WIN`. Often absent. */
-  deviceId: string | null;
-  serialNumber: string | null;
-  assetTag: string | null;
-  type: string;
-  manufacturer: string | null;
-  model: string | null;
-  os: string | null;
+  /** The inventory's own identifier, e.g. `DEV-4F2A9C1B77E0`. Never empty. */
+  externalId: string;
+  deviceType: string;
+  manufacturer: string;
+  model: string;
+  osVersion: string;
+  serialNumber: string;
+  assetTag: string;
   status: DeviceStatus;
-  location: string | null;
-  notes: string | null;
-  source: 'manual' | 'import';
-  createdAt: string;
+  location: string;
+  notes: string;
+  /** Null when nobody is holding it. */
+  assignedRequesterId: string | null;
+  assignedName: string | null;
+  assignedKind: PersonKind | null;
+  version: number;
   updatedAt: string;
 }
 
-/** An inventory list row: the device plus who is holding it. */
-export interface DeviceSummary {
-  id: string;
-  deviceId: string | null;
-  serialNumber: string | null;
-  assetTag: string | null;
-  type: string;
-  manufacturer: string | null;
-  model: string | null;
-  os: string | null;
-  status: DeviceStatus;
-  location: string | null;
-  holderId: string | null;
-  holderName: string | null;
-  holderKind: PersonKind | null;
-  updatedAt: string;
-}
+export type DeviceSummary = Device;
 
-/** Who has a device right now, and since when. */
-export interface DeviceHolder {
-  id: string;
-  displayName: string;
-  kind: PersonKind;
-  assignedAt: string;
-}
+/** What a device's page may change. The external id is generated on save. */
+export type DeviceInput = Omit<
+  Device,
+  'id' | 'externalId' | 'assignedName' | 'assignedKind' | 'version' | 'updatedAt'
+>;
 
-/** One loan in a device's history, newest first on the device page. */
-export interface DeviceAssignment {
-  id: string;
-  personId: string;
-  personName: string;
-  personKind: PersonKind;
-  assignedAt: string;
-  assignedByName: string | null;
-  /** Null while the loan is still open. */
-  returnedAt: string | null;
-  returnedByName: string | null;
-  note: string | null;
-}
-
-/** One loan from the person's side: which machine, and when. */
-export interface PersonDeviceLoan {
-  assignmentId: string;
-  assignedAt: string;
-  returnedAt: string | null;
-  device: {
-    id: string;
-    deviceId: string | null;
-    serialNumber: string | null;
-    assetTag: string | null;
-    type: string;
-    model: string | null;
-    status: DeviceStatus;
-  };
+/** One entry in the device catalogue: the tuples intake and the editor offer. */
+export interface DeviceCatalogEntry {
+  deviceType: string;
+  manufacturer: string;
+  model: string;
 }
 
 /** A ticket named on a person's or a device's page: enough to link to it. */
@@ -598,7 +574,7 @@ export interface RecordTicketRef {
  */
 export interface RecordEvent {
   id: string;
-  entityType: 'person' | 'device' | 'invite' | 'import' | 'account';
+  entityType: 'requester' | 'inventory_device' | 'invite' | 'import' | 'account';
   entityId: string;
   kind: string;
   actorId: AccountId | null;
@@ -611,8 +587,8 @@ export interface RecordEvent {
 
 export interface PersonDetail {
   person: Person;
-  /** Current loans first, then past ones, newest first within each. */
-  devices: PersonDeviceLoan[];
+  /** The machines they are holding now. */
+  devices: Device[];
   /** The tickets they asked for that the viewer may see, newest first. */
   tickets: RecordTicketRef[];
   /** Newest first. */
@@ -621,10 +597,7 @@ export interface PersonDetail {
 
 export interface DeviceDetail {
   device: Device;
-  holder: DeviceHolder | null;
-  /** Newest first. */
-  assignments: DeviceAssignment[];
-  /** The tickets naming this device that the viewer may see, newest first. */
+  /** The tickets naming this machine that the viewer may see, newest first. */
   tickets: RecordTicketRef[];
   /** Newest first. */
   events: RecordEvent[];
@@ -632,14 +605,24 @@ export interface DeviceDetail {
 
 /**
  * How a machine is named everywhere: asset tag first, because that is the
- * label stuck on the lid; then the serial; then the managed-device id. The
- * same order as `app_device_label` in the database, so a device reads the
- * same way on screen as it does in the history.
+ * label stuck on the lid; then the serial; then the inventory's own external
+ * id. The same order as `app_device_label` in the database, so a machine reads
+ * the same way on screen as it does in the history.
  */
 export function deviceLabel(device: {
-  assetTag: string | null;
-  serialNumber: string | null;
-  deviceId: string | null;
+  assetTag?: string | null;
+  serialNumber?: string | null;
+  externalId?: string | null;
 }): string {
-  return device.assetTag ?? device.serialNumber ?? device.deviceId ?? 'Unlabelled device';
+  return (
+    nonBlank(device.assetTag) ??
+    nonBlank(device.serialNumber) ??
+    nonBlank(device.externalId) ??
+    'Unlabelled device'
+  );
+}
+
+function nonBlank(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
 }

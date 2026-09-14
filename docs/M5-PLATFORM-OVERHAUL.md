@@ -1,9 +1,9 @@
 # M5 — platform overhaul
 
 The helpdesk that M3 built around tickets is now the school's IT system: the
-same tickets, plus the people and the machines they are about, a directory and
-an inventory imported from AppSheet, a phone that works as a barcode scanner,
-attachments, notifications, an audit log, insights, and an assistant that can
+same tickets, plus the people and the machines they are about, read from the
+district's own directory and inventory, a phone that works as a barcode scanner,
+attachments, notifications, an audit log, and an assistant that can
 do the work rather than only describe it. Sign-in moved to Google, with invites
 and an approval queue for anybody who was not invited.
 
@@ -17,11 +17,9 @@ the owner out of band.
 - [Architecture](#architecture)
 - [Sign-in, invites and approvals](#sign-in-invites-and-approvals)
 - [People and devices](#people-and-devices)
-- [Import](#import)
 - [Search and the command palette](#search-and-the-command-palette)
 - [The phone as a scanner](#the-phone-as-a-scanner)
 - [Attachments, notifications and the audit log](#attachments-notifications-and-the-audit-log)
-- [Insights](#insights)
 - [The assistant](#the-assistant)
 - [Attribution](#attribution)
 - [Owner runbook for the hosted project](#owner-runbook-for-the-hosted-project)
@@ -37,7 +35,7 @@ the owner out of band.
   disclosure under the Google button, as the administrator's way back in when
   Google is unavailable.
 - **Navigation.** The queue, My tickets, Collaborating and Resolved are still
-  the work; People, Devices and Insights are new; All tickets and
+  the work; People and Devices are new; All tickets and
   Administration are still administrator-only. A rail on wide screens, a
   bottom bar on phones.
 - **Tickets** carry a category, a requester who can be a real person from the
@@ -63,10 +61,9 @@ what exists.
 | Tokens and theme | `src/styles/tokens.css`, `src/components/shell/ThemeProvider.tsx` | One palette, two themes, stamped before first paint |
 | Shell | `src/components/shell/**` | Rail, top bar, bottom tabs, palette, bell, assistant toggle |
 | Session DAL | `src/lib/auth/session.ts` | `getUser()` verification plus role and status from `app_accounts` |
-| Reads | `src/lib/data/*.ts` | Queues, people, devices, insights, search — all on the person's own client |
+| Reads | `src/lib/data/*.ts` | Queues, people, devices, search — all on the person's own client |
 | Writes | `src/lib/data/*-actions.ts` | One reviewed RPC per mutation |
 | Admin client | `src/lib/supabase/admin.ts` | Service role. Auth users, links, storage, `app_trusted_*` only |
-| Import | `src/lib/import/**`, `app_admin_import` | Parse and normalise here, decide and write in the database |
 | Assistant | `src/lib/ai/**`, `src/app/api/ai/chat/route.ts` | Device-code OAuth, encrypted tokens, streamed tool loop |
 | Scanner relay | `src/lib/scan/**`, `scan_sessions`/`scan_events` | Pairing, expiry, caps, Realtime with a polling fallback |
 
@@ -82,7 +79,7 @@ M5 adds three boundaries of its own:
 
 1. **Public sign-up is closed in the database, not only in a setting.** The
    GoTrue *Before User Created* hook (`public.hook_before_user_created`,
-   migration `20260912101200_m5_signup_hook.sql`) refuses any user whose
+   migration `20260914101200_m5_signup_hook.sql`) refuses any user whose
    `app_metadata.provider` is `email`. It also runs on a first Google sign-in
    and passes it, because that provider is `google`. The admin API does not run
    the hook at all, so administrator-created accounts are unaffected.
@@ -128,41 +125,42 @@ directly, exactly as in M3.
 
 ## People and devices
 
-`people` holds students and staff — names, the identifiers the school already
-uses (OSIS, staff id), class or department, and contact details. `devices`
-holds every machine the school lends out, keyed on any of device id, serial
-number or asset tag, with a status (`in_stock`, `deployed`, `in_repair`,
-`retired`, `lost`, `surplus`) and a current holder.
+`requesters` is the district's own directory: 3,448 students and 261 staff, each
+with the identifier the school already uses (an OSIS for a student, a staff ID
+derived from the email address for a member of staff), their class or
+department, and their contact details. `inventory_devices` is the district's own
+inventory: 4,278 machines, each with a type, manufacturer, model and serial
+number, an asset tag, a location, a free-text status and at most one holder.
+`device_catalog` is the list of type/manufacturer/model tuples both intake and
+the device editor offer.
 
-Neither table is writable from a session. `app_upsert_person`,
-`app_upsert_device`, `app_assign_device`, `app_return_device`,
-`app_set_device_status`, `app_move_device` and `app_bulk_update_devices` are
-the only ways in, and each one re-derives the actor from `auth.uid()`.
-Archiving a person and restoring them is an administrator's switch, refused
-outright — not ignored — when it arrives on an ordinary upsert.
+Neither table is writable from a session, and `inventory_devices` has row-level
+security with no policies at all: every read and every write goes through a
+SECURITY DEFINER function. `app_list_people`, `app_get_person`,
+`app_save_person`, `app_list_inventory`, `app_get_inventory_device`,
+`app_save_inventory_device`, `app_inventory_statuses`, `app_device_catalog` and
+`app_staff_directory_options` are the owner's; `app_assign_inventory_device`,
+`app_return_inventory_device`, `app_bulk_update_inventory`,
+`app_requester_devices` and `app_lookup_inventory_code` were added for the
+movements a help desk performs. Each one re-derives the actor from `auth.uid()`.
 
-A ticket can link to any number of machines and to one person as its requester;
-the person page lists what they hold and the tickets they raised, and the
-device page lists its assignment history and the tickets it appeared in.
+Two rules are worth stating. A machine's status is FREE TEXT with no CHECK
+constraint: `app_inventory_statuses()` returns every value in use plus the five
+it seeds (Available, Assigned, In repair, Retired, Lost), so a word the district
+invents appears on the screens and in the charts rather than being dropped.
+And every record carries a `version`: a form sends back the version it opened
+on, and a save against a record somebody else has already changed is refused
+with "This record changed since you opened it" rather than overwriting them.
 
-## Import
+A ticket names one requester from the directory, or plainly nobody, and can
+link any number of machines. The person page lists what they hold and the
+tickets they raised; the machine's page lists the tickets it appears on and the
+history of where it has been.
 
-The school's inventory and directory live in an AppSheet app backed by Google
-Sheets, exported as `students.csv`, `staff.csv` and `inventory.csv`.
-Administration → Import takes one file at a time: it reads the header, offers a
-column mapping (with presets for the known AppSheet shapes), and always runs a
-dry run first — the counts, the rows that will be skipped, and the reasons, with
-no whole row ever printed. Committing runs the same code path again and writes.
-
-`npm run import:csv -- --dir <folder> --email <admin address>` rehearses the
-whole folder from the command line against the local stack, in the order that
-makes holders match: students, then staff, then devices. It refuses a Supabase
-URL that is not loopback and refuses a password on the command line.
-
-`app_admin_import` is what decides and writes in both paths, so the screen and
-the CLI cannot disagree. Re-running an import updates rather than duplicating:
-people match on OSIS, staff id or email, and devices on device id, serial
-number or asset tag.
+There is no in-app importer. The directory and the inventory were loaded once
+by the owner's `scripts/prepare-inventory-import.mjs` and
+`scripts/prepare-inventory-profiles.mjs`, and every change since is an edit
+from the screens, audited in `inventory_events`.
 
 ## Search and the command palette
 
@@ -196,14 +194,6 @@ Notifications are rows written only by `app_notify` and `app_notify_admins`,
 never by a client. The bell shows the unread count and the last few; the
 notifications page shows the rest. The audit log (Administration → Audit)
 records account changes, imports, approvals and role changes, append-only.
-
-## Insights
-
-Insights answers the questions a person running the helpdesk actually asks:
-how much came in and how much was closed over the last N days, how long
-tickets take to resolve, where the work is coming from, and which kinds of
-machine keep turning up. It is one `app_insights` call, computed in the
-database, and every number it shows is one the caller is allowed to see.
 
 ## The assistant
 
@@ -280,7 +270,7 @@ project URL and the anon key, which is public by design.
 8. **Check the attachments bucket.** Storage should hold a bucket named
    `attachments`, **not public**, with an 8 MiB file size limit and the mime
    types `image/jpeg`, `image/png`, `image/webp`, `image/gif`,
-   `application/pdf`. Migration `20260912100800_m5_attachments.sql` creates it
+   `application/pdf`. Migration `20260914100800_m5_attachments.sql` creates it
    where a `storage` schema exists; the application checks for it at startup and
    says so if it is missing. `ATTACHMENT_BUCKET` in
    `src/lib/data/attachments.ts` is the name it expects.
@@ -292,9 +282,9 @@ project URL and the anon key, which is public by design.
 10. **Realtime, optionally.** Enable Realtime for `scan_events` so scans reach
     the desktop immediately. With it off the phone scanner still works by
     polling.
-11. **Import last.** Administration → Import, one file at a time, dry run
-    first. Read the counts and the skipped rows before committing. Students,
-    then staff, then devices, so device holders match.
+11. **Do not import.** The directory and the inventory are already live on the
+    hosted project. Repeating either preparation script would duplicate them,
+    and both refuse to run a second time for exactly that reason.
 
 **Attachments, periodically.** Deleting a ticket or a device leaves its
 uploaded files in the private `attachments` bucket: the cascade removes the
@@ -321,7 +311,6 @@ See the [README](../README.md) for the full local setup. In short: `npm install`
 ```bash
 npm run check        # typecheck, lint, unit tests, production build
 npm run test:local   # reset + DB tests, then reset + auth tests
-npm run import:csv   # rehearse the CSV import against the local stack
 ```
 
 The two reset-based suites destroy local synthetic data, including any account

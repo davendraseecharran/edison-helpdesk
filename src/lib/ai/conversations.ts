@@ -3,7 +3,7 @@
  *
  * `ai_conversations` and `ai_messages` are the one place in this schema a
  * signed-in session writes a table directly (see the header of
- * 20260912100900_m5_ai_preferences.sql). That is on purpose, and it is why
+ * 20260914100900_m5_ai_preferences.sql). That is on purpose, and it is why
  * everything here goes through the USER'S client: the policies pin every row to
  * the caller, so a conversation cannot be opened in somebody else's name or read
  * out of theirs, and there is no server-side ownership check to get wrong.
@@ -259,7 +259,7 @@ export async function loadConversation(
 /**
  * The most JSON one `ai_messages` row is given before a batch is split.
  *
- * `ai_messages_content_size` (20260912100910_m5_ai_bounds.sql) refuses a row
+ * `ai_messages_content_size` (20260914100910_m5_ai_bounds.sql) refuses a row
  * whose `content` measures over 256 KiB as it arrives. One assistant round can
  * come close honestly: several encrypted reasoning items and a function_call
  * whose arguments carry a pasted spreadsheet. Letting the insert fail would

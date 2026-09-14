@@ -1,16 +1,20 @@
 'use client';
 
 /**
- * Set a device's status by hand, with a reason for the history. `deployed`
- * is not on the list because it means having a holder; a deployed device is
- * returned instead, and the database says so if this is tried on one.
+ * Set a device's status by hand. The list is `app_inventory_statuses()` —
+ * every status the district has in use, plus the five it seeds — because
+ * `inventory_devices.status` is free text with no closed vocabulary.
+ *
+ * Assigned is not on the list: it means having a holder, which assigning and
+ * returning are for. Setting it here would claim a loan that never started.
  */
 
 import { useState, type FormEvent } from 'react';
 import type { ActionResult } from '@/lib/data/actions';
 import {
-  DEVICE_STATUS_LABELS,
-  MANUAL_DEVICE_STATUSES,
+  ASSIGNED_STATUS,
+  AVAILABLE_STATUS,
+  SEED_DEVICE_STATUSES,
   type DeviceStatus,
 } from '@/lib/domain/types';
 import { Field } from '@/components/Primitives';
@@ -19,39 +23,40 @@ import { Dialog } from '@/components/ui/Dialog';
 
 export interface ChangeStatusValues {
   status: DeviceStatus;
-  reason: string;
 }
 
 export function ChangeStatusDialog({
   open,
   onClose,
   subject,
-  count = 1,
   current,
+  statuses,
   pending,
   onSubmit,
 }: {
   open: boolean;
   onClose: () => void;
   subject: string;
-  count?: number;
   /** The single device's current status, so the select starts there. */
   current?: DeviceStatus;
+  /** The vocabulary from app_inventory_statuses; the seeds when it has not loaded. */
+  statuses?: string[];
   pending: boolean;
   onSubmit: (values: ChangeStatusValues) => Promise<ActionResult>;
 }) {
-  const initial = current && current !== 'deployed' ? current : 'in_stock';
+  const offered = (statuses?.length ? statuses : SEED_DEVICE_STATUSES).filter(
+    (value) => value !== ASSIGNED_STATUS,
+  );
+  const initial = current && current !== ASSIGNED_STATUS ? current : AVAILABLE_STATUS;
   const [status, setStatus] = useState<DeviceStatus>(initial);
-  const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const formId = 'change-status-form';
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    const result = await onSubmit({ status, reason });
+    const result = await onSubmit({ status });
     if (result.ok) {
-      setReason('');
       onClose();
     } else {
       setError(result.error ?? 'The status could not be changed.');
@@ -63,7 +68,7 @@ export function ChangeStatusDialog({
       open={open}
       onClose={onClose}
       title={`Change status of ${subject}`}
-      description="A device somebody is holding is returned instead, so it keeps its loan history."
+      description="A device somebody is holding is returned instead, so its loan is closed rather than forgotten."
       footer={
         <>
           <Button onClick={onClose} disabled={pending}>
@@ -84,21 +89,12 @@ export function ChangeStatusDialog({
             aria-invalid={error ? 'true' : undefined}
             onChange={(event) => setStatus(event.target.value as DeviceStatus)}
           >
-            {MANUAL_DEVICE_STATUSES.map((value) => (
+            {offered.map((value) => (
               <option key={value} value={value}>
-                {DEVICE_STATUS_LABELS[value]}
+                {value}
               </option>
             ))}
           </select>
-        </Field>
-        <Field label="Reason" htmlFor="status-reason" optional hint="Kept on the history.">
-          <input
-            id="status-reason"
-            type="text"
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder={count === 1 ? 'Hinge broken, sent for repair' : 'End of loan cycle'}
-          />
         </Field>
       </form>
     </Dialog>

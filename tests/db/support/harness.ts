@@ -181,13 +181,10 @@ export interface NewTicketOptions {
   channel?: 'walk_in' | 'email' | 'phone_call';
   priority?: 'low' | 'normal' | 'high' | 'urgent';
   submittedOn?: string;
+  /** A staff or student row in the district directory. */
   requesterId?: string | null;
-  requesterName?: string;
-  requesterKind?: 'staff' | 'student';
-  requesterDescriptor?: string | null;
   requesterUnknown?: boolean;
   location?: string;
-  isRemote?: boolean;
   ownerId?: string | null;
   collaboratorIds?: string[];
   devices?: Array<Record<string, unknown>>;
@@ -201,13 +198,10 @@ function rpcArgs(options: NewTicketOptions): Record<string, unknown> {
     p_priority: options.priority ?? 'normal',
     p_submitted_on: options.submittedOn ?? null,
     p_requester_id: options.requesterId ?? null,
-    p_requester_name: options.requesterName ?? null,
-    p_requester_kind: options.requesterKind ?? 'staff',
-    p_requester_descriptor: options.requesterDescriptor ?? null,
-    p_requester_unknown:
-      options.requesterUnknown ?? (options.requesterId == null && options.requesterName == null),
+    // The directory is the district's, so a ticket names somebody who is
+    // already in it or says plainly that there is nobody to name.
+    p_requester_unknown: options.requesterUnknown ?? options.requesterId == null,
     p_location: options.location ?? 'Room 212',
-    p_is_remote: options.isRemote ?? false,
     p_owner_id: options.ownerId ?? null,
     p_collaborator_ids: options.collaboratorIds ?? [],
     p_devices: options.devices ?? [],
@@ -274,6 +268,135 @@ export async function rawEvents(ticketId: string): Promise<Array<Record<string, 
 
 export function eventKinds(events: Array<Record<string, unknown>>): string[] {
   return events.map((event) => String(event.kind));
+}
+
+// --- Directory and inventory fixtures ---------------------------------------
+
+/**
+ * One person in the district directory, and one machine in its inventory.
+ *
+ * Both are arranged with the service role rather than through app_save_person
+ * and app_save_inventory_device, for the same reason identities are: a fixture
+ * is setup, not the thing under test, and a test that has to be an
+ * administrator to arrange a student cannot then prove what a NetRider may do
+ * with one. The tests that DO test those writers call them directly.
+ *
+ * Names are invented and every address is on edison.example: no real student
+ * or staff record appears anywhere in this suite.
+ */
+export async function seedRequester(
+  kind: 'staff' | 'student',
+  overrides: Record<string, unknown> = {},
+): Promise<{ id: string; displayName: string; externalId: string }> {
+  const suffix = crypto.randomUUID().replaceAll('-', '').slice(0, 10);
+  const externalId = kind === 'student' ? `9${suffix.replace(/\D/g, '0').slice(0, 8)}` : `t.${suffix}`;
+  const displayName = kind === 'student' ? `Synthetic Student ${suffix}` : `Synthetic Staff ${suffix}`;
+  const { data, error } = await adminServiceClient()
+    .from('requesters')
+    .insert({
+      display_name: displayName,
+      kind,
+      external_id: externalId,
+      source_external_id: externalId,
+      email: `${suffix}@edison.example`,
+      // requesters.created_by is NOT NULL: a record in the directory was put
+      // there by somebody. The seeded administrator stands in for the import.
+      created_by: identity('admin').id,
+      ...overrides,
+    })
+    .select('id, display_name, external_id')
+    .single();
+  if (error) throw new Error(`Could not seed a ${kind} requester: ${error.message}`);
+  const row = data as { id: string; display_name: string; external_id: string };
+  return { id: row.id, displayName: row.display_name, externalId: row.external_id };
+}
+
+export async function seedInventoryDevice(
+  overrides: Record<string, unknown> = {},
+): Promise<{ id: string; externalId: string; assetTag: string; serialNumber: string }> {
+  const suffix = crypto.randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase();
+  const row = {
+    external_id: `DEV-${suffix}`,
+    device_type: 'Chromebook',
+    manufacturer: 'Lenovo',
+    model: '300e',
+    serial_number: `SER-${suffix}`,
+    asset_tag: `DOE-${suffix}`,
+    status: 'Available',
+    location: 'Cart 4',
+    ...overrides,
+  };
+  const { data, error } = await adminServiceClient()
+    .from('inventory_devices')
+    .insert(row)
+    .select('id, external_id, asset_tag, serial_number')
+    .single();
+  if (error) throw new Error(`Could not seed an inventory device: ${error.message}`);
+  const saved = data as {
+    id: string;
+    external_id: string;
+    asset_tag: string;
+    serial_number: string;
+  };
+  return {
+    id: saved.id,
+    externalId: saved.external_id,
+    assetTag: saved.asset_tag,
+    serialNumber: saved.serial_number,
+  };
+}
+
+/** The catalogue tuple intake holds a named manufacturer to. */
+export async function seedCatalogEntry(
+  deviceType: string,
+  manufacturer: string,
+  model: string,
+): Promise<void> {
+  const { error } = await adminServiceClient()
+    .from('device_catalog')
+    .upsert({ device_type: deviceType, manufacturer, model }, { onConflict: 'device_type,manufacturer,model' });
+  if (error) throw new Error(`Could not seed a catalogue entry: ${error.message}`);
+}
+
+/** Raw inventory row, for ground-truth assertions. */
+export async function rawDevice(deviceId: string): Promise<Record<string, unknown>> {
+  const { data, error } = await adminServiceClient()
+    .from('inventory_devices')
+    .select('*')
+    .eq('id', deviceId)
+    .single();
+  if (error) throw new Error(`Could not read device ${deviceId}: ${error.message}`);
+  return data as Record<string, unknown>;
+}
+
+/** Every record event on one entity, newest last. */
+export async function rawRecordEvents(
+  entityType: string,
+  entityId: string,
+): Promise<Array<Record<string, unknown>>> {
+  const { data, error } = await adminServiceClient()
+    .from('record_events')
+    .select('*')
+    .eq('entity_type', entityType)
+    .eq('entity_id', entityId)
+    .order('at', { ascending: true });
+  if (error) throw new Error(`Could not read record events: ${error.message}`);
+  return (data ?? []) as Array<Record<string, unknown>>;
+}
+
+/** Every inventory_events audit row on one entity, newest last. */
+export async function rawInventoryEvents(
+  entity: 'student' | 'staff' | 'device',
+  entityId: string,
+): Promise<Array<Record<string, unknown>>> {
+  const { data, error } = await adminServiceClient()
+    .from('inventory_events')
+    .select('*')
+    .eq('entity', entity)
+    .eq('entity_id', entityId)
+    .order('at', { ascending: true });
+  if (error) throw new Error(`Could not read inventory events: ${error.message}`);
+  return (data ?? []) as Array<Record<string, unknown>>;
 }
 
 // --- School-local dates ----------------------------------------------------

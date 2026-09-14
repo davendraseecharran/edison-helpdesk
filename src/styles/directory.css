@@ -226,24 +226,30 @@
 /* --- Badges ------------------------------------------------------------- */
 
 /*
- * Device statuses. Deployed is the working state, in the signal blue; in
- * stock is ready, green; in repair is the amber of waiting; retired and
- * surplus are slate; lost is the one red. Each carries its label.
+ * Device statuses. inventory_devices.status is free text the district writes
+ * for itself, so the tone is chosen from the word rather than from a closed
+ * vocabulary: assigned is the working state, in the signal blue; available is
+ * ready, green; repair is the amber of waiting; retired is slate; lost is the
+ * one red. A status none of these recognises falls through to the default
+ * badge tone, which is exactly right for a word this application has never
+ * seen before.
  */
-.device-deployed {
+.device-assigned {
   --badge-tone: var(--signal);
 }
 
-.device-in_stock {
+.device-available {
   --badge-tone: var(--ok);
 }
 
-.device-in_repair {
+.device-in-repair,
+.device-repair {
   --badge-tone: var(--warn);
 }
 
 .device-retired,
-.device-surplus {
+.device-surplus,
+.device-no-status {
   --badge-tone: var(--slate);
   color: var(--ink-3);
 }

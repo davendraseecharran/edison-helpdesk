@@ -2,8 +2,12 @@
  * The CSV writer and the audit log's kind labels.
  *
  * The writer's contract is that anything it produces comes back unchanged
- * through the reader the import screen already uses, so the round trips here
- * are the point rather than a bonus: a backup nobody can read is not a backup.
+ * through a reader, so the round trips here are the point rather than a bonus:
+ * a backup nobody can read is not a backup. The reader used to be the import
+ * screen's parser; the in-app importer is gone with the tables it wrote, so
+ * this file carries a small RFC 4180 reader of its own, which is the honest
+ * shape of the assertion anyway -- the writer has to satisfy a reader it does
+ * not share code with.
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -15,8 +19,63 @@ vi.mock('next/navigation', () => ({
 }));
 
 import { csvField, csvHeaders, csvRow, encodeCsv, toCsv } from '../src/lib/csv';
-import { parseCsv } from '../src/lib/import/csv';
 import { auditKindLabel } from '../src/components/admin/AuditLog';
+
+/** A minimal RFC 4180 reader: quoted fields, doubled quotes, CRLF or LF rows. */
+function parseCsv(text: string): { headers: string[]; rows: string[][] } {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let quoted = false;
+  let index = 0;
+  const body = text.replace(/^\uFEFF/, '');
+
+  while (index < body.length) {
+    const char = body[index];
+    if (quoted) {
+      if (char === '"') {
+        if (body[index + 1] === '"') {
+          field += '"';
+          index += 2;
+          continue;
+        }
+        quoted = false;
+        index += 1;
+        continue;
+      }
+      field += char;
+      index += 1;
+      continue;
+    }
+    if (char === '"') {
+      quoted = true;
+      index += 1;
+      continue;
+    }
+    if (char === ',') {
+      row.push(field);
+      field = '';
+      index += 1;
+      continue;
+    }
+    if (char === '\r' || char === '\n') {
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+      index += char === '\r' && body[index + 1] === '\n' ? 2 : 1;
+      continue;
+    }
+    field += char;
+    index += 1;
+  }
+  if (field !== '' || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  const [headers = [], ...data] = rows;
+  return { headers, rows: data };
+}
 
 describe('csvField', () => {
   it('leaves an ordinary value alone', () => {

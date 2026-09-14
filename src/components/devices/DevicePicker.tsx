@@ -1,14 +1,14 @@
 'use client';
 
 /**
- * Find one machine in 7,500 without leaving the form: the same shape as
- * `PersonPicker`, over the inventory. Each result shows the machine's label
- * in mono, what it is, and who is holding it, so a technician does not link
- * the wrong one of two identical Chromebooks.
+ * Find one machine in 4,278 without leaving the form: the same shape as
+ * `PersonPicker`, over the inventory. Each result shows the machine's label in
+ * mono, what it is, and who is holding it, so a technician does not link the
+ * wrong one of two identical Chromebooks. The status is the district's own
+ * word for it, which is already the text it renders as.
  */
 
 import { searchDevicesAction, type DeviceSearchResult } from '@/lib/data/device-actions';
-import { DEVICE_STATUS_LABELS } from '@/lib/domain/types';
 import { SearchPicker } from '@/components/directory/SearchPicker';
 import { ScanTargetButton } from '@/components/scan/ScanTargetButton';
 
@@ -66,7 +66,7 @@ export function DevicePicker({
             {device.model ? `, ${device.model}` : ''}
             {device.holderName
               ? `, held by ${device.holderName}`
-              : `, ${DEVICE_STATUS_LABELS[device.status].toLowerCase()}`}
+              : `, ${device.status.toLowerCase()}`}
           </span>
         </>
       )}

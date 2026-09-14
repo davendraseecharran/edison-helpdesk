@@ -10,14 +10,14 @@ import {
   rpcOk,
   signIn,
 } from './support/harness';
-import { resolveLocalStack } from './support/local-only';
+import { localDatabaseContainer, resolveLocalStack } from './support/local-only';
 
 // SQL sessions only hold deterministic transaction barriers and inspect locks.
 // The ticket operations under test use real signed-in PostgREST clients.
 const docker = existsSync('/Applications/Docker.app/Contents/Resources/bin/docker')
   ? '/Applications/Docker.app/Contents/Resources/bin/docker'
   : 'docker';
-const psqlArgs = ['exec', '-i', 'supabase_db_edison-ticketing', 'psql',
+const psqlArgs = ['exec', '-i', localDatabaseContainer(), 'psql',
   '-U', 'postgres', '-d', 'postgres', '-X', '-qAt', '-v', 'ON_ERROR_STOP=1'];
 
 function scalar(sql: string): string {

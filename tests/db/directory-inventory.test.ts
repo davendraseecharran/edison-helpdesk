@@ -234,7 +234,6 @@ describe('inventory-aware ticket intake', () => {
     const ticketId = await createTicketAs('admin', {
       title: `Inventory snapshot ${randomUUID()}`,
       requesterId: staff.id,
-      requesterKind: 'staff',
       devices: [
         {
           deviceType: 'Laptop',

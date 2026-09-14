@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { expect,it } from 'vitest';
-import { resolveLocalStack } from './support/local-only';
+import { localDatabaseContainer, resolveLocalStack } from './support/local-only';
 // @ts-expect-error operator CLI is intentionally plain JavaScript
 import { prepareProfiles } from '../../scripts/prepare-inventory-profiles.mjs';
 it('enriches source profiles without replacing identities or overwriting edits, and safely skips a repeat',()=>{
@@ -30,6 +30,6 @@ it('enriches source profiles without replacing identities or overwriting edits, 
     select 'graduate='||count(*) from ${ns}.requesters where student_status='graduated' and class_of is null and guardian_name='O''Example Guardian';
     rollback;`);
   const docker=existsSync('/Applications/Docker.app/Contents/Resources/bin/docker')?'/Applications/Docker.app/Contents/Resources/bin/docker':'docker';
-  const result=execFileSync(docker,['exec','-i','supabase_db_edison-ticketing','psql','-U','postgres','-d','postgres','-X','-qAt','-v','ON_ERROR_STOP=1'],{input:first+second,encoding:'utf8',timeout:15000,stdio:['pipe','pipe','pipe']});
+  const result=execFileSync(docker,['exec','-i',localDatabaseContainer(),'psql','-U','postgres','-d','postgres','-X','-qAt','-v','ON_ERROR_STOP=1'],{input:first+second,encoding:'utf8',timeout:15000,stdio:['pipe','pipe','pipe']});
   for(const expected of ['repeat=0','linked=1','preserved=1','graduate=1'])expect(result).toContain(expected);
 });

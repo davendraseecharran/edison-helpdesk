@@ -69,7 +69,6 @@ describe('tool classification', () => {
       'log_work',
       'get_ticket',
       'list_queue',
-      'get_insights',
     ]) {
       expect(names).not.toContain(name);
     }
@@ -95,7 +94,6 @@ describe('tool classification', () => {
       'list_devices',
       'get_device',
       'list_notifications',
-      'get_insights',
     ]) {
       expect(READ_TOOLS).toContain(name);
     }
@@ -133,7 +131,6 @@ describe('tool classification', () => {
       'review_access_request',
       'create_invite',
       'set_roles',
-      'import_csv',
     ]) {
       expect(ADMIN_TOOLS).toContain(name);
     }
@@ -158,13 +155,12 @@ describe('isWriteTool', () => {
 });
 
 describe('isWriteCall', () => {
-  it('treats an import dry run as a read and a commit as a write', () => {
-    expect(isWriteCall('import_csv', { kind: 'people', csv_text: 'a', mode: 'dry_run' })).toBe(false);
-    expect(isWriteCall('import_csv', { kind: 'people', csv_text: 'a', mode: 'commit' })).toBe(true);
-  });
-  it('agrees with isWriteTool everywhere else', () => {
+  // import_csv was the one tool that was a read in one shape and a write in
+  // another, and it is gone with the in-app importer. Nothing is now, so the
+  // two questions have the same answer for every tool -- which is what this
+  // pins, so a tool that grows a "check it first" mode has to say so here.
+  it('agrees with isWriteTool for every tool', () => {
     for (const name of ALL) {
-      if (name === 'import_csv') continue;
       expect(isWriteCall(name, {})).toBe(isWriteTool(name));
     }
   });
@@ -268,16 +264,9 @@ describe('requiresApproval', () => {
       .filter((name) => ADMIN_TOOLS.includes(name));
     expect(admin.sort()).toEqual([...ADMIN_TOOLS].sort());
     for (const name of admin) {
-      // `import_csv` is the one call that is a write only when it commits.
-      const args = name === 'import_csv' ? { mode: 'commit' } : {};
-      expect(requiresApproval(name, args, false)).toBe(true);
-      expect(requiresApproval(name, args, true)).toBe(true);
+      expect(requiresApproval(name, {}, false)).toBe(true);
+      expect(requiresApproval(name, {}, true)).toBe(true);
     }
-  });
-
-  it('asks before an import commits, and not for a dry run', () => {
-    expect(requiresApproval('import_csv', { mode: 'commit' }, false)).toBe(true);
-    expect(requiresApproval('import_csv', { mode: 'dry_run' }, true)).toBe(false);
   });
 
   it('follows the setting for ordinary work', () => {
@@ -306,14 +295,6 @@ describe('describeCall', () => {
     expect(describeCall('claim_ticket', { ticket: 'EDT-1042' })).toBe(
       'Claim ticket (ticket: EDT-1042)',
     );
-  });
-
-  it('never inlines a pasted spreadsheet', () => {
-    const csv = 'a,b\n'.repeat(50_000);
-    const described = describeCall('import_csv', { kind: 'people', csv_text: csv, mode: 'commit' });
-    expect(described).not.toContain('a,b');
-    expect(described).toMatch(/characters of CSV/);
-    expect(described.length).toBeLessThan(200);
   });
 
   it('cuts any other long value', () => {
@@ -369,27 +350,14 @@ describe('what a failed tool tells the model', () => {
   });
 });
 
-describe('the CSV an assistant import accepts', () => {
-  const header = 'asset_tag,serial,model\n';
-
-  it('accepts a sheet that fits one conversation row', () => {
-    const csv = header + 'DOE-LN0000001,SER1,Chromebook\n'.repeat(1_000);
-    expect(csv.length).toBeLessThan(100_000);
-    const checked = validateArgs('import_csv', { kind: 'devices', csv_text: csv, mode: 'dry_run' });
-    expect(checked.ok).toBe(true);
-  });
-
-  it('refuses a sheet too large to store, and says where to import it', () => {
-    const csv = header + 'x'.repeat(100_001);
-    const checked = validateArgs('import_csv', { kind: 'devices', csv_text: csv, mode: 'dry_run' });
+describe('the text an assistant may send', () => {
+  it('refuses an overlong field and names it, with no ceiling above 4,000', () => {
+    const checked = validateArgs('add_note', { ticket: 'EDT-1042', body: 'x'.repeat(4_001) });
     expect(checked.ok).toBe(false);
-    expect(checked.error).toMatch(/administration import screen/i);
-  });
-
-  it('says nothing about an import screen for an ordinary overlong field', () => {
-    const checked = validateArgs('add_note', { ticket: 'EDT-1042', note: 'x'.repeat(4_001) });
-    expect(checked.ok).toBe(false);
-    expect(checked.error).not.toMatch(/import screen/i);
+    expect(checked.error).toMatch(/body/);
+    // The one field that carried a bigger ceiling was the pasted spreadsheet,
+    // and it is gone with the importer.
+    expect(validateArgs('add_note', { ticket: 'EDT-1042', body: 'x'.repeat(4_000) }).ok).toBe(true);
   });
 });
 

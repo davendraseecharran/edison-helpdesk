@@ -133,20 +133,6 @@ describe('validateArgs', () => {
     expect(result.error).toMatch(/body/);
   });
 
-  it('lets a pasted spreadsheet be much longer than an ordinary field', () => {
-    const csv = `kind,first name,last name,email\n${'student,A,B,a@edison.example\n'.repeat(2000)}`;
-    expect(csv.length).toBeGreaterThan(4000);
-    expect(validateArgs('import_csv', { kind: 'people', csv_text: csv, mode: 'dry_run' }).ok).toBe(
-      true,
-    );
-  });
-
-  it('still has a ceiling on a pasted spreadsheet', () => {
-    const huge = 'x'.repeat(5_000_001);
-    expect(validateArgs('import_csv', { kind: 'people', csv_text: huge, mode: 'dry_run' }).ok).toBe(
-      false,
-    );
-  });
 
   it('has a schema for every classified tool', () => {
     for (const name of [...READ_TOOLS, ...WRITE_TOOLS, ...ADMIN_TOOLS]) {

@@ -31,7 +31,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import { adminServiceClient, rpcOk, signIn } from './support/harness';
 
-/** The cap in 20260912101400_m5_access_request_cap.sql. */
+/** The cap in 20260914101400_m5_access_request_cap.sql. */
 const CAP = 50;
 const REQUESTS_FULL = 'P9003';
 

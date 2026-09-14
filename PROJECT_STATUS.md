@@ -32,17 +32,19 @@ User approved release September14. Vercel promotion succeeded for dpl_4UrHbFnFtT
 
 Error #441 was caused by staging calling missing app_list_people/app_inventory_statuses before migration. Root backed up and applied inventory_management, verified functions/counts and up-to-date migrations; user confirmed fixed. Later profile blanks were the unapplied enrichment, now completed. Department/role dropdowns required code plus staff_directory_options migration, both completed.
 
-The branch `platform-overhaul` (M5, below) is being merged on top of this live release: M5 now builds on the inventory tables above — `requesters`, `inventory_devices` and `device_catalog` are the source of truth, and the M5 `people`/`devices` model is being retired in a follow-up task.
+The branch `platform-overhaul` (M5, below) is merged on top of this live release, and M5 now builds ON the inventory tables above. `requesters`, `inventory_devices` and `device_catalog` are the source of truth: the M5 `people`, `devices`, `device_assignments` and `import_runs` tables are **deleted**, with the in-app CSV importer that wrote them. The directory arrives through the owner's one-time preparation scripts and is edited afterwards through `app_save_person` and `app_save_inventory_device`.
 
 Updated September 14, 2026. **M5, the platform overhaul, is built and reviewed on the branch `platform-overhaul`; it is NOT pushed, NOT merged and NOT deployed.** The live M4 application at https://edison-helpdesk.vercel.app is untouched and still runs the M4 revision. M3 complete; M4 deployment complete; M5 local.
 
 ## M5 — platform overhaul (branch `platform-overhaul`)
 
-Google sign-in with invites and an approval queue, a people directory and a device inventory imported from the AppSheet CSV exports, ticket categories and device links, search with a command palette, attachments, in-app notifications, an audit log, insights, the phone as a barcode scanner, an AI assistant on each technician's own ChatGPT account, and a dark-first design system. What it is and how to turn it on: **[docs/M5-PLATFORM-OVERHAUL.md](docs/M5-PLATFORM-OVERHAUL.md)** — the owner runbook is ordered, and step 2 (enable the Before User Created hook) must happen before step 3 (allow sign-ups).
+Google sign-in with invites and an approval queue, the district's own directory and inventory (`requesters` / `inventory_devices`), ticket categories and device links, search with a command palette, attachments, in-app notifications, an audit log, the phone as a barcode scanner, an AI assistant on each technician's own ChatGPT account, and a dark-first design system. What it is and how to turn it on: **[docs/M5-PLATFORM-OVERHAUL.md](docs/M5-PLATFORM-OVERHAUL.md)** — the owner runbook is ordered, and step 2 (enable the Before User Created hook) must happen before step 3 (allow sign-ups).
 
 Per-task briefs, reports and review rounds are in `.superpowers/sdd/2026-09-12-platform-overhaul/`; `progress.md` there is the ledger of what was implemented, reviewed and ruled on.
 
-The branch adds migrations `20260912100000_m5_*` through `20260912101400_m5_access_request_cap.sql`. They are additive and have been applied to the local stack only. `supabase/config.toml` on this machine carries an **uncommitted** local port patch (55321/2/3); the committed values are the defaults (54321/2/3). Never stage that file.
+The branch adds migrations `20260914100000_m5_foundation.sql` through `20260914160000_m5_public_totals.sql`. Every M5 migration is numbered `20260914` so that all of them apply AFTER the owner's four (`20260912210000`, `20260912220000`, `20260913150000`, `20260914010000`), which is what lets M5 build on the live tables rather than beside them. They are additive and have been applied to the local stack only. `supabase/config.toml` on this machine carries an **uncommitted** local port patch (55321/2/3 in the main worktree, 56321/2/3 in lane 2, each with its own `project_id`); the committed values are the defaults (54321/2/3). Never stage that file.
+
+The retired migrations are gone rather than reversed, because none of them was ever pushed: `m5_people`, `m5_people_fixes`, `m5_devices`, `m5_devices_fixes`, `m5_import` and `m5_import_fixes`. The four search migrations are one file, `20260914100500_m5_search.sql`, which carries the rulings all four reached.
 
 ## Live resources (M4, unchanged)
 
@@ -62,7 +64,7 @@ Hosted counts are unchanged: **1 app account, 1 Auth user, 0 tickets**. No real 
 ## Verification
 
 - M5 is verified locally, per task, in the reports under `.superpowers/sdd/2026-09-12-platform-overhaul/`. Each task ran typecheck, lint and the unit suite; DB-lane tasks ran their DB and auth suites.
-- `scripts/review-overhaul.cjs` (new) walks login, queue, ticket detail, new ticket, my tickets, people, a person, devices, a device, insights, administration (access, import, audit), settings, notifications and the assistant panel at 1440×900, 1024×768 and 390×844 on both themes, asserting no horizontal overflow and no browser console errors. It creates its own synthetic accounts through the local admin API and seeds through the ordinary RPCs.
+- `scripts/review-overhaul.cjs` (new) walks login, queue, ticket detail, new ticket, my tickets, people (students and staff), a person, devices, a device, administration (access, audit), settings, notifications and the assistant panel at 1440×900, 1024×768 and 390×844 on both themes, asserting no horizontal overflow and no browser console errors. It creates its own synthetic accounts through the local admin API and seeds through the ordinary RPCs.
 - Still to run on this branch: the full `npm run check` (the one place the production build runs) and `npm run test:local`. Those are Task 30b, after the polish pass lands.
 - M4 results stand: hosted schema with RLS on every public table, signup disabled, minimum password 12, HTTPS site/callback; live browser tests for signup denial, password login, session persistence, technician admin denial, walk-in intake, logout, setup, recovery and old-browser revocation.
 
@@ -71,7 +73,7 @@ Hosted counts are unchanged: **1 app account, 1 Auth user, 0 tickets**. No real 
 1. Finish the last M5 tasks on the branch (polish pass, final whole-branch review), then the user decides PR or direct merge. Nothing is pushed.
 2. Apply the M5 migrations to the hosted project and work through the [owner runbook](docs/M5-PLATFORM-OVERHAUL.md#owner-runbook-for-the-hosted-project) **in order**. The hook before the sign-up switch is the one step whose order matters for security.
 3. Complete Jessie's setup and invite the technicians through Administration.
-4. Import the real directory and inventory: dry run first, read the counts and the skipped rows, then commit — students, then staff, then devices.
+4. Nothing to import: the directory and the inventory are already live on the hosted project (3,448 students, 261 staff, 4,278 devices). Do not repeat the imports or the migrations.
 5. Demonstrate backup and restoration and establish private backup storage before the system carries a day's real tickets. No backup/restore rehearsal has been completed.
 6. Review hosted logging and rate limits, and verify the full live ticket workflows (claim/collaborate/return/resolve/concurrency) on the hosted project; local suites cover them, hosted browser checks did not create tickets.
 7. Optionally finish Vercel GitHub app repository access for automatic deployments. Public intake remains deferred.

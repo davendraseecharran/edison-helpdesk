@@ -48,6 +48,7 @@ import {
   rpcOk,
   signIn,
   type IdentityKey,
+  seedInventoryDevice,
 } from './support/harness';
 
 /** insufficient_privilege, check_violation and no_data_found, as PostgREST reports them. */
@@ -176,7 +177,7 @@ async function deviceEvents(deviceId: string): Promise<Array<Record<string, unkn
   const { data, error } = await service
     .from('record_events')
     .select('*')
-    .eq('entity_type', 'device')
+    .eq('entity_type', 'inventory_device')
     .eq('entity_id', deviceId)
     .order('at', { ascending: true });
   if (error) throw new Error(`Could not read device history: ${error.message}`);
@@ -187,15 +188,14 @@ function kinds(events: Array<Record<string, unknown>>): string[] {
   return events.map((event) => String(event.kind));
 }
 
-/** A device nobody is holding, unique to this call. */
+/** A machine in the inventory that nobody is holding, unique to this call. */
 async function newDevice(): Promise<string> {
   sequence += 1;
-  return rpcOk<string>(owner, 'app_upsert_device', {
-    p_device: {
-      serial_number: `AT${RUN_TAG}${String(sequence).padStart(4, '0')}`,
-      model: 'ThinkPad L13',
-    },
+  const device = await seedInventoryDevice({
+    serial_number: `AT${RUN_TAG}${String(sequence).padStart(4, '0')}`,
+    model: 'ThinkPad L13',
   });
+  return device.id;
 }
 
 beforeAll(async () => {

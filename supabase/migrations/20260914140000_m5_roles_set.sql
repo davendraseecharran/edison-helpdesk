@@ -348,48 +348,6 @@ revoke execute on function
 from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
--- Insights are a ticket report. A skills officer has no tickets to report on,
--- and the payload names every NetRider and their throughput.
---
--- The existing function is RENAMED rather than rewritten, so the report itself
--- is preserved exactly, byte for byte, and the new public entry point is only
--- the authorization decision. The internal name is reachable by nobody: its
--- EXECUTE is revoked from every client role.
--- ---------------------------------------------------------------------------
-
-alter function public.app_insights(integer) rename to app_insights_report;
-
-revoke execute on function public.app_insights_report(integer)
-from public, anon, authenticated;
-
-comment on function public.app_insights_report(integer) is
-  'Builds the insights payload. Internal: it makes no authorization decision of its own. Callers go through app_insights(integer).';
-
-create function public.app_insights(p_days integer default 30)
-returns jsonb
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_actor public.app_accounts;
-begin
-  v_actor := public.app_require_actor();
-  if not (v_actor.roles && array['admin', 'netrider']::text[]) then
-    raise exception 'Only a NetRider or an administrator can read insights.'
-      using errcode = 'insufficient_privilege';
-  end if;
-  return public.app_insights_report(p_days);
-end;
-$$;
-
-comment on function public.app_insights(integer) is
-  'Insights payload for an active NetRider or administrator. Refuses a skills officer who is neither.';
-
-revoke execute on function public.app_insights(integer) from public, anon;
-grant execute on function public.app_insights(integer) to authenticated;
-
--- ---------------------------------------------------------------------------
 -- Inventory is readable by a skills officer and writable only by a ticket
 -- worker. Restated from 20260913150000 with one added guard; everything else
 -- is that migration's body unchanged.
@@ -484,7 +442,7 @@ comment on function public.app_my_account() is
 revoke execute on function public.app_my_account() from public, anon;
 grant execute on function public.app_my_account() to authenticated;
 
--- Restated from 20260912100100 with roles added, so an owner picker can leave
+-- Restated from 20260914100100 with roles added, so an owner picker can leave
 -- out a colleague who does not work tickets.
 drop function public.app_directory();
 
@@ -747,7 +705,7 @@ revoke execute on function public.app_admin_create_invite(text, text, text, text
 from public, anon, authenticated;
 grant execute on function public.app_admin_create_invite(text, text, text, text[]) to authenticated;
 
--- Restated from 20260912100100 with roles added to the row type.
+-- Restated from 20260914100100 with roles added to the row type.
 drop function public.app_admin_list_invites();
 
 create function public.app_admin_list_invites()
@@ -798,7 +756,7 @@ revoke execute on function public.app_admin_list_invites() from public, anon, au
 grant execute on function public.app_admin_list_invites() to authenticated;
 
 -- ---------------------------------------------------------------------------
--- Approving an access request chooses the set. Restated from 20260912100100
+-- Approving an access request chooses the set. Restated from 20260914100100
 -- with p_roles added; p_role keeps working and means the same one-element set.
 -- ---------------------------------------------------------------------------
 
@@ -913,7 +871,7 @@ from public, anon, authenticated;
 grant execute on function public.app_admin_review_access_request(uuid, text, text, text[]) to authenticated;
 
 -- ---------------------------------------------------------------------------
--- The Google first sign-in. Restated from 20260912101400 with three changes:
+-- The Google first sign-in. Restated from 20260914101400 with three changes:
 -- an invited account is created with the invite's SET, an uninvited one is
 -- created as {netrider}, and the invite-accepted event names the set. The
 -- fifty-outstanding-request bound and the email binding are unchanged.

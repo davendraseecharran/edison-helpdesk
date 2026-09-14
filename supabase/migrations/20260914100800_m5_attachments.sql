@@ -87,7 +87,7 @@ $$;
 create table public.attachments (
   id uuid primary key default extensions.gen_random_uuid(),
   ticket_id uuid references public.tickets (id) on delete cascade,
-  device_id uuid references public.devices (id) on delete cascade,
+  device_id uuid references public.inventory_devices (id) on delete cascade,
   -- '<ticket|device>/<parent uuid>/<sanitised filename>', unique because it is
   -- the object key in the bucket and two rows may never claim the same file.
   path text not null unique,
@@ -170,7 +170,7 @@ begin
   -- Inventory is shared: any active account may attach a photograph of a cracked
   -- screen to the machine it belongs to.
   if p_device is not null then
-    return exists (select 1 from public.devices d where d.id = p_device);
+    return exists (select 1 from public.inventory_devices d where d.id = p_device);
   end if;
 
   select * into v_ticket from public.tickets t where t.id = p_ticket;
@@ -214,7 +214,7 @@ declare
   ];
   v_actor public.app_accounts;
   v_ticket public.tickets;
-  v_device public.devices;
+  v_device public.inventory_devices;
   v_path text;
   v_filename text;
   v_mime text;
@@ -241,7 +241,7 @@ begin
     -- Closed, or not a contributor. Says which, and what to do about it.
     perform public.app_require_contributor(v_ticket, v_actor);
   else
-    select * into v_device from public.devices d where d.id = p_device;
+    select * into v_device from public.inventory_devices d where d.id = p_device;
     if not found then
       raise exception 'That device is not in the inventory. Search for it again.'
         using errcode = 'no_data_found';
@@ -318,7 +318,7 @@ begin
     );
   else
     perform public.app_log_record_event(
-      'device', p_device, 'attachment_added', v_actor.id, 'Attached ' || v_filename || '.'
+      'inventory_device', p_device, 'attachment_added', v_actor.id, 'Attached ' || v_filename || '.'
     );
   end if;
 
@@ -386,7 +386,7 @@ begin
     );
   else
     perform public.app_log_record_event(
-      'device', v_row.device_id, 'attachment_removed', v_actor.id,
+      'inventory_device', v_row.device_id, 'attachment_removed', v_actor.id,
       'Removed ' || v_row.filename || '.'
     );
   end if;

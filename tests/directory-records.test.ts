@@ -14,34 +14,50 @@ import {
   personSubtitle,
   splitRecordTickets,
 } from '../src/lib/domain/records';
-import { deviceLabel, DEVICE_STATUSES, MANUAL_DEVICE_STATUSES } from '../src/lib/domain/types';
+import { deviceLabel, SEED_DEVICE_STATUSES, ASSIGNED_STATUS } from '../src/lib/domain/types';
 import { toPeopleFilters } from '../src/app/(app)/people/search-params';
 import { pickerGateOpen, PICKER_MIN_CHARS } from '../src/components/directory/SearchPicker';
 
 describe('personErrorField', () => {
   it('lands each database message beside the field it names', () => {
-    expect(personErrorField('An OSIS number is 6 to 12 digits. Check "24" and enter it again.')).toBe('osis');
-    expect(personErrorField('Another person already has OSIS 240000123. Search for it to see whose record that is.')).toBe('osis');
-    expect(personErrorField('Another person already has staff id EMP-4021. Search for it.')).toBe('staff_id');
-    expect(personErrorField('Enter a valid email address, or leave the address blank.')).toBe('email');
-    expect(personErrorField('Another person already has the address a@edison.example. Search for it.')).toBe('email');
-    expect(personErrorField('Choose whether this person is a student or staff.')).toBe('kind');
-    expect(personErrorField("Enter this person's name.")).toBe('first_name');
+    // Verbatim from app_save_person and app_validate_profile.
+    expect(personErrorField('OSIS must contain numbers only.')).toBe('externalId');
+    expect(personErrorField('That OSIS or Staff ID is already in use. Open the existing record instead.')).toBe('externalId');
+    expect(personErrorField('Staff email is required to calculate the Staff ID.')).toBe('email');
+    expect(personErrorField('Enter a valid email address.')).toBe('email');
+    expect(personErrorField('Enter a valid phone number for guardianPhone.')).toBe('guardianPhone');
+    expect(personErrorField('Enter a valid phone number for homePhone.')).toBe('homePhone');
+    expect(personErrorField('Class of must be a four-digit year.')).toBe('classOf');
+    expect(personErrorField('Choose a valid enrollment status.')).toBe('studentStatus');
+    expect(personErrorField('Choose staff or student.')).toBe('kind');
+    expect(personErrorField('A name is required.')).toBe('displayName');
   });
 
-  it('sends anything else to the foot of the form', () => {
+  it('sends anything about the whole record to the foot of the form', () => {
+    expect(personErrorField('This record changed since you opened it. Reload it before saving.')).toBeNull();
     expect(personErrorField('Your session is not able to make changes. Sign in again.')).toBeNull();
   });
 });
 
 describe('deviceErrorField', () => {
   it('lands each database message beside the field it names', () => {
-    expect(deviceErrorField('Another device already has asset tag DOE-LN1. Search for it.')).toBe('asset_tag');
-    expect(deviceErrorField('Another device already has serial number PF3. Search for it.')).toBe('serial_number');
-    expect(deviceErrorField('Another device already has device id PW0. Search for it.')).toBe('device_id');
-    expect(deviceErrorField('A device is deployed once somebody is holding it. Assign it to a person instead.')).toBe('status');
-    expect(deviceErrorField('This device is still assigned to someone. Return it first, and choose the status it came back in.')).toBe('status');
-    expect(deviceErrorField('Enter a device id, serial number or asset tag so this machine can be identified.')).toBe('device_id');
+    // Verbatim from app_save_inventory_device and app_validate_profile.
+    expect(deviceErrorField('That serial number is already recorded in inventory.')).toBe('serialNumber');
+    expect(deviceErrorField('The assetTag field is too long (maximum 120 characters).')).toBe('assetTag');
+    expect(deviceErrorField('The deviceType field is too long (maximum 120 characters).')).toBe('deviceType');
+    expect(deviceErrorField('The status field is too long (maximum 120 characters).')).toBe('status');
+    expect(deviceErrorField('The location field is too long (maximum 120 characters).')).toBe('location');
+    expect(deviceErrorField('Select an existing student or staff member for the assignment.')).toBe(
+      'assignedRequesterId',
+    );
+  });
+
+  it('sends a message about the whole record to the foot of the form', () => {
+    expect(deviceErrorField('This device changed since you opened it. Reload it before saving.')).toBeNull();
+    // Four fields at once cannot land beside one of them.
+    expect(
+      deviceErrorField('Device type, manufacturer, model and serial number are required.'),
+    ).toBeNull();
   });
 });
 
@@ -69,10 +85,10 @@ describe('person lines', () => {
   it('reads kind, then class or department, without a middle dot', () => {
     expect(personSubtitle({ kind: 'student', officialClass: '9A', classOf: '2029' })).toBe('Student, 9A');
     expect(personSubtitle({ kind: 'student', classOf: '2029' })).toBe('Student, class of 2029');
-    expect(personSubtitle({ kind: 'staff', department: 'Science', roleTitle: 'Teacher' })).toBe('Staff, Science');
+    expect(personSubtitle({ kind: 'staff', department: 'Science', staffRole: 'Teacher' })).toBe('Staff, Science');
     expect(personSubtitle({ kind: 'staff' })).toBe('Staff');
     expect(personPlacement({ kind: 'student', officialClass: '9A', classOf: '2029' })).toBe('Class 9A, class of 2029');
-    expect(personPlacement({ kind: 'staff', department: 'Science', roleTitle: 'Teacher' })).toBe('Science, Teacher');
+    expect(personPlacement({ kind: 'staff', department: 'Science', staffRole: 'Teacher' })).toBe('Science, Teacher');
     expect(personPlacement({ kind: 'staff' })).toBe('');
   });
 
@@ -99,29 +115,36 @@ describe('splitRecordTickets', () => {
 });
 
 describe('deviceLabel', () => {
-  it('names a machine by tag, then serial, then device id', () => {
-    expect(deviceLabel({ assetTag: 'DOE-LN1', serialNumber: 'S1', deviceId: 'D1' })).toBe('DOE-LN1');
-    expect(deviceLabel({ assetTag: null, serialNumber: 'S1', deviceId: 'D1' })).toBe('S1');
-    expect(deviceLabel({ assetTag: null, serialNumber: null, deviceId: 'D1' })).toBe('D1');
-    expect(deviceLabel({ assetTag: null, serialNumber: null, deviceId: null })).toBe('Unlabelled device');
+  it('names a machine by tag, then serial, then the inventory id', () => {
+    expect(deviceLabel({ assetTag: 'DOE-LN1', serialNumber: 'S1', externalId: 'DEV-1' })).toBe('DOE-LN1');
+    expect(deviceLabel({ assetTag: null, serialNumber: 'S1', externalId: 'DEV-1' })).toBe('S1');
+    expect(deviceLabel({ assetTag: null, serialNumber: null, externalId: 'DEV-1' })).toBe('DEV-1');
+    expect(deviceLabel({ assetTag: null, serialNumber: null, externalId: null })).toBe('Unlabelled device');
   });
 
-  it('never offers deployed as a status to set by hand', () => {
-    expect(DEVICE_STATUSES).toContain('deployed');
-    expect(MANUAL_DEVICE_STATUSES).not.toContain('deployed');
-    expect(MANUAL_DEVICE_STATUSES).toHaveLength(DEVICE_STATUSES.length - 1);
+  it('treats a blank the projection sent as no value at all', () => {
+    // app_inventory_device_json coalesces every text field to '', so a machine
+    // with no asset tag arrives with an empty string rather than a null.
+    expect(deviceLabel({ assetTag: '', serialNumber: '  ', externalId: 'DEV-1' })).toBe('DEV-1');
+  });
+
+  it('seeds the status vocabulary without closing it', () => {
+    expect(SEED_DEVICE_STATUSES).toContain(ASSIGNED_STATUS);
+    expect(SEED_DEVICE_STATUSES).toContain('Available');
+    // A plain string, so a status the district invents is a legal value.
+    const invented: string = 'Awaiting parts';
+    expect(SEED_DEVICE_STATUSES).not.toContain(invented);
   });
 });
 
 describe('directory filters from the URL', () => {
-  it('keeps only a kind the vocabulary knows and reads the archived toggle exactly', () => {
-    expect(toPeopleFilters({ kind: 'student', archived: '1', page: '2' })).toMatchObject({
-      kind: 'student',
-      active: 'all',
+  it('reads one of the two lists, and falls back to students', () => {
+    expect(toPeopleFilters({ kind: 'staff', page: '2' })).toMatchObject({
+      kind: 'staff',
       page: 2,
     });
-    expect(toPeopleFilters({ kind: 'parent' }).kind).toBeUndefined();
-    expect(toPeopleFilters({ archived: 'yes' }).active).toBe('true');
+    expect(toPeopleFilters({ kind: 'parent' }).kind).toBe('student');
+    expect(toPeopleFilters({}).kind).toBe('student');
     expect(toPeopleFilters({ query: ['Whit', 'ignored'] }).query).toBe('Whit');
     expect(toPeopleFilters({ page: '-3' }).page).toBe(1);
   });
@@ -130,10 +153,10 @@ describe('directory filters from the URL', () => {
 describe('describeFieldList', () => {
   it('reads a created or updated event\'s column list in plain words', async () => {
     const { describeFieldList } = await import('../src/lib/domain/records');
-    expect(describeFieldList('kind, first_name, osis, school_dbn')).toBe(
-      'kind, first name, OSIS, school DBN',
+    expect(describeFieldList('kind, first_name, external_id, school_dbn')).toBe(
+      'kind, first name, OSIS or staff ID, school DBN',
     );
-    expect(describeFieldList('asset_tag, os')).toBe('asset tag, OS');
+    expect(describeFieldList('asset_tag, os_version')).toBe('asset tag, OS');
   });
 
   it('leaves any other detail as written', async () => {

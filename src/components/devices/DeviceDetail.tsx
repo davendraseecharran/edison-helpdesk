@@ -4,12 +4,18 @@
  * One device: what it is, who has it, where it has been, and what has
  * happened to the record.
  *
- * The same 2fr / 1fr grid as a ticket. Left: the holder, the loan history,
- * the tickets that name it, the history. Right: the identifiers, in mono
- * with copy buttons, and the notes. The actions offered depend on whether
- * somebody is holding it: a held device is returned rather than given a
- * status by hand, because the database keeps those two things in step. On
- * phones the two main actions pin above the bottom tabs, as a ticket's do.
+ * The same 2fr / 1fr grid as a ticket. Left: the holder, the tickets that name
+ * it, the history. Right: the identifiers, in mono with copy buttons, and the
+ * notes. The actions offered depend on whether somebody is holding it: a held
+ * device is returned rather than given a status by hand, because returning is
+ * what closes the loan. On phones the two main actions pin above the bottom
+ * tabs, as a ticket's do.
+ *
+ * The loan history is the record history below, not a table of its own. The
+ * district's inventory records where a machine IS; app_assign_inventory_device
+ * and app_return_inventory_device write where it HAS BEEN, as record events on
+ * the machine and on the person, which is where every other non-ticket history
+ * in this application lives.
  */
 
 import { useState } from 'react';
@@ -19,16 +25,15 @@ import { MapPin, Pencil, User } from 'lucide-react';
 import type { ActionResult } from '@/lib/data/actions';
 import {
   assignDeviceAction,
-  moveDeviceAction,
+  bulkUpdateDevicesAction,
   returnDeviceAction,
-  setDeviceStatusAction,
 } from '@/lib/data/device-actions';
-import type { DeviceFacets } from '@/lib/data/devices';
 import { formatDateTime } from '@/lib/format';
 import {
+  ASSIGNED_STATUS,
   deviceLabel,
   PERSON_KIND_LABELS,
-  type DeviceAssignment,
+  type DeviceCatalogEntry,
   type DeviceDetail as DeviceDetailData,
 } from '@/lib/domain/types';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
@@ -39,7 +44,6 @@ import { CopyButton } from '@/components/directory/CopyButton';
 import { RecordHistory } from '@/components/directory/RecordHistory';
 import { RecordTicketList } from '@/components/directory/RecordTicketList';
 import { Button } from '@/components/ui/Button';
-import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Icon } from '@/components/ui/Icon';
 import { Sheet } from '@/components/ui/Sheet';
 import { AssignDeviceDialog } from './AssignDeviceDialog';
@@ -77,14 +81,33 @@ function Fact({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-export function DeviceDetail({ detail, facets }: { detail: DeviceDetailData; facets: DeviceFacets }) {
+export function DeviceDetail({
+  detail,
+  statuses,
+  catalog,
+}: {
+  detail: DeviceDetailData;
+  statuses: string[];
+  catalog: DeviceCatalogEntry[];
+}) {
   const { pendingKey, run } = useRuntime();
   const actor = useActorAccount();
   const router = useRouter();
-  const { device, holder } = detail;
+  const { device } = detail;
+  const holder =
+    device.assignedRequesterId && device.assignedName
+      ? {
+          id: device.assignedRequesterId,
+          displayName: device.assignedName,
+          kind: device.assignedKind ?? 'staff',
+        }
+      : null;
   const isAdmin = actor.role === 'admin';
   const label = deviceLabel(device);
   const busy = pendingKey !== null;
+  // The locations already on this machine and in its catalogue neighbours are
+  // not available here; the move dialog offers the one it has plus free text.
+  const locations = device.location ? [device.location] : [];
 
   const [editing, setEditing] = useState(false);
   const [dialog, setDialog] = useState<DeviceDialog>(null);
@@ -94,20 +117,31 @@ export function DeviceDetail({ detail, facets }: { detail: DeviceDetailData; fac
   const statusKey = `status:${device.id}`;
   const moveKey = `move:${device.id}`;
 
-  function onAssign(personId: string, note: string): Promise<ActionResult> {
-    return run(assignKey, () => assignDeviceAction(device.id, personId, note));
+  async function refreshed(result: ActionResult): Promise<ActionResult> {
+    if (result.ok) router.refresh();
+    return result;
   }
 
-  function onReturn(status: string, note: string): Promise<ActionResult> {
-    return run(returnKey, () => returnDeviceAction(device.id, status, note));
+  async function onAssign(personId: string, note: string): Promise<ActionResult> {
+    return refreshed(
+      await run(assignKey, () => assignDeviceAction(device.id, personId, note, device.version)),
+    );
   }
 
-  function onStatus(status: string, reason: string): Promise<ActionResult> {
-    return run(statusKey, () => setDeviceStatusAction(device.id, status, reason));
+  async function onReturn(status: string, note: string): Promise<ActionResult> {
+    return refreshed(
+      await run(returnKey, () => returnDeviceAction(device.id, status, note, device.version)),
+    );
   }
 
-  function onMove(location: string): Promise<ActionResult> {
-    return run(moveKey, () => moveDeviceAction(device.id, location));
+  // One machine through the bulk RPC: it is the writer that changes a status or
+  // a location without touching anything else, and it snapshots what it changed.
+  async function onStatus(status: string): Promise<ActionResult> {
+    return refreshed(await run(statusKey, () => bulkUpdateDevicesAction([device.id], { status })));
+  }
+
+  async function onMove(location: string): Promise<ActionResult> {
+    return refreshed(await run(moveKey, () => bulkUpdateDevicesAction([device.id], { location })));
   }
 
   const subtitle = [device.manufacturer, device.model].filter(Boolean).join(' ');
@@ -163,68 +197,21 @@ export function DeviceDetail({ detail, facets }: { detail: DeviceDetailData; fac
       </Button>
     );
 
-  const historyColumns: Column<DeviceAssignment>[] = [
-    {
-      key: 'person',
-      header: 'Person',
-      hideOnPhone: true,
-      cell: (loan) => (
-        <div className="dir-cell-title">
-          <Link href={`/people/${loan.personId}`} className="dir-name">
-            {loan.personName}
-          </Link>
-          <span className="dir-sub">{PERSON_KIND_LABELS[loan.personKind]}</span>
-        </div>
-      ),
-    },
-    {
-      key: 'assigned',
-      header: 'Assigned',
-      width: 180,
-      cell: (loan) => (
-        <div className="dir-cell-title">
-          <TimeAgo iso={loan.assignedAt} />
-          {loan.assignedByName ? <span className="dir-sub">by {loan.assignedByName}</span> : null}
-        </div>
-      ),
-    },
-    {
-      key: 'returned',
-      header: 'Returned',
-      width: 180,
-      cell: (loan) =>
-        loan.returnedAt ? (
-          <div className="dir-cell-title">
-            <TimeAgo iso={loan.returnedAt} />
-            {loan.returnedByName ? <span className="dir-sub">by {loan.returnedByName}</span> : null}
-          </div>
-        ) : (
-          <span className="dir-quiet">Still held</span>
-        ),
-    },
-    {
-      key: 'note',
-      header: 'Note',
-      hideOnPhone: true,
-      cell: (loan) => loan.note ?? null,
-    },
-  ];
-
   return (
     <div className="ticket record">
       <header className="ticket-head record-head">
         <div className="ticket-head-text">
           <h1 className="record-tag mono">{label}</h1>
-          {subtitle || device.type ? (
+          {subtitle || device.deviceType ? (
             <p className="record-subtitle">
-              {subtitle ? `${subtitle}, ${device.type.toLowerCase()}` : device.type}
+              {subtitle ? `${subtitle}, ${device.deviceType.toLowerCase()}` : device.deviceType}
             </p>
           ) : null}
           <div className="ticket-meta">
             <DeviceStatusBadge status={device.status} />
             <span className="ticket-meta-item">
               <Icon icon={MapPin} size={14} />
-              <span>{device.location ?? 'No location recorded'}</span>
+              <span>{device.location || 'No location recorded'}</span>
             </span>
             {holder ? (
               <span className="ticket-meta-item">
@@ -267,8 +254,8 @@ export function DeviceDetail({ detail, facets }: { detail: DeviceDetailData; fac
                       {holder.displayName}
                     </Link>
                     <span className="holder-card-meta">
-                      {PERSON_KIND_LABELS[holder.kind]}, since {formatDateTime(holder.assignedAt)} (
-                      <TimeAgo iso={holder.assignedAt} />)
+                      {PERSON_KIND_LABELS[holder.kind]}, since{' '}
+                      {formatDateTime(device.updatedAt)} (<TimeAgo iso={device.updatedAt} />)
                     </span>
                   </div>
                   <Button
@@ -283,40 +270,13 @@ export function DeviceDetail({ detail, facets }: { detail: DeviceDetailData; fac
                 <div className="holder-empty">
                   <p className="panel-empty">
                     Nobody is holding this device.
-                    {device.status === 'in_stock' ? ' It is in stock and ready to hand out.' : ''}
+                    {device.status && device.status !== ASSIGNED_STATUS
+                      ? ` Its status is ${device.status}.`
+                      : ''}
                   </p>
                   <Button disabled={busy} onClick={() => setDialog('assign')}>
                     Assign device
                   </Button>
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className="panel" aria-labelledby="device-loans-heading">
-            <div className="panel-head">
-              <h2 className="panel-title" id="device-loans-heading">
-                Assignment history
-              </h2>
-              <span className="panel-aside">
-                {detail.assignments.length} {detail.assignments.length === 1 ? 'loan' : 'loans'}
-              </span>
-            </div>
-            <div className="panel-body">
-              {detail.assignments.length === 0 ? (
-                <p className="panel-empty">This device has never been assigned to anyone.</p>
-              ) : (
-                <div className="record-table">
-                  <DataTable
-                    columns={historyColumns}
-                    rows={detail.assignments}
-                    rowKey={(loan) => loan.id}
-                    caption="Everyone who has held this device"
-                    cardTitle={(loan) => (
-                      <Link href={`/people/${loan.personId}`}>{loan.personName}</Link>
-                    )}
-                    cardMeta={(loan) => loan.note ?? PERSON_KIND_LABELS[loan.personKind]}
-                  />
                 </div>
               )}
             </div>
@@ -373,23 +333,18 @@ export function DeviceDetail({ detail, facets }: { detail: DeviceDetailData; fac
             </div>
             <div className="panel-body">
               <dl className="facts">
-                <IdentFact label="Asset tag" value={device.assetTag} />
-                <IdentFact label="Serial number" value={device.serialNumber} />
-                <IdentFact label="Device ID" value={device.deviceId} />
-                <Fact label="Type" value={device.type} />
-                <Fact label="Manufacturer" value={device.manufacturer} />
-                <Fact label="Model" value={device.model} />
-                <Fact label="OS" value={device.os} />
-                <Fact label="Location" value={device.location} />
+                <IdentFact label="Asset tag" value={device.assetTag || null} />
+                <IdentFact label="Serial number" value={device.serialNumber || null} />
+                <IdentFact label="Inventory ID" value={device.externalId || null} />
+                <Fact label="Type" value={device.deviceType || null} />
+                <Fact label="Manufacturer" value={device.manufacturer || null} />
+                <Fact label="Model" value={device.model || null} />
+                <Fact label="OS" value={device.osVersion || null} />
+                <Fact label="Location" value={device.location || null} />
                 <dt>Record</dt>
                 <dd>
-                  {device.source === 'import' ? 'Imported' : 'Entered by hand'}
-                  <span className="facts-sub">
-                    Added {formatDateTime(device.createdAt)}
-                    {device.updatedAt !== device.createdAt
-                      ? `, updated ${formatDateTime(device.updatedAt)}`
-                      : ''}
-                  </span>
+                  Version {device.version}
+                  <span className="facts-sub">Updated {formatDateTime(device.updatedAt)}</span>
                 </dd>
               </dl>
             </div>
@@ -437,9 +392,8 @@ export function DeviceDetail({ detail, facets }: { detail: DeviceDetailData; fac
         <DeviceForm
           key={device.updatedAt}
           device={device}
-          held={holder !== null}
-          types={facets.types}
-          locations={facets.locations}
+          statuses={statuses}
+          catalog={catalog}
           onSaved={() => {
             setEditing(false);
             router.refresh();
@@ -459,6 +413,7 @@ export function DeviceDetail({ detail, facets }: { detail: DeviceDetailData; fac
         open={dialog === 'return'}
         onClose={() => setDialog(null)}
         subject={label}
+        statuses={statuses}
         pending={pendingKey === returnKey}
         onSubmit={({ status, note }) => onReturn(status, note)}
       />
@@ -467,15 +422,16 @@ export function DeviceDetail({ detail, facets }: { detail: DeviceDetailData; fac
         onClose={() => setDialog(null)}
         subject={label}
         current={device.status}
+        statuses={statuses}
         pending={pendingKey === statusKey}
-        onSubmit={({ status, reason }) => onStatus(status, reason)}
+        onSubmit={({ status }) => onStatus(status)}
       />
       <MoveDeviceDialog
         open={dialog === 'move'}
         onClose={() => setDialog(null)}
         subject={label}
         current={device.location}
-        locations={facets.locations}
+        locations={locations}
         pending={pendingKey === moveKey}
         onSubmit={onMove}
       />

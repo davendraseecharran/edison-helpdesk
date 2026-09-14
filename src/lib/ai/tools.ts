@@ -36,9 +36,6 @@ import {
   rolesLabel,
   type AccountRole,
 } from '@/lib/auth/roles';
-import { parseCsv } from '@/lib/import/csv';
-import { detectPreset } from '@/lib/import/presets';
-import { toDeviceRows, toPersonRows } from '@/lib/import/normalize';
 
 // ---------------------------------------------------------------------------
 // Schema and validation vocabulary
@@ -87,25 +84,6 @@ interface Field {
  */
 const MAX_TEXT = 4000;
 
-/**
- * The most CSV `import_csv` accepts in one call.
- *
- * It was five million characters, which no path could actually carry. A tool
- * call made through the panel is stored TWICE in `ai_messages` — once as the
- * assistant's `function_call` item, and again as the pending-approval row that
- * holds the arguments until the operator answers, because an import commit
- * always asks — and that column is capped at 256 KiB by
- * `ai_messages_content_size`. So an AI import of anything larger than a quarter
- * of a megabyte did not fail at the import: it failed at storing the turn, with
- * a raw check-constraint message and before a single row was read.
- *
- * A hundred thousand characters is about 1,200 inventory rows, which is more
- * than a model will compose into one call anyway, and it leaves the constraint
- * room even for a sheet of entirely two-byte characters. Bigger files are what
- * the administration import screen is for, and the refusal says so.
- */
-const MAX_CSV_TEXT = 100_000;
-
 const PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
 const CATEGORIES = [
   'chromebook',
@@ -121,11 +99,17 @@ const CATEGORIES = [
 const CHANNELS = ['walk_in', 'email', 'phone_call'] as const;
 const TICKET_SCOPES = ['open_queue', 'mine', 'collaborating', 'closed', 'all'] as const;
 const TICKET_STATUSES = ['open', 'assigned', 'in_progress', 'waiting', 'resolved', 'cancelled'] as const;
-const DEVICE_STATUSES = ['in_stock', 'deployed', 'in_repair', 'retired', 'lost', 'surplus'] as const;
 const PERSON_KINDS = ['student', 'staff'] as const;
 const ROLES = ['admin', 'netrider', 'skills_officer'] as const;
-const IMPORT_KINDS = ['people', 'devices'] as const;
-const IMPORT_MODES = ['dry_run', 'commit'] as const;
+
+/**
+ * Not a vocabulary. `inventory_devices.status` is free text with no CHECK, and
+ * app_inventory_statuses() is the authority on what the district actually
+ * uses; these are the five it seeds, offered as a hint in a description rather
+ * than as `choices`, so the assistant can write "Awaiting parts" when that is
+ * what somebody asked for.
+ */
+const SEEDED_STATUSES = 'Available, Assigned, In repair, Retired or Lost';
 
 // ---------------------------------------------------------------------------
 // Errors and context
@@ -300,7 +284,14 @@ interface DeviceRef {
 }
 
 function deviceLabel(row: Record<string, unknown>): string {
-  return textOf(row.asset_tag) || textOf(row.serial_number) || textOf(row.device_id) || 'that device';
+  return (
+    textOf(row.assetTag) || textOf(row.serialNumber) || textOf(row.externalId) || 'that device'
+  );
+}
+
+/** The `{rows, total, page, pageSize}` envelope both list RPCs answer with. */
+function pageRows(data: unknown): Record<string, unknown>[] {
+  return isRecord(data) ? rows(data.rows) : [];
 }
 
 async function resolveDevice(ctx: ToolContext, value: string): Promise<DeviceRef> {
@@ -308,18 +299,26 @@ async function resolveDevice(ctx: ToolContext, value: string): Promise<DeviceRef
   if (query === '') throw new ToolError('Name the device by its asset tag, serial number or id.');
 
   if (isUuid(query)) {
-    const detail = await rpc(ctx, 'app_device_detail', { p_device: query });
-    const device = isRecord(detail) && isRecord(detail.device) ? detail.device : null;
-    if (device === null) throw new ToolError('There is no device with that id.');
+    const device = await rpc(ctx, 'app_get_inventory_device', { p_id: query });
+    if (!isRecord(device)) throw new ToolError('There is no device with that id.');
     return { id: query, label: deviceLabel(device) };
   }
 
-  const found = rows(await rpc(ctx, 'app_list_devices', { p_query: query, p_limit: 5 }));
+  // A code printed on a machine resolves exactly, and refuses to guess between
+  // two machines that share one. That is the scanner's own lookup.
+  const scanned = rows(await rpc(ctx, 'app_lookup_inventory_code', { p_code: query }));
+  if (scanned.length === 1) {
+    return { id: textOf(scanned[0].id), label: textOf(scanned[0].label) || 'that device' };
+  }
+
+  const found = pageRows(
+    await rpc(ctx, 'app_list_inventory', { p_query: query, p_page: 1, p_requester: null }),
+  ).slice(0, 5);
   if (found.length === 0) throw new ToolError(`No device matches "${query}".`);
 
   const folded = query.toUpperCase();
   const exact = found.find((row) =>
-    [textOf(row.device_id), textOf(row.serial_number), textOf(row.asset_tag)]
+    [textOf(row.externalId), textOf(row.serialNumber), textOf(row.assetTag)]
       .map((candidate) => candidate.toUpperCase())
       .includes(folded),
   );
@@ -341,27 +340,37 @@ async function resolvePerson(ctx: ToolContext, value: string): Promise<PersonRef
   if (query === '') throw new ToolError('Name the person, or give their OSIS or staff id.');
 
   if (isUuid(query)) {
-    const detail = await rpc(ctx, 'app_person_detail', { p_person: query });
-    const person = isRecord(detail) && isRecord(detail.person) ? detail.person : null;
-    if (person === null) throw new ToolError('There is no directory record with that id.');
-    return { id: query, name: textOf(person.display_name) };
+    const person = await rpc(ctx, 'app_get_person', { p_id: query });
+    if (!isRecord(person)) throw new ToolError('There is no directory record with that id.');
+    return { id: query, name: textOf(person.displayName) };
   }
 
-  const found = rows(await rpc(ctx, 'app_list_people_m5', { p_query: query, p_limit: 5 }));
+  // The directory is two lists, so both are asked. A name that is in only one
+  // of them resolves; a name in both is ambiguous and says so, which is the
+  // right answer when a student and a member of staff share it.
+  const found: Record<string, unknown>[] = [];
+  for (const kind of PERSON_KINDS) {
+    found.push(
+      ...pageRows(await rpc(ctx, 'app_list_people', { p_kind: kind, p_query: query, p_page: 1 })).slice(
+        0,
+        5,
+      ),
+    );
+  }
   if (found.length === 0) throw new ToolError(`Nobody in the directory matches "${query}".`);
 
   const folded = query.toLowerCase();
   const exact = found.find((row) =>
-    [textOf(row.display_name), textOf(row.email), textOf(row.osis), textOf(row.staff_id)]
+    [textOf(row.displayName), textOf(row.email), textOf(row.externalId)]
       .map((candidate) => candidate.toLowerCase())
       .includes(folded),
   );
   const chosen = exact ?? (found.length === 1 ? found[0] : undefined);
   if (chosen === undefined) {
-    const options = found.map((row) => textOf(row.display_name)).join(', ');
+    const options = found.map((row) => textOf(row.displayName)).join(', ');
     throw new ToolError(`"${query}" matches more than one person: ${options}. Say which one.`);
   }
-  return { id: textOf(chosen.id), name: textOf(chosen.display_name) };
+  return { id: textOf(chosen.id), name: textOf(chosen.displayName) };
 }
 
 interface AccountRef {
@@ -406,35 +415,77 @@ interface ToolSpec {
 }
 
 /** Every optional string field a directory record accepts. */
+const STUDENT_STATUSES = ['current', 'graduated', 'other'] as const;
+
 const PERSON_FIELDS: Record<string, Field> = {
+  display_name: { type: 'string', description: 'The name the helpdesk shows. Required for a new record.' },
+  external_id: { type: 'string', description: "A student's OSIS, numbers only. Staff have theirs derived from their email." },
   first_name: { type: 'string', description: 'Given name.' },
   last_name: { type: 'string', description: 'Family name.' },
-  display_name: { type: 'string', description: 'The name the helpdesk shows. Defaults to first and last.' },
-  email: { type: 'string', description: 'School email address.' },
-  osis: { type: 'string', description: 'Student OSIS number, 6 to 12 digits.' },
-  staff_id: { type: 'string', description: 'Staff identifier.' },
-  school_dbn: { type: 'string', description: 'School DBN.' },
+  email: { type: 'string', description: 'School email address. Required for staff.' },
+  school_dbn: { type: 'string', description: 'School DBN, for staff.' },
   department: { type: 'string', description: 'Department, for staff.' },
-  role_title: { type: 'string', description: 'Job title, for staff.' },
+  staff_role: { type: 'string', description: 'Job title, for staff.' },
   official_class: { type: 'string', description: 'Official class, for students.' },
-  class_of: { type: 'string', description: 'Graduating year, for students.' },
-  parent_name: { type: 'string', description: 'Parent or guardian name.' },
-  parent_phone: { type: 'string', description: 'Parent or guardian phone number.' },
+  class_of: { type: 'string', description: 'Graduating year, four digits, for students.' },
+  student_status: { type: 'string', description: 'current, graduated or other.', choices: STUDENT_STATUSES },
+  guardian_name: { type: 'string', description: 'Parent or guardian name.' },
+  guardian_phone: { type: 'string', description: 'Parent or guardian phone number.' },
   home_phone: { type: 'string', description: 'Home phone number.' },
   address: { type: 'string', description: 'Home address.' },
   notes: { type: 'string', description: 'Anything else worth recording.' },
 };
 
-/** Every optional field an inventory record accepts. */
+/** snake_case as the assistant writes it, camelCase as app_save_person takes it. */
+const PERSON_JSON_KEYS: Record<string, string> = {
+  display_name: 'displayName',
+  external_id: 'externalId',
+  first_name: 'firstName',
+  last_name: 'lastName',
+  email: 'email',
+  school_dbn: 'schoolDbn',
+  department: 'department',
+  staff_role: 'staffRole',
+  official_class: 'officialClass',
+  class_of: 'classOf',
+  student_status: 'studentStatus',
+  guardian_name: 'guardianName',
+  guardian_phone: 'guardianPhone',
+  home_phone: 'homePhone',
+  address: 'address',
+  notes: 'notes',
+};
+
+const DEVICE_JSON_KEYS: Record<string, string> = {
+  device_type: 'deviceType',
+  manufacturer: 'manufacturer',
+  model: 'model',
+  os_version: 'osVersion',
+  serial_number: 'serialNumber',
+  asset_tag: 'assetTag',
+  status: 'status',
+  location: 'location',
+  notes: 'notes',
+};
+
+/** Renames the keys of a patch, dropping anything the map does not know. */
+function toJsonKeys(patch: Record<string, unknown>, map: Record<string, string>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [name, value] of Object.entries(patch)) {
+    const key = map[name];
+    if (key !== undefined) out[key] = value;
+  }
+  return out;
+}
+
 const DEVICE_FIELDS: Record<string, Field> = {
-  device_id: { type: 'string', description: 'The inventory identifier printed on the machine.' },
-  serial_number: { type: 'string', description: 'Manufacturer serial number.' },
+  device_type: { type: 'string', description: 'Chromebook, Laptop, Desktop, Projector and so on. Required.' },
+  manufacturer: { type: 'string', description: 'Who made it. Required.' },
+  model: { type: 'string', description: 'Model name. Required.' },
+  serial_number: { type: 'string', description: 'Manufacturer serial number. Required, and unique in the inventory.' },
   asset_tag: { type: 'string', description: 'School asset tag.' },
-  type: { type: 'string', description: 'Chromebook, Laptop, Desktop, Projector and so on.' },
-  manufacturer: { type: 'string', description: 'Who made it.' },
-  model: { type: 'string', description: 'Model name.' },
-  os: { type: 'string', description: 'Operating system and version.' },
-  status: { type: 'string', description: 'Where the machine is in its life.', choices: DEVICE_STATUSES },
+  os_version: { type: 'string', description: 'Operating system and version.' },
+  status: { type: 'string', description: `Free text. Usually one of ${SEEDED_STATUSES}.` },
   location: { type: 'string', description: 'Room or store it lives in.' },
   notes: { type: 'string', description: 'Anything else worth recording.' },
 };
@@ -454,6 +505,11 @@ function outcome(result: unknown, summary: string): ToolOutcome {
 /** Counts rows for a summary without pretending a page is the whole set. */
 function countOf(data: unknown): number {
   return Array.isArray(data) ? data.length : 0;
+}
+
+/** The `total` a paged list RPC reports, which is the whole set rather than the page. */
+function totalOf(data: unknown): number {
+  return isRecord(data) ? Number(data.total ?? 0) : 0;
 }
 
 const TOOLS: Record<string, ToolSpec> = {
@@ -534,75 +590,68 @@ const TOOLS: Record<string, ToolSpec> = {
 
   list_people: {
     group: 'read',
-    description: 'List students and staff from the directory.',
+    description:
+      'List students or staff from the directory. The search reads every field of a record, so a room, a class or a guardian name finds people too.',
     fields: {
-      query: { type: 'string', description: 'Name, email, OSIS or staff id.' },
-      kind: { type: 'string', description: 'Only students or only staff.', choices: PERSON_KINDS },
-      department: { type: 'string', description: 'Only this department.' },
-      class_of: { type: 'string', description: 'Only this graduating year.' },
-      limit: { type: 'integer', description: 'How many to return. Default 25, at most 100.' },
+      kind: { type: 'string', required: true, description: 'Students or staff.', choices: PERSON_KINDS },
+      query: { type: 'string', description: 'Name, email, OSIS, staff id, class or anything else on the record.' },
+      page: { type: 'integer', description: 'Which page of fifty. Default 1.' },
     },
     run: async (args, ctx) => {
-      const data = await rpc(ctx, 'app_list_people_m5', {
-        p_query: args.query ?? null,
-        p_kind: args.kind ?? null,
-        p_department: args.department ?? null,
-        p_class_of: args.class_of ?? null,
-        p_active: true,
-        p_limit: Math.min(Number(args.limit ?? 25), 100),
-        p_offset: 0,
+      const data = await rpc(ctx, 'app_list_people', {
+        p_kind: args.kind,
+        p_query: args.query ?? '',
+        p_page: Math.max(1, Number(args.page ?? 1)),
       });
-      return outcome(data, `Listed ${countOf(data)} people.`);
+      return outcome(data, `Listed ${pageRows(data).length} of ${totalOf(data)} people.`);
     },
   },
 
   get_person: {
     group: 'read',
-    description: 'One directory record with the devices they hold and the tickets they have raised.',
+    description: 'One directory record with the machines they are holding.',
     fields: {
       person: { type: 'string', required: true, description: 'Name, email, OSIS, staff id or record id.' },
     },
     run: async (args, ctx) => {
       const person = await resolvePerson(ctx, String(args.person));
-      const data = await rpc(ctx, 'app_person_detail', { p_person: person.id });
-      return outcome(data, `Read ${person.name}.`);
+      const [record, devices] = await Promise.all([
+        rpc(ctx, 'app_get_person', { p_id: person.id }),
+        rpc(ctx, 'app_requester_devices', { p_requester: person.id }),
+      ]);
+      return outcome({ person: record, devices }, `Read ${person.name}.`);
     },
   },
 
   list_devices: {
     group: 'read',
-    description: 'List inventory machines.',
+    description:
+      'List inventory machines. One search reads every field of a machine and of whoever is holding it, so a status, a room, a model or a name all narrow it.',
     fields: {
-      query: { type: 'string', description: 'Asset tag, serial, id or model.' },
-      type: { type: 'string', description: 'Only this kind of machine.' },
-      status: { type: 'string', description: 'Only this status.', choices: DEVICE_STATUSES },
-      location: { type: 'string', description: 'Only machines in this room or store.' },
-      holder_kind: { type: 'string', description: 'Only machines held by students or by staff.', choices: PERSON_KINDS },
-      limit: { type: 'integer', description: 'How many to return. Default 25, at most 100.' },
+      query: { type: 'string', description: 'Asset tag, serial, model, room, status or holder name.' },
+      person: { type: 'string', description: 'Only the machines this person is holding.' },
+      page: { type: 'integer', description: 'Which page of fifty. Default 1.' },
     },
     run: async (args, ctx) => {
-      const data = await rpc(ctx, 'app_list_devices', {
-        p_query: args.query ?? null,
-        p_type: args.type ?? null,
-        p_status: args.status ?? null,
-        p_location: args.location ?? null,
-        p_holder_kind: args.holder_kind ?? null,
-        p_limit: Math.min(Number(args.limit ?? 25), 100),
-        p_offset: 0,
+      const person = args.person === undefined ? null : await resolvePerson(ctx, String(args.person));
+      const data = await rpc(ctx, 'app_list_inventory', {
+        p_query: args.query ?? '',
+        p_page: Math.max(1, Number(args.page ?? 1)),
+        p_requester: person?.id ?? null,
       });
-      return outcome(data, `Listed ${countOf(data)} devices.`);
+      return outcome(data, `Listed ${pageRows(data).length} of ${totalOf(data)} devices.`);
     },
   },
 
   get_device: {
     group: 'read',
-    description: 'One machine with who holds it, its loan history and the tickets it appears on.',
+    description: 'One machine: what it is, where it is and who is holding it.',
     fields: {
       device: { type: 'string', required: true, description: 'Asset tag, serial number, inventory id or record id.' },
     },
     run: async (args, ctx) => {
       const device = await resolveDevice(ctx, String(args.device));
-      const data = await rpc(ctx, 'app_device_detail', { p_device: device.id });
+      const data = await rpc(ctx, 'app_get_inventory_device', { p_id: device.id });
       return outcome(data, `Read ${device.label}.`);
     },
   },
@@ -623,73 +672,35 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
-  get_insights: {
-    group: 'read',
-    description: 'Helpdesk statistics over a recent window: volumes, resolution times and busiest categories.',
-    fields: {
-      days: { type: 'integer', description: 'How many days back to look. Default 30.' },
-    },
-    run: async (args, ctx) => {
-      try {
-        const data = await rpc(ctx, 'app_insights', { p_days: Number(args.days ?? 30) });
-        return outcome(data, `Read insights for the last ${Number(args.days ?? 30)} days.`);
-      } catch (error) {
-        // Task 13 adds app_insights. Until it lands, say so plainly rather than
-        // reporting a database failure the operator cannot act on.
-        //
-        // Matched on the DRIVER'S code, not on prose: PGRST202 is PostgREST's
-        // "not in the schema cache" and 42883 is Postgres's own undefined_function.
-        // The text is checked too, because a PostgREST version that changes its
-        // code should not turn a missing feature into a mystery.
-        const missing =
-          error instanceof ToolError &&
-          (error.code === 'PGRST202' ||
-            error.code === '42883' ||
-            /function .* does not exist|could not find the function/i.test(error.raw));
-        if (missing) {
-          return {
-            ok: false,
-            result: { error: 'Insights are not available in this build yet.' },
-            summary: 'Insights are not available yet.',
-          };
-        }
-        throw error;
-      }
-    },
-  },
-
   // --- Write --------------------------------------------------------------
 
   create_ticket: {
     group: 'write',
     description:
-      'Open a new ticket. Give the requester as a directory person where there is one, so their history joins up.',
+      'Open a new ticket. Name the requester from the directory, or leave them out when there is nobody to name.',
     fields: {
       title: { type: 'string', required: true, description: 'A short summary of the problem.' },
       issue: { type: 'string', required: true, description: 'What the requester reported, in full.' },
       channel: { type: 'string', required: true, description: 'How the request arrived.', choices: CHANNELS },
       priority: { type: 'string', description: 'Default normal.', choices: PRIORITIES },
       category: { type: 'string', description: 'Default other.', choices: CATEGORIES },
-      person: { type: 'string', description: 'The requester as a directory record: name, email, OSIS or staff id.' },
-      requester_name: { type: 'string', description: 'The requester by name when they are not in the directory.' },
-      requester_kind: { type: 'string', description: 'Whether that person is a student or staff.', choices: PERSON_KINDS },
+      person: { type: 'string', description: 'The requester as a directory record: name, email, OSIS or staff id. Leave it out when nobody is named.' },
       location: { type: 'string', description: 'Room or area the problem is in.' },
-      is_remote: { type: 'boolean', description: 'True when the requester is not on site.' },
       claim: { type: 'boolean', description: 'True to take ownership immediately instead of leaving it in the queue.' },
     },
     run: async (args, ctx) => {
+      // The directory is the district's, so a requester is somebody already in
+      // it or nobody at all. There is no inline "new requester" path, and the
+      // database refuses one.
       const person = args.person === undefined ? null : await resolvePerson(ctx, String(args.person));
       const id = await rpc(ctx, 'app_create_ticket', {
         p_title: args.title,
         p_issue: args.issue,
         p_channel: args.channel,
         p_priority: args.priority ?? 'normal',
-        p_person_id: person?.id ?? null,
-        p_requester_name: args.requester_name ?? null,
-        p_requester_kind: args.requester_kind ?? 'staff',
-        p_requester_unknown: person === null && args.requester_name === undefined,
+        p_requester_id: person?.id ?? null,
+        p_requester_unknown: person === null,
         p_location: args.location ?? null,
-        p_is_remote: args.is_remote ?? false,
         p_owner_id: args.claim === true ? ctx.actor.id : null,
         p_category: args.category ?? 'other',
       });
@@ -905,8 +916,11 @@ const TOOLS: Record<string, ToolSpec> = {
       ...PERSON_FIELDS,
     },
     run: async (args, ctx) => {
-      const payload = { kind: args.kind, ...pick(args, Object.keys(PERSON_FIELDS)) };
-      const id = await rpc(ctx, 'app_upsert_person', { p_person: payload });
+      const data = {
+        kind: args.kind,
+        ...toJsonKeys(pick(args, Object.keys(PERSON_FIELDS)), PERSON_JSON_KEYS),
+      };
+      const id = await rpc(ctx, 'app_save_person', { p_id: null, p_version: null, p_data: data });
       const name = textOf(args.display_name) || `${textOf(args.first_name)} ${textOf(args.last_name)}`.trim();
       return outcome({ id }, `Added ${name || 'a new directory record'}`);
     },
@@ -914,17 +928,26 @@ const TOOLS: Record<string, ToolSpec> = {
 
   update_person: {
     group: 'write',
-    description: 'Change a directory record. Only the fields you send are changed.',
+    description: 'Change a directory record. Only the fields you send are changed; a student does not become staff.',
     fields: {
       person: { type: 'string', required: true, description: 'Name, email, OSIS, staff id or record id.' },
-      kind: { type: 'string', description: 'Student or staff.', choices: PERSON_KINDS },
       ...PERSON_FIELDS,
     },
     run: async (args, ctx) => {
       const person = await resolvePerson(ctx, String(args.person));
-      const patch = pick(args, ['kind', ...Object.keys(PERSON_FIELDS)]);
+      const patch = toJsonKeys(pick(args, Object.keys(PERSON_FIELDS)), PERSON_JSON_KEYS);
       if (Object.keys(patch).length === 0) throw new ToolError('Say what to change about that person.');
-      await rpc(ctx, 'app_upsert_person', { p_person: { id: person.id, ...patch } });
+
+      // app_save_person states the whole record, so the current one is read
+      // first and the patch laid over it. The version goes back with it, so an
+      // edit somebody else has already made is refused rather than lost.
+      const current = await rpc(ctx, 'app_get_person', { p_id: person.id });
+      if (!isRecord(current)) throw new ToolError('There is no directory record with that id.');
+      await rpc(ctx, 'app_save_person', {
+        p_id: person.id,
+        p_version: Number(current.version ?? 1),
+        p_data: { ...current, ...patch },
+      });
       return outcome({ id: person.id }, `Updated ${person.name}`);
     },
   },
@@ -934,12 +957,16 @@ const TOOLS: Record<string, ToolSpec> = {
     description: 'Add a machine to the inventory.',
     fields: { ...DEVICE_FIELDS },
     run: async (args, ctx) => {
-      const payload = pick(args, Object.keys(DEVICE_FIELDS));
-      if (Object.keys(payload).length === 0) {
-        throw new ToolError('Give at least an inventory id, serial number or asset tag.');
+      const data = toJsonKeys(pick(args, Object.keys(DEVICE_FIELDS)), DEVICE_JSON_KEYS);
+      if (Object.keys(data).length === 0) {
+        throw new ToolError('Give at least the type, manufacturer, model and serial number.');
       }
-      const id = await rpc(ctx, 'app_upsert_device', { p_device: payload });
-      const name = textOf(args.asset_tag) || textOf(args.serial_number) || textOf(args.device_id);
+      const id = await rpc(ctx, 'app_save_inventory_device', {
+        p_id: null,
+        p_version: null,
+        p_data: data,
+      });
+      const name = textOf(args.asset_tag) || textOf(args.serial_number);
       return outcome({ id }, `Added ${name || 'a new device'} to the inventory`);
     },
   },
@@ -953,16 +980,23 @@ const TOOLS: Record<string, ToolSpec> = {
     },
     run: async (args, ctx) => {
       const device = await resolveDevice(ctx, String(args.device));
-      const patch = pick(args, Object.keys(DEVICE_FIELDS));
+      const patch = toJsonKeys(pick(args, Object.keys(DEVICE_FIELDS)), DEVICE_JSON_KEYS);
       if (Object.keys(patch).length === 0) throw new ToolError('Say what to change about that device.');
-      await rpc(ctx, 'app_upsert_device', { p_device: { id: device.id, ...patch } });
+
+      const current = await rpc(ctx, 'app_get_inventory_device', { p_id: device.id });
+      if (!isRecord(current)) throw new ToolError('There is no device with that id.');
+      await rpc(ctx, 'app_save_inventory_device', {
+        p_id: device.id,
+        p_version: Number(current.version ?? 1),
+        p_data: { ...current, ...patch },
+      });
       return outcome({ id: device.id }, `Updated ${device.label}`);
     },
   },
 
   assign_device: {
     group: 'write',
-    description: 'Hand a machine out to somebody. This also marks it deployed.',
+    description: 'Hand a machine out to somebody. This also marks it Assigned.',
     fields: {
       device: { type: 'string', required: true, description: 'Asset tag, serial number or inventory id.' },
       person: { type: 'string', required: true, description: 'Name, email, OSIS or staff id of whoever takes it.' },
@@ -971,9 +1005,9 @@ const TOOLS: Record<string, ToolSpec> = {
     run: async (args, ctx) => {
       const device = await resolveDevice(ctx, String(args.device));
       const person = await resolvePerson(ctx, String(args.person));
-      await rpc(ctx, 'app_assign_device', {
+      await rpc(ctx, 'app_assign_inventory_device', {
         p_device: device.id,
-        p_person: person.id,
+        p_requester: person.id,
         p_note: args.note ?? null,
       });
       return outcome({ id: device.id }, `Assigned ${device.label} to ${person.name}`);
@@ -985,37 +1019,35 @@ const TOOLS: Record<string, ToolSpec> = {
     description: 'Take a machine back from whoever holds it.',
     fields: {
       device: { type: 'string', required: true, description: 'Asset tag, serial number or inventory id.' },
-      status: { type: 'string', description: 'What state it came back in. Default in_stock.', choices: DEVICE_STATUSES },
+      status: { type: 'string', description: `What state it came back in. Default Available; usually one of ${SEEDED_STATUSES}.` },
       note: { type: 'string', description: 'Anything to record about the return.' },
     },
     run: async (args, ctx) => {
       const device = await resolveDevice(ctx, String(args.device));
-      const status = String(args.status ?? 'in_stock');
-      await rpc(ctx, 'app_return_device', {
+      const status = String(args.status ?? 'Available');
+      await rpc(ctx, 'app_return_inventory_device', {
         p_device: device.id,
         p_status: status,
         p_note: args.note ?? null,
       });
-      return outcome({ id: device.id }, `Took ${device.label} back as ${label(status).toLowerCase()}`);
+      return outcome({ id: device.id }, `Took ${device.label} back as ${status.toLowerCase()}`);
     },
   },
 
   set_device_status: {
     group: 'write',
-    description: 'Change where a machine is in its life: in stock, in repair, retired, lost or surplus.',
+    description: `Change where a machine is in its life. Free text, usually one of ${SEEDED_STATUSES}.`,
     fields: {
       device: { type: 'string', required: true, description: 'Asset tag, serial number or inventory id.' },
-      status: { type: 'string', required: true, description: 'The new status.', choices: DEVICE_STATUSES },
-      reason: { type: 'string', description: 'Why it changed.' },
+      status: { type: 'string', required: true, description: 'The new status.' },
     },
     run: async (args, ctx) => {
       const device = await resolveDevice(ctx, String(args.device));
-      await rpc(ctx, 'app_set_device_status', {
-        p_device: device.id,
-        p_status: args.status,
-        p_reason: args.reason ?? null,
+      await rpc(ctx, 'app_bulk_update_inventory', {
+        p_ids: [device.id],
+        p_patch: { status: args.status },
       });
-      return outcome({ id: device.id }, `Marked ${device.label} ${label(String(args.status)).toLowerCase()}`);
+      return outcome({ id: device.id }, `Marked ${device.label} ${String(args.status).toLowerCase()}`);
     },
   },
 
@@ -1028,7 +1060,10 @@ const TOOLS: Record<string, ToolSpec> = {
     },
     run: async (args, ctx) => {
       const device = await resolveDevice(ctx, String(args.device));
-      await rpc(ctx, 'app_move_device', { p_device: device.id, p_location: args.location });
+      await rpc(ctx, 'app_bulk_update_inventory', {
+        p_ids: [device.id],
+        p_patch: { location: args.location },
+      });
       return outcome({ id: device.id }, `Moved ${device.label} to ${String(args.location)}`);
     },
   },
@@ -1036,21 +1071,20 @@ const TOOLS: Record<string, ToolSpec> = {
   bulk_update_devices: {
     group: 'write',
     description:
-      'Change up to 500 machines at once. Send one of: a status, a location, somebody to assign them all to, or return_devices.',
+      'Change the status, location or notes of up to 200 machines at once. Handing machines out is one at a time, with assign_device.',
     fields: {
       device_ids: {
         type: 'string[]',
         required: true,
         description: 'Asset tags, serial numbers or inventory ids of the machines to change.',
       },
-      status: { type: 'string', description: 'Set every one to this status.', choices: DEVICE_STATUSES },
+      status: { type: 'string', description: `Set every one to this status. Usually one of ${SEEDED_STATUSES}.` },
       location: { type: 'string', description: 'Move every one here.' },
-      person: { type: 'string', description: 'Assign every one to this person.' },
-      return_devices: { type: 'boolean', description: 'True to take every one back from whoever holds it.' },
+      notes: { type: 'string', description: 'Rewrite the notes on every one.' },
     },
     run: async (args, ctx) => {
       const names = args.device_ids as string[];
-      if (names.length > 500) throw new ToolError('Change 500 devices or fewer at a time.');
+      if (names.length > 200) throw new ToolError('Change 200 devices or fewer at a time.');
 
       const resolved: DeviceRef[] = [];
       for (const name of names) resolved.push(await resolveDevice(ctx, name));
@@ -1058,11 +1092,10 @@ const TOOLS: Record<string, ToolSpec> = {
       const patch: Record<string, unknown> = {};
       if (args.status !== undefined) patch.status = args.status;
       if (args.location !== undefined) patch.location = args.location;
-      if (args.person !== undefined) patch.person_id = (await resolvePerson(ctx, String(args.person))).id;
-      if (args.return_devices === true) patch.return = true;
+      if (args.notes !== undefined) patch.notes = args.notes;
       if (Object.keys(patch).length === 0) throw new ToolError('Say what to change for those devices.');
 
-      const changed = await rpc(ctx, 'app_bulk_update_devices', {
+      const changed = await rpc(ctx, 'app_bulk_update_inventory', {
         p_ids: resolved.map((device) => device.id),
         p_patch: patch,
       });
@@ -1190,57 +1223,6 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
-  import_csv: {
-    group: 'admin',
-    description:
-      'Import people or devices from pasted CSV. Run dry_run first and read the counts back before committing.',
-    fields: {
-      kind: { type: 'string', required: true, description: 'people or devices.', choices: IMPORT_KINDS },
-      csv_text: {
-        type: 'string',
-        required: true,
-        description: 'The whole CSV, header row included.',
-        maxLength: MAX_CSV_TEXT,
-      },
-      mode: { type: 'string', required: true, description: 'dry_run to check, commit to apply.', choices: IMPORT_MODES },
-    },
-    run: async (args, ctx) => {
-      const kind = String(args.kind) as 'people' | 'devices';
-      const csv = parseCsv(String(args.csv_text));
-      if (csv.rows.length === 0) throw new ToolError('That CSV has a header but no rows.');
-
-      const preset = detectPreset(csv.headers);
-      if (preset === null) {
-        throw new ToolError(
-          `Those columns do not match a known ${kind} sheet. Headers seen: ${csv.headers.join(', ')}.`,
-        );
-      }
-      if (preset.kind !== kind) {
-        throw new ToolError(`Those columns look like a ${preset.kind} sheet, not a ${kind} one.`);
-      }
-
-      const parsed =
-        kind === 'people' ? toPersonRows(csv, preset) : toDeviceRows(csv, preset);
-      if (parsed.rows.length === 0) {
-        const first = parsed.errors.slice(0, 3).map((row) => `row ${row.row}: ${row.message}`).join('; ');
-        throw new ToolError(`No row in that CSV could be read. ${first}`);
-      }
-
-      const mode = String(args.mode);
-      const result = await rpc(ctx, 'app_admin_import', {
-        p_kind: kind,
-        p_rows: parsed.rows,
-        p_mode: mode,
-      });
-
-      const verb = mode === 'commit' ? 'Imported' : 'Checked';
-      const skipped = parsed.errors.length === 0 ? '' : `, ${parsed.errors.length} unreadable`;
-      return outcome(
-        { ...(isRecord(result) ? result : { result }), unreadable_rows: parsed.errors },
-        `${verb} ${parsed.rows.length} ${kind} rows${skipped}`,
-      );
-    },
-  },
 };
 
 // ---------------------------------------------------------------------------
@@ -1303,14 +1285,15 @@ export function requiresApproval(
 /**
  * The same question about one CALL rather than one tool.
  *
- * `import_csv` is the only tool that is both: a dry run rolls back inside the
- * database and changes nothing, so making the operator approve it would put a
- * confirmation in front of the check that exists to earn the confirmation.
+ * No tool is currently a write in one shape and a read in another: `import_csv`
+ * was, because its dry run rolled back inside the database, and it is gone with
+ * the in-app importer. The signature is kept because the distinction is real —
+ * a tool that gains a "check it first" mode belongs here rather than in a new
+ * concept — and because every caller already asks this question about a call.
  */
 export function isWriteCall(name: string, args: Record<string, unknown>): boolean {
-  if (!isWriteTool(name)) return false;
-  if (name === 'import_csv' && args.mode === 'dry_run') return false;
-  return true;
+  void args;
+  return isWriteTool(name);
 }
 
 // ---------------------------------------------------------------------------
@@ -1419,14 +1402,8 @@ function checkField(name: string, field: Field, value: unknown): { value?: unkno
       }
       const limit = field.maxLength ?? MAX_TEXT;
       if (trimmed.length > limit) {
-        // The CSV field is the one a person can plausibly overshoot, and it has
-        // somewhere else to go, so its refusal says where.
-        const where =
-          field.maxLength === MAX_CSV_TEXT
-            ? ' Import a file this size on the administration import screen instead.'
-            : '';
         return {
-          error: `${fieldError(name, `has to be ${limit.toLocaleString('en-GB')} characters or fewer.`)}${where}`,
+          error: fieldError(name, `has to be ${limit.toLocaleString('en-GB')} characters or fewer.`),
         };
       }
       return { value: trimmed };
@@ -1571,18 +1548,16 @@ const DESCRIBE_LIMIT = 120;
 /**
  * One argument, as a card should show it.
  *
- * A pasted spreadsheet is named rather than quoted: `import_csv` carries a
- * hundred thousand characters, and the operator approving it wants to know how
- * big it is, not to scroll it. Every other long value is cut at a readable
- * length.
+ * A long value is cut at a readable length: an approval card is read at a
+ * glance, and an operator scrolling one is an operator not reading it.
  */
 function describeValue(key: string, value: unknown): string {
   if (Array.isArray(value)) {
     const shown = value.slice(0, 5).map(String).join(', ');
     return value.length > 5 ? `${shown} and ${value.length - 5} more` : shown;
   }
+  void key;
   const asText = String(value);
-  if (key === 'csv_text') return `${asText.length.toLocaleString('en-GB')} characters of CSV`;
   if (asText.length <= DESCRIBE_LIMIT) return asText;
   return `${asText.slice(0, DESCRIBE_LIMIT).trimEnd()}\u2026`;
 }

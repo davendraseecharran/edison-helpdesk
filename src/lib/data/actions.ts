@@ -61,20 +61,16 @@ export interface CreateTicketFields {
   channel: string;
   priority: string;
   submittedOn?: string | null;
+  /** A staff or student row in the district directory. */
   requesterId?: string | null;
-  requesterName?: string | null;
-  requesterKind?: string | null;
-  requesterDescriptor?: string | null;
+  /** True when there is nobody to name. Exclusive with requesterId. */
   requesterUnknown?: boolean;
   location?: string | null;
-  isRemote?: boolean;
   ownerId?: string | null;
   collaboratorIds?: string[];
   devices?: Array<Record<string, unknown>>;
   /** One of TicketCategory. The database refuses anything else. */
   category?: string | null;
-  /** A directory person as the requester. Their one requester row is reused. */
-  personId?: string | null;
   /** Inventory machines to name on the ticket at intake. */
   deviceIds?: string[];
 }
@@ -90,18 +86,17 @@ export async function createTicketAction(fields: CreateTicketFields): Promise<Ac
       p_channel: fields.channel,
       p_priority: fields.priority,
       p_submitted_on: fields.submittedOn ?? null,
+      // The requester is somebody already in the district directory, or
+      // nobody. p_requester_name and p_is_remote still exist on the function
+      // and are still refused by it, so a caller that sends either is told
+      // rather than having its value quietly dropped; this one sends neither.
       p_requester_id: fields.requesterId ?? null,
-      p_requester_name: fields.requesterName ?? null,
-      p_requester_kind: fields.requesterKind ?? 'staff',
-      p_requester_descriptor: fields.requesterDescriptor ?? null,
       p_requester_unknown: fields.requesterUnknown ?? false,
       p_location: fields.location ?? null,
-      p_is_remote: fields.isRemote ?? false,
       p_owner_id: fields.ownerId ?? null,
       p_collaborator_ids: fields.collaboratorIds ?? [],
       p_devices: fields.devices ?? [],
       p_category: fields.category ?? 'other',
-      p_person_id: fields.personId ?? null,
       p_device_ids: fields.deviceIds ?? [],
     },
     'Ticket created.',
