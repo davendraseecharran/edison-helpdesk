@@ -269,7 +269,10 @@ export function TicketListView({
               id="queue-search"
               type="search"
               name="query"
-              placeholder="Number, requester, location, device or text"
+              // Short enough to read in full at the width this field gets when
+              // the bar also carries five selects (all tickets, 1440px); the
+              // longer phrasing was cut mid-word there, which reads as a bug.
+              placeholder="Number, name, device or text"
               defaultValue={current.query}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
