@@ -206,7 +206,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   });
   const toolContext: ToolContext = {
     supabase: toolSupabase,
-    actor: { id: account.id, displayName: account.displayName, role: account.role },
+    actor: { id: account.id, displayName: account.displayName, roles: account.roles },
   };
 
   let conversationId: string;
@@ -228,10 +228,10 @@ export async function POST(request: NextRequest): Promise<Response> {
   request.signal.addEventListener('abort', () => controller.abort());
 
   const encoder = new TextEncoder();
-  const tools = toolsFor(account.role);
+  const tools = toolsFor(account.roles);
   const instructions = systemInstructions({
     actorName: account.displayName,
-    role: account.role,
+    roles: account.roles,
     today: schoolToday(),
     page: body.page,
   });

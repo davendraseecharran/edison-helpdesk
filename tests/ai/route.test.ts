@@ -18,6 +18,7 @@ const account = {
   displayName: 'Pat Example',
   email: 'pat@edison.example',
   role: 'technician' as const,
+  roles: ['netrider'] as const,
   status: 'active' as const,
   credentialActionPending: false,
   sessionIsCurrent: true,

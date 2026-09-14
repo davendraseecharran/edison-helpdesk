@@ -110,7 +110,7 @@ describe('validateArgs', () => {
   it('accepts every tool called with only its required fields', () => {
     // Every schema has to be satisfiable: a tool whose required set cannot be
     // filled is a tool the model can never call.
-    for (const tool of toolsFor('admin')) {
+    for (const tool of toolsFor(['admin'])) {
       const args: Record<string, unknown> = {};
       for (const [name, schema] of Object.entries(tool.parameters.properties)) {
         const types = Array.isArray(schema.type) ? schema.type : [schema.type];

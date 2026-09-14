@@ -25,14 +25,28 @@
  *     part of it, and it tells the model what to do instead: say so.
  */
 
+import { canWorkTickets, type AccountRole } from '@/lib/auth/roles';
+
 export type PageKind = 'ticket' | 'person' | 'device';
 
 export interface PromptContext {
   actorName: string;
-  role: 'admin' | 'technician';
+  /** What this person may do. Never empty. */
+  roles: AccountRole[];
   /** The school date, `YYYY-MM-DD`, from `schoolToday()`. */
   today: string;
   page?: { kind: PageKind; id: string; label: string };
+}
+
+/** How the assistant introduces the person it is helping. */
+function describeRoles(roles: readonly AccountRole[]): string {
+  if (roles.includes('admin')) return 'helpdesk administrator';
+  if (roles.includes('netrider')) {
+    return roles.includes('skills_officer')
+      ? 'helpdesk NetRider who also works the student and staff directory'
+      : 'helpdesk NetRider';
+  }
+  return 'skills officer, who works the student and staff directory';
 }
 
 const PAGE_NOUN: Record<PageKind, string> = {
@@ -44,7 +58,7 @@ const PAGE_NOUN: Record<PageKind, string> = {
 export function systemInstructions(context: PromptContext): string {
   const lines: string[] = [
     'You are the assistant inside Edison Helpdesk, the ticketing system for a school IT helpdesk.',
-    `You are helping ${context.actorName}, a ${context.role === 'admin' ? 'helpdesk administrator' : 'helpdesk technician'}. Today is ${context.today}.`,
+    `You are helping ${context.actorName}, a ${describeRoles(context.roles)}. Today is ${context.today}.`,
     '',
     'How you work:',
     '- You act through the tools you have been given. They run as this person, with their own permissions, and everything you do is recorded in the helpdesk history as their AI.',
@@ -75,7 +89,14 @@ export function systemInstructions(context: PromptContext): string {
     '- Never claim to have done something a tool did not do.',
   ];
 
-  if (context.role === 'admin') {
+  if (!canWorkTickets(context.roles)) {
+    lines.push(
+      '',
+      'This person does not work tickets. They work the student and staff directory and read the device inventory, and the helpdesk refuses them every ticket, note, work log and report. You have no ticket tools in this conversation. If they ask about a ticket, say plainly that their account works the directory and that a NetRider or an administrator handles tickets.',
+    );
+  }
+
+  if (context.roles.includes('admin')) {
     lines.push(
       '',
       'You also have administrator tools: reassigning, reopening and cancelling tickets, reviewing access requests, invites, roles and the CSV importer. Use them only when this person asks you to, in this conversation, in their own words. Always run an import as a dry run first and report the counts before committing it.',
