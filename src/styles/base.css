@@ -44,11 +44,12 @@ h3 {
 
 h1 {
   font-size: var(--fs-5);
-  letter-spacing: -0.01em;
+  letter-spacing: var(--tracking-title);
 }
 
 h2 {
   font-size: var(--fs-4);
+  letter-spacing: var(--tracking-heading);
 }
 
 h3 {
@@ -74,6 +75,23 @@ img,
 svg,
 video {
   max-width: 100%;
+}
+
+/*
+ * A hairline inside the edge of every photograph, so an attachment sits at
+ * the same depth as the bordered things around it and a light screenshot on
+ * a light card still has an edge. Pure black on paper and pure white on navy,
+ * never a tinted neutral: a tinted ring picks up the surface under the image
+ * and reads as dirt along the edge. `outline` takes no space at any offset,
+ * and the negative offset draws it just inside, so it follows the radius.
+ */
+img {
+  outline: 1px solid rgba(0, 0, 0, 0.1);
+  outline-offset: -1px;
+}
+
+:root[data-theme='dark'] img {
+  outline-color: rgba(255, 255, 255, 0.1);
 }
 
 button,

@@ -94,9 +94,9 @@
   flex-direction: column;
   gap: 10px;
   padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-4);
   background: var(--surface);
+  box-shadow: var(--shadow-1);
 }
 
 .skeleton-bars {
@@ -184,15 +184,19 @@
   pointer-events: none;
 }
 
+/*
+ * The stripe names the kind of message; the box that used to be drawn round
+ * it said the same thing again. Radius is concentric with the 32px dismiss
+ * button inside it: 4px control plus 8px of inset is 12.
+ */
 .toast {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   padding: 8px 8px 8px 16px;
-  border: 1px solid var(--line);
   border-left: 3px solid var(--slate);
-  border-radius: var(--radius-2);
+  border-radius: var(--radius-3);
   background: var(--surface);
   color: var(--ink);
   box-shadow: var(--shadow-2);

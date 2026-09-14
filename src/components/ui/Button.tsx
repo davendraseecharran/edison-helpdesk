@@ -15,6 +15,12 @@ interface SharedProps {
   icon?: LucideIcon;
   /** Stretch to the container's width. */
   block?: boolean;
+  /**
+   * Switches off the press scale. For a control where the give would distract
+   * rather than confirm: one inside a row that is itself moving, or a toggle
+   * pressed several times a second.
+   */
+  static?: boolean;
   className?: string;
   children?: ReactNode;
 }
@@ -31,18 +37,21 @@ export function buttonClass({
   size = 'md',
   block,
   iconOnly,
+  static: isStatic,
   className,
 }: {
   variant?: ButtonVariant;
   size?: ButtonSize;
   block?: boolean;
   iconOnly?: boolean;
+  static?: boolean;
   className?: string;
 }): string {
   const parts = ['btn', `btn-${variant}`];
   if (size === 'sm') parts.push('btn-sm');
   if (block) parts.push('btn-block');
   if (iconOnly) parts.push('btn-icon');
+  if (isStatic) parts.push('btn-static');
   if (className) parts.push(className);
   return parts.join(' ');
 }
@@ -53,9 +62,29 @@ export function buttonClass({
  * `primary` is the brass fill and there should be one per view at most; the
  * others are quiet. `loading` is the only state that changes the label area:
  * the spinner replaces the icon so the width barely moves.
+ *
+ * Every press gives: the button scales to 0.96 while it is held and comes back
+ * when it is let go (`components.css`). That is the one piece of motion the
+ * product spends on a high-frequency interaction, because it is answering the
+ * finger rather than decorating the page. `static` takes it away.
+ *
+ * Icons carry the label's optical weight — the button's type is medium, so
+ * the stroke is 2px rather than the 1.5px that sits beside body text.
  */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant, size, icon, block, className, children, loading = false, disabled, type, ...rest },
+  {
+    variant,
+    size,
+    icon,
+    block,
+    static: isStatic,
+    className,
+    children,
+    loading = false,
+    disabled,
+    type,
+    ...rest
+  },
   ref,
 ) {
   const iconOnly = !children;
@@ -64,15 +93,15 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     <button
       ref={ref}
       type={type ?? 'button'}
-      className={buttonClass({ variant, size, block, iconOnly, className })}
+      className={buttonClass({ variant, size, block, iconOnly, static: isStatic, className })}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...rest}
     >
       {loading ? (
-        <Icon icon={LoaderCircle} size={iconSize} className="icon-spin" />
+        <Icon icon={LoaderCircle} size={iconSize} weight="medium" className="icon-spin" />
       ) : icon ? (
-        <Icon icon={icon} size={iconSize} />
+        <Icon icon={icon} size={iconSize} weight="medium" />
       ) : null}
       {children}
     </button>
@@ -95,6 +124,7 @@ export function ButtonLink({
   size,
   icon,
   block,
+  static: isStatic,
   className,
   children,
   collapseOnPhone,
@@ -108,11 +138,12 @@ export function ButtonLink({
     size,
     block,
     iconOnly,
+    static: isStatic,
     className: collapseOnPhone ? `btn-collapse ${className ?? ''}`.trim() : className,
   });
   return (
     <Link href={href} className={classes} prefetch={prefetch} {...rest}>
-      {icon ? <Icon icon={icon} size={iconSize} /> : null}
+      {icon ? <Icon icon={icon} size={iconSize} weight="medium" /> : null}
       {collapseOnPhone ? <span className="btn-label">{children}</span> : children}
     </Link>
   );

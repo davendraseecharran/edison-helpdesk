@@ -27,6 +27,35 @@ import {
 /** `useLayoutEffect` on the client, `useEffect` on the server, where layout effects only warn. */
 const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
+/**
+ * Makes a theme change snap instead of smear.
+ *
+ * A flip repaints colour, background, border and shadow on nearly every
+ * element at once. Everything carrying a transition on one of those fires
+ * together and the switch reads as a slow wash rather than an instant change
+ * — the buttons crossfade, the rail lags the page, the lamp on the current
+ * row arrives last. So: drop a stylesheet that turns every transition off,
+ * read `offsetHeight` for its side effect (a synchronous style flush, which
+ * commits the new colours while the override still applies and so starts no
+ * transition), then take the stylesheet away on the frame after that paint.
+ *
+ * Two frames, not one: the first `requestAnimationFrame` runs before the
+ * paint that uses the new colours, so removing the override there would let
+ * the transitions start after all.
+ */
+function suppressTransitions(): void {
+  const style = document.createElement('style');
+  style.append(document.createTextNode('*,*::before,*::after{transition:none !important}'));
+  document.head.append(style);
+
+  // Read for the flush, not for the value.
+  void document.body.offsetHeight;
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => style.remove());
+  });
+}
+
 type ThemeContextValue = {
   /** What the user asked for, including `system`. */
   theme: ThemePreference;
@@ -164,8 +193,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // including the first commit after the boot script's guess. A layout effect,
   // so the account's theme is stamped in the same frame it arrives rather than
   // one paint of the browser's guess later.
+  //
+  // Because it is the only writer, it is also the only place that has to stop
+  // the switch from smearing — the account menu's control, the palette's
+  // "Toggle theme", the settings screen and the operating system's own
+  // preference all arrive here. Transitions are suppressed only when the
+  // painted theme really changes: on the first commit the boot script has
+  // already stamped the right value, and there is nothing to smear.
   useIsomorphicLayoutEffect(() => {
-    document.documentElement.setAttribute('data-theme', resolved);
+    const root = document.documentElement;
+    if (root.getAttribute('data-theme') === resolved) return;
+    suppressTransitions();
+    root.setAttribute('data-theme', resolved);
   }, [resolved]);
 
   const adoptServerTheme = useCallback((next: ThemePreference) => {

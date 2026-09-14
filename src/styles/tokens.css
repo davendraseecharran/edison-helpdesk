@@ -34,11 +34,66 @@
   --slate: #5b6780;
   --slate-soft: #eceff4;
   --focus: 0 0 0 3px rgba(212, 167, 44, 0.55);
+
+  /*
+   * The bench lamp: the one lit element on a screen.
+   *
+   * Brass stopped being a highlighter and became a light source. Four layers
+   * read as a lamp hung above and to the left — a bright hairline along the
+   * top edge, a dimmer one down the left, a thin ring so the shape is closed,
+   * and a warm bloom falling below. Exactly one element wears it at a time
+   * (the current rail item, the row the keyboard is on, the panel that has
+   * focus), which is what makes it mean "you are here" rather than "this is
+   * decorated".
+   */
+  --edge-light:
+    inset 0 1px 0 0 rgba(212, 167, 44, 0.9),
+    inset 1px 0 0 0 rgba(212, 167, 44, 0.32),
+    0 0 0 1px rgba(212, 167, 44, 0.3),
+    0 6px 16px -8px rgba(212, 167, 44, 0.45);
+
+  /*
+   * Radii, concentric. Outer = inner + the padding between them, so a 4px
+   * control inside 12px of card padding needs a 16px card. Past 24px of
+   * padding the layers stop reading as nested and each picks its own.
+   */
   --radius-1: 4px;
   --radius-2: 8px;
   --radius-3: 12px;
-  --shadow-1: 0 1px 2px rgba(15, 31, 61, 0.06);
-  --shadow-2: 0 6px 24px rgba(15, 31, 61, 0.1);
+  --radius-4: 16px;
+
+  /*
+   * Three elevations, layered and transparent, so they sit correctly on any
+   * ground. `1` is a resting card, `2` a menu or popover, `3` a dialog or
+   * sheet. Every layer is pure black: a tinted shadow picks up the surface
+   * under it and reads as dirt. Borders are for structure — dividers, table
+   * rules, input outlines — and never for depth.
+   */
+  --shadow-1:
+    0 0 0 1px rgba(0, 0, 0, 0.06),
+    0 1px 2px -1px rgba(0, 0, 0, 0.08),
+    0 2px 4px 0 rgba(0, 0, 0, 0.04);
+  --shadow-2:
+    0 0 0 1px rgba(0, 0, 0, 0.07),
+    0 4px 8px -4px rgba(0, 0, 0, 0.1),
+    0 12px 24px -8px rgba(0, 0, 0, 0.1);
+  --shadow-3:
+    0 0 0 1px rgba(0, 0, 0, 0.08),
+    0 8px 16px -8px rgba(0, 0, 0, 0.14),
+    0 24px 48px -12px rgba(0, 0, 0, 0.16);
+
+  /*
+   * Motion. The built-in curves are too weak to read as deliberate; these are
+   * the strong variants. `--ease-out` carries everything that enters or
+   * leaves, `--ease-in-out` anything moving on screen. Nothing uses ease-in:
+   * it delays the first frame, which is the one the eye is watching.
+   */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --dur-hover: 120ms;
+  --dur-press: 160ms;
+  --dur-surface: 200ms;
+
   --rail-w: 232px;
   --topbar-h: 56px;
   --tabs-h: 60px;
@@ -49,6 +104,16 @@
   --fs-4: 20px;
   --fs-5: 26px;
   --fs-6: 34px;
+  /* Display. One size, one place: the sign-in hero. */
+  --fs-7: 44px;
+
+  /*
+   * Optical tracking. Plex Sans sets loose above 20px, so the larger sizes
+   * are pulled in; body text and below are left alone.
+   */
+  --tracking-display: -0.022em;
+  --tracking-title: -0.014em;
+  --tracking-heading: -0.008em;
 }
 
 :root[data-theme='dark'] {
@@ -77,6 +142,24 @@
   --slate: #9aa6bb;
   --slate-soft: #202c46;
   --focus: 0 0 0 3px rgba(226, 185, 63, 0.55);
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-2: 0 8px 28px rgba(0, 0, 0, 0.5);
+
+  /* The same lamp, dimmer: brass on navy carries further than brass on paper. */
+  --edge-light:
+    inset 0 1px 0 0 rgba(226, 185, 63, 0.72),
+    inset 1px 0 0 0 rgba(226, 185, 63, 0.26),
+    0 0 0 1px rgba(226, 185, 63, 0.22),
+    0 8px 22px -10px rgba(226, 185, 63, 0.42);
+
+  /*
+   * Dark: layered black depth is invisible on a dark ground, so elevation is
+   * carried by a white ring that brightens as a surface rises, with a black
+   * drop under the two that genuinely float.
+   */
+  --shadow-1: 0 0 0 1px rgba(255, 255, 255, 0.08);
+  --shadow-2:
+    0 0 0 1px rgba(255, 255, 255, 0.11),
+    0 8px 24px rgba(0, 0, 0, 0.5);
+  --shadow-3:
+    0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 16px 48px rgba(0, 0, 0, 0.6);
 }
