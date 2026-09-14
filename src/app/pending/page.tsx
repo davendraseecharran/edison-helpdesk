@@ -47,7 +47,7 @@ export default async function PendingPage() {
       </div>
 
       <div className="auth-actions">
-        <SignOutButton />
+        <SignOutButton size="md" />
       </div>
 
       <div className="auth-foot">

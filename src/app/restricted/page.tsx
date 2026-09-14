@@ -106,7 +106,7 @@ export default async function RestrictedPage() {
             Sign in
           </ButtonLink>
         ) : (
-          <SignOutButton />
+          <SignOutButton size="md" />
         )}
       </div>
     </AuthFrame>

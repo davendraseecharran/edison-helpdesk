@@ -71,6 +71,15 @@ export function LoginForm({ next }: { next?: string }) {
       <Button type="submit" variant="primary" block loading={pending} className="auth-submit">
         Sign in
       </Button>
+
+      {/* The button keeps its label and grows a spinner, which says nothing to
+          a screen reader beyond aria-busy. This live region is in the document
+          before the press, so the sentence that replaces its empty content is
+          announced; it also covers the seconds between a successful sign-in
+          and the queue rendering, when nothing else has changed yet. */}
+      <span className="visually-hidden" role="status">
+        {pending ? 'Signing in…' : ''}
+      </span>
     </form>
   );
 }
