@@ -421,7 +421,7 @@ export function DeviceList({
             cardTitle={(device) => (
               <span className="dir-card-title">
                 <RowCheck device={device} checked={selected.has(device.id)} onToggle={toggle} />
-                <Link href={`/devices/${device.id}`} className="mono">
+                <Link href={`/devices/${device.id}`} className="mono row-link">
                   {deviceLabel(device)}
                 </Link>
               </span>

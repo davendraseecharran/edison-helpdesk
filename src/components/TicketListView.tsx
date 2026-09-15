@@ -588,7 +588,7 @@ export function TicketListView({
             listProps={keys.listProps}
             settle
             cardTitle={(ticket) => (
-              <Link href={`/tickets/${ticket.id}`}>
+              <Link href={`/tickets/${ticket.id}`} className="row-link">
                 <span className="queue-card-number mono">{ticket.number}</span>
                 {ticket.title}
               </Link>

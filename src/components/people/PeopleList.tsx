@@ -228,7 +228,9 @@ export function PeopleList({ page }: { page: PeoplePage }) {
             settle
             cardTitle={(person) => (
               <span className="dir-name-row">
-                <Link href={`/people/${person.id}`}>{person.displayName}</Link>
+                <Link href={`/people/${person.id}`} className="row-link">
+                  {person.displayName}
+                </Link>
                 {person.archivedAt ? <ArchivedBadge /> : null}
               </span>
             )}
