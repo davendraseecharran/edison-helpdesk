@@ -46,6 +46,29 @@
   box-shadow: none;
 }
 
+/*
+ * The docked assistant is `position: fixed`, so it is outside this grid and
+ * would otherwise sit on top of the page rather than beside it — at 1440 that
+ * covered the queue's Category filter, its Priority column and its Claim
+ * button. `AiPanel` stamps `data-ai-dock` on the document element while the
+ * docked layout is open, and the main column gives the panel its strip back as
+ * padding: the same reflow a third grid track would give, without the shell
+ * needing to know whether the assistant exists.
+ *
+ * Only the docked layout reserves anything. Between 720 and 1023px the panel
+ * is modal over a scrim and below 720 it is a full-screen sheet, and neither
+ * shares the screen with the page.
+ *
+ * There is no transition: MOTION.md's rule is that a moment not in its table
+ * does not move, and a page that slides sideways under a panel arriving on a
+ * spring is two motions disagreeing about the same 200ms.
+ */
+@media (min-width: 1024px) {
+  :root[data-ai-dock] .main {
+    padding-right: calc(24px + var(--ai-panel-w));
+  }
+}
+
 /* --- Top bar ------------------------------------------------------------ */
 
 /*

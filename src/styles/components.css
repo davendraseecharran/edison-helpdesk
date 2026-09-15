@@ -1536,6 +1536,23 @@ p.flash {
   }
 }
 
+/*
+ * The docked assistant takes `--ai-panel-w` off the main column, which leaves a
+ * 1440 screen with about the width a 1024 one had — so the same wrapper has to
+ * scroll for the same reason. Keyed off the dock rather than a width, because
+ * the width alone cannot tell whether the panel is open.
+ */
+@media (min-width: 1024px) {
+  :root[data-ai-dock] .data-table {
+    padding-bottom: 4px;
+    overflow-x: auto;
+  }
+
+  :root[data-ai-dock] .table thead th {
+    position: static;
+  }
+}
+
 @media (max-width: 719.98px) {
   .table {
     display: none;

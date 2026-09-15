@@ -533,6 +533,23 @@ export function AiPanel({
 
   // --- What the rest of the shell sees ------------------------------------
 
+  /*
+   * Tell the page it has a neighbour.
+   *
+   * The panel is `position: fixed` and portaled to `<body>`, so the shell's
+   * grid cannot reserve its width and nothing in the React tree sees both. One
+   * attribute on the document element — the way the theme and a list's
+   * keyboard are already announced — lets `shell.css` give the main column the
+   * strip back, and `components.css` let a table that no longer fits scroll
+   * inside its own wrapper instead of the page scrolling sideways.
+   */
+  useEffect(() => {
+    if (!open || layout !== 'docked') return;
+    const root = document.documentElement;
+    root.setAttribute('data-ai-dock', '');
+    return () => root.removeAttribute('data-ai-dock');
+  }, [open, layout]);
+
   useEffect(() => {
     setAssistant({ open, moment, busy: chat.busy, unread });
   }, [open, moment, chat.busy, unread]);

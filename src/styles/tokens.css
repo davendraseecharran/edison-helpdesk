@@ -209,6 +209,13 @@
 
   --rail-w: 240px;
   --topbar-h: 48px;
+  /*
+   * The docked assistant's width. Named here rather than in `ai.css` because
+   * two files need the same number: the panel draws itself that wide, and the
+   * shell reserves the same strip so the page reflows beside it instead of
+   * being covered by it.
+   */
+  --ai-panel-w: 420px;
   --tabs-h: 60px;
   --fs-0: 12px;
   --fs-1: 13px;
