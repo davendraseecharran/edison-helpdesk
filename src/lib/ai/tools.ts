@@ -925,17 +925,23 @@ const TOOLS: Record<string, ToolSpec> = {
     },
     run: async (args, ctx) => {
       const target = await resolveAttachmentTarget(ctx, args);
-      const data = rows(
-        await rpc(ctx, 'app_list_attachments', {
+      const [attachments, directory] = await Promise.all([
+        rpc(ctx, 'app_list_attachments', {
           p_ticket: target.ticketId,
           p_device: target.deviceId,
         }),
-      ).map((row) => ({
+        // The row only names the uploader by id; the display name comes from
+        // the same directory `resolveAccount` already reads elsewhere.
+        rpc(ctx, 'app_directory', {}),
+      ]);
+      const names = new Map(rows(directory).map((entry) => [textOf(entry.id), textOf(entry.display_name)]));
+      const data = rows(attachments).map((row) => ({
         id: textOf(row.id),
         filename: textOf(row.filename),
         mime: textOf(row.mime),
         size: formatBytes(Number(row.bytes ?? 0)),
         uploadedAt: textOf(row.uploaded_at),
+        uploadedBy: names.get(textOf(row.uploaded_by)) || 'Unknown',
         // The path is how the server finds the bytes, and it is no use to a
         // model that cannot reach the bucket. It stays out of the result.
         via: row.performed_via === 'ai' ? 'ai' : 'user',

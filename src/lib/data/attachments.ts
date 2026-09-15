@@ -218,7 +218,7 @@ export interface StoredObject {
  * listing of the containing folder is the fallback. Both report the object the
  * bucket holds.
  */
-export async function readStoredObject(path: string): Promise<StoredObject | null> {
+async function readStoredObject(path: string): Promise<StoredObject | null> {
   const info = await bucket().info(path);
   if (!info.error && info.data) {
     const size = Number(info.data.size);
@@ -250,7 +250,7 @@ export async function readStoredObject(path: string): Promise<StoredObject | nul
  * round trip for the whole thing. Null when the object cannot be read at all,
  * which registration treats the same way as a file it cannot recognise.
  */
-export async function readObjectHead(
+async function readObjectHead(
   path: string,
   count = MIME_SIGNATURE_BYTES,
 ): Promise<Uint8Array | null> {
@@ -352,7 +352,7 @@ function attributionHeaders(input: RegisterInput): Record<string, string> {
  * Passing an actor in is only safe because of that, and because the id comes
  * from `activeAccount()` rather than from a form field.
  */
-export async function registerAttachment(
+async function registerAttachment(
   input: RegisterInput,
 ): Promise<{ id: string } | { error: string; code: string | null }> {
   const { data, error } = await adminClient(attributionHeaders(input)).rpc('app_trusted_register_attachment', {

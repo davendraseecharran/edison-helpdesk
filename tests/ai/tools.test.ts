@@ -191,7 +191,7 @@ describe('tool classification', () => {
   it('gives every argument of every tool a description the model can read', () => {
     for (const tool of toolsFor(['admin'])) {
       for (const [field, schema] of Object.entries(tool.parameters.properties)) {
-        expect(`${tool.name}.${field}`, (schema.description ?? '').trim()).toBeTruthy();
+        expect((schema.description ?? '').trim(), `${tool.name}.${field}`).toBeTruthy();
         expect((schema.description ?? '').length).toBeGreaterThan(3);
       }
     }

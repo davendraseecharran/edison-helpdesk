@@ -357,7 +357,7 @@ person's own ChatGPT account.
 
 ### Every tool, and who is offered it
 
-Fifty-three tools. A skills officer is offered fourteen, a NetRider forty-two,
+Fifty-three tools. A skills officer is offered fourteen, a NetRider forty-three,
 an administrator all of them. "Asks" is whether the change is put to the person
 before it runs: **setting** means it follows their "ask before changes" switch,
 **always** means it asks whatever the switch says, and a read never asks.
