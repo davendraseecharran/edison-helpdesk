@@ -774,20 +774,21 @@ p.flash {
 }
 
 /*
- * A popover belongs to the control that opened it, so it grows out of that
- * control rather than out of its own middle: the origin is the corner nearest
- * the trigger. Whether one reader notices is not the point — in aggregate
- * these are what make an interface feel built rather than assembled.
+ * A menu belongs to the control that opened it, so it grows out of that
+ * control rather than out of its own middle. Radix measures where the surface
+ * actually landed — it may have flipped above the trigger, or shifted along
+ * it to stay inside the window — and hands the corner back as
+ * `--radix-popper-transform-origin`, which is a thing no hand-rolled menu
+ * knows. 0.97 and never 0, because nothing in the world appears out of
+ * nothing.
  *
- * `@starting-style` gives the entrance with no keyframe at all — no animation
- * name, no fill mode, nothing to clean up. The menu unmounts when it closes, so
- * every open starts from 0.97 rather than resuming a half-finished one; 0.97
- * and never 0, because nothing in the world appears out of nothing.
+ * Keyframes rather than a transition out of `@starting-style`, and this is the
+ * one place that is right: Radix unmounts the surface when it closes and holds
+ * the unmount until the animation ends, so there is no half-finished state to
+ * retarget — every open genuinely starts from 0.97.
  */
 .menu,
 .popover {
-  position: absolute;
-  top: calc(100% + 6px);
   z-index: 40;
   min-width: 200px;
   padding: 4px;
@@ -795,6 +796,39 @@ p.flash {
   border-radius: var(--radius-3);
   background: var(--overlay);
   box-shadow: var(--shadow-2);
+}
+
+.menu {
+  transform-origin: var(--radix-popper-transform-origin, top right);
+}
+
+.menu[data-state='open'] {
+  animation: menu-in var(--dur-surface) var(--ease-out);
+}
+
+.menu[data-state='closed'] {
+  animation: menu-out var(--dur-press) var(--ease-out);
+}
+
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+
+@keyframes menu-out {
+  to {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+
+/* The hand-anchored surfaces that are not menus: they position themselves
+   against the trigger they sit beside and animate out of `@starting-style`. */
+.popover {
+  position: absolute;
+  top: calc(100% + 6px);
   opacity: 1;
   scale: 1;
   transition-property: opacity, scale;
@@ -802,20 +836,17 @@ p.flash {
   transition-timing-function: var(--ease-out);
 }
 
-.menu-end,
 .popover-end {
   right: 0;
   transform-origin: top right;
 }
 
-.menu-start,
 .popover-start {
   left: 0;
   transform-origin: top left;
 }
 
 @starting-style {
-  .menu,
   .popover {
     opacity: 0;
     scale: 0.97;
@@ -840,14 +871,30 @@ p.flash {
   font: 500 var(--fs-2) / 1.4 var(--font-sans);
   text-align: left;
   cursor: pointer;
+  outline: none;
   transition:
     background-color var(--dur-hover) ease,
     color var(--dur-hover) ease;
 }
 
+/*
+ * One rule for both inputs. Radix marks the item the menu is *on* —
+ * whether the pointer moved onto it or an arrow key did — so the highlight no
+ * longer needs a hover rule of its own, and a finger that taps a menu item
+ * cannot leave it looking hovered afterwards.
+ *
+ * `--surface-4` rather than `--surface-3`, because a menu sits on `--overlay`:
+ * it is the one step of the ladder that moves away from the overlay in both
+ * themes, lighter in the dark one and darker in the light.
+ */
+.menu-item[data-highlighted] {
+  background: var(--surface-4);
+  text-decoration: none;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .menu-item:hover {
-    background: var(--surface-2);
+    background: var(--surface-4);
     text-decoration: none;
   }
 }
@@ -857,7 +904,9 @@ p.flash {
   color: var(--ink-3);
 }
 
-.menu-item .count-pill {
+.menu-item .count-pill,
+.menu-item-more,
+.menu-shortcut {
   margin-left: auto;
 }
 
@@ -871,15 +920,154 @@ p.flash {
 }
 
 .menu-item[aria-disabled='true'],
+.menu-item[data-disabled],
 .menu-item:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.menu-item-marked {
+  padding-left: 4px;
+}
+
+.menu-mark,
+.select-check {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  color: var(--ink-2);
+}
+
+.menu-label {
+  padding: 6px 10px 4px;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  font-weight: 500;
+}
+
+.menu-shortcut {
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-1);
+}
+
+.menu-item-more {
+  color: var(--ink-3);
 }
 
 .menu-separator {
   height: 1px;
   margin: 6px 4px;
   background: var(--line);
+}
+
+/* --- Select ------------------------------------------------------------- */
+
+/*
+ * The trigger is an input that happens to open a list, so it is measured as
+ * one: the same height, the same border, the same focus treatment. What it is
+ * not is a native `<select>`, whose popup is drawn by the operating system and
+ * therefore belongs to a different product on every machine it runs on.
+ */
+.select-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 var(--fs-2) / 1.4 var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
+}
+
+.select-trigger:focus-visible {
+  border-color: var(--line-focus);
+  box-shadow: var(--focus);
+  outline: none;
+}
+
+.select-trigger[data-disabled] {
+  background: var(--surface-2);
+  color: var(--ink-3);
+  cursor: not-allowed;
+}
+
+.select-trigger[aria-invalid='true'] {
+  border-color: var(--bad);
+}
+
+.select-trigger[data-placeholder] .select-value {
+  color: var(--ink-3);
+}
+
+.select-value {
+  flex: 1 1 auto;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* The chevron turns over as the list opens: the one piece of movement the
+   control gets, and it is the control saying which way it is going. */
+.select-chevron {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  color: var(--ink-3);
+  transition: rotate var(--dur-surface) var(--ease-out);
+}
+
+.select-trigger[data-state='open'] .select-chevron {
+  rotate: 180deg;
+}
+
+/*
+ * The list is the menu surface, with two differences: it is at least as wide
+ * as the trigger, so the choices line up under the words they replace, and it
+ * is capped at the height Radix measured to the edge of the window.
+ */
+.select-content {
+  min-width: var(--radix-select-trigger-width);
+  max-height: var(--radix-select-content-available-height);
+  transform-origin: var(--radix-select-content-transform-origin);
+}
+
+.select-content[data-state='open'] {
+  animation: menu-in var(--dur-surface) var(--ease-out);
+}
+
+.select-content[data-state='closed'] {
+  animation: menu-out var(--dur-press) var(--ease-out);
+}
+
+.select-viewport {
+  overflow-y: auto;
+}
+
+.select-item {
+  padding-left: 4px;
+}
+
+.select-scroll {
+  display: flex;
+  justify-content: center;
+  padding: 2px 0;
+  color: var(--ink-3);
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .select-chevron {
+    transition: none;
+  }
 }
 
 /* --- Segmented control -------------------------------------------------- */
