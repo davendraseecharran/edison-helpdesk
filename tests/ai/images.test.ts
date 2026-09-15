@@ -17,6 +17,7 @@ import {
   TOO_MANY,
   WRONG_TYPE,
   attachmentNote,
+  bytesMatchType,
   fileProblem,
   imageProblem,
   readDataUrl,
@@ -25,23 +26,47 @@ import {
   userMessageItem,
 } from '../../src/lib/ai/images';
 
-/** A data URL of `bytes` decoded bytes, in `type`. */
+/** The first bytes of a real file of each kind, which is what the route checks. */
+const SIGNATURE: Record<string, number[]> = {
+  'image/png': [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+  'image/jpeg': [0xff, 0xd8, 0xff, 0xe0],
+  'image/webp': [0x52, 0x49, 0x46, 0x46],
+};
+
+/** A data URL of `bytes` decoded bytes, in `type`, starting with that type's bytes. */
 function dataUrl(type: string, bytes: number): string {
-  // Base64 carries three bytes in four characters; the padding says how many
-  // of the last three were real.
-  const whole = Math.floor(bytes / 3);
-  const rest = bytes % 3;
-  const body = 'AAAA'.repeat(whole) + (rest === 0 ? '' : rest === 1 ? 'AA==' : 'AAA=');
-  return `data:${type};base64,${body}`;
+  const head = SIGNATURE[type] ?? [];
+  const buffer = Buffer.alloc(bytes);
+  for (let index = 0; index < Math.min(head.length, bytes); index += 1) buffer[index] = head[index];
+  return `data:${type};base64,${buffer.toString('base64')}`;
+}
+
+/** The same, but the bytes are somebody else's file wearing this label. */
+function mislabelled(type: string, bytes: number): string {
+  const buffer = Buffer.alloc(bytes);
+  // "<!DOCTYPE " — an HTML page, which is not a picture in any format.
+  for (const [index, code] of [...'<!DOCTYPE '].entries()) {
+    if (index < bytes) buffer[index] = code.charCodeAt(0);
+  }
+  return `data:${type};base64,${buffer.toString('base64')}`;
 }
 
 const picture = { dataUrl: dataUrl('image/png', 64), name: 'crack.png' };
 
 describe('readDataUrl', () => {
   it('reads the media type and the decoded size without decoding', () => {
-    expect(readDataUrl(dataUrl('image/jpeg', 300))).toEqual({ mediaType: 'image/jpeg', bytes: 300 });
-    expect(readDataUrl(dataUrl('image/png', 301))).toEqual({ mediaType: 'image/png', bytes: 301 });
-    expect(readDataUrl(dataUrl('image/webp', 302))).toEqual({ mediaType: 'image/webp', bytes: 302 });
+    expect(readDataUrl(dataUrl('image/jpeg', 300))).toMatchObject({
+      mediaType: 'image/jpeg',
+      bytes: 300,
+    });
+    expect(readDataUrl(dataUrl('image/png', 301))).toMatchObject({
+      mediaType: 'image/png',
+      bytes: 301,
+    });
+    expect(readDataUrl(dataUrl('image/webp', 302))).toMatchObject({
+      mediaType: 'image/webp',
+      bytes: 302,
+    });
   });
 
   it('refuses anything that is not a base64 data URL', () => {
@@ -206,5 +231,47 @@ describe('what the conversation row keeps', () => {
     expect(content).toHaveLength(2);
     expect(content[0]).toEqual({ type: 'input_text', text: 'look at this' });
     expect(String(content[1].text)).toContain('Attached: crack.png');
+  });
+});
+
+describe('bytesMatchType', () => {
+  it('reads each format by the characters its first bytes become', () => {
+    expect(bytesMatchType('image/png', 'iVBORw0KGgo=')).toBe(true);
+    expect(bytesMatchType('image/jpeg', '/9j/4AAQSkZJRg==')).toBe(true);
+    expect(bytesMatchType('image/webp', 'UklGRiQAAABXRUJQ')).toBe(true);
+  });
+
+  it('is false when the bytes belong to a different format', () => {
+    expect(bytesMatchType('image/png', '/9j/4AAQSkZJRg==')).toBe(false);
+    expect(bytesMatchType('image/jpeg', 'iVBORw0KGgo=')).toBe(false);
+  });
+
+  it('is false for a type nothing here reads', () => {
+    expect(bytesMatchType('application/pdf', 'JVBERi0=')).toBe(false);
+  });
+
+  it('does not care how the media type was spelled', () => {
+    expect(bytesMatchType('IMAGE/PNG', 'iVBORw0KGgo=')).toBe(true);
+  });
+});
+
+describe('a file wearing somebody else’s label', () => {
+  it('is refused even though the declared type is one we read', () => {
+    // `data:image/png;base64,` is a claim the sender made. Without the byte
+    // check, an HTML page travels to the model as a photograph.
+    expect(imageProblem({ dataUrl: mislabelled('image/png', 600), name: 'page.png' })).toBe(
+      WRONG_TYPE,
+    );
+  });
+
+  it('is refused by the route, with the same sentence and a 415', () => {
+    const read = readImages([{ dataUrl: mislabelled('image/jpeg', 600), name: 'page.jpg' }]);
+    expect(read).toEqual({ ok: false, status: 415, code: 'image_type', message: WRONG_TYPE });
+  });
+
+  it('does not change what a real picture gets', () => {
+    for (const type of IMAGE_TYPES) {
+      expect(imageProblem({ dataUrl: dataUrl(type, 600), name: 'a' }), type).toBeNull();
+    }
   });
 });

@@ -76,7 +76,10 @@ export interface DueDevice {
 /** What each reason is called on the row. */
 export const DUE_LABELS: Record<DueReason, string> = {
   holder_left: 'Holder has left',
-  in_repair: 'In repair over a fortnight',
+  // "Untouched" rather than "over a fortnight": the RPC tests `updated_at`, so
+  // the row is the repair nobody has come back to, not the repair that has run
+  // long. A label that claimed the second would be a claim the data cannot make.
+  in_repair: 'In repair, untouched for a fortnight',
 };
 
 /** The machine, as a person names it: "Dell Latitude 3190", "HP Chromebook". */

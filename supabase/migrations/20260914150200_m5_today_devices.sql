@@ -42,10 +42,15 @@
 --   holder_left  the person holding it has graduated or left. `student_status`
 --                is the owner's own column for a student who has gone, and
 --                `archived_at` (20260914130000) is the same fact for staff.
---   in_repair    it has been on the bench for a fortnight. Fourteen days is a
---                part that never arrived or a job somebody forgot, and either
---                way it is worth a look; a machine that went to the bench this
---                morning is simply being repaired.
+--   in_repair    it is marked in repair and NOBODY HAS TOUCHED THE RECORD FOR A
+--                FORTNIGHT. The test is `updated_at`, which every edit moves, so
+--                this is "untouched for fourteen days" rather than "on the bench
+--                for fourteen days" — a machine somebody is actively working on
+--                keeps dropping off the list, which is the behaviour wanted: the
+--                row is for the job nobody has come back to. Reading the bench
+--                time itself would mean the last status change in
+--                `inventory_events`, which is a different and more expensive
+--                question than this screen is asking.
 --
 -- Oldest first, capped at 20. The count is over the whole set, not the capped
 -- list, so the heading stays true when only some of them fit.
@@ -89,6 +94,8 @@ as $$
           and (r.student_status in ('graduated', 'other') or r.archived_at is not null)
         )
         or (
+          -- Untouched for a fortnight, not on the bench for one: `updated_at`
+          -- moves on every edit. See the note at the head of this file.
           pg_catalog.lower(pg_catalog.btrim(coalesce(d.status, ''))) in ('in repair', 'in_repair')
           and coalesce(d.updated_at, d.imported_at)
                 < pg_catalog.now() - '14 days'::interval

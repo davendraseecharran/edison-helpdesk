@@ -161,8 +161,19 @@ vi.mock('../../src/lib/ai/responses-client', async (importOriginal) => {
 const { POST } = await import('../../src/app/api/ai/chat/route');
 
 function request(body: unknown) {
+  // The route reads the body itself, bounded, rather than calling `json()`:
+  // `bodySizeLimit` does not reach a route handler, so the size is decided
+  // before anything is parsed. The stub therefore has to be a real stream.
+  const text = JSON.stringify(body ?? null);
+  const bytes = new TextEncoder().encode(text);
   return {
-    json: () => Promise.resolve(body),
+    headers: new Headers({ 'content-length': String(bytes.byteLength) }),
+    body: new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(bytes);
+        controller.close();
+      },
+    }),
     signal: new AbortController().signal,
   } as unknown as Parameters<typeof POST>[0];
 }
@@ -209,11 +220,22 @@ beforeEach(() => {
 });
 
 /** A data URL of `bytes` decoded bytes, matching tests/ai/images.test.ts. */
+const SIGNATURE: Record<string, number[]> = {
+  'image/png': [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+  'image/jpeg': [0xff, 0xd8, 0xff, 0xe0],
+  'image/webp': [0x52, 0x49, 0x46, 0x46],
+};
+
+/**
+ * A data URL of `bytes` decoded bytes, starting with that format's own first
+ * bytes — the route checks the label against them, so a run of zeros would be
+ * refused as a file wearing somebody else's name.
+ */
 function dataUrl(type: string, bytes: number): string {
-  const whole = Math.floor(bytes / 3);
-  const rest = bytes % 3;
-  const body = 'AAAA'.repeat(whole) + (rest === 0 ? '' : rest === 1 ? 'AA==' : 'AAA=');
-  return `data:${type};base64,${body}`;
+  const head = SIGNATURE[type] ?? [];
+  const buffer = Buffer.alloc(bytes);
+  for (let index = 0; index < Math.min(head.length, bytes); index += 1) buffer[index] = head[index];
+  return `data:${type};base64,${buffer.toString('base64')}`;
 }
 
 /** The parts of the last user message actually put on the wire. */
@@ -247,6 +269,39 @@ describe('POST /api/ai/chat', () => {
     const response = await POST(request({ message: 'x'.repeat(30_001) }));
     expect(response.status).toBe(413);
     expect(await response.json()).toMatchObject({ error: 'message_too_long' });
+    expect(state.inserted).toEqual([]);
+  });
+
+  it('refuses a body larger than everything this endpoint can accept, before parsing it', async () => {
+    // Declared, not sent: `serverActions.bodySizeLimit` does not reach a route
+    // handler, so the header is the first place this can be refused. Nothing is
+    // read, nothing is parsed, and no conversation is opened.
+    const oversized = {
+      headers: new Headers({ 'content-length': String(64 * 1024 * 1024) }),
+      body: null,
+      signal: new AbortController().signal,
+    } as unknown as Parameters<typeof POST>[0];
+    const response = await POST(oversized);
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ error: 'request_too_large' });
+    expect(state.inserted).toEqual([]);
+  });
+
+  it('refuses a body that runs past the bound with no length declared', async () => {
+    const chunk = new TextEncoder().encode('x'.repeat(1024 * 1024));
+    const streamed = {
+      headers: new Headers(),
+      body: new ReadableStream<Uint8Array>({
+        // Endless: the reader has to stop it, not the other way round.
+        pull(controller) {
+          controller.enqueue(chunk);
+        },
+      }),
+      signal: new AbortController().signal,
+    } as unknown as Parameters<typeof POST>[0];
+    const response = await POST(streamed);
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ error: 'request_too_large' });
     expect(state.inserted).toEqual([]);
   });
 

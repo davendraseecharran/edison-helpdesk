@@ -21,6 +21,8 @@ import { bulkResultMessage, shapeBulkPatch, type BulkDevicePatch } from '@/lib/d
 import { callRpc, type RpcResult } from '@/lib/data/rpc';
 import { mapInventoryDevice, mapInventoryPage } from '@/lib/data/mapping';
 import { deviceLabel, type DeviceInput, type DeviceStatus } from '@/lib/domain/types';
+import { getManagedDevice } from '@/lib/data/inventory-management-actions';
+import type { ManagedDevice } from '@/lib/inventory/types';
 
 export interface DeviceSearchResult {
   id: string;
@@ -222,5 +224,57 @@ export async function bulkReturnDevicesAction(
     ids,
     (id) => returnDeviceAction(id, status, note ?? null, null),
     (count) => `${count === 1 ? '1 device' : `${count} devices`} returned.`,
+  );
+}
+
+/**
+ * Put one machine back to Available from a row that is only a summary.
+ *
+ * `app_bulk_update_inventory` was doing this, and it takes no version: a bulk
+ * change is a deliberate "apply this to all of these", so it cannot offer the
+ * optimistic lock that every single-machine edit in this application has. From
+ * Today that was the wrong trade — one machine, one press, and somebody else may
+ * have assigned it while the screen was open.
+ *
+ * So the owner's editor does it instead. The untouched fields come from a fresh
+ * read, because `app_save_inventory_device` is a whole-record replace and
+ * sending blanks would erase a location and a note; the VERSION is the one the
+ * row on screen was rendered at, so a machine that changed in between is refused
+ * with the inventory's own sentence rather than quietly overwritten.
+ */
+export async function markDeviceAvailableAction(
+  deviceId: string,
+  version: number | null,
+  status = 'Available',
+): Promise<ActionResult> {
+  let current: ManagedDevice;
+  try {
+    current = await getManagedDevice(deviceId);
+  } catch {
+    return { ok: false, error: 'That machine could not be read. Reload the page and try again.' };
+  }
+  if (!current || typeof current.id !== 'string') {
+    return { ok: false, error: 'That machine is no longer in the inventory.' };
+  }
+
+  return callRpc(
+    'app_save_inventory_device',
+    {
+      p_id: deviceId,
+      p_version: version,
+      p_data: {
+        deviceType: current.deviceType,
+        manufacturer: current.manufacturer,
+        model: current.model,
+        osVersion: current.osVersion,
+        serialNumber: current.serialNumber,
+        assetTag: current.assetTag,
+        status,
+        location: current.location,
+        notes: current.notes,
+        assignedRequesterId: current.assignedRequesterId,
+      },
+    },
+    'Device marked available.',
   );
 }

@@ -35,7 +35,7 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { useApplePlatform, useReducedMotion } from '@/components/ui/media';
 import { useRowKeys } from '@/components/ui/useRowKeys';
 import { claimTicketsAction } from '@/lib/data/actions';
-import { bulkUpdateDevicesAction, returnDeviceAction } from '@/lib/data/device-actions';
+import { markDeviceAvailableAction, returnDeviceAction } from '@/lib/data/device-actions';
 import { ageLabel } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import type { ListAction } from '@/lib/lists/keys';
@@ -214,9 +214,10 @@ export function TodayScreen({
    * Take a machine back, from the row it is on.
    *
    * One press, no form: the status it returns to is Available, which is what
-   * every one of these is. The version it was read at goes with the call, so a
-   * machine somebody else assigned in the meantime is refused with the
-   * inventory's own words rather than quietly reassigned.
+   * every one of these is. Either way the version the row was rendered at goes
+   * with the call, so a machine somebody else assigned while this screen was
+   * open is refused with the inventory's own words rather than quietly
+   * overwritten.
    */
   const returnDevice = useCallback(
     async (device: DueDevice) => {
@@ -225,8 +226,10 @@ export function TodayScreen({
           ? returnDeviceAction(device.id, AVAILABLE_STATUS, null, device.version)
           : // Nobody holds it, so there is nobody to take it back from:
             // `app_return_inventory_device` refuses an unassigned machine, and
-            // rightly. What this one needs is its status put right.
-            bulkUpdateDevicesAction([device.id], { status: AVAILABLE_STATUS }),
+            // rightly. What this one needs is its status put right, through the
+            // owner's editor — the bulk RPC takes no version, and one machine
+            // changed by one press deserves the lock every other edit gets.
+            markDeviceAvailableAction(device.id, device.version, AVAILABLE_STATUS),
       );
     },
     [run],
@@ -291,14 +294,17 @@ export function TodayScreen({
      * panel.
      */
     /*
-     * The keyboard is bound to the page rather than to one list, because both
-     * lists share it. Arrow keys still only act while the focus is already
-     * inside Today: a press with nothing focused never reaches this handler.
+     * The page is the container the keyboard model measures, because both lists
+     * share one model and the focus moves between them. The arrow handler is NOT
+     * on the page: it calls `preventDefault`, and on the root that meant every
+     * arrow press anywhere inside Today stopped scrolling the page and moving a
+     * caret. It sits on the two lists, which is the only place arrows mean
+     * "next row".
      */
     <div
       className="today"
       data-today-briefing={sentence || 'Nothing needs you right now.'}
-      {...keys.listProps}
+      {...keys.containerProps}
     >
       <header className="today-stage today-greet">
         <h1 className="today-hello">{greeting}</h1>
@@ -342,7 +348,7 @@ export function TodayScreen({
         {items.length === 0 ? (
           <ClearState briefing={briefing} cleared={cleared} reduced={reduced} hour={hour} weekday={weekday} />
         ) : (
-          <ul className="today-list">
+          <ul className="today-list" {...keys.arrowProps}>
             {items.map((item, index) => (
               <li key={item.key}>
                 <div className="today-row" {...keys.rowProps(item.key)}>
@@ -422,7 +428,7 @@ export function TodayScreen({
             </p>
           </div>
           {dueSentence ? <p className="today-due-lead subtle">{dueSentence}</p> : null}
-          <ul className="today-list">
+          <ul className="today-list" {...keys.arrowProps}>
             {due.map((device) => (
               <li key={device.id}>
                 <div className="today-row" {...keys.rowProps(`device:${device.id}`)}>

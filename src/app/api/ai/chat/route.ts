@@ -56,7 +56,15 @@ import {
   type ToolContext,
 } from '@/lib/ai/tools';
 import { systemInstructions, type PageKind } from '@/lib/ai/prompt';
-import { readImages, storedMessageItem, userMessageItem, type TurnImage } from '@/lib/ai/images';
+import {
+  MAX_IMAGES,
+  MAX_IMAGE_BYTES,
+  readImages,
+  storedMessageItem,
+  userMessageItem,
+  type TurnImage,
+} from '@/lib/ai/images';
+import { maxBodyBytes, readBoundedBody } from '@/lib/ai/body-limit';
 import {
   appendItems,
   appendPending,
@@ -87,6 +95,16 @@ const MAX_TOOL_ROUNDS = 12;
  * message can say what to do about it.
  */
 const MAX_MESSAGE_CHARS = 30_000;
+
+/**
+ * The most this endpoint will read, before it reads any of it.
+ *
+ * `serverActions.bodySizeLimit` does not apply to a route handler, so without
+ * this `request.json()` would buffer whatever a stranger sent — every rule in
+ * `images.ts` runs after the parse. Derived from the limits already published
+ * rather than chosen, so raising the picture budget raises this with it.
+ */
+const MAX_BODY_BYTES = maxBodyBytes(MAX_IMAGES, MAX_IMAGE_BYTES, MAX_MESSAGE_CHARS);
 
 interface ChatBody {
   conversationId?: string;
@@ -129,10 +147,25 @@ export async function POST(request: NextRequest): Promise<Response> {
     );
   }
 
+  // Before the parse, not after it: the count, type and size rules below are
+  // all downstream of `JSON.parse`, and how much memory a request may cost is
+  // not a question that can wait for them.
+  const raw = await readBoundedBody(request, MAX_BODY_BYTES);
+  if (!raw.ok) {
+    if (raw.reason === 'too_large') {
+      return problem(
+        413,
+        'request_too_large',
+        'That message is too large to send. Attach fewer pictures, or put the file on the ticket instead.',
+      );
+    }
+    return problem(400, 'bad_request', 'That request was not readable.');
+  }
+
   let body: ChatBody;
   let pictures: TurnImage[];
   try {
-    const parsed: unknown = await request.json();
+    const parsed: unknown = JSON.parse(raw.text);
     if (!isRecord(parsed)) throw new Error('not an object');
     // The browser's own limits are a courtesy to the person typing; this
     // endpoint is reachable with curl, so the count, the media type and the

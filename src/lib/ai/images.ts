@@ -82,14 +82,48 @@ export const TOO_MANY = `The assistant takes ${MAX_IMAGES} pictures in one messa
  * a buffer only to measure it is four megabytes of work for a number that
  * arithmetic already knows.
  */
-export function readDataUrl(value: unknown): { mediaType: string; bytes: number } | null {
+export function readDataUrl(
+  value: unknown,
+): { mediaType: string; bytes: number; body: string } | null {
   if (typeof value !== 'string') return null;
   const match = /^data:([a-z0-9.+-]+\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]*)$/i.exec(value);
   if (!match) return null;
   const body = match[2];
   if (body.length === 0 || body.length % 4 !== 0) return null;
   const padding = body.endsWith('==') ? 2 : body.endsWith('=') ? 1 : 0;
-  return { mediaType: match[1].toLowerCase(), bytes: (body.length / 4) * 3 - padding };
+  return { mediaType: match[1].toLowerCase(), bytes: (body.length / 4) * 3 - padding, body };
+}
+
+/**
+ * What each format's first bytes look like once they are base64.
+ *
+ * Base64 encodes three bytes at a time, so the first characters of the encoding
+ * are a fixed function of the first bytes of the file — which means the check
+ * costs a `startsWith` and no decoding at all:
+ *
+ *   PNG   89 50 4E 47 ...  ->  iVBOR
+ *   JPEG  FF D8 FF    ...  ->  /9j/
+ *   WebP  52 49 46 46 ...  ->  UklGR   ("RIFF")
+ */
+const MAGIC: Record<string, string> = {
+  'image/png': 'iVBOR',
+  'image/jpeg': '/9j/',
+  'image/webp': 'UklGR',
+};
+
+/**
+ * Whether the bytes are the kind of file the data URL says they are.
+ *
+ * `data:image/png;base64,` is something the sender wrote, not something the
+ * file proved. Without this, an HTML page, a PDF or a script travels to the
+ * model labelled as a photograph, and the size and count rules are the only
+ * thing it has passed. This is not a decoder and does not pretend to validate
+ * the image — it establishes that the first bytes belong to the format that was
+ * declared, which is the claim being made.
+ */
+export function bytesMatchType(mediaType: string, base64: string): boolean {
+  const magic = MAGIC[mediaType.toLowerCase()];
+  return magic !== undefined && base64.startsWith(magic);
 }
 
 /**
@@ -110,6 +144,9 @@ export function fileProblem(file: ChosenImage, alreadyAttached: number): string 
 export function imageProblem(image: TurnImage): string | null {
   const read = readDataUrl(image.dataUrl);
   if (read === null || !isImageType(read.mediaType)) return WRONG_TYPE;
+  // The label and the bytes have to agree. A declared media type is a claim the
+  // sender made about a file nobody opened.
+  if (!bytesMatchType(read.mediaType, read.body)) return WRONG_TYPE;
   if (read.bytes > MAX_IMAGE_BYTES) return TOO_LARGE;
   return null;
 }

@@ -70,6 +70,10 @@ export interface RowKeys {
     ref: (element: HTMLElement | null) => void;
     onKeyDown: (event: ReactKeyboardEvent) => void;
   };
+  /** Just the container, for a screen whose one model spans several lists. */
+  containerProps: { ref: (element: HTMLElement | null) => void };
+  /** Just the arrow keys, for each of those lists. */
+  arrowProps: { onKeyDown: (event: ReactKeyboardEvent) => void };
 }
 
 /**
@@ -247,5 +251,16 @@ export function useRowKeys<Row>({
     listRef.current = element;
   }, []);
 
-  return { focusedKey, focus, rowProps, listProps: { ref: setList, onKeyDown } };
+  return {
+    focusedKey,
+    focus,
+    rowProps,
+    listProps: { ref: setList, onKeyDown },
+    // The same two, apart, for a screen whose one model spans two lists: the
+    // container to measure goes on the element that holds both, and the arrow
+    // handler goes on each list — it calls `preventDefault`, and on a page root
+    // that would stop every arrow press anywhere inside the screen.
+    containerProps: { ref: setList },
+    arrowProps: { onKeyDown },
+  };
 }
