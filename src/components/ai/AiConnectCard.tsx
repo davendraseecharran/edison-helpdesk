@@ -169,7 +169,7 @@ export function AiConnectCard({
     const plan = planLabel(connection.planType);
     return (
       <section className="ai-connect" aria-labelledby="ai-connect-title">
-        <AiMark size={40} className="ai-connect-mark" />
+        <AiMark size={44} className="ai-connect-mark" />
         <h3 id="ai-connect-title" className="ai-connect-title">
           Connected to ChatGPT
         </h3>
@@ -195,7 +195,7 @@ export function AiConnectCard({
   if (step.kind === 'pairing') {
     return (
       <section className="ai-connect ai-connect-pairing" aria-labelledby="ai-connect-title">
-        <AiMark size={40} waiting className="ai-connect-mark" />
+        <AiMark size={44} state="waiting" className="ai-connect-mark" />
         <h3 id="ai-connect-title" className="ai-connect-title">
           Enter this code in ChatGPT
         </h3>
@@ -229,7 +229,7 @@ export function AiConnectCard({
 
   return (
     <section className="ai-connect" aria-labelledby="ai-connect-title">
-      <AiMark size={40} className="ai-connect-mark" />
+      <AiMark size={44} state="waiting" className="ai-connect-mark" />
       <h3 id="ai-connect-title" className="ai-connect-title">
         Connect ChatGPT
       </h3>

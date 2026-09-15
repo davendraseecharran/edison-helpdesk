@@ -831,57 +831,75 @@
 /*
  * The provider's mark.
  *
- * `currentColor`, so it takes the ink of whatever it sits in and never becomes
- * a second brand colour. One animation, and only while something is actually
- * happening: a six-second turn with a two-and-a-half second breath under it.
- * Slow enough to read as patience rather than as a spinner — a spinner says
- * "wait for me", and this says "still thinking". Transform and opacity only,
- * so it composites on its own layer; `paused` rather than removed, so the mark
- * never jumps when it stops.
+ * Two layers in one grid cell, the same size, the same artwork: the drawn
+ * path, which is what it is at rest, and the dotted cloud, which is what it
+ * becomes while something is happening. Cross-fading between them rather than
+ * cutting is the whole point — the cloud's first frame is the assembled mark,
+ * so for 220ms the two are the same picture and what the eye reads is one
+ * object coming apart, not two images swapping.
+ *
+ * `currentColor` on the drawn half, so it takes the ink of whatever it sits in
+ * and never becomes a second brand colour. The cloud paints its own monochrome
+ * ramp off `data-theme`, which lands on `--ink`: while it is working it is the
+ * brighter of the two, which is correct, because it is the thing happening.
  */
 .ai-mark {
+  position: relative;
   display: inline-grid;
   place-items: center;
+  width: var(--ai-mark-size);
+  height: var(--ai-mark-size);
   color: inherit;
 }
 
-.ai-mark > svg {
-  animation:
-    ai-mark-turn 6s linear infinite paused,
-    ai-mark-breathe 2.4s ease-in-out infinite paused;
-}
-
-.ai-mark[data-waiting] > svg {
-  animation-play-state: running;
-}
-
-@keyframes ai-mark-turn {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes ai-mark-breathe {
-  0%,
-  100% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.55;
-  }
+.ai-mark-drawn {
+  grid-area: 1 / 1;
 }
 
 /*
- * Reduced motion keeps the meaning and drops the movement: the mark holds
- * still at the dim end of the breath, which still reads as "working".
+ * The cloud is taken out of flow and centred over the drawn mark, because it
+ * has to be drawn larger than it: the engine projects the points onto a
+ * sphere, so the mark itself occupies only the middle of its canvas. Matching
+ * the canvas to the glyph box would leave a 20px mark rendering at twelve, and
+ * twelve pixels of dotted filigree is a smudge. `--ai-mark-cloud` is the
+ * factor that puts the same ink in the same place.
+ */
+.ai-mark-cloud {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+}
+
+.ai-mark-drawn,
+.ai-mark-cloud {
+  transition: opacity var(--dur-surface) var(--ease-out);
+}
+
+/* The cloud is mounted only while it has something to say, so it fades up
+   from nothing; `@starting-style` carries the first frame. */
+@starting-style {
+  .ai-mark-cloud {
+    opacity: 0;
+  }
+}
+
+.ai-mark:has(.ai-mark-cloud) .ai-mark-drawn {
+  opacity: 0;
+}
+
+/*
+ * Reduced motion never mounts the cloud, so the drawn mark is all there is.
+ * It holds at the dim end of what the breath used to reach, which still reads
+ * as "something is happening" without a pixel moving.
  */
 @media (prefers-reduced-motion: reduce) {
-  .ai-mark > svg {
-    animation: none;
+  .ai-mark-drawn {
+    transition: none;
   }
 
-  .ai-mark[data-waiting] > svg {
+  .ai-mark[data-state='working'] .ai-mark-drawn,
+  .ai-mark[data-state='waiting'] .ai-mark-drawn {
     opacity: 0.7;
   }
 }

@@ -43,7 +43,7 @@ export function AiToggle() {
         data-ai-toggle
         onClick={toggleAssistant}
       >
-        <AiMark size={20} waiting={waiting} />
+        <AiMark size={20} state={waiting ? 'working' : 'still'} />
       </button>
       {unread && !open ? <span className="ai-toggle-dot" aria-hidden="true" /> : null}
     </span>
