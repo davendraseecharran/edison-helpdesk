@@ -52,6 +52,7 @@ describe('tool classification', () => {
     const names = toolsFor(['skills_officer']).map((tool) => tool.name).sort();
     expect(names).toEqual([
       'create_person',
+      'delete_view',
       'get_device',
       'get_person',
       'list_attachments',
@@ -59,7 +60,9 @@ describe('tool classification', () => {
       'list_notifications',
       'list_people',
       'mark_notifications_read',
+      'save_view',
       'search_records',
+      'set_preference',
       'update_person',
     ]);
     // Everything a ticket is made of, absent.

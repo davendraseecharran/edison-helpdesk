@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { executeTool, type ToolContext } from '../../src/lib/ai/tools';
+import { executeTool, validateArgs, type ToolContext } from '../../src/lib/ai/tools';
 
 /**
  * The tools added so the assistant can do what the screens already could, with
@@ -111,5 +111,145 @@ describe('mark_notifications_read', () => {
     expect(result.ok).toBe(false);
     expect(result.summary).toMatch(/list_notifications/);
     expect(calls).toEqual([]);
+  });
+});
+
+describe('set_preference', () => {
+  it('writes the column name the RPC whitelists, not the tool’s word', async () => {
+    const { ctx, calls } = context({});
+    const result = await executeTool('set_preference', { key: 'theme', value: 'light' }, ctx);
+    expect(result.ok).toBe(true);
+    expect(calls).toEqual([{ fn: 'app_update_preferences', args: { p_patch: { theme: 'light' } } }]);
+  });
+
+  it('reads the words people use for true and false', async () => {
+    for (const [said, stored] of [
+      ['true', true],
+      ['on', true],
+      ['false', false],
+      ['off', false],
+    ] as const) {
+      const { ctx, calls } = context({});
+      const result = await executeTool(
+        'set_preference',
+        { key: 'ai_confirm_changes', value: said },
+        ctx,
+      );
+      expect(result.ok).toBe(true);
+      expect(calls[0].args).toEqual({ p_patch: { ai_confirm_changes: stored } });
+    }
+  });
+
+  it('refuses a value that is neither, rather than reading it as false', async () => {
+    const { ctx, calls } = context({});
+    const result = await executeTool(
+      'set_preference',
+      { key: 'notify_in_app', value: 'sometimes' },
+      ctx,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.summary).toMatch(/true or false/);
+    expect(calls).toEqual([]);
+  });
+
+  it('names the settings it knows when asked for one it does not', async () => {
+    const checked = validateArgs('set_preference', { key: 'admin', value: 'true' });
+    expect(checked.ok).toBe(false);
+    expect(checked.error).toContain('theme');
+    expect(checked.error).toContain('ai_confirm_changes');
+  });
+
+  it('holds reasoning to the three levels the interface offers', async () => {
+    const offered = context({});
+    expect((await executeTool('set_preference', { key: 'ai_reasoning', value: 'max' }, offered.ctx)).ok).toBe(
+      true,
+    );
+    expect(offered.calls[0].args).toEqual({ p_patch: { ai_reasoning: 'max' } });
+
+    // A stored value older accounts still carry, and no screen offers back.
+    const withdrawn = context({});
+    const result = await executeTool(
+      'set_preference',
+      { key: 'ai_reasoning', value: 'low' },
+      withdrawn.ctx,
+    );
+    expect(result.ok).toBe(false);
+    expect(withdrawn.calls).toEqual([]);
+  });
+});
+
+describe('save_view', () => {
+  const existing = [{ id: 'view-1', name: 'Room 214', path: '/queue', query: 'q=214' }];
+
+  it('adds to the list it read rather than replacing it', async () => {
+    const { ctx, calls } = context({
+      results: { app_my_preferences: { saved_views: existing } },
+    });
+    const result = await executeTool(
+      'save_view',
+      { name: 'Urgent', path: '/queue', query: 'priority=urgent&page=3' },
+      ctx,
+    );
+    expect(result.ok).toBe(true);
+
+    const written = calls.find((call) => call.fn === 'app_set_saved_views');
+    const views = written?.args.p_views as { name: string; query: string }[];
+    expect(views.map((view) => view.name)).toEqual(['Urgent', 'Room 214']);
+    // A saved view is a filter, not a page number.
+    expect(views[0].query).toBe('priority=urgent');
+  });
+
+  it('refuses an address that leaves the helpdesk', async () => {
+    for (const path of ['//evil.example', '/\\evil.example', 'https://evil.example']) {
+      const { ctx, calls } = context({});
+      const result = await executeTool('save_view', { name: 'Anything', path }, ctx);
+      expect(result.ok).toBe(false);
+      expect(calls).toEqual([]);
+    }
+  });
+
+  it('refuses a twenty-fifth view in the words the screen uses', async () => {
+    const full = Array.from({ length: 24 }, (_, at) => ({
+      id: `view-${at}`,
+      name: `View ${at}`,
+      path: '/queue',
+      query: `q=${at}`,
+    }));
+    const { ctx, calls } = context({ results: { app_my_preferences: { saved_views: full } } });
+    const result = await executeTool('save_view', { name: 'One more', path: '/queue' }, ctx);
+    expect(result.ok).toBe(false);
+    expect(result.summary).toMatch(/24 saved views/);
+    expect(calls.map((call) => call.fn)).not.toContain('app_set_saved_views');
+  });
+});
+
+describe('delete_view', () => {
+  it('removes the one with that name and writes the rest back', async () => {
+    const { ctx, calls } = context({
+      results: {
+        app_my_preferences: {
+          saved_views: [
+            { id: 'view-1', name: 'Room 214', path: '/queue', query: 'q=214' },
+            { id: 'view-2', name: 'Urgent', path: '/queue', query: 'priority=urgent' },
+          ],
+        },
+      },
+    });
+    const result = await executeTool('delete_view', { name: 'room 214' }, ctx);
+    expect(result.ok).toBe(true);
+    const written = calls.find((call) => call.fn === 'app_set_saved_views');
+    expect((written?.args.p_views as { id: string }[]).map((view) => view.id)).toEqual(['view-2']);
+  });
+
+  it('names what there is instead of removing the nearest thing', async () => {
+    const { ctx, calls } = context({
+      results: {
+        app_my_preferences: { saved_views: [{ id: 'view-1', name: 'Room 214', path: '/queue', query: '' }] },
+      },
+    });
+    const result = await executeTool('delete_view', { name: 'Room 215' }, ctx);
+    expect(result.ok).toBe(false);
+    expect(result.summary).toContain('Room 214');
+    expect(calls.map((call) => call.fn)).not.toContain('app_set_saved_views');
   });
 });

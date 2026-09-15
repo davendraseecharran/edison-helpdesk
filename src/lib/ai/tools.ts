@@ -32,6 +32,20 @@ import { isRecord, isUuid, textOf } from '@/lib/guards';
 import { draftFromText } from '@/lib/intake/draft';
 import { ATTACHMENT_MIME_TYPES, formatBytes } from '@/lib/attachments';
 import { readDataUrl } from '@/lib/ai/images';
+import {
+  preferencePatch,
+  REASONING_CHOICES,
+  THEME_CHOICES,
+  type PreferencePatch,
+} from '@/lib/domain/preferences';
+import {
+  addSavedView,
+  normaliseQuery,
+  parseSavedViews,
+  removeSavedView,
+  savedViewError,
+  type SavedView,
+} from '@/lib/domain/saved-views';
 import { DEVICE_TYPES, deviceTypeLabel } from '@/lib/domain/device-types';
 import {
   canWorkTickets,
@@ -451,15 +465,6 @@ async function resolveAccount(ctx: ToolContext, value: string): Promise<AccountR
 }
 
 /**
- * Which picture from this turn somebody meant.
- *
- * A person says "attach that one", "the second photo" or "the cracked-screen
- * one", so all three resolve: nothing said and exactly one picture is that
- * picture, a bare number is a position starting at one, and anything else is
- * matched against the file names. A tie is refused with the names in it rather
- * than guessed at, the same way every other resolver here refuses one.
- */
-/**
  * The one record an attachment call is about.
  *
  * `app_list_attachments` takes a ticket or a device and treats both or neither
@@ -482,6 +487,21 @@ async function resolveAttachmentTarget(
   }
   const device = await resolveDevice(ctx, String(args.device));
   return { ticketId: null, deviceId: device.id, label: device.label };
+}
+
+/**
+ * The saved views this account has right now.
+ *
+ * `app_set_saved_views` REPLACES the whole list, so adding or removing one
+ * means reading the list first. It is read through the same projection the
+ * screens read — a stored entry this build cannot understand is dropped rather
+ * than carried forward — so a save never writes back something it could not
+ * itself show.
+ */
+async function currentSavedViews(ctx: ToolContext): Promise<SavedView[]> {
+  const data = await rpc(ctx, 'app_my_preferences', {});
+  const row = Array.isArray(data) ? data[0] : data;
+  return parseSavedViews(isRecord(row) ? row.saved_views : null);
 }
 
 /**
@@ -581,6 +601,47 @@ const PERSON_JSON_KEYS: Record<string, string> = {
   address: 'address',
   notes: 'notes',
 };
+
+/**
+ * The settings an account may change about itself, in the words the tool takes
+ * and the names the domain module knows them by.
+ *
+ * `app_update_preferences` whitelists five columns and `preferencePatch`
+ * narrows to the same five, so this table is the third statement of one list
+ * rather than a new rule. Its real job is the FIRST one: a key outside it is
+ * refused by the argument checker, by name, with the allowed keys in the
+ * message, before any round trip.
+ */
+const PREFERENCE_KEYS = {
+  theme: 'theme',
+  ai_reasoning: 'aiReasoning',
+  ai_confirm_changes: 'aiConfirmChanges',
+  ai_speak_replies: 'aiSpeakReplies',
+  notify_in_app: 'notifyInApp',
+} as const satisfies Record<string, keyof PreferencePatch>;
+
+type PreferenceKey = keyof typeof PREFERENCE_KEYS;
+
+/** The settings that take true or false rather than a word. */
+const PREFERENCE_FLAGS: readonly PreferenceKey[] = [
+  'ai_confirm_changes',
+  'ai_speak_replies',
+  'notify_in_app',
+];
+
+/**
+ * True, false, and the words people say instead.
+ *
+ * "Turn confirmations off" reaches the model as `value: "off"` about as often as
+ * `"false"`, and refusing that would be this tool being pedantic about a
+ * question it understood perfectly well. Anything else is still an error.
+ */
+function readFlag(key: string, value: string): boolean {
+  const folded = value.trim().toLowerCase();
+  if (['true', 'yes', 'on'].includes(folded)) return true;
+  if (['false', 'no', 'off'].includes(folded)) return false;
+  throw new ToolError(`${key} takes true or false, not "${value}".`);
+}
 
 /** One sentence naming the vocabulary, so both device tools offer the same words. */
 const DEVICE_TYPE_HINT = `One of ${DEVICE_TYPES.join(', ')}, or the district's own word for it.`;
@@ -1229,6 +1290,121 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  set_preference: {
+    group: 'write',
+    description:
+      "Change one of this person's own settings. Their account only; there is no way to reach anybody else's. A theme change shows on the next page they open.",
+    fields: {
+      key: {
+        type: 'string',
+        required: true,
+        description: 'Which setting to change.',
+        choices: Object.keys(PREFERENCE_KEYS),
+      },
+      value: {
+        type: 'string',
+        required: true,
+        description: `The new value. theme: ${THEME_CHOICES.join(', ')}. ai_reasoning: ${REASONING_CHOICES.join(', ')}. Everything else: true or false.`,
+      },
+    },
+    run: async (args, ctx) => {
+      const key = String(args.key) as PreferenceKey;
+      const value = String(args.value);
+      const patch: PreferencePatch = {};
+
+      if (PREFERENCE_FLAGS.includes(key)) {
+        // The five keys are three booleans and two vocabularies, and the two
+        // vocabularies are checked by `preferencePatch` below — the same
+        // function the settings screen uses, so both refuse in the same words.
+        (patch as Record<string, boolean>)[PREFERENCE_KEYS[key]] = readFlag(key, value);
+      } else if (key === 'ai_reasoning') {
+        // Against what the interface OFFERS rather than what the column
+        // accepts. `low` and `medium` are still valid stored values for rows
+        // written before the levels were narrowed, and no screen offers either;
+        // the assistant setting one would leave a settings page with a control
+        // showing a level nobody can choose back.
+        if (!(REASONING_CHOICES as readonly string[]).includes(value)) {
+          throw new ToolError(`ai_reasoning is one of: ${REASONING_CHOICES.join(', ')}.`);
+        }
+        patch.aiReasoning = value as PreferencePatch['aiReasoning'];
+      } else {
+        patch.theme = value as PreferencePatch['theme'];
+      }
+
+      const narrowed = preferencePatch(patch);
+      if (!narrowed.ok) throw new ToolError(narrowed.error);
+
+      await rpc(ctx, 'app_update_preferences', { p_patch: narrowed.patch });
+      return outcome({ key, value }, `Set your ${key.replace(/_/g, ' ')} to ${value}`);
+    },
+  },
+
+  save_view: {
+    group: 'write',
+    description:
+      'Name the filters on a list so one press puts them back. The address is an in-app path such as /queue, /all-tickets or /devices, and the query is the filter string without its leading question mark. Saved on this person’s own account.',
+    fields: {
+      name: { type: 'string', required: true, description: 'What to call it, such as "Room 214".' },
+      path: { type: 'string', required: true, description: 'The list it belongs to: /queue, /all-tickets or /devices.' },
+      query: {
+        type: 'string',
+        description: 'The filters, as a query string without the "?". Leave it out for the whole list, unfiltered.',
+      },
+    },
+    run: async (args, ctx) => {
+      const name = String(args.name).trim();
+      const path = String(args.path).trim();
+      const query = normaliseQuery(String(args.query ?? ''));
+
+      // A view is a link, and this is the one field that becomes one. `//evil`
+      // is a protocol-relative URL and every browser reads `/\evil` as the same
+      // thing, so both spellings are refused here as well as by the RPC and by
+      // the reader that renders the chip.
+      if (!/^\/(?![/\\])/.test(path)) {
+        throw new ToolError('A saved view points at a page in the helpdesk, such as /queue or /devices.');
+      }
+
+      const views = await currentSavedViews(ctx);
+      const problem = savedViewError(name, views, path, query);
+      if (problem !== null) throw new ToolError(problem);
+
+      const view: SavedView = { id: globalThis.crypto.randomUUID(), name, path, query };
+      await rpc(ctx, 'app_set_saved_views', { p_views: addSavedView(views, view) });
+      return outcome({ name, path, query }, `Saved the view "${name}"`);
+    },
+  },
+
+  delete_view: {
+    group: 'write',
+    description: "Remove one of this person's saved views by name.",
+    fields: {
+      name: { type: 'string', required: true, description: 'The name of the view to remove.' },
+    },
+    run: async (args, ctx) => {
+      const name = String(args.name).trim();
+      const views = await currentSavedViews(ctx);
+      const folded = name.toLowerCase();
+      const matches = views.filter((view) => view.name.toLowerCase() === folded);
+      if (matches.length === 0) {
+        const known = views.map((view) => view.name).join(', ');
+        throw new ToolError(
+          views.length === 0
+            ? 'There are no saved views on this account.'
+            : `No saved view is called "${name}". There is: ${known}.`,
+        );
+      }
+      // Two views may share a name — `addSavedView` de-duplicates on the
+      // filters, not on what somebody called them — and removing the wrong one
+      // is not something the person can see happening.
+      if (matches.length > 1) {
+        throw new ToolError(`More than one saved view is called "${name}". Remove it on the list itself.`);
+      }
+
+      await rpc(ctx, 'app_set_saved_views', { p_views: removeSavedView(views, matches[0].id) });
+      return outcome({ name: matches[0].name }, `Removed the view "${matches[0].name}"`);
+    },
+  },
+
   create_person: {
     group: 'write',
     description: 'Add somebody to the directory.',
@@ -1680,6 +1856,9 @@ const DIRECTORY_TOOLS = [
   'list_attachments',
   'list_notifications',
   'mark_notifications_read',
+  'set_preference',
+  'save_view',
+  'delete_view',
   'create_person',
   'update_person',
 ] as const;
