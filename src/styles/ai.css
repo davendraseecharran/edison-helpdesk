@@ -1127,8 +1127,10 @@
   opacity: 0.7;
   /* Not a motion token: 4.4s is the orb's resting breath, chosen against the
      2.4s it quickens to below rather than against the interface's transitions.
-     (The top-bar mark's 6s turn and 2.4s breath are its own numbers, in
-     `AiMark`.) A duration on the scale of a hover would be a flicker. */
+     (The top-bar mark's 6s turn and 2.4s breath are not here and not in
+     `AiMark` either — they belong to `thinking-logos`, which draws that mark;
+     the pair is recorded in the "Assistant mark" row of docs/MOTION.md.)
+     A duration on the scale of a hover would be a flicker. */
   animation: ai-glow 4.4s ease-in-out infinite;
   pointer-events: none;
 }

@@ -93,7 +93,10 @@ export default async function TicketDetailPage({
       <TicketActionBar detail={detail} placement="top" />
 
       <div className="ticket-grid">
-        <div className="ticket-column">
+        {/* What people wrote: the report, the notes, the photographs, the
+            machines, the history. Above 1024 it reads as one document divided
+            by rules rather than as six floating cards — see `tickets.css`. */}
+        <div className="ticket-column ticket-column-main">
           <SolutionPanel detail={detail} />
 
           <section className="panel" aria-labelledby="issue-heading">

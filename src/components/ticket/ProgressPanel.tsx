@@ -4,13 +4,22 @@ import { useState } from 'react';
 import type { TicketDetail } from '@/lib/domain/selectors';
 import { type Priority, PRIORITY_LABELS, WAITING_REASONS } from '@/lib/domain/types';
 import { canContribute, canSetPriority } from '@/lib/domain/permissions';
-import { resumeWorkAction, setPriorityAction, setWaitingAction } from '@/lib/data/actions';
+import { setPriorityAction, setWaitingAction } from '@/lib/data/actions';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Field } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import { revealControl, useTicketIntent } from './TicketActionBar';
 
-/** Priority and the Waiting hold, both of which write an activity event. */
+/**
+ * Priority and the Waiting hold, both of which write an activity event.
+ *
+ * "Put on hold" is offered by `TicketActionBar`, like every other action on the
+ * whole ticket; what lives here is the form it needs, because a hold without a
+ * reason is a ticket nobody can pick up again. The bar asks for the form and
+ * this reveals and focuses it — the same handoff Resolve makes. Resume is the
+ * bar's too: it takes no form at all.
+ */
 export function ProgressPanel({ detail }: { detail: TicketDetail }) {
   const { pendingKey, run } = useRuntime();
   const actor = useActorAccount();
@@ -43,11 +52,17 @@ export function ProgressPanel({ detail }: { detail: TicketDetail }) {
     }
   }
 
-  async function onResume() {
-    setError(null);
-    const result = await run(`resume:${ticket.id}`, () => resumeWorkAction(ticket.id));
-    if (!result.ok) setError(result.error ?? 'That change could not be saved.');
-  }
+  // "Put on hold" in the bar means "I want the waiting reason", which on this
+  // screen is the select below. The reveal waits a frame for the form the press
+  // just mounted.
+  useTicketIntent('hold', () => {
+    setShowWaiting(true);
+    // The select is `Select`'s trigger button, which carries this id; reached
+    // by id rather than by ref because the primitive forwards none.
+    window.requestAnimationFrame(() =>
+      revealControl(document.getElementById(`waiting-reason-${ticket.id}`)),
+    );
+  });
 
   return (
     <section className="panel" aria-labelledby={`progress-heading-${ticket.id}`}>
@@ -75,23 +90,11 @@ export function ProgressPanel({ detail }: { detail: TicketDetail }) {
         </Field>
 
         {ticket.status === 'waiting' ? (
-          <>
-            <p className="callout callout-warn">
-              <strong>Waiting.</strong> {ticket.waitingReason}
-            </p>
-            {mayContribute ? (
-              <div className="form-actions">
-                <Button
-                  size="sm"
-                  onClick={() => void onResume()}
-                  disabled={busy}
-                  loading={pendingKey === `resume:${ticket.id}`}
-                >
-                  Resume work
-                </Button>
-              </div>
-            ) : null}
-          </>
+          /* What it is waiting for. "Resume work" is in the bar above: it takes
+             no form, so there is nothing for this panel to own. */
+          <p className="callout callout-warn">
+            <strong>Waiting.</strong> {ticket.waitingReason}
+          </p>
         ) : mayContribute && ticket.ownerId ? (
           showWaiting ? (
             <form onSubmit={onWaiting} className="form">
@@ -133,13 +136,7 @@ export function ProgressPanel({ detail }: { detail: TicketDetail }) {
                 </Button>
               </div>
             </form>
-          ) : (
-            <div className="form-actions">
-              <Button size="sm" onClick={() => setShowWaiting(true)}>
-                Put on hold
-              </Button>
-            </div>
-          )
+          ) : null
         ) : null}
 
         {error && !showWaiting ? (

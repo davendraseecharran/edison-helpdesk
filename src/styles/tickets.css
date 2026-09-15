@@ -545,6 +545,67 @@
   }
 
   /*
+   * And the left column is not six cards either.
+   *
+   * Everything down it is one ticket read in order: what was reported, what
+   * was tried, what was photographed, which machines it touched, what
+   * happened. Six identical shells with six identical heads said those were
+   * six comparable objects, and put six shadows and six 16px radii down a
+   * column whose only real structure is "and then". A card is a container for
+   * something that could be moved somewhere else; none of these could.
+   *
+   * So the shells come off and the rules stay: each section keeps its heading,
+   * quietly, and a hairline separates it from the one before. The rail keeps
+   * its surface, which is now the distinction it should always have been —
+   * the left is a document, the right is the panel of instruments beside it.
+   *
+   * Below 1024 both columns stack into one flow and the cards come back,
+   * because down there they are not two columns of different kinds of thing,
+   * they are the rest of the page.
+   */
+  .ticket-column-main {
+    gap: 0;
+  }
+
+  .ticket-column-main > .panel {
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .ticket-column-main > .panel + .panel {
+    border-top: 1px solid var(--line);
+  }
+
+  .ticket-column-main > .panel > .panel-head {
+    min-height: 0;
+    /* More room above a heading than below it: 24 over, 8 under, and the 24
+       under the section before makes the 48 that separates two of them. */
+    padding: 24px 0 8px;
+    border-bottom: 0;
+  }
+
+  .ticket-column-main > .panel:first-child > .panel-head {
+    padding-top: 0;
+  }
+
+  /*
+   * Quiet, because on a page with one h1 and a sticky bar of actions these are
+   * signposts rather than announcements. The size step down is what makes the
+   * hairline enough: a 16px semibold heading over a rule reads as a card that
+   * lost its edges.
+   */
+  .ticket-column-main > .panel > .panel-head .panel-title {
+    color: var(--ink-2);
+    font-size: var(--fs-1);
+    font-weight: 600;
+  }
+
+  .ticket-column-main > .panel > .panel-body {
+    padding: 0 0 24px;
+  }
+
+  /*
    * A ticket with actions has a sticky bar above this column, so the column
    * stops under it rather than sliding beneath it. 61px is the bar: 12px of
    * padding either side of a 36px button, plus its rule.

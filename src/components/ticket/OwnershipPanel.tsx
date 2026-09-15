@@ -6,7 +6,6 @@ import {
   addCollaboratorAction,
   claimTicketAction,
   removeCollaboratorAction,
-  returnTicketAction,
 } from '@/lib/data/actions';
 import {
   canClaimTicket,
@@ -20,7 +19,15 @@ import { Button } from '@/components/ui/Button';
 import { useShortcut } from '@/components/ui/shortcuts';
 import { Select } from '@/components/ui/Select';
 
-/** Owner and collaborators, with claim, return and the collaborator list. */
+/**
+ * Owner and collaborators, and the collaborator list.
+ *
+ * Claim and Return are not here: `TicketActionBar` offers both from the same
+ * predicates this panel used, at every width, so a button here would be a
+ * second live control with the same label. What stays is `c` — the key still
+ * claims the open ticket, and the bar's button carries the keycap in its
+ * tooltip.
+ */
 export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
   const { directory, pendingKey, run } = useRuntime();
   const actor = useActorAccount();
@@ -106,46 +113,21 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
           ) : (
             <div className="person">
               <span className="person-text muted">Unassigned. Anyone can claim it from the queue.</span>
-              {mayClaim ? (
-                <span className="person-end">
-                  {/* The shortcut is in the tooltip, not in the button. A
-                      keycap inside a control has its own border and its own
-                      baseline, and at this size it crowds the label against the
-                      button's edge; the button says what it does, and the
-                      tooltip says which key does it too. */}
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    title="Claim ticket (c)"
-                    onClick={() => void onClaim()}
-                    disabled={busy}
-                    loading={pendingKey === `claim:${ticket.id}`}
-                  >
-                    Claim ticket
-                  </Button>
-                </span>
-              ) : null}
+              {/* No Claim button here. `TicketActionBar` offers it from the
+                  same predicate at every width, and two live controls with one
+                  label is a question about whether they do the same thing. */}
             </div>
           )}
         </div>
 
+        {/* What returning does, without the second button that does it: the
+            bar above carries the action, and this is the consequence somebody
+            reads before pressing it. */}
         {canReturnToQueue(ticket, actor) ? (
-          <div className="stack-xs">
-            <div className="form-actions">
-              <Button
-                size="sm"
-                disabled={busy}
-                loading={pendingKey === `return:${ticket.id}`}
-                onClick={() => void run(`return:${ticket.id}`, () => returnTicketAction(ticket.id))}
-              >
-                Return to queue
-              </Button>
-            </div>
-            <p className="panel-note">
-              Cannot finish it? Release the ticket for another NetRider. Notes, devices, time,
-              collaborators and history all stay with it.
-            </p>
-          </div>
+          <p className="panel-note">
+            Cannot finish it? &ldquo;Return to queue&rdquo; at the top releases the ticket for
+            another NetRider. Notes, devices, time, collaborators and history all stay with it.
+          </p>
         ) : null}
 
         <div>

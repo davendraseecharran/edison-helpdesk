@@ -3,7 +3,7 @@
 /**
  * The ticket's action bar, and the intent channel behind it.
  *
- * One list of actions — claim, resume, return, resolve, reopen — for the
+ * One list of actions — claim, resume, hold, return, resolve, reopen — for the
  * ticket's current state and this account's rights, rendered in two places and
  * shown in one at a time. On a phone the page stacks, so the bar is pinned
  * above the bottom tabs where the thumb is. Above 720px it sticks under the top
@@ -17,10 +17,18 @@
  * a bar that has to be both at the top of the document for `sticky` and at the
  * end of it for the phone's spacer.
  *
- * The bar never has its own forms: claim and return call the same server
- * actions the panels call, and resolve and reopen hand off to the panel that
- * owns the form by dispatching an intent, which that panel answers by
- * revealing and focusing its field.
+ * The bar never has its own forms: claim, resume and return call the same
+ * server actions the panels called, and resolve, reopen and hold hand off to
+ * the panel that owns the form by dispatching an intent, which that panel
+ * answers by revealing and focusing its field.
+ *
+ * And the panels no longer offer them twice. Claim, Resume and Return were
+ * buttons here AND buttons in Ownership and Progress, decided by the same
+ * permission predicates — so a 1440 screen showed two live "Claim ticket"
+ * controls, one under the title and one in the rail, and there is no reading of
+ * that which is not a question about whether they do the same thing. The bar is
+ * where an action on the whole ticket lives; what stays in a panel is the form
+ * that action needs (the solution, the waiting reason), reached from the bar.
  */
 
 import { useEffect, useRef } from 'react';
@@ -37,7 +45,7 @@ import {
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
 
-export type TicketIntent = 'resolve' | 'reopen' | 'note';
+export type TicketIntent = 'resolve' | 'reopen' | 'note' | 'hold';
 
 const TICKET_INTENT_EVENT = 'edison:ticket-intent';
 
@@ -60,7 +68,7 @@ export function useTicketIntent(intent: TicketIntent, handler: () => void): void
   }, [intent]);
 }
 
-const INTENTS: readonly TicketIntent[] = ['resolve', 'reopen', 'note'];
+const INTENTS: readonly TicketIntent[] = ['resolve', 'reopen', 'note', 'hold'];
 
 /**
  * An intent carried in by the URL.
@@ -134,11 +142,13 @@ export function TicketActionBar({
   } else {
     // Claim is the primary when it is offered; otherwise resolve is. Never two.
     const mayClaim = canClaimTicket(ticket, actor);
+    const mayContribute = canContribute(ticket, actor);
     if (mayClaim) {
       actions.push(
         <Button
           key="claim"
           variant="primary"
+          title="Claim ticket (c)"
           disabled={busy}
           loading={pendingKey === `claim:${ticket.id}`}
           onClick={() =>
@@ -149,7 +159,7 @@ export function TicketActionBar({
         </Button>,
       );
     }
-    if (ticket.status === 'waiting' && canContribute(ticket, actor)) {
+    if (ticket.status === 'waiting' && mayContribute) {
       actions.push(
         <Button
           key="resume"
@@ -158,6 +168,21 @@ export function TicketActionBar({
           onClick={() => void run(`resume:${ticket.id}`, () => resumeWorkAction(ticket.id))}
         >
           Resume work
+        </Button>,
+      );
+    }
+    /*
+     * A hold is the third thing that happens to a ticket somebody is working,
+     * beside finishing it and giving it back, and it was the one action of the
+     * three that lived only in the rail. It needs a reason, which is a form, so
+     * the bar asks for the form rather than carrying it: the same handoff
+     * Resolve makes. Only an owned ticket can wait — an unclaimed one is not
+     * waiting for anything, it is waiting for somebody.
+     */
+    if (ticket.status !== 'waiting' && ticket.ownerId && mayContribute) {
+      actions.push(
+        <Button key="hold" disabled={busy} onClick={() => requestTicketIntent('hold')}>
+          Put on hold
         </Button>,
       );
     }
