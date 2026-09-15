@@ -33,6 +33,7 @@ import { DevicePicker, type DeviceSearchResult } from '@/components/devices/Devi
 import { Field, PageHeader } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { Select } from '@/components/ui/Select';
 
 const DEVICE_TYPE_SUGGESTIONS = [
   'Laptop',
@@ -329,17 +330,15 @@ export default function NewTicketPage() {
               />
             </Field>
             <Field label="Category" htmlFor="category" hint="Used to filter the queue.">
-              <select
+              <Select
                 id="category"
                 value={category}
-                onChange={(event) => setCategory(event.target.value as TicketCategory)}
-              >
-                {TICKET_CATEGORIES.map((value) => (
-                  <option key={value} value={value}>
-                    {TICKET_CATEGORY_LABELS[value]}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setCategory(value as TicketCategory)}
+                options={TICKET_CATEGORIES.map((value) => ({
+                  value,
+                  label: TICKET_CATEGORY_LABELS[value],
+                }))}
+              />
             </Field>
             <Field
               label="Issue"
@@ -568,32 +567,28 @@ export default function NewTicketPage() {
         >
           <div className="form-grid">
             <Field label="Priority" htmlFor="priority">
-              <select
+              <Select
                 id="priority"
                 value={priority}
-                onChange={(event) => setPriority(event.target.value as Priority)}
-              >
-                {(Object.keys(PRIORITY_LABELS) as Priority[]).map((value) => (
-                  <option key={value} value={value}>
-                    {PRIORITY_LABELS[value]}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => setPriority(value as Priority)}
+                options={(Object.keys(PRIORITY_LABELS) as Priority[]).map((value) => ({
+                  value,
+                  label: PRIORITY_LABELS[value],
+                }))}
+              />
             </Field>
 
             {isAdminIntake ? (
               <Field label="Channel" htmlFor="channel" error={errorFor('channel')}>
-                <select
+                <Select
                   id="channel"
                   value={channel}
-                  onChange={(event) => setChannel(event.target.value as IntakeChannel)}
-                >
-                  {(Object.keys(CHANNEL_LABELS) as IntakeChannel[]).map((value) => (
-                    <option key={value} value={value}>
-                      {CHANNEL_LABELS[value]}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => setChannel(value as IntakeChannel)}
+                  options={(Object.keys(CHANNEL_LABELS) as IntakeChannel[]).map((value) => ({
+                    value,
+                    label: CHANNEL_LABELS[value],
+                  }))}
+                />
               </Field>
             ) : (
               <Field label="Channel" htmlFor="channel-fixed" hint="NetRider intake is walk-in only.">
@@ -634,24 +629,24 @@ export default function NewTicketPage() {
                 error={errorFor('ownerId')}
                 hint="Leave on the queue so any NetRider can claim it."
               >
-                <select
+                <Select
                   id="owner"
                   value={ownerId}
-                  onChange={(event) => {
-                    setOwnerId(event.target.value);
-                    setCollaboratorIds((current) =>
-                      current.filter((id) => id !== event.target.value),
-                    );
+                  onChange={(value) => {
+                    setOwnerId(value);
+                    setCollaboratorIds((current) => current.filter((id) => id !== value));
                   }}
-                >
-                  <option value="">Queue, unassigned</option>
-                  {activeAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.displayName}
-                      {account.role === 'admin' ? ' (administrator)' : ''}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: '', label: 'Queue, unassigned' },
+                    ...activeAccounts.map((account) => ({
+                      value: account.id,
+                      label:
+                        account.role === 'admin'
+                          ? `${account.displayName} (administrator)`
+                          : account.displayName,
+                    })),
+                  ]}
+                />
               </Field>
             ) : (
               <Field

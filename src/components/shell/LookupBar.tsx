@@ -33,7 +33,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { ThinkingOrb } from 'thinking-orbs';
-import { Hand, MessageCircle, Plus, Search, Settings, Smartphone, SunMoon, X } from 'lucide-react';
+import { Hand, MessageCircle, Plus, QrCode, Search, Settings, SunMoon, X } from 'lucide-react';
 import { useRuntime } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
@@ -444,11 +444,13 @@ function Palette({
     list.push({
       id: 'scan-phone',
       label: 'Scan with your phone',
-      icon: Smartphone,
+      // The same glyph the top bar and the More sheet use. One action drawn
+      // two ways is two actions as far as anybody looking is concerned.
+      icon: QrCode,
       keywords: ['barcode', 'camera', 'qr', 'pair', 'scanner'],
       run: () => {
         onClose();
-        window.dispatchEvent(new CustomEvent(OPEN_SCANNER_EVENT, { detail: { target: 'lookup' } }));
+        openScanner();
       },
     });
 

@@ -28,6 +28,7 @@ import {
 import { Field } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
+import { Select } from '@/components/ui/Select';
 
 export interface ReturnDeviceValues {
   status: DeviceStatus;
@@ -97,19 +98,14 @@ export function ReturnDeviceDialog({
     >
       <form id={formId} className="form" onSubmit={submit} noValidate>
         <Field label="Came back as" htmlFor="return-status" error={error}>
-          <select
+          <Select
             id="return-status"
             value={status}
-            data-autofocus
-            aria-invalid={error ? 'true' : undefined}
-            onChange={(event) => setStatus(event.target.value as DeviceStatus)}
-          >
-            {offered.map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
+            data-autofocus=""
+            aria-invalid={error ? true : undefined}
+            onChange={(value) => setStatus(value as DeviceStatus)}
+            options={offered.map((value) => ({ value, label: value }))}
+          />
         </Field>
         {count === 1 && allowNote ? (
           <Field label="Note" htmlFor="return-note" optional hint="Kept on the device's and the person's history.">

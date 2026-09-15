@@ -33,6 +33,7 @@ import { useRuntime } from '@/components/AppRuntime';
 import { Field } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { Select } from '@/components/ui/Select';
 
 const KIND_OPTIONS: { value: PersonKind; label: string }[] = [
   { value: 'student', label: PERSON_KIND_LABELS.student },
@@ -230,17 +231,15 @@ export function PersonForm({
               />
             </Field>
             <Field label="Enrolment status" htmlFor="person-student-status">
-              <select
+              <Select
                 id="person-student-status"
                 value={draft.studentStatus}
-                onChange={(event) => set('studentStatus', event.target.value as StudentStatus)}
-              >
-                {STUDENT_STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {STUDENT_STATUS_LABELS[status]}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => set('studentStatus', value as StudentStatus)}
+                options={STUDENT_STATUSES.map((status) => ({
+                  value: status,
+                  label: STUDENT_STATUS_LABELS[status],
+                }))}
+              />
             </Field>
             <Field label="Parent or guardian" htmlFor="person-guardian-name" optional>
               <input

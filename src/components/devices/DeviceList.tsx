@@ -40,6 +40,7 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { Pagination } from '@/components/ui/Pagination';
+import { Select } from '@/components/ui/Select';
 import { AssignDeviceDialog } from './AssignDeviceDialog';
 import { ChangeStatusDialog } from './ChangeStatusDialog';
 import { MoveDeviceDialog } from './MoveDeviceDialog';
@@ -340,54 +341,42 @@ export function DeviceList({
             * change anything.
             */}
           <Field label="Status" htmlFor="devices-status">
-            <select
+            <Select
               id="devices-status"
-              name="status"
               value={current.status}
-              onChange={(event) => updateParams({ status: event.target.value })}
-            >
-              <option value="">Any status</option>
-              {statuses.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => updateParams({ status: value })}
+              options={[
+                { value: '', label: 'Any status' },
+                ...statuses.map((status) => ({ value: status, label: status })),
+              ]}
+            />
           </Field>
 
           {facets.types.length > 1 ? (
             <Field label="Type" htmlFor="devices-type">
-              <select
+              <Select
                 id="devices-type"
-                name="type"
                 value={current.type}
-                onChange={(event) => updateParams({ type: event.target.value })}
-              >
-                <option value="">Any type</option>
-                {facets.types.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => updateParams({ type: value })}
+                options={[
+                  { value: '', label: 'Any type' },
+                  ...facets.types.map((type) => ({ value: type, label: type })),
+                ]}
+              />
             </Field>
           ) : null}
 
           {facets.locations.length > 1 ? (
             <Field label="Location" htmlFor="devices-location">
-              <select
+              <Select
                 id="devices-location"
-                name="location"
                 value={current.location}
-                onChange={(event) => updateParams({ location: event.target.value })}
-              >
-                <option value="">Any location</option>
-                {facets.locations.map((location) => (
-                  <option key={location} value={location}>
-                    {location}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => updateParams({ location: value })}
+                options={[
+                  { value: '', label: 'Any location' },
+                  ...facets.locations.map((location) => ({ value: location, label: location })),
+                ]}
+              />
             </Field>
           ) : null}
         </div>

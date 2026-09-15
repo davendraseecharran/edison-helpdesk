@@ -18,6 +18,7 @@ import { Avatar, Field, TimeAgo } from '@/components/Primitives';
 import { RoleBadge } from '@/components/Badges';
 import { Button } from '@/components/ui/Button';
 import { useShortcut } from '@/components/ui/shortcuts';
+import { Select } from '@/components/ui/Select';
 
 /** Owner and collaborators, with claim, return and the collaborator list. */
 export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
@@ -179,21 +180,21 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
         {mayManage && candidates.length > 0 ? (
           <form onSubmit={onAdd} className="form">
             <Field label="Add a collaborator" htmlFor={`add-collab-${ticket.id}`} error={error}>
-              <select
+              <Select
                 id={`add-collab-${ticket.id}`}
                 value={collaboratorId}
-                onChange={(event) => {
-                  setCollaboratorId(event.target.value);
+                onChange={(value) => {
+                  setCollaboratorId(value);
                   setError(null);
                 }}
-              >
-                <option value="">Choose an account</option>
-                {candidates.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.displayName}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: '', label: 'Choose an account' },
+                  ...candidates.map((account) => ({
+                    value: account.id,
+                    label: account.displayName,
+                  })),
+                ]}
+              />
             </Field>
             <div className="form-actions">
               <Button

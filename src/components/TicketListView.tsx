@@ -40,6 +40,7 @@ import { FilterBar } from '@/components/ui/FilterBar';
 import { Pagination } from '@/components/ui/Pagination';
 import { SavedViews } from '@/components/ui/SavedViews';
 import { useRowKeys } from '@/components/ui/useRowKeys';
+import { Select } from '@/components/ui/Select';
 import type { ListAction } from '@/lib/lists/keys';
 import type { QueuePage } from '@/lib/data/tickets';
 import '@/styles/lists.css';
@@ -488,76 +489,76 @@ export function TicketListView({
             />
           </Field>
           <Field label="Status" htmlFor="queue-status">
-            <select
+            <Select
               id="queue-status"
               value={current.status}
-              onChange={(event) => updateParam('status', event.target.value)}
-            >
-              <option value="all">Any status</option>
-              {(Object.keys(TICKET_STATUS_LABELS) as TicketStatus[]).map((status) => (
-                <option key={status} value={status}>
-                  {TICKET_STATUS_LABELS[status]}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => updateParam('status', value)}
+              options={[
+                { value: 'all', label: 'Any status' },
+                ...(Object.keys(TICKET_STATUS_LABELS) as TicketStatus[]).map((status) => ({
+                  value: status,
+                  label: TICKET_STATUS_LABELS[status],
+                })),
+              ]}
+            />
           </Field>
           <Field label="Priority" htmlFor="queue-priority">
-            <select
+            <Select
               id="queue-priority"
               value={current.priority}
-              onChange={(event) => updateParam('priority', event.target.value)}
-            >
-              <option value="all">Any priority</option>
-              {(Object.keys(PRIORITY_LABELS) as Priority[]).map((priority) => (
-                <option key={priority} value={priority}>
-                  {PRIORITY_LABELS[priority]}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => updateParam('priority', value)}
+              options={[
+                { value: 'all', label: 'Any priority' },
+                ...(Object.keys(PRIORITY_LABELS) as Priority[]).map((priority) => ({
+                  value: priority,
+                  label: PRIORITY_LABELS[priority],
+                })),
+              ]}
+            />
           </Field>
           <Field label="Channel" htmlFor="queue-channel">
-            <select
+            <Select
               id="queue-channel"
               value={current.channel}
-              onChange={(event) => updateParam('channel', event.target.value)}
-            >
-              <option value="all">Any channel</option>
-              {(Object.keys(CHANNEL_LABELS) as IntakeChannel[]).map((channel) => (
-                <option key={channel} value={channel}>
-                  {CHANNEL_LABELS[channel]}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => updateParam('channel', value)}
+              options={[
+                { value: 'all', label: 'Any channel' },
+                ...(Object.keys(CHANNEL_LABELS) as IntakeChannel[]).map((channel) => ({
+                  value: channel,
+                  label: CHANNEL_LABELS[channel],
+                })),
+              ]}
+            />
           </Field>
           <Field label="Category" htmlFor="queue-category">
-            <select
+            <Select
               id="queue-category"
               value={current.category}
-              onChange={(event) => updateParam('category', event.target.value)}
-            >
-              <option value="all">Any category</option>
-              {(Object.keys(TICKET_CATEGORY_LABELS) as TicketCategory[]).map((category) => (
-                <option key={category} value={category}>
-                  {TICKET_CATEGORY_LABELS[category]}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => updateParam('category', value)}
+              options={[
+                { value: 'all', label: 'Any category' },
+                ...(Object.keys(TICKET_CATEGORY_LABELS) as TicketCategory[]).map((category) => ({
+                  value: category,
+                  label: TICKET_CATEGORY_LABELS[category],
+                })),
+              ]}
+            />
           </Field>
           {showOwner ? (
             <Field label="Owner" htmlFor="queue-owner">
-              <select
+              <Select
                 id="queue-owner"
                 value={current.owner}
-                onChange={(event) => updateParam('owner', event.target.value)}
-              >
-                <option value="all">Anyone</option>
-                <option value="unassigned">Unassigned</option>
-                {ownerOptions.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.displayName}
-                  </option>
-                ))}
-              </select>
+                onChange={(value) => updateParam('owner', value)}
+                options={[
+                  { value: 'all', label: 'Anyone' },
+                  { value: 'unassigned', label: 'Unassigned' },
+                  ...ownerOptions.map((account) => ({
+                    value: account.id,
+                    label: account.displayName,
+                  })),
+                ]}
+              />
             </Field>
           ) : null}
         </div>

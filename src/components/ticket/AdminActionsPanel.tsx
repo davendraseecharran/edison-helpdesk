@@ -12,6 +12,7 @@ import { canAdministerTicket } from '@/lib/domain/permissions';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Field } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 import { revealControl, useTicketIntent } from './TicketActionBar';
 
 /**
@@ -171,21 +172,21 @@ export function AdminActionsPanel({ detail }: { detail: TicketDetail }) {
                 error={error}
                 hint="Choosing the queue returns the ticket for anyone to claim."
               >
-                <select
+                <Select
                   id={`reassign-${ticket.id}`}
                   value={ownerId}
-                  onChange={(event) => {
-                    setOwnerId(event.target.value);
+                  onChange={(value) => {
+                    setOwnerId(value);
                     setError(null);
                   }}
-                >
-                  <option value="">Queue, unassigned</option>
-                  {candidates.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.displayName}
-                    </option>
-                  ))}
-                </select>
+                  options={[
+                    { value: '', label: 'Queue, unassigned' },
+                    ...candidates.map((account) => ({
+                      value: account.id,
+                      label: account.displayName,
+                    })),
+                  ]}
+                />
               </Field>
               <div className="form-actions">
                 <Button

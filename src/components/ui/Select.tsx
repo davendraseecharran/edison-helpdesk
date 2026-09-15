@@ -33,6 +33,24 @@ export interface SelectOption {
   disabled?: boolean;
 }
 
+/*
+ * Radix refuses an empty string as an item's value: it reserves it for
+ * "nothing is chosen". Several lists here genuinely have an empty option that
+ * means something -- "Queue, unassigned", "Any status" -- so the empty string
+ * is mapped to a private token on the way in and back on the way out. Callers
+ * keep passing and receiving `''`, which is what they mean and what a form
+ * expects.
+ */
+const EMPTY = '\u0000empty';
+
+function toItem(value: string): string {
+  return value === '' ? EMPTY : value;
+}
+
+function fromItem(value: string): string {
+  return value === EMPTY ? '' : value;
+}
+
 export interface SelectProps {
   /** Matches the `htmlFor` of the `Field` around it. */
   id?: string;
@@ -46,6 +64,8 @@ export interface SelectProps {
   'aria-label'?: string;
   'aria-invalid'?: boolean;
   'aria-describedby'?: string;
+  /** Marks this as the control the surface around it should focus on opening. */
+  'data-autofocus'?: string;
   className?: string;
   /** Rendered after the options, for a "nothing here" note. */
   children?: ReactNode;
@@ -63,13 +83,17 @@ export function Select({
   ...aria
 }: SelectProps) {
   return (
-    <SelectRoot value={value} onValueChange={onChange} disabled={disabled}>
+    <SelectRoot
+      value={toItem(value)}
+      onValueChange={(next) => onChange(fromItem(next))}
+      disabled={disabled}
+    >
       <SelectTrigger id={id} className={className} {...aria}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>
         {options.map((option) => (
-          <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
+          <SelectItem key={option.value} value={toItem(option.value)} disabled={option.disabled}>
             {option.label}
           </SelectItem>
         ))}

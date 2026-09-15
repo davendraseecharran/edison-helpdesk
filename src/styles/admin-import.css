@@ -181,7 +181,7 @@
   cursor: pointer;
 }
 
-.import-map select {
+.import-map .select-trigger {
   width: 100%;
   min-width: 168px;
 }
@@ -308,7 +308,7 @@
     width: auto;
   }
 
-  .import-map select {
+  .import-map .select-trigger {
     min-width: 132px;
   }
 }

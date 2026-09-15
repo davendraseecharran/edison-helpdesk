@@ -1095,8 +1095,22 @@
     padding: 0 12px;
   }
 
-  .brand-name,
+  /*
+   * The bar keeps its name. Without it the phone's top strip was five icons
+   * pushed against the right edge over an empty half-screen, which reads as a
+   * toolbar that lost its application. "Edison" alone is the mark at this
+   * width; "Helpdesk" is what there is no room for.
+   */
+  .brand-name-tail,
   .topbar-lookup {
+    display: none;
+  }
+
+  /*
+   * Scanning moves into the More sheet on a phone. Its name lives in a
+   * tooltip, and a tooltip is not something a finger can ask for.
+   */
+  .topbar-scan {
     display: none;
   }
 

@@ -220,13 +220,22 @@
 }
 
 .queue-filters .field {
-  flex: 1 1 140px;
-  min-width: 132px;
-  max-width: 220px;
+  flex: 1 1 132px;
+  min-width: 128px;
+  max-width: 200px;
 }
 
+/*
+ * The search field takes what the selects do not.
+ *
+ * A native select was as wide as its longest option, which padded the row out
+ * by accident; a button is only as wide as the value it is showing, so the bar
+ * now fits on one line and the free space has to be given somewhere on
+ * purpose. It goes here: the placeholder is a sentence and a sentence cut
+ * mid-word reads as a bug.
+ */
 .queue-filters .field-search {
-  flex: 2 1 220px;
+  flex: 2 1 224px;
   max-width: none;
 }
 

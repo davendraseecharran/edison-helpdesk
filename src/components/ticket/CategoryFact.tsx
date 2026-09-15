@@ -14,6 +14,7 @@
  */
 
 import { useState } from 'react';
+import { Select } from '@/components/ui/Select';
 import type { TicketDetail } from '@/lib/domain/selectors';
 import { type TicketCategory, TICKET_CATEGORIES, TICKET_CATEGORY_LABELS } from '@/lib/domain/types';
 import { canContribute } from '@/lib/domain/permissions';
@@ -43,18 +44,16 @@ export function CategoryFact({ detail }: { detail: TicketDetail }) {
       <dd>
         {mayChange ? (
           <>
-            <select
+            <Select
               id={selectId}
               value={ticket.category}
               disabled={pendingKey !== null}
-              onChange={(event) => void onChange(event.target.value as TicketCategory)}
-            >
-              {TICKET_CATEGORIES.map((value) => (
-                <option key={value} value={value}>
-                  {TICKET_CATEGORY_LABELS[value]}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => void onChange(value as TicketCategory)}
+              options={TICKET_CATEGORIES.map((value) => ({
+                value,
+                label: TICKET_CATEGORY_LABELS[value],
+              }))}
+            />
             {error ? (
               <span className="field-error" role="alert">
                 {error}

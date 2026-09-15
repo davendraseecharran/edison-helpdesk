@@ -8,6 +8,7 @@ import { resumeWorkAction, setPriorityAction, setWaitingAction } from '@/lib/dat
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Field } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
+import { Select } from '@/components/ui/Select';
 
 /** Priority and the Waiting hold, both of which write an activity event. */
 export function ProgressPanel({ detail }: { detail: TicketDetail }) {
@@ -61,18 +62,16 @@ export function ProgressPanel({ detail }: { detail: TicketDetail }) {
           htmlFor={`priority-${ticket.id}`}
           hint={mayChangePriority ? 'Changes are recorded in the history.' : undefined}
         >
-          <select
+          <Select
             id={`priority-${ticket.id}`}
             value={ticket.priority}
             disabled={!mayChangePriority || busy}
-            onChange={(event) => void onPriorityChange(event.target.value as Priority)}
-          >
-            {(Object.keys(PRIORITY_LABELS) as Priority[]).map((value) => (
-              <option key={value} value={value}>
-                {PRIORITY_LABELS[value]}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => void onPriorityChange(value as Priority)}
+            options={(Object.keys(PRIORITY_LABELS) as Priority[]).map((value) => ({
+              value,
+              label: PRIORITY_LABELS[value],
+            }))}
+          />
         </Field>
 
         {ticket.status === 'waiting' ? (
@@ -97,18 +96,15 @@ export function ProgressPanel({ detail }: { detail: TicketDetail }) {
           showWaiting ? (
             <form onSubmit={onWaiting} className="form">
               <Field label="Waiting for" htmlFor={`waiting-reason-${ticket.id}`} error={error}>
-                <select
+                <Select
                   id={`waiting-reason-${ticket.id}`}
                   value={reason}
-                  onChange={(event) => setReason(event.target.value)}
-                >
-                  {WAITING_REASONS.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
-                    </option>
-                  ))}
-                  <option value="Other">Other</option>
-                </select>
+                  onChange={setReason}
+                  options={[
+                    ...WAITING_REASONS.map((value) => ({ value, label: value })),
+                    { value: 'Other', label: 'Other' },
+                  ]}
+                />
               </Field>
               <Field
                 label="Detail"

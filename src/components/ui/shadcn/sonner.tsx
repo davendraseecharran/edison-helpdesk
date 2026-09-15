@@ -91,7 +91,10 @@ export function Toaster() {
       visibleToasts={TOAST_LIMIT}
       gap={8}
       offset={16}
-      mobileOffset={12}
+      // On a phone the stack starts below the top bar rather than on top of
+      // it: a message that lasts five seconds should not take the brand and
+      // every action in the bar with it.
+      mobileOffset={{ top: 'calc(var(--topbar-h) + 12px)', left: 12, right: 12, bottom: 12 }}
       // Away from the edge it sits on, and on a phone also sideways, because
       // a thumb on a full-width toast flicks more easily across than up.
       swipeDirections={phone ? ['top', 'left', 'right'] : ['right', 'bottom']}

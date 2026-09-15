@@ -26,6 +26,7 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { Pagination } from '@/components/ui/Pagination';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { Select } from '@/components/ui/Select';
 import type { AuditEntry, AuditLogPage } from '@/lib/data/audit';
 
 /**
@@ -188,18 +189,18 @@ export function AuditLog({ page }: { page: AuditLogPage }) {
       >
         <div className="audit-filters">
           <Field label="Actor" htmlFor="audit-actor">
-            <select
+            <Select
               id="audit-actor"
               value={current.actor}
-              onChange={(event) => updateParam('actor', event.target.value)}
-            >
-              <option value="all">Anyone</option>
-              {directory.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.displayName}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => updateParam('actor', value)}
+              options={[
+                { value: 'all', label: 'Anyone' },
+                ...directory.map((account) => ({
+                  value: account.id,
+                  label: account.displayName,
+                })),
+              ]}
+            />
           </Field>
 
           <div className="field audit-via">
@@ -218,17 +219,12 @@ export function AuditLog({ page }: { page: AuditLogPage }) {
           </div>
 
           <Field label="Record type" htmlFor="audit-entity">
-            <select
+            <Select
               id="audit-entity"
               value={current.entity}
-              onChange={(event) => updateParam('entity', event.target.value)}
-            >
-              {ENTITY_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              onChange={(value) => updateParam('entity', value)}
+              options={ENTITY_OPTIONS}
+            />
           </Field>
 
           <Field label="Kind" htmlFor="audit-kind" hint="Exact kind, such as resolved">

@@ -69,12 +69,16 @@ export function TopBar({
             anything on the desk, and this is the two-second way to borrow it:
             a code on screen, a camera pointed at it, and every scan from then
             on lands in this window. The palette keeps the same action for
-            somebody whose hands are already on the keyboard. */}
+            somebody whose hands are already on the keyboard. On a phone the
+            bar has no room for it and a tooltip is not something a finger can
+            ask for, so `shell.css` hides it there and the More sheet carries
+            it with its name written out. */}
         {canScan ? (
           <Tooltip label="Scan with your phone">
             <Button
               variant="ghost"
               icon={QrCode}
+              className="topbar-scan"
               aria-label="Scan with your phone"
               onClick={openScanner}
             />
