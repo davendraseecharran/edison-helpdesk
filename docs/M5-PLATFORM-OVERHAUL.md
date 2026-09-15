@@ -18,6 +18,11 @@ Everything in this document is verified against the local stack. No real
 student or staff data is in the repository; the owner's source exports are
 handed over out of band and are never in Git.
 
+This document is written for somebody who will read the code.
+[docs/OWNER-SETUP.md](OWNER-SETUP.md) is the same release and setup in plain
+language, for the person who owns the Supabase project and the Vercel
+deployment and will not open the repository.
+
 ## Contents
 
 - [What changed for the people using it](#what-changed-for-the-people-using-it)
@@ -389,16 +394,19 @@ setup of the project itself and its order still stands; this section is the
 release.
 
 **What is pending.** The hosted project carries the nineteen migrations through
-`20260914010000_staff_directory_options.sql`. This branch adds thirty-one more,
-every one of them numbered `20260914100000` or above precisely so that they
-apply *after* the owner's four (`20260912210000`, `20260912220000`,
+`20260914010000_staff_directory_options.sql`. This branch adds thirty-three
+more, every one of them numbered `20260914100000` or above precisely so that
+they apply *after* the owner's four (`20260912210000`, `20260912220000`,
 `20260913150000`, `20260914010000`) and build on the live `requesters`,
 `inventory_devices`, `device_catalog` and `inventory_events` rather than beside
 them. They are additive: no owner table is dropped, renamed or rewritten, and
-no owner policy or grant is changed. Confirm the list before you push:
+no owner policy or grant is changed. Every one of the thirty-three also sorts
+strictly after the highest version the hosted project holds, so `db push`
+applies them in version order and never needs `--include-all` to accept an
+out-of-order file. Confirm the list before you push:
 
 ```bash
-npx supabase migration list --linked   # nothing local pending, 31 remote-missing
+npx supabase migration list --linked   # nothing local pending, 33 remote-missing
 ```
 
 **Pre-flight, before the push.**
@@ -423,7 +431,7 @@ npx supabase migration list --linked   # nothing local pending, 31 remote-missin
 **The release.**
 
 ```bash
-npx supabase db push        # applies the 31 pending migrations, in version order
+npx supabase db push        # applies the 33 pending migrations, in version order
 vercel --prod --skip-domain # build and deploy
 # then promote the alias once the deployment is Ready and checked
 ```
@@ -446,11 +454,43 @@ hosted project enforces). The committed API/database/Studio ports are the
 defaults 54321/54322/54323; this machine runs on 55321/2/3 through the same
 uncommitted patch.
 
-**Not yet rehearsed.** Applying these thirty-one migrations onto a database
-holding exactly the owner's nineteen — which is what `db push` will do — has
-not been run end to end at the time of writing. That rehearsal, and the DB and
-auth suites against the resulting database, is the last thing to do before the
-push; its transcript belongs in this section.
+**The rehearsal.** Applying these thirty-three migrations onto a database
+holding exactly the owner's nineteen — which is what `db push` will do — was
+run end to end on a second local stack on 2026-09-14. The database was first
+rebuilt from `origin/main`'s nineteen migration files alone, and only then were
+this branch's files dropped in and applied forward. It needed no manual step,
+no edit and no reordering.
+
+```bash
+# 1. a database holding exactly what the hosted project holds today
+git archive origin/main supabase/migrations | tar -x -C /tmp/main-set
+cp -a /tmp/main-set/supabase/migrations supabase/migrations   # 19 files
+npx supabase db reset --local
+# -> Applying migration 20260910200000_core_schema.sql ... 20260914010000_staff_directory_options.sql
+# -> Finished supabase db reset on branch main.
+npx supabase migration list --local        # 19 rows, local == remote on every one
+
+# 2. this branch's migrations applied forward, which is what db push does
+cp -a <branch>/supabase/migrations supabase/migrations         # 52 files
+npx supabase migration up --local --include-all
+# -> Applying migration 20260914100000_m5_foundation.sql
+# -> ... 33 files ...
+# -> Applying migration 20260914170100_m5_public_totals_retire.sql
+# -> {"applied":[ ...33 paths... ],"message":"Migrations applied"}
+npx supabase migration list --local        # 52 rows, local == remote on every one
+
+# 3. the suites, against that database
+npx vitest run --config vitest.db.config.mts    # 428 tests, 30 files, all passing
+npx vitest run --config vitest.auth.config.mts  # 53 tests, 7 files, all passing
+```
+
+Every migration applied first time against the owner's live objects — their
+`requesters` columns, `inventory_devices`, `device_catalog`, `inventory_events`
+and `app_set_account_role` all present and untouched. The auth suite resets the
+database in its own global setup, so it necessarily rebuilds from the whole
+fifty-two rather than from the incremental path; the database suite is the one
+that ran against the incrementally migrated database, and it is the one that
+proves the merge.
 
 ## Owner runbook for the hosted project
 
@@ -590,14 +630,23 @@ this branch replaced. Each refuses to run and says what covers it now.
 - **No backup rehearsal yet.** M4 left this open and M5 did not close it:
   Administration → Backups exports the tables, and an export is not a restore.
   Prove one before the system carries a day's real tickets.
-- **A password digest can be superseded by the provider's own rehash.**
-  `account_credential_state` binds a session to the password digest recorded
-  when the account row was written, and GoTrue has been observed rehashing a
-  stored password on its first sign-in, after which that session reads as
-  superseded and every RPC answers "This session has been signed out". It bites
-  a script that inserts the `app_accounts` row before the first sign-in; it
-  matters for the break-glass administrator on the hosted project. Not yet
-  reproduced deliberately or fixed.
+- **A password changed outside the app supersedes that account's sessions.**
+  `account_credential_state` binds a session to a digest of the password hash
+  recorded when the account row was written, so any change to
+  `auth.users.encrypted_password` that the app did not make reads as
+  "superseded": `app_token_is_current` answers false and every RPC says the
+  session has been signed out. That is the control working, not a fault — the
+  app's own setup and recovery flow re-approves the digest in the same
+  transaction as the password change. It does mean that resetting an
+  administrator's password from the Supabase dashboard or the admin API locks
+  that account out of the application until the digest is re-approved; use a
+  recovery link instead. Recorded here because the earlier suspicion was
+  different: GoTrue was thought to rehash a stored password on its first
+  sign-in, which would have broken the binding with nobody touching anything.
+  That was tested deliberately against GoTrue v2.196.0 and does **not** happen —
+  the stored hash is byte-identical before and after the first sign-in, and
+  stays so even when it was written at a bcrypt cost the server is not
+  configured for. See the P2-6b report for the transcript.
 - **Some dead stylesheet rules survive their markup.** `src/app/globals.css`
   still carries the `.intake-*` rules the owner's intake form used. Presentation
   only, matched by nothing.

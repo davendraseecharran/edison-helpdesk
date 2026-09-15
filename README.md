@@ -20,6 +20,8 @@ Requirements: [TICKETING-PLAN.md](TICKETING-PLAN.md).
 Implementation handoff: [CLAUDE-HANDOFF.md](CLAUDE-HANDOFF.md).
 What M5 built, and the owner's runbook for the hosted project:
 [docs/M5-PLATFORM-OVERHAUL.md](docs/M5-PLATFORM-OVERHAUL.md).
+Deploying and setting the hosted project up, in plain language:
+[docs/OWNER-SETUP.md](docs/OWNER-SETUP.md).
 
 ## Local setup
 
