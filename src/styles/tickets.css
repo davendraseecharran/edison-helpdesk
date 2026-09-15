@@ -491,10 +491,30 @@
    * Below 1024 the columns stack into one flow and each section is a card
    * again, because down there they are not a column, they are the rest of the
    * page.
+   *
+   * And it stays. The two columns hold unrelated amounts: a ticket with a long
+   * report, a dozen notes, two photographs and forty events runs the left
+   * column six hundred pixels past the right one, and for all six hundred the
+   * right half of a 1440 screen is empty while the controls that ticket needs
+   * — claim, resolve, the time log, the administration — are somewhere above
+   * the fold. A panel of instruments belongs beside the work, not above it, so
+   * it sticks under the top bar and scrolls on its own when it is the taller
+   * of the two. `align-items: start` on the grid is what leaves it free to;
+   * without it the item is stretched to the row and has nowhere to stick to.
+   *
+   * `overflow-x` stays clipped, because the radius on the corners is what the
+   * sections are cut by; only the vertical axis scrolls. Every surface the
+   * column opens — menus, selects, dialogs — is portaled to the document, so
+   * none of them is clipped by it.
    */
   .ticket-grid > .ticket-column:nth-child(2) {
+    position: sticky;
+    top: calc(var(--topbar-h) + 16px);
     gap: 0;
-    overflow: clip;
+    max-height: calc(100dvh - var(--topbar-h) - 32px);
+    overflow-x: clip;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     border-radius: var(--radius-4);
     background: var(--surface);
     box-shadow: var(--shadow-1);
