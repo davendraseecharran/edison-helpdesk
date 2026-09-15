@@ -767,6 +767,24 @@ p.flash {
   }
 }
 
+/*
+ * A sheet, wherever it arrives from and whoever is moving it.
+ *
+ * `.overlay-panel` says this for a Radix surface; this says it for the one
+ * vaul drags, which places itself and so is not an overlay panel. The two
+ * carry the same look because they are the same object.
+ */
+.sheet {
+  position: fixed;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-strong);
+  background: var(--overlay);
+  box-shadow: var(--shadow-3);
+  outline: none;
+}
+
 .sheet-right {
   top: 0;
   right: 0;
@@ -786,19 +804,53 @@ p.flash {
   left: 0;
   max-height: min(88dvh, 720px);
   padding-bottom: env(safe-area-inset-bottom);
+  /* Three edges of it are off the screen; only the one facing the page is
+     drawn. */
+  border-width: 1px 0 0;
   border-radius: var(--radius-4) var(--radius-4) 0 0;
   box-shadow: var(--shadow-3);
 }
 
 /*
+ * The grab handle on a drawer. It is drawn only where a finger could actually
+ * pull the sheet — vaul stamps the direction it travels in on the panel — and
+ * it is the tertiary ink, because it is a hint about the surface rather than
+ * anything to read.
+ */
+.sheet-handle {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 4px;
+  margin: 8px auto 0;
+  border-radius: 999px;
+  background: var(--ink-3);
+}
+
+.sheet:not([data-vaul-drawer-direction='bottom']) .sheet-handle {
+  display: none;
+}
+
+/*
  * The drawer's scrim. The same treatment every modal surface gets — the page
  * behind, out of focus — rather than the library's flat black at 50%, which on
- * a near-black ground is just a dimmer near-black.
+ * a near-black ground is just a dimmer near-black, and it fades on the same
+ * two durations as the one over a dialog.
  */
 .drawer-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
   background: var(--scrim);
   -webkit-backdrop-filter: var(--scrim-blur);
   backdrop-filter: var(--scrim-blur);
+}
+
+.drawer-scrim[data-state='open'] {
+  animation: scrim-in var(--dur-surface) var(--ease-out);
+}
+
+.drawer-scrim[data-state='closed'] {
+  animation: scrim-out var(--dur-press) var(--ease-out);
 }
 
 /*

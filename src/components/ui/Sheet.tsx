@@ -58,6 +58,8 @@ function BottomSheet({
   hideTitle,
   className,
 }: Omit<SheetProps, 'side'>) {
+  const undescribed = description ? {} : { 'aria-describedby': undefined };
+
   return (
     <Drawer
       open={open}
@@ -68,23 +70,22 @@ function BottomSheet({
       // document, and on a long list it reads as the screen flinching.
       shouldScaleBackground={false}
     >
-      {/* Not `.overlay-panel`: that class positions the surface itself, and
-          here vaul does the positioning — it is what the drag moves. The
-          drawer keeps its own layout and takes only the look. */}
-      <DrawerContent className={className ? `sheet sheet-bottom ${className}` : 'sheet sheet-bottom'}>
+      {/* Not `.overlay-panel`: that class places a Radix surface, and here vaul
+          does the placing — the panel is what the drag moves. `.sheet` is the
+          look the two share; `.sheet-bottom` is the edge this one arrives
+          from. */}
+      <DrawerContent
+        className={className ? `sheet-bottom ${className}` : 'sheet-bottom'}
+        /* Radix, under vaul, names the panel by its title and warns when
+           nothing describes it. An explicit `undefined` is its documented way
+           to say there is nothing more to add; a hidden empty description
+           leaves the pointer aimed at a node with no text. */
+        {...undescribed}
+      >
         <header className={hideTitle ? 'overlay-head overlay-head-quiet' : 'overlay-head'}>
           <div className="overlay-head-text">
-            <DrawerTitle className={hideTitle ? 'visually-hidden' : 'overlay-title'}>
-              {title}
-            </DrawerTitle>
-            {description ? (
-              <DrawerDescription className="overlay-description">{description}</DrawerDescription>
-            ) : (
-              /* Radix names the panel by its title and warns when it has no
-                 description; a hidden empty one is the documented way to say
-                 "there is nothing more to add" without inventing copy. */
-              <DrawerDescription className="visually-hidden" />
-            )}
+            <DrawerTitle className={hideTitle ? 'visually-hidden' : undefined}>{title}</DrawerTitle>
+            {description ? <DrawerDescription>{description}</DrawerDescription> : null}
           </div>
           <Button variant="ghost" icon={X} aria-label="Close" onClick={onClose} />
         </header>
