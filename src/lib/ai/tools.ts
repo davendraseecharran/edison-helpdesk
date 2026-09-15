@@ -30,6 +30,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isRecord, isUuid, textOf } from '@/lib/guards';
 import { draftFromText } from '@/lib/intake/draft';
+import { DEVICE_TYPES, deviceTypeLabel } from '@/lib/domain/device-types';
 import {
   canWorkTickets,
   normalizeRoles,
@@ -457,6 +458,9 @@ const PERSON_JSON_KEYS: Record<string, string> = {
   notes: 'notes',
 };
 
+/** One sentence naming the vocabulary, so both device tools offer the same words. */
+const DEVICE_TYPE_HINT = `One of ${DEVICE_TYPES.join(', ')}, or the district's own word for it.`;
+
 const DEVICE_JSON_KEYS: Record<string, string> = {
   device_type: 'deviceType',
   manufacturer: 'manufacturer',
@@ -480,7 +484,7 @@ function toJsonKeys(patch: Record<string, unknown>, map: Record<string, string>)
 }
 
 const DEVICE_FIELDS: Record<string, Field> = {
-  device_type: { type: 'string', description: 'Chromebook, Laptop, Desktop, Projector and so on. Required.' },
+  device_type: { type: 'string', description: `${DEVICE_TYPE_HINT} Required.` },
   manufacturer: { type: 'string', description: 'Who made it. Required.' },
   model: { type: 'string', description: 'Model name. Required.' },
   serial_number: { type: 'string', description: 'Manufacturer serial number. Required, and unique in the inventory.' },
@@ -909,7 +913,7 @@ const TOOLS: Record<string, ToolSpec> = {
       'Record the machine a ticket is about when it is not in the inventory. For a machine that is, link it instead.',
     fields: {
       ticket: { type: 'string', required: true, description: 'Ticket number or id.' },
-      device_type: { type: 'string', required: true, description: 'Chromebook, laptop, projector and so on.' },
+      device_type: { type: 'string', required: true, description: DEVICE_TYPE_HINT },
       model: { type: 'string', description: 'Model name.' },
       os_version: { type: 'string', description: 'Operating system and version.' },
       serial_number: { type: 'string', description: 'Serial number read off the machine.' },
@@ -918,16 +922,20 @@ const TOOLS: Record<string, ToolSpec> = {
     },
     run: async (args, ctx) => {
       const ticket = await resolveTicket(ctx, String(args.ticket));
+      // The model writes whatever it heard; the vocabulary decides how it is
+      // spelled, so a machine it called a "chromebook" is recorded and read
+      // back as a Chromebook like every other one.
+      const deviceType = deviceTypeLabel(String(args.device_type)) || String(args.device_type);
       await rpc(ctx, 'app_record_device', {
         p_ticket: ticket.id,
-        p_device_type: args.device_type,
+        p_device_type: deviceType,
         p_model: args.model ?? null,
         p_os_version: args.os_version ?? null,
         p_serial_number: args.serial_number ?? null,
         p_asset_tag: args.asset_tag ?? null,
         p_identifiers_not_applicable: args.identifiers_not_applicable ?? false,
       });
-      return outcome({ id: ticket.id }, `Recorded a ${String(args.device_type)} on ${ticket.number}`);
+      return outcome({ id: ticket.id }, `Recorded a ${deviceType} on ${ticket.number}`);
     },
   },
 

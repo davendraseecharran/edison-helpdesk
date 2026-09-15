@@ -35,6 +35,7 @@ import { useRuntime } from '@/components/AppRuntime';
 import { Field } from '@/components/Primitives';
 import { ScanTargetButton } from '@/components/scan/ScanTargetButton';
 import { Button } from '@/components/ui/Button';
+import { deviceTypeOptions } from '@/lib/domain/device-types';
 
 type Draft = DeviceInput;
 
@@ -107,10 +108,12 @@ export function DeviceForm({
   // The catalogue, cascading. Changing a type clears a manufacturer that no
   // longer belongs to it, so the three fields can never disagree about which
   // machine they describe.
-  const types = useMemo(
-    () => [...new Set(catalog.map((entry) => entry.deviceType))].sort(),
-    [catalog],
-  );
+  // The catalogue holds whatever the district typed, so the words it already
+  // uses come first through the one vocabulary, and the ones this product knows
+  // that the inventory has not seen yet fill the rest of the list.
+  const types = useMemo(() => deviceTypeOptions(catalog.map((entry) => entry.deviceType)), [
+    catalog,
+  ]);
   const manufacturers = useMemo(
     () =>
       [

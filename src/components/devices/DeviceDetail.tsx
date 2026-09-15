@@ -29,6 +29,7 @@ import {
   returnDeviceAction,
 } from '@/lib/data/device-actions';
 import { formatDateTime } from '@/lib/format';
+import { deviceTypeLabel } from '@/lib/domain/device-types';
 import {
   ASSIGNED_STATUS,
   deviceLabel,
@@ -160,6 +161,7 @@ export function DeviceDetail({
   }
 
   const subtitle = [device.manufacturer, device.model].filter(Boolean).join(' ');
+  const typeLabel = deviceTypeLabel(device.deviceType);
 
   // The two actions the phone bar repeats. Rendered twice with different
   // classes (the header's copies hide on phones), so they are functions of a
@@ -217,9 +219,9 @@ export function DeviceDetail({
       <header className="ticket-head record-head">
         <div className="ticket-head-text">
           <h1 className="record-tag mono">{label}</h1>
-          {subtitle || device.deviceType ? (
+          {subtitle || typeLabel ? (
             <p className="record-subtitle">
-              {subtitle ? `${subtitle}, ${device.deviceType.toLowerCase()}` : device.deviceType}
+              {subtitle && typeLabel ? `${subtitle}, ${typeLabel}` : subtitle || typeLabel}
             </p>
           ) : null}
           <div className="ticket-meta">
@@ -351,7 +353,7 @@ export function DeviceDetail({
                 <IdentFact label="Asset tag" value={device.assetTag || null} />
                 <IdentFact label="Serial number" value={device.serialNumber || null} />
                 <IdentFact label="Inventory ID" value={device.externalId || null} />
-                <Fact label="Type" value={device.deviceType || null} />
+                <Fact label="Type" value={typeLabel || null} />
                 <Fact label="Manufacturer" value={device.manufacturer || null} />
                 <Fact label="Model" value={device.model || null} />
                 <Fact label="OS" value={device.osVersion || null} />

@@ -34,18 +34,10 @@ import { Field, PageHeader } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { Select } from '@/components/ui/Select';
+import { deviceTypeOptions } from '@/lib/domain/device-types';
 
-const DEVICE_TYPE_SUGGESTIONS = [
-  'Laptop',
-  'Chromebook',
-  'Desktop',
-  'Tablet',
-  'Projector',
-  'Interactive panel',
-  'Printer',
-  'Phone',
-  'Network equipment',
-];
+/** The intake form has no catalogue to read, so it offers the vocabulary itself. */
+const DEVICE_TYPE_OPTIONS = deviceTypeOptions();
 
 /**
  * Two modes, not three.
@@ -553,7 +545,7 @@ export default function NewTicketPage() {
               </Button>
             </div>
             <datalist id="device-type-options">
-              {DEVICE_TYPE_SUGGESTIONS.map((suggestion) => (
+              {DEVICE_TYPE_OPTIONS.map((suggestion) => (
                 <option key={suggestion} value={suggestion} />
               ))}
             </datalist>

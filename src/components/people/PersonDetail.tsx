@@ -31,6 +31,7 @@ import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { DeviceStatusBadge, PersonKindBadge } from '@/components/Badges';
 import { Avatar } from '@/components/Primitives';
 import { Identifier } from '@/components/directory/CopyButton';
+import { deviceTypeLabel } from '@/lib/domain/device-types';
 import { RecordHistory } from '@/components/directory/RecordHistory';
 import { RecordTicketList } from '@/components/directory/RecordTicketList';
 import { ReturnDeviceDialog, type ReturnDeviceValues } from '@/components/devices/ReturnDeviceDialog';
@@ -152,7 +153,7 @@ export function PersonDetail({
                           {deviceLabel(device)}
                         </Link>
                         <span className="loan-card-meta">
-                          {[device.manufacturer, device.model, device.deviceType]
+                          {[device.manufacturer, device.model, deviceTypeLabel(device.deviceType)]
                             .filter(Boolean)
                             .join(', ')}
                         </span>

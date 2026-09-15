@@ -37,6 +37,7 @@ import { useRuntime } from '@/components/AppRuntime';
 import { DeviceStatusBadge } from '@/components/Badges';
 import { EmptyState, Field, TimeAgo } from '@/components/Primitives';
 import { Button, ButtonLink } from '@/components/ui/Button';
+import { deviceTypeLabel } from '@/lib/domain/device-types';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { Pagination } from '@/components/ui/Pagination';
@@ -264,7 +265,7 @@ export function DeviceList({
             {device.model || <span className="dir-quiet">Unknown model</span>}
           </span>
           <span className="dir-sub">
-            {[device.manufacturer, device.deviceType].filter(Boolean).join(', ')}
+            {[device.manufacturer, deviceTypeLabel(device.deviceType)].filter(Boolean).join(', ')}
           </span>
         </div>
       ),
@@ -426,7 +427,9 @@ export function DeviceList({
               </span>
             )}
             cardMeta={(device) =>
-              [device.model || 'Unknown model', device.deviceType].filter(Boolean).join(', ')
+              [device.model || 'Unknown model', deviceTypeLabel(device.deviceType)]
+                .filter(Boolean)
+                .join(', ')
             }
           />
 

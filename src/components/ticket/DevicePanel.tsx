@@ -6,6 +6,7 @@ import { Plus, X } from 'lucide-react';
 import type { TicketDetail } from '@/lib/domain/selectors';
 import { canContribute } from '@/lib/domain/permissions';
 import { recordDeviceAction } from '@/lib/data/actions';
+import { deviceTypeLabel } from '@/lib/domain/device-types';
 import { nameOf } from '@/lib/directory';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { Field, TimeAgo } from '@/components/Primitives';
@@ -138,7 +139,7 @@ export function DevicePanel({ detail }: { detail: TicketDetail }) {
             {detail.devices.map((device) => (
               <li className="device" key={device.id}>
                 <div className="device-head">
-                  <span className="device-type">{device.deviceType}</span>
+                  <span className="device-type">{deviceTypeLabel(device.deviceType)}</span>
                   <span className="device-meta">
                     <ActorLabel
                       name={nameOf(directory, device.recordedById)}
