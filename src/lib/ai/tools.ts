@@ -46,6 +46,15 @@ import {
   savedViewError,
   type SavedView,
 } from '@/lib/domain/saved-views';
+import {
+  BACKUP_TABLES,
+  BACKUP_TABLE_NAMES,
+  readBackupTable,
+  type BackupTableName,
+} from '@/lib/data/backup-tables';
+import { AUDIT_ENTITIES } from '@/lib/domain/audit-entities';
+import { cappedExportMessage, csvFileName, csvHeaders, CSV_ROW_CAP, encodeCsv } from '@/lib/csv';
+import { schoolDayEnd, schoolDayStart, schoolToday } from '@/lib/format';
 import { DEVICE_TYPES, deviceTypeLabel } from '@/lib/domain/device-types';
 import {
   canWorkTickets,
@@ -128,6 +137,20 @@ const ROLES = ['admin', 'netrider', 'skills_officer'] as const;
  * what somebody asked for.
  */
 const SEEDED_STATUSES = 'Available, Assigned, In repair, Retired or Lost';
+
+/**
+ * The most an export may weigh before it stops travelling in the turn.
+ *
+ * An `ai_messages` row is refused over 256 KiB and every character of a tool
+ * result is also sent to the model, which pays for it and can do nothing with
+ * base64. 200 KB leaves room for the rest of the row and is more than a small
+ * table ever needs; past it, the person gets the first rows and a count and
+ * downloads the file where downloading already works.
+ */
+const MAX_INLINE_EXPORT = 200 * 1024;
+
+/** How much of a large table comes back instead. Enough to see the shape of it. */
+const EXPORT_PREVIEW_ROWS = 20;
 
 // ---------------------------------------------------------------------------
 // Errors and context
@@ -557,6 +580,18 @@ interface ToolSpec {
   group: ToolGroup;
   description: string;
   fields: Record<string, Field>;
+  /**
+   * An administrator-only READ.
+   *
+   * The group answers "is this a change?", and that question decides whether
+   * the operator is asked first. The audit log is not a change, so it must not
+   * be in the `admin` group — every tool in that group asks, and asking before
+   * a read would be a confirmation card for nothing. But it is administration,
+   * and `app_audit_log` refuses anybody else, so it must not be offered to a
+   * NetRider either. Two orthogonal facts, said separately rather than folded
+   * into one list that would get one of them wrong.
+   */
+  adminOnly?: true;
   run: (args: Record<string, unknown>, ctx: ToolContext) => Promise<ToolOutcome>;
 }
 
@@ -1683,6 +1718,131 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  deactivate_account: {
+    group: 'admin',
+    description:
+      'Take away a colleague’s access. Their name stays on everything they did and their tickets stay where they are; they simply cannot sign in. Use this for somebody who has left.',
+    fields: {
+      account: { type: 'string', required: true, description: 'The colleague, by name or account id.' },
+    },
+    run: async (args, ctx) => {
+      const account = await resolveAccount(ctx, String(args.account));
+      // The database is the guard, not this line. `app_set_account_status`
+      // refuses an administrator changing their own status, an account that has
+      // not finished setting a password, and one still waiting on an access
+      // decision — that last one is answered by review_access_request instead.
+      await rpc(ctx, 'app_set_account_status', { p_account: account.id, p_status: 'inactive' });
+      return outcome({ id: account.id }, `Deactivated ${account.name}`);
+    },
+  },
+
+  reactivate_account: {
+    group: 'admin',
+    description: 'Give a deactivated colleague their access back.',
+    fields: {
+      account: { type: 'string', required: true, description: 'The colleague, by name or account id.' },
+    },
+    run: async (args, ctx) => {
+      const account = await resolveAccount(ctx, String(args.account));
+      await rpc(ctx, 'app_set_account_status', { p_account: account.id, p_status: 'active' });
+      return outcome({ id: account.id }, `Reactivated ${account.name}`);
+    },
+  },
+
+  export_backup: {
+    group: 'admin',
+    description:
+      'Take the school’s own copy of one table as CSV, the same read the Backups screen makes. A small table comes back as a file you can hand over; a large one comes back as its first rows and a count, and the whole thing is downloaded from the Backups screen.',
+    fields: {
+      table: {
+        type: 'string',
+        required: true,
+        description: 'Which table to export.',
+        choices: BACKUP_TABLE_NAMES,
+      },
+    },
+    run: async (args, ctx) => {
+      const table = String(args.table) as BackupTableName;
+      const spec = BACKUP_TABLES[table];
+
+      const read = await readBackupTable(ctx.supabase, table, CSV_ROW_CAP);
+      if ('error' in read) throw new ToolError(read.error);
+
+      const csv = encodeCsv(csvHeaders(read.rows), read.rows);
+      const filename = csvFileName(table, schoolToday(), read.capped);
+      const message = read.capped
+        ? cappedExportMessage(spec.label, read.total)
+        : `${spec.label}: ${read.rows.length.toLocaleString('en-US')} ${read.rows.length === 1 ? 'row' : 'rows'}.`;
+
+      /*
+       * A whole table is not something to put in a chat turn.
+       *
+       * The result is written into an `ai_messages` row, which the database
+       * refuses over 256 KiB, and it is sent to the model, which pays for every
+       * character of it and can do nothing useful with base64 anyway. So a file
+       * small enough to hand over comes back whole, and anything larger comes
+       * back as what a person actually asked about — how many rows, what the
+       * columns are, and the first few — with the download left where it
+       * already works.
+       */
+      const download = `data:text/csv;base64,${Buffer.from(csv, 'utf8').toString('base64')}`;
+      if (download.length <= MAX_INLINE_EXPORT) {
+        return outcome(
+          { table, filename, rowCount: read.rows.length, capped: read.capped, message, download },
+          `Exported ${message}`,
+        );
+      }
+
+      const preview = encodeCsv(csvHeaders(read.rows), read.rows.slice(0, EXPORT_PREVIEW_ROWS));
+      return outcome(
+        {
+          table,
+          filename,
+          rowCount: read.rows.length,
+          capped: read.capped,
+          message,
+          preview,
+          previewRows: Math.min(EXPORT_PREVIEW_ROWS, read.rows.length),
+          note: 'Too large to hand over in a message. Download it from the Backups screen.',
+        },
+        `Read ${message} Too large to send here; download it from the Backups screen.`,
+      );
+    },
+  },
+
+  list_audit: {
+    group: 'read',
+    adminOnly: true,
+    description:
+      'The audit log: ticket activity, account history and record history in one ordered list, newest first. Administrators only, and the database says so too.',
+    fields: {
+      since: { type: 'string', description: 'Only events from this school day onwards, as YYYY-MM-DD.', date: true },
+      until: { type: 'string', description: 'Only events up to and including this school day.', date: true },
+      kind: { type: 'string', description: 'Only this kind of event, such as claimed, resolved or role_changed.' },
+      entity: { type: 'string', description: 'Only events about this kind of record.', choices: AUDIT_ENTITIES },
+      via: { type: 'string', description: 'Only changes made by hand, or only changes made through an assistant.', choices: ['user', 'ai'] },
+      limit: { type: 'integer', description: 'How many to return. Default 50, at most 200.' },
+    },
+    run: async (args, ctx) => {
+      const data = rows(
+        await rpc(ctx, 'app_audit_log', {
+          p_actor: null,
+          p_via: args.via ?? null,
+          p_kind: args.kind ?? null,
+          p_entity: args.entity ?? null,
+          // The whole school day at both ends, the same bounds the screen uses.
+          p_from: args.since === undefined ? null : schoolDayStart(String(args.since)),
+          p_to: args.until === undefined ? null : schoolDayEnd(String(args.until)),
+          p_limit: Math.min(Number(args.limit ?? 50), 200),
+          p_offset: 0,
+        }),
+      );
+      // `total_count` is the whole filtered set; the rows are one page of it.
+      const total = data.length > 0 ? Number(data[0].total_count ?? 0) : 0;
+      return outcome({ entries: data, total }, `Read ${data.length} of ${total} audit entries.`);
+    },
+  },
+
   set_roles: {
     group: 'admin',
     description:
@@ -1735,6 +1895,19 @@ function namesIn(group: ToolGroup): string[] {
 export const READ_TOOLS: string[] = namesIn('read');
 export const WRITE_TOOLS: string[] = namesIn('write');
 export const ADMIN_TOOLS: string[] = namesIn('admin');
+
+/**
+ * Reads only an administrator is offered. Not a fourth group: these are in
+ * READ_TOOLS like every other read, and never ask for approval.
+ */
+export const ADMIN_READ_TOOLS: string[] = Object.entries(TOOLS)
+  .filter(([, spec]) => spec.adminOnly === true)
+  .map(([name]) => name);
+
+/** Whether this tool is for administrators, whichever of the two ways it is. */
+function isAdminTool(spec: ToolSpec): boolean {
+  return spec.group === 'admin' || spec.adminOnly === true;
+}
 
 /**
  * The only way a tool is looked up.
@@ -1868,7 +2041,7 @@ export function toolsFor(roles: readonly AccountRole[]): ToolDef[] {
   const ticketWorker = canWorkTickets(roles);
   return Object.entries(TOOLS)
     .filter(([name, spec]) => {
-      if (spec.group === 'admin') return admin;
+      if (isAdminTool(spec)) return admin;
       if (ticketWorker) return true;
       return (DIRECTORY_TOOLS as readonly string[]).includes(name);
     })
@@ -2002,12 +2175,12 @@ export async function executeTool(
     const message = `${name} is not a tool this helpdesk offers.`;
     return { ok: false, result: { error: message }, summary: message };
   }
-  if (spec.group === 'admin' && !ctx.actor.roles.includes('admin')) {
+  if (isAdminTool(spec) && !ctx.actor.roles.includes('admin')) {
     const message = 'Only an administrator can do that.';
     return { ok: false, result: { error: message }, summary: message };
   }
   if (
-    spec.group !== 'admin' &&
+    !isAdminTool(spec) &&
     !canWorkTickets(ctx.actor.roles) &&
     !(DIRECTORY_TOOLS as readonly string[]).includes(name)
   ) {

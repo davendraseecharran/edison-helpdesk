@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  ADMIN_READ_TOOLS,
   ADMIN_TOOLS,
   describeCall,
   executeTool,
@@ -42,10 +43,14 @@ describe('tool classification', () => {
     for (const name of ADMIN_TOOLS) expect(names.has(name)).toBe(false);
   });
 
-  it('offers a NetRider every read and write tool', () => {
+  it('offers a NetRider every read and write tool except the administrator reads', () => {
     expect(toolsFor(['netrider']).map((tool) => tool.name).sort()).toEqual(
-      [...READ_TOOLS, ...WRITE_TOOLS].sort(),
+      [...READ_TOOLS, ...WRITE_TOOLS].filter((name) => !ADMIN_READ_TOOLS.includes(name)).sort(),
     );
+    // The audit log is a read and is still administration. Both facts, held
+    // separately, are why `adminOnly` exists beside the group.
+    expect(ADMIN_READ_TOOLS.length).toBeGreaterThan(0);
+    for (const name of ADMIN_READ_TOOLS) expect(READ_TOOLS).toContain(name);
   });
 
   it('offers a skills officer the directory and no ticket tool at all', () => {

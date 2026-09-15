@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { executeTool, validateArgs, type ToolContext } from '../../src/lib/ai/tools';
+import {
+  executeTool,
+  isWriteTool,
+  requiresApproval,
+  toolsFor,
+  validateArgs,
+  type ToolContext,
+} from '../../src/lib/ai/tools';
+import { schoolDayEnd, schoolDayStart } from '../../src/lib/format';
 
 /**
  * The tools added so the assistant can do what the screens already could, with
@@ -19,9 +27,29 @@ interface Call {
   args: Record<string, unknown>;
 }
 
+/**
+ * A PostgREST table as `readBackupTable` uses one: a head count, and pages read
+ * newest first. Enough of the builder to answer those two questions and no more.
+ */
+function tableClient(rows: Record<string, unknown>[]) {
+  return {
+    select(_columns: string, options?: { head?: boolean }) {
+      if (options?.head === true) return Promise.resolve({ count: rows.length, error: null });
+      const builder = {
+        order: () => builder,
+        range: (from: number, to: number) =>
+          Promise.resolve({ data: rows.slice(from, to + 1), error: null }),
+      };
+      return builder;
+    },
+  };
+}
+
 export function context(options: {
   results?: Record<string, unknown>;
   roles?: string[];
+  /** Rows a `from(...)` read should find, for the backup tools. */
+  table?: Record<string, unknown>[];
 } = {}): { ctx: ToolContext; calls: Call[] } {
   const calls: Call[] = [];
   const ctx = {
@@ -31,6 +59,7 @@ export function context(options: {
         const results = options.results ?? {};
         return { data: fn in results ? results[fn] : null, error: null };
       },
+      from: () => tableClient(options.table ?? []),
     },
     actor: { id: 'actor-1', displayName: 'Nia Example', roles: options.roles ?? ['netrider'] },
   } as unknown as ToolContext;
@@ -251,5 +280,133 @@ describe('delete_view', () => {
     expect(result.ok).toBe(false);
     expect(result.summary).toContain('Room 214');
     expect(calls.map((call) => call.fn)).not.toContain('app_set_saved_views');
+  });
+});
+
+const DIRECTORY = [
+  { id: '55555555-5555-4555-8555-555555555555', display_name: 'Dev Okafor' },
+  { id: '66666666-6666-4666-8666-666666666666', display_name: 'Nia Example' },
+];
+
+describe('deactivate_account and reactivate_account', () => {
+  it('sends the status the RPC takes, for the colleague named', async () => {
+    for (const [tool, status] of [
+      ['deactivate_account', 'inactive'],
+      ['reactivate_account', 'active'],
+    ] as const) {
+      const { ctx, calls } = context({
+        roles: ['admin'],
+        results: { app_directory: DIRECTORY },
+      });
+      const result = await executeTool(tool, { account: 'Dev Okafor' }, ctx);
+      expect(result.ok).toBe(true);
+      expect(calls.find((call) => call.fn === 'app_set_account_status')?.args).toEqual({
+        p_account: DIRECTORY[0].id,
+        p_status: status,
+      });
+    }
+  });
+
+  it('is refused for anybody who is not an administrator, before the database', async () => {
+    const { ctx, calls } = context({ roles: ['netrider'] });
+    const result = await executeTool('deactivate_account', { account: 'Dev Okafor' }, ctx);
+    expect(result.ok).toBe(false);
+    expect(result.summary).toMatch(/only an administrator/i);
+    expect(calls).toEqual([]);
+  });
+
+  it('always asks, whatever the person’s confirmation setting says', () => {
+    for (const tool of ['deactivate_account', 'reactivate_account']) {
+      expect(requiresApproval(tool, { account: 'Dev Okafor' }, false)).toBe(true);
+    }
+  });
+});
+
+describe('export_backup', () => {
+  function tableOf(rows: Record<string, unknown>[]) {
+    return context({ roles: ['admin'], table: rows });
+  }
+
+  it('hands over a small table whole, as something that can be saved', async () => {
+    const { ctx } = tableOf([{ id: 'inv-1', email: 'sam@edison.example' }]);
+    const result = await executeTool('export_backup', { table: 'account_invites' }, ctx);
+    expect(result.ok).toBe(true);
+    const payload = result.result as Record<string, unknown>;
+    expect(String(payload.filename)).toContain('account_invites');
+    expect(String(payload.download)).toMatch(/^data:text\/csv;base64,/);
+    const decoded = Buffer.from(String(payload.download).split(',')[1], 'base64').toString('utf8');
+    expect(decoded).toContain('sam@edison.example');
+  });
+
+  it('sends a summary and the first rows rather than a table that would not fit', async () => {
+    const big = Array.from({ length: 900 }, (_, at) => ({
+      id: `row-${at}`,
+      notes: 'x'.repeat(400),
+    }));
+    const { ctx } = tableOf(big);
+    const result = await executeTool('export_backup', { table: 'requesters' }, ctx);
+    expect(result.ok).toBe(true);
+    const payload = result.result as Record<string, unknown>;
+    expect(payload.download).toBeUndefined();
+    expect(payload.previewRows).toBe(20);
+    expect(String(payload.preview).length).toBeLessThan(20_000);
+    expect(result.summary).toMatch(/Backups screen/);
+  });
+
+  it('takes only a table from the fixed list', () => {
+    const checked = validateArgs('export_backup', { table: 'auth.users' });
+    expect(checked.ok).toBe(false);
+    expect(checked.error).toContain('tickets');
+  });
+});
+
+describe('list_audit', () => {
+  const entry = {
+    id: 'event-1',
+    kind: 'resolved',
+    entity_type: 'ticket',
+    summary: 'Resolved EDT-1042',
+    total_count: 412,
+  };
+
+  it('bounds a day at both ends and reports the whole filtered set', async () => {
+    const { ctx, calls } = context({ roles: ['admin'], results: { app_audit_log: [entry] } });
+    const result = await executeTool(
+      'list_audit',
+      { since: '2026-09-01', until: '2026-09-15', kind: 'resolved', via: 'ai' },
+      ctx,
+    );
+    expect(result.ok).toBe(true);
+    const sent = calls[0].args;
+    expect(sent.p_kind).toBe('resolved');
+    expect(sent.p_via).toBe('ai');
+    // The whole school day at both ends, in the school's own timezone, which is
+    // why the upper bound reads as the small hours of the next morning in UTC.
+    expect(sent.p_from).toBe(schoolDayStart('2026-09-01'));
+    expect(sent.p_to).toBe(schoolDayEnd('2026-09-15'));
+    expect(result.summary).toBe('Read 1 of 412 audit entries.');
+  });
+
+  it('is a read, so it never asks for approval', () => {
+    expect(requiresApproval('list_audit', {}, true)).toBe(false);
+    expect(isWriteTool('list_audit')).toBe(false);
+  });
+
+  it('is offered to an administrator and to nobody else', () => {
+    expect(toolsFor(['admin']).map((tool) => tool.name)).toContain('list_audit');
+    expect(toolsFor(['netrider']).map((tool) => tool.name)).not.toContain('list_audit');
+    expect(toolsFor(['skills_officer']).map((tool) => tool.name)).not.toContain('list_audit');
+  });
+
+  it('refuses a NetRider at the executor as well as in the list', async () => {
+    const { ctx, calls } = context({ roles: ['netrider'] });
+    const result = await executeTool('list_audit', {}, ctx);
+    expect(result.ok).toBe(false);
+    expect(result.summary).toMatch(/only an administrator/i);
+    expect(calls).toEqual([]);
+  });
+
+  it('refuses a date that is not one', () => {
+    expect(validateArgs('list_audit', { since: 'last Tuesday' }).ok).toBe(false);
   });
 });

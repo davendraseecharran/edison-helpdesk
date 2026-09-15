@@ -23,15 +23,19 @@ import { createClient } from '@/lib/supabase/server';
 // rules: they are pure, and a helper this easy to get wrong belongs where the
 // unit suite can reach it rather than behind `server-only`.
 import { schoolDayEnd, schoolDayStart } from '@/lib/format';
+import { AUDIT_ENTITIES, type AuditEntity } from '@/lib/domain/audit-entities';
 
 /** Matches the RPC's own default page. Its hard ceiling is 200. */
 export const AUDIT_PAGE_SIZE = 50;
 
 export type AuditVia = 'user' | 'ai';
 
-/** The six things the log can be about. `record_events.entity_type` plus tickets. */
-export const AUDIT_ENTITIES = ['ticket', 'account', 'person', 'device', 'invite', 'import'] as const;
-export type AuditEntity = (typeof AUDIT_ENTITIES)[number];
+/**
+ * The six things the log can be about, from the one module that owns them —
+ * pure, so the assistant's `list_audit` can offer the same vocabulary without
+ * dragging `server-only` into the unit suite.
+ */
+export { AUDIT_ENTITIES, type AuditEntity };
 
 export interface AuditEntry {
   /** Which history table the row came from: activity, account or record. */
