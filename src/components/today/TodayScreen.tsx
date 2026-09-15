@@ -35,18 +35,25 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { useApplePlatform, useReducedMotion } from '@/components/ui/media';
 import { useRowKeys } from '@/components/ui/useRowKeys';
 import { claimTicketsAction } from '@/lib/data/actions';
+import { bulkUpdateDevicesAction, returnDeviceAction } from '@/lib/data/device-actions';
 import { ageLabel } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import type { ListAction } from '@/lib/lists/keys';
 import {
+  DUE_LABELS,
   briefingSentence,
+  deviceCode,
+  deviceTitle,
+  devicesDue,
+  devicesDueSentence,
   needsCount,
   needsYou,
   nextBestAction,
   type Briefing,
+  type DueDevice,
   type NeedItem,
 } from '@/lib/domain/today';
-import { PRIORITY_LABELS } from '@/lib/domain/types';
+import { AVAILABLE_STATUS, PRIORITY_LABELS } from '@/lib/domain/types';
 import { greetingMoment, isFridayAfternoon, say, voiceLine } from '@/lib/voice/moments';
 import '@/styles/lists.css';
 import '@/styles/today.css';
@@ -74,6 +81,28 @@ function shortAge(since: string, at: Date): string {
 /** Per browser, per account: whether this person has landed here before. */
 function welcomeKey(accountId: string): string {
   return `edison.today.welcomed.${accountId}`;
+}
+
+/**
+ * One row of the page's keyboard, whichever section it is drawn in.
+ *
+ * Both lists share a single `useRowKeys`, because the hook binds a document
+ * listener and two of them would answer the same `j`.
+ */
+type TodayRow =
+  | { kind: 'need'; key: string; need: NeedItem }
+  | { kind: 'device'; key: string; device: DueDevice };
+
+/**
+ * What the button on a machine says.
+ *
+ * A machine somebody still holds is RETURNED: the holder is cleared and the
+ * hand-back is written into the inventory's history, which is the record
+ * somebody will want in June. A machine on the bench that nobody holds has
+ * nothing to return, so the honest action is the one it actually performs.
+ */
+function dueAction(device: DueDevice): string {
+  return device.holderName ? 'Return' : 'Mark available';
 }
 
 export interface TodayScreenProps {
@@ -108,7 +137,25 @@ export function TodayScreen({
   const mac = useApplePlatform();
 
   const items = useMemo(() => needsYou(briefing), [briefing]);
+  const due = useMemo(() => devicesDue(briefing), [briefing]);
   const total = needsCount(briefing.counts);
+
+  /*
+   * One keyboard for the page, not one per section.
+   *
+   * `useRowKeys` binds a document listener, so two of them would both answer
+   * `j`. The rows of both lists go into one model instead, which is also the
+   * honest reading of the rule this application already keeps: the same keys
+   * mean the same things everywhere. `r` finishes the row you are on — resolve
+   * a ticket, return a machine — and `o` opens it.
+   */
+  const rows = useMemo<TodayRow[]>(
+    () => [
+      ...items.map((need) => ({ kind: 'need' as const, key: need.key, need })),
+      ...due.map((device) => ({ kind: 'device' as const, key: `device:${device.id}`, device })),
+    ],
+    [items, due],
+  );
 
   /*
    * The entrance, suppressed on a revisit.
@@ -163,7 +210,35 @@ export function TodayScreen({
     [run],
   );
 
-  const can = useCallback((action: ListAction, item: NeedItem) => {
+  /**
+   * Take a machine back, from the row it is on.
+   *
+   * One press, no form: the status it returns to is Available, which is what
+   * every one of these is. The version it was read at goes with the call, so a
+   * machine somebody else assigned in the meantime is refused with the
+   * inventory's own words rather than quietly reassigned.
+   */
+  const returnDevice = useCallback(
+    async (device: DueDevice) => {
+      await run(`return:${device.id}`, () =>
+        device.holderName
+          ? returnDeviceAction(device.id, AVAILABLE_STATUS, null, device.version)
+          : // Nobody holds it, so there is nobody to take it back from:
+            // `app_return_inventory_device` refuses an unassigned machine, and
+            // rightly. What this one needs is its status put right.
+            bulkUpdateDevicesAction([device.id], { status: AVAILABLE_STATUS }),
+      );
+    },
+    [run],
+  );
+
+  const can = useCallback((action: ListAction, row: TodayRow) => {
+    if (row.kind === 'device') {
+      // `r` returns it, `o` opens the machine. There is nothing here to claim
+      // and nothing to edit from a summary.
+      return action === 'resolve' || action === 'open';
+    }
+    const item = row.need;
     if (action === 'open') return true;
     if (action === 'claim') return item.claimable;
     // Resolving and editing belong to the ticket itself; from here they are a
@@ -172,7 +247,13 @@ export function TodayScreen({
   }, []);
 
   const onAction = useCallback(
-    (action: ListAction, item: NeedItem) => {
+    (action: ListAction, row: TodayRow) => {
+      if (row.kind === 'device') {
+        if (action === 'resolve') void returnDevice(row.device);
+        else router.push(`/devices/${row.device.id}`);
+        return;
+      }
+      const item = row.need;
       if (action === 'claim') {
         void claim(item);
         return;
@@ -183,13 +264,14 @@ export function TodayScreen({
       }
       router.push(item.href);
     },
-    [claim, router],
+    [claim, returnDevice, router],
   );
 
-  const keys = useRowKeys<NeedItem>({ rows: items, keyOf: (item) => item.key, onAction, can });
+  const keys = useRowKeys<TodayRow>({ rows, keyOf: (row) => row.key, onAction, can });
 
   const greeting = voiceLine(greetingMoment(hour), { name: firstName, hour, weekday }).text;
   const sentence = briefingSentence(briefing.counts);
+  const dueSentence = devicesDueSentence(briefing.counts);
   const friday = isFridayAfternoon({ weekday, hour })
     ? say('friday.afternoon', { hour, weekday })
     : null;
@@ -202,7 +284,16 @@ export function TodayScreen({
      * same thing. The page renders one attribute and knows nothing about the
      * panel.
      */
-    <div className="today" data-today-briefing={sentence || 'Nothing needs you right now.'}>
+    /*
+     * The keyboard is bound to the page rather than to one list, because both
+     * lists share it. Arrow keys still only act while the focus is already
+     * inside Today: a press with nothing focused never reaches this handler.
+     */
+    <div
+      className="today"
+      data-today-briefing={sentence || 'Nothing needs you right now.'}
+      {...keys.listProps}
+    >
       <header className="today-stage today-greet">
         <h1 className="today-hello">{greeting}</h1>
         {total > 0 ? (
@@ -245,7 +336,7 @@ export function TodayScreen({
         {items.length === 0 ? (
           <ClearState briefing={briefing} cleared={cleared} reduced={reduced} hour={hour} weekday={weekday} />
         ) : (
-          <ul className="today-list" {...keys.listProps}>
+          <ul className="today-list">
             {items.map((item, index) => (
               <li key={item.key}>
                 <div className="today-row" {...keys.rowProps(item.key)}>
@@ -304,6 +395,61 @@ export function TodayScreen({
           </ul>
         )}
       </section>
+
+      {/*
+        * Machines due back.
+        *
+        * Not tickets, and deliberately not folded into "needs you": a
+        * Chromebook a graduate still has is a fortnight's problem, not this
+        * hour's, and mixing the two would make the number at the top of the
+        * screen the one number people learn to discount. Its own section, its
+        * own count, the same keyboard, and the action on the row.
+        */}
+      {due.length > 0 ? (
+        <section className="today-stage today-due" aria-labelledby="today-due-heading">
+          <div className="today-needs-head">
+            <h2 id="today-due-heading">Devices due back</h2>
+            <p className="today-keys" aria-hidden="true">
+              <span>
+                <kbd className="kbd">r</kbd> return
+              </span>
+            </p>
+          </div>
+          {dueSentence ? <p className="today-due-lead subtle">{dueSentence}</p> : null}
+          <ul className="today-list">
+            {due.map((device) => (
+              <li key={device.id}>
+                <div className="today-row" {...keys.rowProps(`device:${device.id}`)}>
+                  <span className="today-row-main">
+                    <span className="today-row-title">
+                      <Link href={`/devices/${device.id}`} tabIndex={-1}>
+                        {deviceTitle(device)}
+                      </Link>
+                      <span className="today-row-number">{deviceCode(device)}</span>
+                    </span>
+                    <span className="today-row-sub">
+                      <span>{device.holderName ?? 'Nobody is holding it'}</span>
+                      <span className="today-row-kind">{DUE_LABELS[device.reason]}</span>
+                    </span>
+                  </span>
+                  <span className="today-row-age">{shortAge(device.since, now)}</span>
+                  <span className="today-row-action">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={pendingKey !== null}
+                      loading={pendingKey === `return:${device.id}`}
+                      onClick={() => void returnDevice(device)}
+                    >
+                      {dueAction(device)}
+                    </Button>
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <nav className="today-stage today-ledger" aria-label="Where the rest of the work is">
         {ticketWorker ? (

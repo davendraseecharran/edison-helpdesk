@@ -23,10 +23,13 @@ import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { isRecord, textOf } from '@/lib/guards';
 import {
+  DUE_LABELS,
   EMPTY_BRIEFING,
   type Briefing,
   type BriefingAccessRequest,
   type BriefingTicket,
+  type DueDevice,
+  type DueReason,
 } from '@/lib/domain/today';
 import { PRIORITY_LABELS, TICKET_STATUS_LABELS, type Priority, type TicketStatus } from '@/lib/domain/types';
 
@@ -79,6 +82,36 @@ function accessFrom(row: unknown): BriefingAccessRequest | null {
   };
 }
 
+function reasonOf(value: unknown): DueReason {
+  return typeof value === 'string' && value in DUE_LABELS ? (value as DueReason) : 'in_repair';
+}
+
+function numberOrNull(value: unknown): number | null {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.trunc(parsed) : null;
+}
+
+/** One machine due back, checked rather than cast, like every other row here. */
+function deviceFrom(row: unknown): DueDevice | null {
+  if (!isRecord(row)) return null;
+  const id = textOf(row.id);
+  if (id === '') return null;
+  return {
+    id,
+    externalId: textOf(row.external_id),
+    assetTag: textOrNull(row.asset_tag),
+    serialNumber: textOrNull(row.serial_number),
+    deviceType: textOf(row.device_type),
+    manufacturer: textOf(row.manufacturer),
+    model: textOrNull(row.model),
+    status: textOf(row.status),
+    version: numberOrNull(row.version),
+    since: textOf(row.since),
+    holderName: textOrNull(row.holder_name),
+    reason: reasonOf(row.reason),
+  };
+}
+
 function list<T>(value: unknown, map: (row: unknown) => T | null): T[] {
   if (!Array.isArray(value)) return [];
   const out: T[] = [];
@@ -115,10 +148,15 @@ export const loadTodayBriefing = cache(async (): Promise<TodayView> => {
       unassigned: countOf(counts.unassigned),
       mine: countOf(counts.mine),
       accessRequests: countOf(counts.access_requests),
+      devicesDue: countOf(counts.devices_due),
     },
     waiting: list(data.waiting, ticketFrom),
     unassigned: list(data.unassigned, ticketFrom),
     mine: list(data.mine, ticketFrom),
     accessRequests: list(data.access_requests, accessFrom),
+    // Absent for anybody who is not a NetRider or an administrator: the
+    // function returns an empty list rather than raising, so Today still
+    // renders for a skills officer.
+    devicesDue: list(data.devices_due, deviceFrom),
   };
 });

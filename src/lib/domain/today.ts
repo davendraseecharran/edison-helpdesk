@@ -44,6 +44,52 @@ export interface BriefingAccessRequest {
   createdAt: string;
 }
 
+/** Why a machine is on the list. Two different failures, two different fixes. */
+export type DueReason = 'holder_left' | 'in_repair';
+
+/**
+ * A machine that should be back on the shelf and is not.
+ *
+ * Not a ticket, which is exactly why it had no screen: nobody raises a ticket
+ * saying a graduate still has a Chromebook, and nobody raises one saying a
+ * laptop has been on the bench since October.
+ */
+export interface DueDevice {
+  id: string;
+  /** The district's own identifier, and the sticker on the lid. */
+  externalId: string;
+  assetTag: string | null;
+  serialNumber: string | null;
+  deviceType: string;
+  manufacturer: string;
+  model: string | null;
+  status: string;
+  /** The row version, so Return refuses a machine somebody else just moved. */
+  version: number | null;
+  /** When the machine last changed, which is how long it has been like this. */
+  since: string;
+  /** Who is holding it, where anybody is. */
+  holderName: string | null;
+  reason: DueReason;
+}
+
+/** What each reason is called on the row. */
+export const DUE_LABELS: Record<DueReason, string> = {
+  holder_left: 'Holder has left',
+  in_repair: 'In repair over a fortnight',
+};
+
+/** The machine, as a person names it: "Dell Latitude 3190", "HP Chromebook". */
+export function deviceTitle(device: DueDevice): string {
+  const parts = [device.manufacturer, device.model].filter((part) => (part ?? '').trim() !== '');
+  return parts.length > 0 ? parts.join(' ') : device.deviceType || 'Device';
+}
+
+/** The identifier to print beside it: the sticker if there is one, else the id. */
+export function deviceCode(device: DueDevice): string {
+  return device.assetTag?.trim() || device.serialNumber?.trim() || device.externalId;
+}
+
 export interface BriefingCounts {
   /** Tickets you own that are stopped on somebody else's reply. */
   waiting: number;
@@ -53,6 +99,8 @@ export interface BriefingCounts {
   mine: number;
   /** People waiting for an administrator to let them in. Zero unless you are one. */
   accessRequests: number;
+  /** Machines due back. Zero unless you are a NetRider or an administrator. */
+  devicesDue: number;
 }
 
 export interface Briefing {
@@ -63,15 +111,17 @@ export interface Briefing {
   unassigned: BriefingTicket[];
   mine: BriefingTicket[];
   accessRequests: BriefingAccessRequest[];
+  devicesDue: DueDevice[];
 }
 
 export const EMPTY_BRIEFING: Briefing = {
   at: '',
-  counts: { waiting: 0, unassigned: 0, mine: 0, accessRequests: 0 },
+  counts: { waiting: 0, unassigned: 0, mine: 0, accessRequests: 0, devicesDue: 0 },
   waiting: [],
   unassigned: [],
   mine: [],
   accessRequests: [],
+  devicesDue: [],
 };
 
 /** What kind of thing a row on the list is. */
@@ -236,9 +286,51 @@ export function needsYou(briefing: Briefing): NeedItem[] {
     .slice(0, NEEDS_LIMIT);
 }
 
-/** How many things need you, across every kind, whether or not they fit on screen. */
+/**
+ * How many things need you, across every kind, whether or not they fit on screen.
+ *
+ * Machines due back are deliberately NOT counted. "Four things need you" is a
+ * sentence about the next hour; a Chromebook a graduate still has is a
+ * fortnight's problem, and folding the two together would make the number
+ * somebody reads first the one number they learn to discount.
+ */
 export function needsCount(counts: BriefingCounts): number {
   return counts.unassigned + counts.waiting + counts.accessRequests;
+}
+
+/** The most machines the section shows before it becomes an inventory report. */
+export const DUE_LIMIT = 6;
+
+/**
+ * The machines worth showing, oldest first.
+ *
+ * The database already ordered and capped them; this is where the screen's own
+ * limit lives, and where the order is made total so two machines that last
+ * changed in the same second cannot swap places between renders.
+ */
+export function devicesDue(briefing: Briefing): DueDevice[] {
+  return [...briefing.devicesDue]
+    .sort((left, right) => {
+      const age = Date.parse(left.since) - Date.parse(right.since);
+      if (Number.isFinite(age) && age !== 0) return age;
+      return left.id.localeCompare(right.id);
+    })
+    .slice(0, DUE_LIMIT);
+}
+
+/**
+ * The line beside the section heading.
+ *
+ * It names the count the database counted rather than the rows on screen, for
+ * the same reason the briefing does, and it says what the section is FOR:
+ * these are machines to get back, not a list of everything in repair.
+ */
+export function devicesDueSentence(counts: BriefingCounts): string {
+  const total = counts.devicesDue;
+  if (total === 0) return '';
+  if (total === 1) return 'One machine is due back.';
+  const digits = total > 10;
+  return `${capitalise(digits ? String(total) : spell(total))} machines are due back.`;
 }
 
 const NUMBER_WORDS = [
