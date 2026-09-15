@@ -99,7 +99,16 @@
   font-weight: 400;
 }
 
-/* The lamp coming up to temperature: the ring arrives, holds, and goes out. */
+/*
+ * The lamp coming up to temperature: the ring arrives, holds, and goes out.
+ *
+ * This is the one place outside `src/styles/lamp.css` that wears
+ * `--edge-light`, and it is listed there as entry 0 with the reason: the light
+ * arriving and going out is this animation, so it cannot be moved without
+ * splitting the ceremony in half, and while it burns there is no application
+ * on screen to share the light with. Anything else that wants the lamp goes in
+ * lamp.css.
+ */
 @keyframes boot-lamp-warm {
   0% {
     box-shadow: none;
