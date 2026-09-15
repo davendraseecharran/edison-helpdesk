@@ -57,9 +57,9 @@ export function AccessRequestsPanel({
       cell: (account) => (
         <div className="btn-row admin-actions">
           {/*
-            Not the brass one. A waiting list of seven requests drew seven
-            brass Approve buttons down one column, which is brass used as a
-            highlighter rather than as a signal, and it read as a
+            Not the accented one. A waiting list of seven requests drew seven
+            filled Approve buttons down one column, which is the accent used as
+            a highlighter rather than as a signal, and it read as a
             recommendation to let everybody in. Neither answer is the default
             here: the pair is quiet and the decision is the reader's.
           */}

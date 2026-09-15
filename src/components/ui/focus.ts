@@ -15,7 +15,7 @@ const FOCUSABLE =
  * `display: none`, and unlike `offsetParent` it does not also discard
  * elements that are positioned `fixed`.
  */
-export function focusableWithin(root: HTMLElement): HTMLElement[] {
+function focusableWithin(root: HTMLElement): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
     (el) => el.getAttribute('aria-hidden') !== 'true' && el.getClientRects().length > 0,
   );

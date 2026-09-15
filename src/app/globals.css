@@ -130,13 +130,13 @@
 }
 
 .intake-form .search-select-option-active {
-  background: var(--brass-soft);
+  background: var(--accent-soft);
   color: var(--ink);
 }
 
 @media (hover: hover) and (pointer: fine) {
   .intake-form .search-select-option:hover {
-    background: var(--brass-soft);
+    background: var(--accent-soft);
     color: var(--ink);
   }
 }

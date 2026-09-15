@@ -76,7 +76,7 @@ function subscribeToNothing(): () => void {
  * value captured on the first render is `false`; a component mounted by a
  * later client-side navigation captures `true`. Only those mounts animate.
  */
-export function useMountedOnClient(): boolean {
+function useMountedOnClient(): boolean {
   const client = useSyncExternalStore(
     subscribeToNothing,
     () => true,
@@ -87,7 +87,7 @@ export function useMountedOnClient(): boolean {
 }
 
 /** True when an entrance may animate: a client mount, and no reduced-motion preference. */
-export function useEntranceAllowed(): boolean {
+function useEntranceAllowed(): boolean {
   const reduced = useReducedMotion();
   const mountedOnClient = useMountedOnClient();
   return mountedOnClient && !reduced;

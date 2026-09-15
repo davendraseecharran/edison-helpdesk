@@ -33,12 +33,12 @@ const PHONE_LABELS: Record<string, string> = {
   '/my-tickets': 'Mine',
 };
 
-export function phoneLabel(item: NavItem): string {
+function phoneLabel(item: NavItem): string {
   return PHONE_LABELS[item.href] ?? item.label;
 }
 
 /** The three hrefs this account's rail can actually fill, in rail order. */
-export function primaryTabs(items: NavItem[]): NavItem[] {
+function primaryTabs(items: NavItem[]): NavItem[] {
   const chosen: NavItem[] = [];
   for (const href of TAB_PREFERENCE) {
     const item = items.find((entry) => entry.href === href);
@@ -98,7 +98,7 @@ interface ClusterAction {
 }
 
 /**
- * The lookup cluster: a brass core that opens into Search, New ticket and
+ * The lookup cluster: an accented core that opens into Search, New ticket and
  * Ask. The satellites are liquid-gooey items sharing one surface-coloured
  * silhouette, so they pour out from under the core and merge back into it.
  */

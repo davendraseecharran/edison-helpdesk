@@ -190,12 +190,12 @@
 }
 
 .ai-menu-switch[aria-checked='true'] .ai-switch {
-  border-color: var(--brass-2);
-  background: var(--brass);
+  border-color: var(--accent-hover);
+  background: var(--accent);
 }
 
 .ai-menu-switch[aria-checked='true'] .ai-switch::after {
-  background: var(--brass-ink);
+  background: var(--accent-ink);
   transform: translateX(14px);
 }
 
@@ -420,7 +420,7 @@
   font-size: inherit;
 }
 
-/* The writing caret: a brass bar after the last thing written. */
+/* The writing caret: a bar in the ink after the last thing written. */
 .ai-md-live > :last-child::after {
   content: '';
   display: inline-block;
@@ -428,7 +428,7 @@
   height: 1em;
   margin-left: 2px;
   border-radius: 1px;
-  background: var(--brass);
+  background: var(--accent);
   vertical-align: -0.15em;
   /* Not a motion token: a caret is a blink, and 900ms in two steps is a
      cursor's rate rather than a transition's length. */
@@ -653,7 +653,7 @@
 }
 
 .ai-composer[data-listening] .ai-composer-row {
-  border-color: var(--brass);
+  border-color: var(--accent);
 }
 
 .ai-composer-field {
@@ -693,7 +693,7 @@
 /*
  * Push to talk: held down rather than toggled, so the press state has to be
  * unmistakable while the finger is on it. It scales like every other pressable
- * and then holds the brass while it listens.
+ * and then holds the accent while it listens.
  */
 .ai-mic {
   display: grid;
@@ -725,8 +725,8 @@
 }
 
 .ai-mic[aria-pressed='true'] {
-  border-color: var(--brass);
-  background: var(--brass-soft);
+  border-color: var(--accent);
+  background: var(--accent-soft);
   color: var(--ink);
 }
 
@@ -890,7 +890,7 @@
 }
 
 .ai-conversation-row[aria-current='true'] .ai-conversation-open {
-  box-shadow: inset 3px 0 0 var(--brass);
+  box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .ai-conversation-open {
@@ -1098,9 +1098,10 @@
 }
 
 /*
- * A soft brass glow behind the dots, breathing slowly; quicker while working.
- * Lighter on the dark theme, where brass over navy turns olive if it is laid
- * on thick.
+ * A soft glow behind the dots, breathing slowly; quicker while working. It is
+ * the accent, which is the ink, so it is a light on the dark theme and a
+ * shadow on the light one; thinner on dark, where a thick one washes the dots
+ * out rather than lifting them.
  */
 .ai-orb {
   --ai-glow-core: 30%;
@@ -1119,8 +1120,8 @@
   border-radius: 50%;
   background: radial-gradient(
     circle,
-    color-mix(in srgb, var(--brass) var(--ai-glow-core), transparent) 0%,
-    color-mix(in srgb, var(--brass) var(--ai-glow-mid), transparent) 42%,
+    color-mix(in srgb, var(--accent) var(--ai-glow-core), transparent) 0%,
+    color-mix(in srgb, var(--accent) var(--ai-glow-mid), transparent) 42%,
     transparent 70%
   );
   opacity: 0.7;
@@ -1205,7 +1206,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--brass);
+  background: var(--accent);
   box-shadow: 0 0 0 2px var(--surface);
   pointer-events: none;
 }

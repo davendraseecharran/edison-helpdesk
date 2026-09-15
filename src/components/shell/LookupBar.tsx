@@ -101,7 +101,7 @@ export function readScanTarget(event: Event): string | null {
 export const OPEN_LOOKUP_EVENT = 'edison:open-lookup';
 
 /** The text an `edison:open-lookup` event carries, or null if it carried none. */
-export function readLookupQuery(event: Event): string | null {
+function readLookupQuery(event: Event): string | null {
   const detail = (event as CustomEvent<unknown>).detail;
   if (detail === null || typeof detail !== 'object') return null;
   const query = (detail as Record<string, unknown>).query;

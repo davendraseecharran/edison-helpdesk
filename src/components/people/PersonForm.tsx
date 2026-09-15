@@ -68,7 +68,7 @@ function draftFrom(person: Person | undefined, kind: PersonKind): Draft {
 }
 
 /** The staff ID the database will derive, shown live as the email is typed. */
-export function staffIdFrom(email: string): string {
+function staffIdFrom(email: string): string {
   return email.trim().split('@')[0] ?? '';
 }
 

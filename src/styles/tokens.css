@@ -20,9 +20,11 @@
  * design's home and the light one keeps the same discipline inverted.
  *
  * Names outlive values. Everything downstream says `var(--token)`, which is
- * what let the whole palette change without touching a screen; the old accent
- * names (`--brass*`, `--signal*`) survive as aliases pointing at the new
- * accent for exactly that reason.
+ * what let the whole palette change without touching a screen: the two
+ * abandoned colour systems left the product through their own names, as
+ * `--brass*` and `--signal*` aliases pointing at the accent. Those aliases are
+ * gone now and every rule says `--accent` — a name that has been pointing at
+ * the ink long enough to be read as the truth rather than as a redirection.
  */
 
 :root {
@@ -85,18 +87,6 @@
   --accent-hover: #000000;
   --accent-soft: rgb(27 27 31 / 0.1);
   --accent-ink: #ffffff;
-
-  /*
-   * The retired brass and signal names, pointed at the accent. Every rule that
-   * still says `--brass` or `--signal` now means "the ink", which is how two
-   * abandoned colour systems left the product without a screen being touched.
-   */
-  --brass: var(--accent);
-  --brass-2: var(--accent-hover);
-  --brass-soft: var(--accent-soft);
-  --brass-ink: var(--accent-ink);
-  --signal: var(--accent);
-  --signal-soft: var(--accent-soft);
 
   /* --- Semantic --------------------------------------------------------- */
 

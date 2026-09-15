@@ -29,7 +29,7 @@ export type TicketIntent = 'resolve' | 'reopen' | 'note';
 
 const TICKET_INTENT_EVENT = 'edison:ticket-intent';
 
-export function requestTicketIntent(intent: TicketIntent): void {
+function requestTicketIntent(intent: TicketIntent): void {
   window.dispatchEvent(new CustomEvent<TicketIntent>(TICKET_INTENT_EVENT, { detail: intent }));
 }
 

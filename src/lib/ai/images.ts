@@ -61,7 +61,7 @@ export interface ChosenImage {
   size: number;
 }
 
-export function isImageType(type: string): boolean {
+function isImageType(type: string): boolean {
   return (IMAGE_TYPES as readonly string[]).includes(type.toLowerCase());
 }
 

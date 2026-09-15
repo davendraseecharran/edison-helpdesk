@@ -137,7 +137,7 @@
   }
 }
 
-/* Native checkboxes in the brass, with the shared focus ring. */
+/* Native checkboxes in the accent, with the shared focus ring. */
 .check {
   display: flex;
   align-items: flex-start;
@@ -151,7 +151,7 @@
   width: 16px;
   height: 16px;
   margin: 3px 0 0;
-  accent-color: var(--brass);
+  accent-color: var(--accent);
 }
 
 .check input:focus-visible {
@@ -844,8 +844,8 @@
 }
 
 .timeline-item[data-kind='created'] .timeline-dot {
-  border-color: var(--signal);
-  background: var(--signal);
+  border-color: var(--accent);
+  background: var(--accent);
 }
 
 .timeline-item[data-kind='resolved'] .timeline-dot {

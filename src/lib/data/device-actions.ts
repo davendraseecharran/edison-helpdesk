@@ -21,8 +21,29 @@ import { bulkResultMessage, shapeBulkPatch, type BulkDevicePatch } from '@/lib/d
 import { callRpc, type RpcResult } from '@/lib/data/rpc';
 import { mapInventoryDevice, mapInventoryPage } from '@/lib/data/mapping';
 import { deviceLabel, type DeviceInput, type DeviceStatus } from '@/lib/domain/types';
-import { getManagedDevice } from '@/lib/data/inventory-management-actions';
 import type { ManagedDevice } from '@/lib/inventory/types';
+
+/**
+ * One machine, whole, as `app_get_inventory_device` returns it.
+ *
+ * Folded in from `inventory-management-actions.ts`, which held a parallel set
+ * of directory and inventory server actions that nothing else in the
+ * application still called: this one function was the last of them with a
+ * caller, and a file kept alive by one import is a second place for the next
+ * person to add an inventory action to.
+ *
+ * `returnDeviceAction` needs it because `app_save_inventory_device` states the
+ * whole record — the return has to read what is there before it can write back
+ * everything except the assignment.
+ */
+async function getManagedDevice(id: string): Promise<ManagedDevice> {
+  const actor = await loadActor();
+  if (actor.kind !== 'active') throw new Error('Sign in again to read the inventory.');
+  const db = await createClient();
+  const { data, error } = await db.rpc('app_get_inventory_device', { p_id: id });
+  if (error) throw new Error(error.message);
+  return data as ManagedDevice;
+}
 
 export interface DeviceSearchResult {
   id: string;

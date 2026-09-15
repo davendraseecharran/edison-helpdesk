@@ -23,7 +23,7 @@ export function useMediaQuery(query: string): boolean {
 }
 
 /** Viewport breakpoints, matching `shell.css`. */
-export const PHONE_QUERY = '(max-width: 719.98px)';
+const PHONE_QUERY = '(max-width: 719.98px)';
 
 export function usePhone(): boolean {
   return useMediaQuery(PHONE_QUERY);

@@ -65,7 +65,7 @@ export function buttonClass({
 /**
  * The one button.
  *
- * `primary` is the brass fill and there should be one per view at most; the
+ * `primary` is the accent fill and there should be one per view at most; the
  * others are quiet. `loading` is the only state that changes the label area:
  * the spinner replaces the icon so the width barely moves.
  *

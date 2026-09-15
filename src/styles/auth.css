@@ -33,7 +33,7 @@
 }
 
 .auth-wordmark:focus-visible {
-  outline: 2px solid var(--accent, var(--brass));
+  outline: 2px solid var(--accent, var(--accent));
   outline-offset: 4px;
   border-radius: 2px;
 }

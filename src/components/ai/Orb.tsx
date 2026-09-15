@@ -4,9 +4,9 @@
  * The assistant's face.
  *
  * A `thinking-orbs` canvas with the moment-to-state map from `orb-state.ts`
- * applied, the theme pinned to what the provider has painted, and a soft
- * brass glow behind it that breathes on its own and swells with the
- * microphone level while listening. Under `prefers-reduced-motion` the
+ * applied, the theme pinned to what the provider has painted, and a soft glow
+ * behind it that breathes on its own and swells with the microphone level
+ * while listening. Under `prefers-reduced-motion` the
  * library draws one still frame and the glow holds still with it.
  *
  * Two sizes exist, and they are different drawings rather than one scaled:

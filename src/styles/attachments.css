@@ -143,8 +143,8 @@
 
 /* The only feedback a drag gets, and the only one it needs. */
 .attachment-drop-over {
-  border-color: var(--brass);
-  background: var(--brass-soft);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .attachment-drop-glyph {
@@ -232,7 +232,7 @@
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: var(--brass);
+  background: var(--accent);
   /* An upload's real progress, smoothed. `--dur-surface` is the longest thing
      the interface does and still short enough that the bar never trails the
      bytes. */
@@ -295,7 +295,7 @@
 }
 
 .lightbox-link {
-  color: var(--signal);
+  color: var(--accent);
   font-size: var(--fs-2);
 }
 

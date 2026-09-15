@@ -29,7 +29,6 @@ import {
 import { useRouter } from 'next/navigation';
 import type { Account } from '@/lib/domain/types';
 import type { ActorAccount } from '@/lib/auth/session';
-import type { AccountRole } from '@/lib/auth/roles';
 import type { ActionResult } from '@/lib/data/actions';
 import type { SavedView } from '@/lib/domain/saved-views';
 import { showToast } from '@/components/ui/shadcn/sonner';
@@ -125,17 +124,6 @@ export function useRuntime(): AppRuntime {
   const runtime = useContext(RuntimeContext);
   if (!runtime) throw new Error('useRuntime must be used inside AppRuntimeProvider');
   return runtime;
-}
-
-/**
- * What the signed-in account may do.
- *
- * Separate from `useActorAccount`, which returns the domain `Account` record
- * and carries only the derived single-value role. A screen deciding what to
- * offer should ask this.
- */
-export function useActorRoles(): AccountRole[] {
-  return useRuntime().actor.roles;
 }
 
 /** The signed-in account, in the shape the approved panels already expect. */

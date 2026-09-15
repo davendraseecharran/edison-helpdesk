@@ -23,7 +23,6 @@ import type {
   Priority,
   RecordEvent,
   RecordTicketRef,
-  Requester,
   Ticket,
   TicketCategory,
   TicketStatus,
@@ -147,20 +146,6 @@ export function mapDirectoryAccount(row: DirectoryRow): Account {
     createdAt: '',
     lastCredentialActionAt: null,
     lastCredentialActionKind: null,
-  };
-}
-
-export function mapRequester(row: {
-  id: string;
-  display_name: string;
-  kind: string;
-  descriptor: string | null;
-}): Requester {
-  return {
-    id: row.id,
-    displayName: row.display_name,
-    kind: row.kind as Requester['kind'],
-    descriptor: row.descriptor,
   };
 }
 
@@ -325,8 +310,6 @@ export function mapPerson(row: PersonJson): Person {
   };
 }
 
-export const mapPersonSummary = mapPerson;
-
 /** `app_inventory_device_json`: one machine, listed or on its own page. */
 export type DeviceJson = Record<string, unknown>;
 
@@ -351,8 +334,6 @@ export function mapInventoryDevice(row: DeviceJson): Device {
     updatedAt: text(row.updatedAt),
   };
 }
-
-export const mapDeviceSummary = mapInventoryDevice;
 
 /** One page of either list RPC: both answer with the same envelope. */
 export interface InventoryPageJson {

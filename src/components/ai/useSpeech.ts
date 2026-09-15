@@ -56,7 +56,7 @@ function subscribeToNothing(): () => void {
 }
 
 /** Whether this browser can take dictation. False on the server and during hydration. */
-export function useSpeechSupported(): boolean {
+function useSpeechSupported(): boolean {
   return useSyncExternalStore(
     subscribeToNothing,
     () => recognitionConstructor() !== null,
@@ -230,7 +230,7 @@ export function useSpeechRecognition({
 }
 
 /** Markdown down to what should be said aloud. */
-export function speakableText(markdown: string): string {
+function speakableText(markdown: string): string {
   return markdown
     .replace(/```[\s\S]*?```/g, ' code omitted ')
     .replace(/`([^`]+)`/g, '$1')

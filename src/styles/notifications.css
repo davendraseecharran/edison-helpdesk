@@ -50,8 +50,8 @@
 }
 
 .notification-unread .notification-glyph {
-  background: var(--brass-soft);
-  color: var(--brass-2);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
 }
 
 .notification-text {
@@ -103,7 +103,7 @@
   width: 8px;
   height: 8px;
   border-radius: 999px;
-  background: var(--brass);
+  background: var(--accent);
 }
 
 .notification-placeholder {

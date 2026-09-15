@@ -66,7 +66,7 @@ export type RestrictionReason =
   | 'denied';
 
 /** Verified auth user for this request, memoised for the render pass. */
-export const currentUser = cache(async (): Promise<User | null> => {
+const currentUser = cache(async (): Promise<User | null> => {
   const supabase = await createClient();
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) return null;
@@ -146,12 +146,6 @@ export async function activeAccount(): Promise<ActorAccount | null> {
 export async function isAdmin(): Promise<boolean> {
   const account = await activeAccount();
   return account?.role === 'admin';
-}
-
-/** Whether the caller may reach tickets at all. False for a pure skills officer. */
-export async function actorCanWorkTickets(): Promise<boolean> {
-  const account = await activeAccount();
-  return account ? canWorkTickets(account.roles) : false;
 }
 
 /**

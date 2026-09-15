@@ -62,7 +62,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: var(--accent, var(--signal));
+  color: var(--accent, var(--accent));
   font: inherit;
   text-decoration: underline;
   text-underline-offset: 2px;

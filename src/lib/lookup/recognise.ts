@@ -45,7 +45,7 @@ export interface Recognition {
 }
 
 /** Nothing was recognised: the text is a search, not an identifier. */
-export function plainText(value: string): Recognition {
+function plainText(value: string): Recognition {
   return { kind: 'text', value, certain: false };
 }
 

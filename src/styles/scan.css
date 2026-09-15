@@ -119,7 +119,7 @@
 
 /* The newest code is the one that just landed in the field. */
 .scan-pairing-code:first-child {
-  background: var(--brass-soft);
+  background: var(--accent-soft);
   color: var(--ink);
 }
 
@@ -206,9 +206,9 @@
   place-items: center;
   width: min(72%, 260px);
   aspect-ratio: 3 / 2;
-  border: 2px solid var(--brass);
+  border: 2px solid var(--accent);
   border-radius: var(--radius-2);
-  color: var(--brass);
+  color: var(--accent);
 }
 
 .scan-phone-placeholder {
@@ -297,7 +297,7 @@
 }
 
 .scan-phone-code:first-child {
-  background: var(--brass-soft);
+  background: var(--accent-soft);
 }
 
 /* Nothing to scan into: no viewfinder, no controls, just what happened. */

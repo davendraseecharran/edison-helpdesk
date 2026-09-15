@@ -79,11 +79,6 @@ export function showToast(kind: ToastKind, text: string): void {
   emit(kind, text, toastDuration(kind));
 }
 
-/** Remove every toast on screen. For a route change that invalidates them. */
-export function clearToasts(): void {
-  sonner.dismiss();
-}
-
 /**
  * The stack.
  *

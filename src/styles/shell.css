@@ -118,9 +118,9 @@
 /*
  * The mark is the name.
  *
- * It replaces a brass square holding a capital E — a boxed initial is the
- * house style of every generated product, and it was the loudest coloured
- * object in the chrome. The wordmark says the same thing in the interface's
+ * It replaces the brass square holding a capital E that the retired palette
+ * put here — a boxed initial is the house style of every generated product,
+ * and it was the loudest coloured object in the chrome. The wordmark says the same thing in the interface's
  * own typeface: "Edison" in medium, "Helpdesk" in regular, one size, tracked
  * in. No colour: the name is not a status.
  */
@@ -191,7 +191,7 @@
 }
 
 .lookup-trigger:focus-visible {
-  border-color: var(--brass);
+  border-color: var(--accent);
   background: var(--surface);
   box-shadow: var(--focus);
 }
@@ -264,8 +264,8 @@
 
 /* The input has no box of its own; the row's lower edge is its focus ring. */
 .palette-input-row:focus-within {
-  border-bottom-color: var(--brass);
-  box-shadow: inset 0 -1px 0 var(--brass);
+  border-bottom-color: var(--accent);
+  box-shadow: inset 0 -1px 0 var(--accent);
 }
 
 .palette-input-icon {
@@ -720,10 +720,11 @@
 
 /*
  * The lamp. On nearly every screen this is the one lit element: the page you
- * are on. It replaces a 3px brass bar hung off the rail's edge, which said
- * the same thing in a way that only worked on this one surface — the light
- * belongs to the row, so the same treatment carries to a queue row, a panel,
- * a field, and reads as one idea rather than four decorations.
+ * are on. It replaces the retired palette's 3px brass bar hung off the rail's
+ * edge, which said the same thing in a way that only worked on this one
+ * surface — the light belongs to the row, so the same treatment carries to a
+ * queue row, a panel, a field, and reads as one idea rather than four
+ * decorations.
  *
  * The surface step is unconditional; the light is lit in lamp.css, which takes
  * it away again while the palette or an approval card is nearer the keyboard.
@@ -828,8 +829,8 @@
 
 /*
  * The phone's lamp. There is no rail down here, so the lit edge is the tab's
- * own top edge — the same brass hairline with the same bloom under it, turned
- * to face into the screen.
+ * own top edge — the same hairline with the same bloom under it, turned to
+ * face into the screen.
  */
 .bottom-tab[aria-current='page']::before {
   content: '';
@@ -839,8 +840,8 @@
   left: 22%;
   height: 3px;
   border-radius: 0 0 2px 2px;
-  background: var(--brass);
-  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--brass) 55%, transparent);
+  background: var(--accent);
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
 .bottom-tab-icon {
@@ -939,14 +940,14 @@
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background: var(--brass);
-  color: var(--brass-ink);
+  background: var(--accent);
+  color: var(--accent-ink);
   cursor: pointer;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .fab-core:hover {
-    background: var(--brass-2);
+    background: var(--accent-hover);
   }
 }
 

@@ -28,13 +28,13 @@ export interface NavItem {
   count?: number;
   /**
    * The count is work waiting for somebody, not a tally of your own. Only
-   * these are set in brass.
+   * these are set in the accent.
    */
   callToAction?: boolean;
 }
 
 /** Rail order. Groups never interleave. */
-export const NAV_GROUPS: NavGroup[] = ['Work', 'Directory', 'Admin'];
+const NAV_GROUPS: NavGroup[] = ['Work', 'Directory', 'Admin'];
 
 /**
  * The primary navigation for a role set, in rail order.
@@ -124,11 +124,11 @@ export function isCurrentPath(pathname: string | null, href: string): boolean {
 /**
  * A live count beside a navigation item.
  *
- * Brass is reserved for a count that is a call to action — the open queue,
- * where somebody is waiting and nobody has claimed them yet. Every other count
- * is a quantity of your own work and is set quiet: five brass pills down one
- * rail stop being a signal and start being a highlighter, and they cost the
- * one brass thing on the screen its meaning.
+ * The accent is reserved for a count that is a call to action — the open
+ * queue, where somebody is waiting and nobody has claimed them yet. Every
+ * other count is a quantity of your own work and is set quiet: five lit pills
+ * down one rail stop being a signal and start being a highlighter, and they
+ * cost the one accented thing on the screen its meaning.
  */
 export function CountPill({ count, callToAction }: { count: number; callToAction?: boolean }) {
   const lit = callToAction && count > 0;
@@ -138,7 +138,7 @@ export function CountPill({ count, callToAction }: { count: number; callToAction
 /**
  * The left rail. Full width with labels from 1024px, icons only with a
  * tooltip between 720 and 1024, and absent below that where `BottomTabs`
- * takes over. The current page gets a brass marker on the rail's edge and
+ * takes over. The current page gets a marker on the rail's edge and
  * `aria-current="page"`.
  */
 export function RailNav({ items }: { items: NavItem[] }) {

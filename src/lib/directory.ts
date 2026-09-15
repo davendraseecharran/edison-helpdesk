@@ -12,8 +12,3 @@ export function nameOf(directory: Account[], id: string | null | undefined): str
   if (!id) return 'Unknown user';
   return directory.find((account) => account.id === id)?.displayName ?? 'Unknown user';
 }
-
-export function accountById(directory: Account[], id: string | null | undefined): Account | null {
-  if (!id) return null;
-  return directory.find((account) => account.id === id) ?? null;
-}

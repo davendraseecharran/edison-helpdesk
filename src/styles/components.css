@@ -523,7 +523,7 @@ input[type='date']::-webkit-datetime-edit-day-field:focus {
 }
 
 .badge-role {
-  background: var(--brass-soft);
+  background: var(--accent-soft);
   color: var(--ink);
 }
 
@@ -545,7 +545,7 @@ input[type='date']::-webkit-datetime-edit-day-field:focus {
 /* --- Avatar, actor ------------------------------------------------------ */
 
 /*
- * Neutral, not brass. An avatar is on screen constantly and says who, not
+ * Neutral, not accented. An avatar is on screen constantly and says who, not
  * what needs doing; tinting it spent part of the one accent on a label that
  * never changes. The initials carry enough weight on their own.
  */
@@ -619,10 +619,6 @@ input[type='date']::-webkit-datetime-edit-day-field:focus {
 
 p.flash {
   padding: 12px 16px;
-}
-
-.flash-text {
-  padding: 6px 0;
 }
 
 .flash-success {
@@ -1403,7 +1399,7 @@ p.flash {
 
 /*
  * Four tabs do not fit across a 390px phone. Wrapping put the second row
- * below the grey rule, so the brass underline of the current tab no longer
+ * below the grey rule, so the underline of the current tab no longer
  * sat on it and the page lost a row of height; the strip scrolls sideways
  * instead. The overflow lives on this one strip, so the page itself still
  * never scrolls sideways, and `overscroll-behavior-x` keeps a flick at the
@@ -1452,8 +1448,8 @@ p.flash {
 
 /*
  * A scroll container clips on both axes, so the application's outset focus
- * ring would be cut off above and below a tab. The same brass ring is drawn
- * inside the tab instead: identical colour and width, nothing to clip.
+ * ring would be cut off above and below a tab. The same ring is drawn inside
+ * the tab instead: identical colour and width, nothing to clip.
  */
 .tab:focus-visible {
   box-shadow: inset var(--focus);
@@ -1812,7 +1808,7 @@ p.flash {
   width: 14px;
   height: 14px;
   margin: 0;
-  accent-color: var(--brass);
+  accent-color: var(--accent);
 }
 
 .role-chip:has(input:checked) {

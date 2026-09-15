@@ -176,12 +176,12 @@
 }
 
 .switch[aria-checked='true'] {
-  border-color: var(--brass-2);
-  background: var(--brass);
+  border-color: var(--accent-hover);
+  background: var(--accent);
 }
 
 .switch[aria-checked='true'] .switch-thumb {
-  background: var(--brass-ink);
+  background: var(--accent-ink);
   transform: translateX(18px);
 }
 

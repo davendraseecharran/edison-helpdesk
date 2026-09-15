@@ -57,7 +57,7 @@ export function requestTime(): number {
 }
 
 /** Parses a `YYYY-MM-DD` key into a local Date at midnight. */
-export function fromDateKey(key: string): Date | null {
+function fromDateKey(key: string): Date | null {
   const match = key.match(DATE_KEY_PATTERN);
   if (!match) return null;
   const year = Number(match[1]);

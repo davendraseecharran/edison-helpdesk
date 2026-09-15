@@ -104,7 +104,7 @@ export function AccountStatusBadge({ status }: { status: AccountStatus }) {
  * anything the district invents on the default one — a word this application
  * has never seen is better plain than miscoloured.
  */
-export function deviceStatusClass(status: DeviceStatus): string {
+function deviceStatusClass(status: DeviceStatus): string {
   const slug = status.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
   return slug ? `device-${slug}` : 'device-no-status';
 }

@@ -113,7 +113,7 @@ h3 {
 }
 
 a {
-  color: var(--signal);
+  color: var(--accent);
   text-decoration: none;
 }
 
@@ -142,9 +142,9 @@ video {
 /*
  * A hairline inside the edge of a photograph, so an attachment sits at the
  * same depth as the bordered things around it and a light screenshot on a
- * light card still has an edge. Pure black on paper and pure white on navy,
- * never a tinted neutral: a tinted ring picks up the surface under the image
- * and reads as dirt along the edge. `outline` takes no space at any offset,
+ * light card still has an edge. Pure black on the light ground and pure white
+ * on the dark one, never a tinted neutral: a tinted ring picks up the surface
+ * under the image and reads as dirt along the edge. `outline` takes no space at any offset,
  * and the negative offset draws it just inside, so it follows the radius.
  *
  * Named, not `img`: the bare selector also rang logos, avatars and any inline
@@ -170,9 +170,9 @@ textarea {
 }
 
 /*
- * One focus indicator for the whole application. The brass ring is drawn as a
- * shadow so it follows the element's own border radius instead of boxing a
- * rounded control in a rectangle.
+ * One focus indicator for the whole application. The ring is drawn as a shadow
+ * so it follows the element's own border radius instead of boxing a rounded
+ * control in a rectangle.
  */
 :focus-visible {
   outline: none;

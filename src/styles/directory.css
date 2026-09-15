@@ -159,7 +159,7 @@
   width: 16px;
   height: 16px;
   margin: 0;
-  accent-color: var(--brass);
+  accent-color: var(--accent);
   cursor: pointer;
 }
 
@@ -169,7 +169,7 @@
 }
 
 .directory .table tbody tr:has(.row-check input:checked) {
-  background: var(--brass-soft);
+  background: var(--accent-soft);
 }
 
 .dir-card-title {
@@ -185,7 +185,7 @@
 }
 
 .row-card:has(.row-check input:checked) {
-  background: var(--brass-soft);
+  background: var(--accent-soft);
 }
 
 /*
@@ -247,14 +247,14 @@
 /*
  * Device statuses. inventory_devices.status is free text the district writes
  * for itself, so the tone is chosen from the word rather than from a closed
- * vocabulary: assigned is the working state, in the signal blue; available is
- * ready, green; repair is the amber of waiting; retired is slate; lost is the
- * one red. A status none of these recognises falls through to the default
+ * vocabulary: assigned is the working state, in the accent; available is
+ * ready; repair is the amber of waiting; retired is slate; lost is the one
+ * red. A status none of these recognises falls through to the default
  * badge tone, which is exactly right for a word this application has never
  * seen before.
  */
 .device-assigned {
-  --badge-tone: var(--signal);
+  --badge-tone: var(--accent);
 }
 
 .device-available {
@@ -330,7 +330,7 @@
 }
 
 .record-email {
-  color: var(--signal);
+  color: var(--accent);
 }
 
 .record-actions {
@@ -601,8 +601,8 @@
 
 .timeline-item[data-kind='assigned'] .timeline-dot,
 .timeline-item[data-kind='device_assigned'] .timeline-dot {
-  border-color: var(--signal);
-  background: var(--signal);
+  border-color: var(--accent);
+  background: var(--accent);
 }
 
 .timeline-item[data-kind='returned'] .timeline-dot,
