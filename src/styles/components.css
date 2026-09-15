@@ -1070,6 +1070,42 @@ p.flash {
   }
 }
 
+/* --- Tooltip ------------------------------------------------------------ */
+
+/*
+ * The late label for an icon-only control. It sits on the overlay step of the
+ * ladder like every other floating surface, and it is the one surface allowed
+ * to be small: one line, no padding worth noticing, gone the moment the
+ * pointer leaves. Same entrance as a menu, because it comes from the same
+ * place -- the control that raised it.
+ */
+.tooltip {
+  z-index: 60;
+  max-width: 260px;
+  padding: 5px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-2);
+  background: var(--overlay);
+  color: var(--ink);
+  font: 400 var(--fs-1) / 1.4 var(--font-sans);
+  box-shadow: var(--shadow-2);
+  transform-origin: var(--radix-tooltip-content-transform-origin);
+}
+
+.tooltip[data-state='delayed-open'],
+.tooltip[data-state='instant-open'] {
+  animation: menu-in var(--dur-hover) var(--ease-out);
+}
+
+.tooltip[data-state='closed'] {
+  animation: menu-out var(--dur-press) var(--ease-out);
+}
+
+/* The one detail a tooltip needs and a menu does not: the shortcut it names. */
+.tooltip .kbd {
+  margin-left: 6px;
+}
+
 /* --- Segmented control -------------------------------------------------- */
 
 /* 4px of inset around a 4px option, so the track's own radius is 8. */

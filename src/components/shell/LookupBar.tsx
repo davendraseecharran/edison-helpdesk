@@ -66,6 +66,18 @@ import { useLookup } from './useLookup';
 /** Dispatched on `window` to open the phone-scanner pairing dialog. `detail.target` names who wants the code. */
 export const OPEN_SCANNER_EVENT = 'edison:open-scanner';
 
+/**
+ * Open the phone-scanner pairing dialog the shell owns.
+ *
+ * The one in the shell is the one with nowhere in particular to put the code:
+ * whatever is scanned is looked up and becomes a machine's page, or the
+ * palette with the code already typed. A field that wants a code for itself
+ * mounts its own dialog, because only that field knows where the code goes.
+ */
+export function openScanner(): void {
+  window.dispatchEvent(new CustomEvent(OPEN_SCANNER_EVENT, { detail: { target: 'lookup' } }));
+}
+
 /** Who the scanner event says wants the code, or null when it did not say. */
 export function readScanTarget(event: Event): string | null {
   const detail = (event as CustomEvent<unknown>).detail;

@@ -14,6 +14,7 @@ import { useRuntime } from '@/components/AppRuntime';
 import { Flash } from '@/components/Primitives';
 import { AiPanel } from '@/components/ai/AiPanel';
 import { ScanPairingDialog } from '@/components/scan/ScanPairingDialog';
+import { TooltipProvider } from '@/components/ui/Tooltip';
 import { announceScannedDevice, ScannedDeviceCard } from '@/components/scan/ScannedDeviceCard';
 import { isEditable, modalOpen, useShortcut } from '@/components/ui/shortcuts';
 import { lookupDeviceCodeAction } from '@/lib/data/device-actions';
@@ -179,42 +180,53 @@ export function AppShell({
   );
 
   return (
-    <div className="shell">
-      <a className="skip-link" href="#main-content">
-        Skip to main content
-      </a>
-      <TopBar
-        unreadNotifications={unreadNotifications}
-        notifyInApp={notifyInApp}
-        onOpenLookup={showLookup}
-        newTicketShortcut={pathname !== '/tickets/new'}
-        homeHref={home}
-        canCreateTickets={ticketWorker}
-      />
-      <RailNav items={items} />
-      <main className="main" id="main-content" tabIndex={-1}>
-        <Flash />
-        {children}
-      </main>
-      <BottomTabs items={items} onOpenLookup={showLookup} canCreateTickets={ticketWorker} />
-      <LookupBar open={lookupOpen} onClose={closeLookup} />
-      {/* The phone as a barcode scanner, for the palette. The first code
+    /* One provider for every tooltip in the application: it is what lets the
+       second one skip the wait the first already served, so a cursor moving
+       along the top bar reads as one gesture rather than five. */
+    <TooltipProvider>
+      <div className="shell">
+        <a className="skip-link" href="#main-content">
+          Skip to main content
+        </a>
+        <TopBar
+          unreadNotifications={unreadNotifications}
+          notifyInApp={notifyInApp}
+          onOpenLookup={showLookup}
+          newTicketShortcut={pathname !== '/tickets/new'}
+          homeHref={home}
+          canCreateTickets={ticketWorker}
+          canScan={ticketWorker}
+        />
+        <RailNav items={items} />
+        <main className="main" id="main-content" tabIndex={-1}>
+          <Flash />
+          {children}
+        </main>
+        <BottomTabs
+          items={items}
+          onOpenLookup={showLookup}
+          canCreateTickets={ticketWorker}
+          canScan={ticketWorker}
+        />
+        <LookupBar open={lookupOpen} onClose={closeLookup} />
+        {/* The phone as a barcode scanner, for the palette. The first code
           closes it and goes to its machine, or to the search when no single
           machine answers to it: two modal surfaces must not be open over each
           other. */}
-      <ScanPairingDialog
-        open={scanOpen}
-        target="lookup"
-        label="Search"
-        onScan={onScanned}
-        onClose={closeScan}
-      />
-      {/* What to do with the machine that was just scanned. Empty until one
+        <ScanPairingDialog
+          open={scanOpen}
+          target="lookup"
+          label="Search"
+          onScan={onScanned}
+          onClose={closeScan}
+        />
+        {/* What to do with the machine that was just scanned. Empty until one
           is, and replaced by the next scan rather than stacking. */}
-      <ScannedDeviceCard />
-      {/* The assistant. Owns its own opening: the toggle, Ctrl/Cmd+J and the
+        <ScannedDeviceCard />
+        {/* The assistant. Owns its own opening: the toggle, Ctrl/Cmd+J and the
           `edison:open-assistant` event all land inside it. */}
-      <AiPanel queueCount={counts.openQueue} />
-    </div>
+        <AiPanel queueCount={counts.openQueue} />
+      </div>
+    </TooltipProvider>
   );
 }

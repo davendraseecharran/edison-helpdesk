@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
-import { ButtonLink } from '@/components/ui/Button';
+import { Plus, QrCode } from 'lucide-react';
+import { Button, ButtonLink } from '@/components/ui/Button';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { AiToggle } from './AiToggle';
-import { LookupTrigger } from './LookupBar';
+import { LookupTrigger, openScanner } from './LookupBar';
 import { NotificationsBell } from './NotificationsBell';
 import { UserMenu } from './UserMenu';
 
@@ -30,6 +31,7 @@ export function TopBar({
   newTicketShortcut = true,
   homeHref = '/queue',
   canCreateTickets = true,
+  canScan = true,
 }: {
   unreadNotifications: number;
   /** The account's `notify_in_app` setting. False hides the bell's count. */
@@ -43,6 +45,8 @@ export function TopBar({
   homeHref?: string;
   /** False for an account that does not work tickets, which hides intake. */
   canCreateTickets?: boolean;
+  /** False for a skills officer, who has no machines to point a camera at. */
+  canScan?: boolean;
 }) {
   return (
     <header className="topbar">
@@ -59,23 +63,55 @@ export function TopBar({
       <div className="topbar-actions">
         {/* Intake is ticket work. A skills officer gets no button for a form
             they would be turned away from. */}
-        {canCreateTickets ? (
-          <ButtonLink
-            href="/tickets/new"
-            variant="primary"
-            icon={Plus}
-            collapseOnPhone
-            // The `n` shortcut AppShell binds lives in the tooltip, not inside the
-            // button: a keycap in a primary control is one more thing to read.
-            title={newTicketShortcut ? 'New ticket (press n)' : undefined}
-          >
-            New ticket
-          </ButtonLink>
-        ) : null}
+        {canCreateTickets ? <NewTicketButton shortcut={newTicketShortcut} /> : null}
         <NotificationsBell unread={unreadNotifications} showCount={notifyInApp} />
+        {/* The phone in a NetRider's pocket is a better barcode reader than
+            anything on the desk, and this is the two-second way to borrow it:
+            a code on screen, a camera pointed at it, and every scan from then
+            on lands in this window. The palette keeps the same action for
+            somebody whose hands are already on the keyboard. */}
+        {canScan ? (
+          <Tooltip label="Scan with your phone">
+            <Button
+              variant="ghost"
+              icon={QrCode}
+              aria-label="Scan with your phone"
+              onClick={openScanner}
+            />
+          </Tooltip>
+        ) : null}
         <AiToggle />
         <UserMenu />
       </div>
     </header>
+  );
+}
+
+/**
+ * The one primary action in the bar.
+ *
+ * The `n` shortcut AppShell binds is named in the tooltip rather than drawn as
+ * a keycap inside the button: a primary control should read as one thing to
+ * do, not as a thing to do and a key to remember. When the shortcut is not
+ * bound -- on the intake form itself -- the tooltip drops to the plain name,
+ * because a tooltip that promises a key that does nothing is worse than none.
+ */
+function NewTicketButton({ shortcut }: { shortcut: boolean }) {
+  return (
+    <Tooltip
+      label={
+        shortcut ? (
+          <>
+            New ticket<kbd className="kbd">n</kbd>
+          </>
+        ) : (
+          'New ticket'
+        )
+      }
+    >
+      <ButtonLink href="/tickets/new" variant="primary" icon={Plus} collapseOnPhone>
+        New ticket
+      </ButtonLink>
+    </Tooltip>
   );
 }
