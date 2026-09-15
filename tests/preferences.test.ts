@@ -147,7 +147,7 @@ describe('preferencePatch', () => {
     });
     expect(preferencePatch({ aiReasoning: 'extreme' as never })).toEqual({
       ok: false,
-      error: 'Choose a reasoning level: high, xhigh or max.',
+      error: 'Choose a reasoning level: low, medium, high, xhigh or max.',
     });
   });
 

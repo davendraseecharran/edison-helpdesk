@@ -1,0 +1,93 @@
+/*
+ * The machine you just scanned, and what to do with it.
+ *
+ * It sits where a toast sits — bottom right on a desktop, above the tabs on a
+ * phone — because it is the same kind of thing: the interface answering
+ * something you just did, in the corner, without taking the page away. The
+ * difference is that this one is asking a question back, so it stays until it
+ * is answered or dismissed.
+ *
+ * It does not animate in. A NetRider checking a cart back in scans twenty
+ * machines in a row, and an entrance charged twenty times is not delight.
+ */
+
+.scan-card {
+  position: fixed;
+  z-index: 60;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  width: min(320px, calc(100vw - 32px));
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-4);
+  background: var(--surface-2);
+  box-shadow: var(--shadow-3);
+}
+
+.scan-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.scan-card-glyph {
+  flex: none;
+  color: var(--ink-3);
+}
+
+.scan-card-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: var(--fs-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scan-card-close {
+  flex: none;
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--radius-1);
+  background: none;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+.scan-card-close:focus-visible {
+  box-shadow: var(--focus);
+  outline: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .scan-card-close:hover {
+    color: var(--ink);
+  }
+}
+
+.scan-card-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.scan-card-done {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+}
+
+/* Above the phone's tab bar, not under it. */
+@media (max-width: 719.98px) {
+  .scan-card {
+    right: 12px;
+    left: 12px;
+    bottom: calc(var(--tabs-h) + 12px);
+    width: auto;
+  }
+}

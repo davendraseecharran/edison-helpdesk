@@ -154,7 +154,7 @@ export function preferencePatch(patch: PreferencePatch): PatchResult {
 
   if (patch.aiReasoning !== undefined) {
     if (!isReasoningEffort(patch.aiReasoning)) {
-      return { ok: false, error: 'Choose a reasoning level: high, xhigh or max.' };
+      return { ok: false, error: 'Choose a reasoning level: low, medium, high, xhigh or max.' };
     }
     out.ai_reasoning = patch.aiReasoning;
   }

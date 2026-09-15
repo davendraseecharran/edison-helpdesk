@@ -231,7 +231,7 @@ describe('account preferences', () => {
       p_patch: { ai_reasoning: 'maximum' },
     });
     expect(reasoning.code).toBe(REJECTED);
-    expect(reasoning.message).toMatch(/low, medium, high or xhigh/i);
+    expect(reasoning.message).toMatch(/low, medium, high, xhigh or max/i);
   });
 
   it('refuses a switch that is not true or false', async () => {

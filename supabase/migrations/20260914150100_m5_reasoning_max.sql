@@ -7,6 +7,11 @@
 -- break every one of those accounts' settings the next time anything saved.
 -- They are simply not offered any more.
 --
+-- The refusal names all five, because it is the DATABASE's answer about what
+-- the column takes. Which three the interface puts in front of somebody is the
+-- interface's own statement, and a refusal that named only those would be
+-- refusing a value it had just accepted.
+--
 -- Two statements, both additive: the column's CHECK widens, and the one
 -- function that writes the column widens with it. The function is replaced
 -- whole rather than patched, because `create or replace` is the only way to
@@ -67,7 +72,7 @@ begin
       pg_catalog.lower(pg_catalog.btrim(coalesce(p_patch ->> 'ai_reasoning', ''))), ''
     );
     if v_reasoning is null or v_reasoning not in ('low', 'medium', 'high', 'xhigh', 'max') then
-      raise exception 'Choose a reasoning level: high, xhigh or max.'
+      raise exception 'Choose a reasoning level: low, medium, high, xhigh or max.'
         using errcode = 'check_violation';
     end if;
     v_row.ai_reasoning := v_reasoning;

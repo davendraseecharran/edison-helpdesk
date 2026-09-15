@@ -166,8 +166,12 @@ async function shoot(page, theme, viewport, slug) {
   // Three unclaimed tickets at different priorities and ages, one of the
   // administrator's own stopped on a reply, and one they are simply working:
   // enough for the ranking to have something to rank.
+  // Three reports of the one dead projector, so the grouped row has something
+  // to group, plus two other problems.
   const unclaimed = [
     ['Projector shows no signal in room 118', 'urgent', 'projector_display'],
+    ['Projector shows no signal in room 118', 'urgent', 'projector_display'],
+    ['Projector shows no signal in room 118', 'high', 'projector_display'],
     ['Cart 3 will not charge overnight', 'high', 'chromebook'],
     ['Wi-Fi drops in the library', 'normal', 'network'],
   ];
@@ -283,6 +287,9 @@ async function shoot(page, theme, viewport, slug) {
         await session.page.keyboard.press('j');
         await session.page.keyboard.press('j');
         await session.page.locator('.today-row[data-focused]').waitFor();
+        // A settled frame, not the first one: in development the stylesheet can
+        // still be arriving, and the lamp is a rule rather than a paint.
+        await session.page.waitForTimeout(300);
         await assertOneLamp(session.page, `${label} /today keyboard`);
         await shoot(session.page, theme, viewport, 'today-keyboard');
 
@@ -297,7 +304,8 @@ async function shoot(page, theme, viewport, slug) {
         await session.page.keyboard.press('Escape');
         await session.page.locator('.palette').waitFor({ state: 'detached' });
 
-        // 4. The queue, driven from the keyboard: the same keys as Today.
+        // 4. The queue, driven from the keyboard, with the three reports of one
+        //    dead projector folded into a single row.
         stage = `${label} queue keyboard`;
         await session.page.goto(`${base}/queue`);
         await settle(session.page);
@@ -308,11 +316,25 @@ async function shoot(page, theme, viewport, slug) {
           .locator('[data-row-key][data-focused]')
           .first()
           .waitFor({ state: 'attached' });
+        await session.page.waitForTimeout(300);
         await assertNoOverflow(session.page, `${label} /queue`);
         await assertOneLamp(session.page, `${label} /queue keyboard`);
         await shoot(session.page, theme, viewport, 'queue-keyboard');
 
-        // 5. The assistant panel, unconnected: the composer is open and typing
+        // 5. Intake: the suggestions read off the sentence, and the duplicate
+        //    warning for a problem that is already open.
+        stage = `${label} intake`;
+        await session.page.goto(`${base}/tickets/new`);
+        await settle(session.page);
+        await session.page.locator('#title').fill('Projector shows no signal in room 118');
+        await session.page
+          .locator('#issue')
+          .fill('Regents testing today and the room projector will not pick up the laptop.');
+        await session.page.waitForTimeout(900);
+        await assertNoOverflow(session.page, `${label} /tickets/new`);
+        await shoot(session.page, theme, viewport, 'intake-suggestions');
+
+        // 6. The assistant panel, unconnected: the composer is open and typing
         //    into it is what opens the connect card.
         stage = `${label} assistant`;
         const toggle = session.page.locator('[data-ai-toggle]');

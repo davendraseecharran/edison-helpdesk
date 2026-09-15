@@ -14,6 +14,7 @@ import { useRuntime } from '@/components/AppRuntime';
 import { Flash } from '@/components/Primitives';
 import { AiPanel } from '@/components/ai/AiPanel';
 import { ScanPairingDialog } from '@/components/scan/ScanPairingDialog';
+import { announceScannedDevice, ScannedDeviceCard } from '@/components/scan/ScannedDeviceCard';
 import { isEditable, modalOpen, useShortcut } from '@/components/ui/shortcuts';
 import { lookupDeviceCodeAction } from '@/lib/data/device-actions';
 import { routeScannedCode } from '@/lib/scan/route';
@@ -77,11 +78,15 @@ export function AppShell({
     (code: string) => {
       void (async () => {
         const route = routeScannedCode(code, await lookupDeviceCodeAction(code));
-        if (route.kind === 'device') router.push(route.href);
+        // A machine in somebody's hand is a thing to DO something with, not a
+        // page to read: the card offers Return, Assign and Open, and Return
+        // happens without leaving wherever they are. Anything the inventory
+        // could not name falls back to the palette as it always did.
+        if (route.kind === 'device') announceScannedDevice({ id: route.id, label: route.label });
         else openLookup(route.query);
       })();
     },
-    [router],
+    [],
   );
 
   useEffect(() => {
@@ -204,6 +209,9 @@ export function AppShell({
         onScan={onScanned}
         onClose={closeScan}
       />
+      {/* What to do with the machine that was just scanned. Empty until one
+          is, and replaced by the next scan rather than stacking. */}
+      <ScannedDeviceCard />
       {/* The assistant. Owns its own opening: the toggle, Ctrl/Cmd+J and the
           `edison:open-assistant` event all land inside it. */}
       <AiPanel queueCount={counts.openQueue} />

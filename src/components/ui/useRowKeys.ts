@@ -30,6 +30,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -70,6 +71,16 @@ export interface RowKeys {
     onKeyDown: (event: ReactKeyboardEvent) => void;
   };
 }
+
+/**
+ * A layout effect in the browser, an ordinary one on the server.
+ *
+ * The stamp below has to land before the paint that shows the focused row, or
+ * there is one frame with two lamps lit — which a capture caught. `useLayoutEffect`
+ * is the hook for that, and it warns during a server render, so the server gets
+ * the harmless one.
+ */
+const useBeforePaint = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 /** A plain press: no modifier, no repeat from a held key, not mid-composition. */
 function isBare(event: KeyboardEvent): boolean {
@@ -121,8 +132,11 @@ export function useRowKeys<Row>({
    * is on a row (`lamp.css`). It is an attribute on `<html>` rather than
    * something the rail could work out for itself, because the rail and the list
    * are in different parts of the tree and neither owns the other.
+   *
+   * Before the paint, not after it: the row lights itself in the same commit,
+   * and an ordinary effect would leave one frame with the rail lit as well.
    */
-  useEffect(() => {
+  useBeforePaint(() => {
     const root = document.documentElement;
     if (focusedKey === null) {
       root.removeAttribute('data-list-focused');

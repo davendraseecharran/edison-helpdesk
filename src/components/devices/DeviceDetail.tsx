@@ -20,7 +20,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { MapPin, Pencil, User } from 'lucide-react';
 import type { ActionResult } from '@/lib/data/actions';
 import {
@@ -109,8 +109,23 @@ export function DeviceDetail({
   // not available here; the move dialog offers the one it has plus free text.
   const locations = device.location ? [device.location] : [];
 
+  const searchParams = useSearchParams();
   const [editing, setEditing] = useState(false);
-  const [dialog, setDialog] = useState<DeviceDialog>(null);
+
+  /*
+   * A dialog asked for by the URL.
+   *
+   * The card that follows a scan offers Assign, and assigning needs a person,
+   * which needs this page. `?do=assign` carries the intent across the
+   * navigation so the scan is still one press: the dialog is open when the page
+   * arrives rather than waiting behind a second button.
+   *
+   * Read once, on mount, and only for a value this page knows.
+   */
+  const [dialog, setDialog] = useState<DeviceDialog>(() => {
+    const asked = searchParams?.get('do') ?? null;
+    return asked === 'assign' || asked === 'return' ? asked : null;
+  });
 
   const assignKey = `assign:${device.id}`;
   const returnKey = `return:${device.id}`;
