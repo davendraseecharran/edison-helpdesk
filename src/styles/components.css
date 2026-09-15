@@ -1739,3 +1739,38 @@ p.flash {
 .role-chip:has(input:disabled):not(:has(input:checked)) {
   opacity: 0.6;
 }
+
+/* --- Touch targets ------------------------------------------------------ */
+
+/*
+ * Forty-four pixels, on anything a finger presses.
+ *
+ * The controls in this product are measured for a pointer: a 36px button and a
+ * 36px select trigger are the right density beside a table, and a 36px menu row
+ * is the right rhythm in a list of eight. None of those is a target a thumb can
+ * hit reliably, and at 390 every one of them is being hit by a thumb — the
+ * filter bar is selects, the More sheet and every menu is rows, and the toast's
+ * dismiss is a 32px icon button in the corner of a message.
+ *
+ * So the phone raises the floor rather than the height: `min-height` leaves the
+ * padding, the type and the borders exactly where they are and only refuses to
+ * let a control be shorter than a fingertip, which means a size that was
+ * already taller — the large submit, a 48px palette row — is untouched.
+ */
+@media (max-width: 719.98px) {
+  .btn {
+    min-height: 44px;
+  }
+
+  .btn-icon {
+    min-width: 44px;
+  }
+
+  .select-trigger {
+    height: 44px;
+  }
+
+  .menu-item {
+    min-height: 44px;
+  }
+}
