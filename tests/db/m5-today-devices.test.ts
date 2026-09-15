@@ -120,7 +120,14 @@ describe('app_today_briefing devices due back', () => {
   });
 
   it('lists a machine whose staff holder has been archived', async () => {
-    const left = await seedRequester('staff', { archived_at: daysAgo(30) });
+    // Named, not left to the harness default: `directory-inventory` asserts
+    // the exact list a search for "Synthetic Staff" returns, and a fixture
+    // here that answered to it broke a suite that has nothing to do with this
+    // one. What this test is about is `archived_at`, not the name.
+    const left = await seedRequester('staff', {
+      display_name: 'Marisol Vance (archived)',
+      archived_at: daysAgo(30),
+    });
     const id = await seedDue({
       assigned_requester_id: left.id,
       status: 'Assigned',
