@@ -16,7 +16,9 @@
  * What stays ours: the markup inside, every class, and the motion — the
  * backdrop fades while the panel scales up or slides in from its edge, on the
  * same durations and curves as before, now in CSS against `data-state` so
- * Radix can hold the unmount until the exit has finished.
+ * Radix can hold the unmount until the exit has finished. That hold is per
+ * portal child, which is why nothing is allowed to sit between the portal and
+ * these two — see the note on `DialogContent`.
  */
 
 import * as React from 'react';
@@ -63,20 +65,27 @@ function DialogContent({
   kind?: 'dialog' | 'sheet';
 }) {
   return (
+    /*
+     * Two children, and no wrapper between them and the portal.
+     *
+     * Radix wraps *each* portal child in its own `Presence`, and a `Presence`
+     * whose element has no animation resolves to `UNMOUNT` the moment `open`
+     * turns false. A plain layer div here therefore took the backdrop and the
+     * panel down with it on the same frame, and `scrim-out`, `dialog-out` and
+     * `sheet-right-out` never ran. Each half is its own portal child now, so
+     * each holds its own unmount until its own exit has played; the fixed
+     * layer they used to share is on them instead, in `components.css`.
+     */
     <DialogPortal>
-      {/* The layer both halves live in. It is always mounted and takes no
-          pointer events of its own, so it cannot swallow a press once the
-          surface inside it has gone. */}
-      <div className="overlay" data-kind={kind}>
-        <DialogOverlay />
-        <DialogPrimitive.Content
-          data-slot="dialog-content"
-          className={cn('overlay-panel', className)}
-          {...props}
-        >
-          {children}
-        </DialogPrimitive.Content>
-      </div>
+      <DialogOverlay />
+      <DialogPrimitive.Content
+        data-slot="dialog-content"
+        data-kind={kind}
+        className={cn('overlay-panel', className)}
+        {...props}
+      >
+        {children}
+      </DialogPrimitive.Content>
     </DialogPortal>
   );
 }

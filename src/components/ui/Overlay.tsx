@@ -80,6 +80,20 @@ export function Overlay({
     .join(' ')
     .trim();
 
+  /*
+   * Radix names the panel by its title and warns when nothing describes it.
+   * Its documented way to say "there is nothing more to add" is an explicit
+   * `aria-describedby={undefined}`, which removes the attribute it would
+   * otherwise point at its own description node. A hidden empty description is
+   * not that: it leaves the pointer in place aimed at a node with no text, and
+   * a reader that follows it hears the title and then silence.
+   *
+   * Spread rather than written as a prop, because to JSX `aria-describedby=
+   * {undefined}` and leaving the prop out are the same thing, and the surface
+   * that does have a description needs Radix's own value.
+   */
+  const undescribed = description ? {} : { 'aria-describedby': undefined };
+
   return (
     <Dialog
       open={open}
@@ -87,18 +101,16 @@ export function Overlay({
         if (!next) onClose();
       }}
     >
-      <DialogContent kind={kind} className={panelClass} onOpenAutoFocus={focusPreferred}>
+      <DialogContent
+        kind={kind}
+        className={panelClass}
+        onOpenAutoFocus={focusPreferred}
+        {...undescribed}
+      >
         <header className={hideTitle ? 'overlay-head overlay-head-quiet' : 'overlay-head'}>
           <div className="overlay-head-text">
             <DialogTitle className={hideTitle ? 'visually-hidden' : undefined}>{title}</DialogTitle>
-            {description ? (
-              <DialogDescription>{description}</DialogDescription>
-            ) : (
-              /* Radix names the panel by its title and warns when it has no
-                 description; a hidden empty one is the documented way to say
-                 "there is nothing more to add" without inventing copy. */
-              <DialogDescription className="visually-hidden" />
-            )}
+            {description ? <DialogDescription>{description}</DialogDescription> : null}
           </div>
           <DialogClose asChild>
             <Button variant="ghost" icon={X} aria-label="Close" />

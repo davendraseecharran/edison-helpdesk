@@ -644,14 +644,15 @@ p.flash {
 
 /* --- Overlays: sheet and dialog ----------------------------------------- */
 
+/*
+ * The wrapper the hand-animated surfaces (`SpringSurface`, so the palette)
+ * render their two halves into. It positions nothing: a backdrop and a panel
+ * each place themselves, because the Radix surfaces have no wrapper at all —
+ * anything between the portal and those two would be given its own `Presence`
+ * and would take them down before their exit could play.
+ */
 .overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: flex;
-  /* The layer is always in the document; only the two things inside it come
-     and go. It must therefore catch nothing itself, or a press after a dialog
-     has closed would land on an invisible sheet of glass. */
+  display: contents;
   pointer-events: none;
 }
 
@@ -666,8 +667,9 @@ p.flash {
  * above it.
  */
 .overlay-backdrop {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  z-index: 50;
   background: var(--scrim);
   -webkit-backdrop-filter: var(--scrim-blur);
   backdrop-filter: var(--scrim-blur);
@@ -680,7 +682,8 @@ p.flash {
  * shadow only says how far away it is.
  */
 .overlay-panel {
-  position: relative;
+  position: fixed;
+  z-index: 50;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--line-strong);
@@ -765,9 +768,10 @@ p.flash {
 }
 
 .sheet-right {
+  top: 0;
+  right: 0;
   width: min(440px, 100%);
   height: 100dvh;
-  margin-left: auto;
   border-radius: var(--radius-4) 0 0 var(--radius-4);
 }
 
@@ -777,6 +781,9 @@ p.flash {
  * tall it may grow, the safe area under it, and the corner radius.
  */
 .sheet-bottom {
+  right: 0;
+  bottom: 0;
+  left: 0;
   max-height: min(88dvh, 720px);
   padding-bottom: env(safe-area-inset-bottom);
   border-radius: var(--radius-4) var(--radius-4) 0 0;
@@ -794,11 +801,18 @@ p.flash {
   backdrop-filter: var(--scrim-blur);
 }
 
+/*
+ * Centred on its own, rather than by a flex parent that no longer exists.
+ * `translate` is its own property, so the entrance and exit keyframes can go
+ * on scaling the panel without having to restate where it sits.
+ */
 .dialog {
+  top: 50%;
+  left: 50%;
   width: min(480px, calc(100% - 32px));
   max-height: calc(100dvh - 32px);
-  margin: auto;
   border-radius: var(--radius-4);
+  translate: -50% -50%;
 }
 
 .overlay-head {
