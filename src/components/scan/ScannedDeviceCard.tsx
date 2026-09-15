@@ -28,7 +28,6 @@ import { Laptop, X } from 'lucide-react';
 import { useRuntime } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
-import { useReducedMotion } from '@/components/ui/media';
 import { returnDeviceAction } from '@/lib/data/device-actions';
 import { devicePath } from '@/lib/scan/route';
 import { say } from '@/lib/voice/moments';
@@ -59,7 +58,6 @@ export function readScannedDevice(event: Event): ScannedDevice | null {
 export function ScannedDeviceCard() {
   const { pendingKey, run } = useRuntime();
   const router = useRouter();
-  const reduced = useReducedMotion();
   const [device, setDevice] = useState<ScannedDevice | null>(null);
   /** The machine that was just put back, for the line that marks it. */
   const [returned, setReturned] = useState<string | null>(null);
@@ -104,7 +102,10 @@ export function ScannedDeviceCard() {
       </div>
 
       {returned ? (
-        <p className={reduced ? 'scan-card-done' : 'scan-card-done voice-mark'}>{returned}</p>
+        /* No mark. A cart check-in is a hundred of these in an afternoon, and
+           the mark is for the rare win: docs/VOICE.md gives it to a cleared
+           queue and a resolved ticket, and to nothing else. */
+        <p className="scan-card-done">{returned}</p>
       ) : (
         <div className="scan-card-actions">
           <Button

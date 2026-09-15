@@ -123,8 +123,18 @@ const COPY: Record<MomentId, MomentCopy> = {
       '{subject} closed. {count} still open.',
     ],
   },
+  /*
+   * Flat on purpose, and the last line names nothing: a claim made from a
+   * notification or the palette does not always have a number in hand, and a
+   * moment whose every line needs one would render "  is yours."
+   */
   'ticket.claimed': {
-    lines: ['{subject} is yours.', 'You own {subject}.', '{subject} claimed.'],
+    lines: [
+      '{subject} is yours.',
+      'You own {subject}.',
+      '{subject} claimed.',
+      'You own this ticket.',
+    ],
   },
   'device.returned': {
     lines: [

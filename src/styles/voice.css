@@ -57,8 +57,10 @@
  * second end to end, and it takes no pointer events at any point, so a fast
  * connection is never a page you cannot click.
  *
- * Pure CSS on purpose. A script that removes it could fail to run and leave a
- * sheet over the application; `animation-fill-mode: forwards` cannot.
+ * Removed by CSS on purpose. A script that removes it could fail to run and
+ * leave a sheet over the application; `animation-fill-mode: forwards` cannot.
+ * The one script involved stamps `data-boot-seen` before the element is
+ * painted, and it can only suppress the moment, never end it.
  */
 .boot-lamp {
   position: fixed;
@@ -69,6 +71,11 @@
   background: var(--bg);
   pointer-events: none;
   animation: boot-lamp-out var(--boot-lamp) var(--ease-out) forwards;
+}
+
+/* Seen already this session: a reload is not the application arriving again. */
+:root[data-boot-seen] .boot-lamp {
+  display: none;
 }
 
 .boot-lamp-mark {

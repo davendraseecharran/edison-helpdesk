@@ -33,6 +33,7 @@ import type { AccountRole } from '@/lib/auth/roles';
 import type { ActionResult } from '@/lib/data/actions';
 import type { SavedView } from '@/lib/domain/saved-views';
 import { showToast } from '@/components/ui/shadcn/sonner';
+import { say } from '@/lib/voice/moments';
 import type { ToastKind } from '@/components/ui/toast';
 
 export interface AppRuntime {
@@ -90,11 +91,18 @@ export function AppRuntimeProvider({
           // what actually committed, including changes made by other people.
           startTransition(() => router.refresh());
         } else {
-          notify('error', result.error ?? 'That change could not be saved.');
+          // The database says what happened whenever it can. `error.generic` is
+          // the line for when it cannot: it says the same two things every
+          // unexplained failure has to say — it did not go through, and nothing
+          // changed. The seeds pin the variant so the generic error is not a
+          // different sentence each time it happens.
+          notify('error', result.error ?? say('error.generic', { seed: 0 }));
         }
         return result;
       } catch {
-        const error = 'That change could not be saved. Check your connection and try again.';
+        // A request that never arrived is the one case where "check your
+        // connection" is advice rather than noise.
+        const error = say('error.generic', { seed: 2 });
         notify('error', error);
         return { ok: false, error };
       } finally {

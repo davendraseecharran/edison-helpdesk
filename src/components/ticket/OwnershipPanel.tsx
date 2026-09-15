@@ -43,7 +43,7 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
   );
 
   async function onClaim() {
-    await run(`claim:${ticket.id}`, () => claimTicketAction(ticket.id));
+    await run(`claim:${ticket.id}`, () => claimTicketAction(ticket.id, ticket.number));
   }
 
   /*

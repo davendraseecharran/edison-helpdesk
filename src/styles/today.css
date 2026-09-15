@@ -10,11 +10,11 @@
  * product. Everything below it, and every list on every other screen, is
  * instant.
  *
- * The entrance never plays twice in a session. A CSS animation runs the moment
- * the element is painted, so the suppression has to be in place before that: a
- * blocking inline script stamps `data-today-seen` on the document element on a
- * reload, and a layout effect does the same before the first paint of a
- * client-side navigation. Both read the same session flag.
+ * The entrance never plays twice in a session. A layout effect in `TodayScreen`
+ * stamps `data-today-seen` on the document element before the first paint of a
+ * client-side navigation, reading a `sessionStorage` flag it sets the first
+ * time. A full document load still plays it, and should: a reload is the
+ * application arriving, the same moment the bench lamp is drawn for.
  *
  * Tokens only, and no colour except where colour is information: a priority
  * that is above normal, and the single accent on the one action the screen is
@@ -51,6 +51,22 @@
 }
 
 .today-stage:nth-child(3) {
+  animation-delay: calc(var(--today-step) * 2);
+}
+
+/*
+ * Two sections are pinned rather than counted.
+ *
+ * "Devices due back" appears only when there are machines due, so the position
+ * of everything after it moves. Pinning the two keeps the budget: three groups,
+ * the last landing at 300ms, whether or not the fourth section is on screen.
+ * The machines rise with the list they sit under.
+ */
+.today-stage.today-due {
+  animation-delay: var(--today-step);
+}
+
+.today-stage.today-ledger {
   animation-delay: calc(var(--today-step) * 2);
 }
 
@@ -442,4 +458,16 @@
   .today-keys {
     display: none;
   }
+}
+
+/* --- Devices due back ---------------------------------------------------- */
+
+/*
+ * The same rows as "Needs you", under their own heading and their own count.
+ * Nothing new is styled here: a machine due back is a row with a name, a
+ * holder, an age and one button, which the list already knows how to draw.
+ */
+.today-due-lead {
+  margin: -4px 0 12px;
+  font-size: var(--fs-1);
 }

@@ -17,6 +17,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { loadActor } from '@/lib/auth/session';
+import { say } from '@/lib/voice/moments';
 
 export interface ActionResult {
   ok: boolean;
@@ -103,8 +104,13 @@ export async function createTicketAction(fields: CreateTicketFields): Promise<Ac
   );
 }
 
-export async function claimTicketAction(ticketId: string): Promise<ActionResult> {
-  return runRpc('app_claim_ticket', { p_ticket: ticketId }, 'You own this ticket.');
+/**
+ * `number` is the readable ticket number, used only to name the ticket in the
+ * confirmation. Every caller that has one passes it; the moment falls back to
+ * its own unnamed line for the ones that do not.
+ */
+export async function claimTicketAction(ticketId: string, number?: string): Promise<ActionResult> {
+  return runRpc('app_claim_ticket', { p_ticket: ticketId }, say('ticket.claimed', { subject: number }));
 }
 
 /**
@@ -304,15 +310,17 @@ export async function logWorkAction(
   );
 }
 
+/**
+ * No message. Resolving is the one moment the interface says something rather
+ * than confirming something, and the line that names the win needs the ticket
+ * number, so `ResolvePanel` raises it (`ticket.resolved`). A message here would
+ * be a second toast saying less.
+ */
 export async function resolveTicketAction(
   ticketId: string,
   solution: string,
 ): Promise<ActionResult> {
-  return runRpc(
-    'app_resolve_ticket',
-    { p_ticket: ticketId, p_solution: solution },
-    'Ticket resolved.',
-  );
+  return runRpc('app_resolve_ticket', { p_ticket: ticketId, p_solution: solution });
 }
 
 export async function reopenTicketAction(ticketId: string, reason: string): Promise<ActionResult> {

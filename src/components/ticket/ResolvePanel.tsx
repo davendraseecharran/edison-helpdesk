@@ -6,6 +6,7 @@ import { canResolveTicket } from '@/lib/domain/permissions';
 import { draftSolution } from '@/lib/domain/resolution';
 import { resolveTicketAction } from '@/lib/data/actions';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
+import { say } from '@/lib/voice/moments';
 import { Field } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
 import { revealControl, useTicketIntent } from './TicketActionBar';
@@ -18,7 +19,7 @@ import '@/styles/lists.css';
  * ticket is still active; `SolutionPanel` shows the outcome afterwards.
  */
 export function ResolvePanel({ detail }: { detail: TicketDetail }) {
-  const { pendingKey, run } = useRuntime();
+  const { notify, pendingKey, run } = useRuntime();
   const actor = useActorAccount();
   const [solution, setSolution] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +52,15 @@ export function ResolvePanel({ detail }: { detail: TicketDetail }) {
     const result = await run(key, () => resolveTicketAction(ticket.id, solution));
     if (result.ok) {
       setSolution('');
+      /*
+       * The one line that names the win.
+       *
+       * A closed ticket is the rare moment this application says something
+       * rather than confirming something, so the toast carries the moment
+       * rather than "Ticket resolved." — which is why `resolveTicketAction`
+       * hands back no message of its own. See docs/VOICE.md.
+       */
+      notify('success', say('ticket.resolved', { subject: ticket.number }));
     } else {
       setError(result.error ?? 'That change could not be saved.');
     }

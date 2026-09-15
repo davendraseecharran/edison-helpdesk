@@ -119,7 +119,9 @@ export function TicketActionBar({ detail }: { detail: TicketDetail }) {
           variant="primary"
           disabled={busy}
           loading={pendingKey === `claim:${ticket.id}`}
-          onClick={() => void run(`claim:${ticket.id}`, () => claimTicketAction(ticket.id))}
+          onClick={() =>
+            void run(`claim:${ticket.id}`, () => claimTicketAction(ticket.id, ticket.number))
+          }
         >
           Claim ticket
         </Button>,

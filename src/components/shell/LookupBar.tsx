@@ -326,7 +326,7 @@ function Palette({
         notify('error', `Ticket ${number} was not found. Check the number and try again.`);
         return;
       }
-      const result = await run(`claim:${hit.id}`, () => claimTicketAction(hit.id));
+      const result = await run(`claim:${hit.id}`, () => claimTicketAction(hit.id, number));
       if (result.ok) router.push(hit.href);
     },
     [onClose, findTicket, notify, run, router],

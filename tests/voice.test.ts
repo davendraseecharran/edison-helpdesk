@@ -142,3 +142,31 @@ describe('isFridayAfternoon', () => {
     expect(isFridayAfternoon({})).toBe(false);
   });
 });
+
+describe('the moments that are wired to a real path', () => {
+  it('names the ticket that was closed', () => {
+    // The resolve toast is the one line that marks a win, and every variant of
+    // it has to be able to say which ticket.
+    expect(say('ticket.resolved', { subject: 'EDT-1042' })).toContain('EDT-1042');
+  });
+
+  it('says something usable when a claim has no number in hand', () => {
+    // A claim from a notification or the palette does not always carry the
+    // number; without a line that names nothing, this renders " is yours."
+    const line = say('ticket.claimed');
+    expect(line).not.toMatch(/\{|^\s|\s\s/);
+    expect(line.length).toBeGreaterThan(0);
+  });
+
+  it('still names the ticket when the number is there', () => {
+    expect(say('ticket.claimed', { subject: 'EDT-1042' })).toContain('EDT-1042');
+  });
+
+  it('gives the generic error the same sentence every time it happens', () => {
+    // The runtime pins the variant by seed: an unexplained failure that reads
+    // differently on each attempt looks like three different failures.
+    expect(say('error.generic', { seed: 0 })).toBe(say('error.generic', { seed: 0 }));
+    expect(say('error.generic', { seed: 0 })).toContain('Nothing changed');
+    expect(say('error.generic', { seed: 2 })).toContain('connection');
+  });
+});

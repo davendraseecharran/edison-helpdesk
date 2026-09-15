@@ -69,15 +69,21 @@ Two rules matter more than the wording:
 
 ## Motion, for the two moments that get it
 
-`queue.cleared` and `ticket.resolved` may animate once: opacity and eight pixels
-over 300ms on `--ease-out` (`.voice-mark` in `src/styles/voice.css`). Nothing
-else in the voice moves. Under `prefers-reduced-motion` the line is simply
-there.
+`queue.cleared` and `ticket.resolved` are the two moments allowed to arrive
+rather than appear. `queue.cleared` wears `.voice-mark` on Today: opacity and
+eight pixels over 300ms on `--ease-out` (`src/styles/voice.css`).
+`ticket.resolved` is a toast, so its entrance is the stack's own and it wears no
+mark of its own. Nothing else in the voice moves — a device coming back is a
+hundred-a-day action during a cart check-in and gets its line with no animation
+at all. Under `prefers-reduced-motion` the line is simply there.
 
 The other signature is the lamp (`.boot-lamp`): one second at the start of a
 session, the wordmark with `--edge-light`'s ring drawing itself around it, then
 both gone. The lamp carries no colour — it is a ring a step stronger than a
 hairline and a soft drop, the same lift that means "your next keystroke acts on
-this" everywhere else. It is rendered by the authenticated layout, so it plays
-on a real page load and never on an in-app navigation, and it is pure CSS so no
-failed script can leave it on screen.
+this" everywhere else. It is rendered by the authenticated layout, so it
+never plays on an in-app navigation, and once per browsing session: one line of
+script stamps `data-boot-seen` before the element is painted, which is the only
+moment early enough to suppress an animation. That script can only ever hide the
+lamp. Taking it away is still pure CSS, so no failed script can leave it on
+screen.

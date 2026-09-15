@@ -134,7 +134,7 @@ export function TicketListView({
 
   const onClaim = useCallback(
     async (ticket: Ticket) => {
-      await run(`claim:${ticket.id}`, () => claimTicketAction(ticket.id));
+      await run(`claim:${ticket.id}`, () => claimTicketAction(ticket.id, ticket.number));
     },
     [run],
   );
