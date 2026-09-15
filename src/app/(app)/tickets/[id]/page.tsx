@@ -86,6 +86,12 @@ export default async function TicketDetailPage({
         </div>
       </header>
 
+      {/* Above 720px this sticks under the top bar; the phone's copy is at the
+          foot of the page, pinned over the tabs. One of the two is on screen at
+          a time and the other is `display: none`, so neither is announced
+          twice. */}
+      <TicketActionBar detail={detail} placement="top" />
+
       <div className="ticket-grid">
         <div className="ticket-column">
           <SolutionPanel detail={detail} />

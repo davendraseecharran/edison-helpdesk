@@ -29,6 +29,14 @@ export default function Loading() {
           </div>
         </header>
 
+        {/* Above 720px the real page pins the ticket's actions here, so the
+            skeleton reserves the same strip and the cards below it do not jump
+            up by sixty pixels when the ticket lands. */}
+        <div className="ticket-sticky-bar" aria-hidden="true">
+          <Skeleton width={104} height={36} />
+          <Skeleton width={128} height={36} />
+        </div>
+
         <div className="ticket-grid">
           <div className="ticket-column">
             <SkeletonPanel title={128} lines={4} />

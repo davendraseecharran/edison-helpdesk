@@ -528,6 +528,16 @@
   .ticket-grid > .ticket-column:nth-child(2) > .panel + .panel {
     border-top: 1px solid var(--line);
   }
+
+  /*
+   * A ticket with actions has a sticky bar above this column, so the column
+   * stops under it rather than sliding beneath it. 61px is the bar: 12px of
+   * padding either side of a 36px button, plus its rule.
+   */
+  .ticket:has(.ticket-sticky-bar) .ticket-grid > .ticket-column:nth-child(2) {
+    top: calc(var(--topbar-h) + 61px + 16px);
+    max-height: calc(100dvh - var(--topbar-h) - 61px - 32px);
+  }
 }
 
 .ticket-issue {
@@ -907,6 +917,39 @@
 .ticket-bar,
 .ticket-bar-space {
   display: none;
+}
+
+/*
+ * The desktop bar: what this ticket is for, where the eye already is.
+ *
+ * On a long ticket Resolve sat about nine hundred pixels down a page of seven
+ * co-equal cards, so the one thing somebody opened the ticket to do was the
+ * last thing they could reach. The same actions the phone pins over its tabs
+ * are pinned here under the top bar instead, directly beneath the title they
+ * act on.
+ *
+ * It is sticky rather than fixed, so it belongs to the page and scrolls with
+ * it until it reaches the bar; and it carries the page's own ground rather
+ * than a surface, so it reads as the top of the page staying put rather than
+ * as a floating toolbar. Hidden below 720, where the phone's copy takes over.
+ */
+.ticket-sticky-bar {
+  display: none;
+}
+
+@media (min-width: 720px) {
+  .ticket-sticky-bar {
+    position: sticky;
+    top: var(--topbar-h);
+    z-index: 20;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding: 12px 0;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+  }
 }
 
 @media (max-width: 719.98px) {

@@ -1,14 +1,26 @@
 'use client';
 
 /**
- * The phone action bar and the intent channel behind it.
+ * The ticket's action bar, and the intent channel behind it.
  *
- * On phones the detail page stacks, so the primary action for the ticket's
- * state (claim, resolve, return, reopen) is pinned above the bottom tabs. The
- * bar never has its own forms: claim and return call the same server actions
- * the panels call, and resolve and reopen hand off to the panel that owns the
- * form by dispatching an intent, which that panel answers by revealing and
- * focusing its field. Above 720px the stylesheet hides the bar entirely.
+ * One list of actions — claim, resume, return, resolve, reopen — for the
+ * ticket's current state and this account's rights, rendered in two places and
+ * shown in one at a time. On a phone the page stacks, so the bar is pinned
+ * above the bottom tabs where the thumb is. Above 720px it sticks under the top
+ * bar instead, because on a long ticket Resolve was nine hundred pixels down a
+ * page of seven cards: the one thing somebody came to do was the last thing
+ * they could reach.
+ *
+ * Two copies rather than one moved: each breakpoint's version is `display:
+ * none` in the other, which takes it out of the accessibility tree as well as
+ * off the screen, and the alternative — one element that changes position — is
+ * a bar that has to be both at the top of the document for `sticky` and at the
+ * end of it for the phone's spacer.
+ *
+ * The bar never has its own forms: claim and return call the same server
+ * actions the panels call, and resolve and reopen hand off to the panel that
+ * owns the form by dispatching an intent, which that panel answers by
+ * revealing and focusing its field.
  */
 
 import { useEffect, useRef } from 'react';
@@ -88,11 +100,21 @@ export function revealControl(element: HTMLElement | null): void {
 }
 
 /**
- * The bar itself, plus the in-flow spacer that reserves room for it at the
- * end of the page. Both are hidden above 720px; both exist only when there is
- * an action to offer, so a page without a bar keeps its normal bottom edge.
+ * The bar, in one of its two places.
+ *
+ * `placement="bottom"` is the phone's: fixed above the tabs, with the in-flow
+ * spacer that reserves room for it at the end of the page. `placement="top"`
+ * is the desktop's: sticky under the top bar, no spacer, because it is in the
+ * flow where it is drawn. Either exists only when there is an action to offer,
+ * so a ticket nobody may act on keeps its normal edges.
  */
-export function TicketActionBar({ detail }: { detail: TicketDetail }) {
+export function TicketActionBar({
+  detail,
+  placement = 'bottom',
+}: {
+  detail: TicketDetail;
+  placement?: 'top' | 'bottom';
+}) {
   const { pendingKey, run } = useRuntime();
   const actor = useActorAccount();
   const ticket = detail.ticket;
@@ -166,6 +188,14 @@ export function TicketActionBar({ detail }: { detail: TicketDetail }) {
   }
 
   if (actions.length === 0) return null;
+
+  if (placement === 'top') {
+    return (
+      <div className="ticket-sticky-bar" role="group" aria-label="Ticket actions">
+        {actions}
+      </div>
+    );
+  }
 
   return (
     <>
