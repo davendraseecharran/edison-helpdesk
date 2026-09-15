@@ -695,6 +695,23 @@ p.flash {
   letter-spacing: var(--tracking-heading);
 }
 
+/*
+ * The same title, as a real heading. A 404 is the one empty state that is the
+ * whole page rather than a panel's contents, so its line is an `h1` and takes
+ * the focus when the page arrives — see `NotFoundHeading`. No ring: focus here
+ * is a cursor being placed, not a control being reached, and a ring around a
+ * heading nobody pressed reads as an error of its own.
+ */
+.empty-title-heading {
+  display: block;
+  font-size: var(--fs-4);
+}
+
+.empty-title-heading:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 .empty-body {
   max-width: 48ch;
   margin: 0 auto;
