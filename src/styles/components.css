@@ -158,6 +158,26 @@
   .btn-danger:hover:not(:disabled):not([aria-disabled='true']) {
     background: var(--bad-soft);
   }
+
+  /*
+   * A destructive action that is one of many on a screen.
+   *
+   * `.btn-danger` is right for the one irreversible thing a view is about, and
+   * wrong the moment there is one per row: a column of red outlines reads as a
+   * screen full of warnings rather than a list of records. This is the same
+   * action, quiet at rest — a ghost among its neighbours — and destructive
+   * under the pointer and under the keyboard, with the outlined button waiting
+   * in the dialog the press opens. The rule stays: at most one destructive
+   * primary per view, and it is the one that actually does the thing.
+   */
+  .btn-ghost.btn-danger-quiet:hover:not(:disabled):not([aria-disabled='true']) {
+    background: var(--bad-soft);
+    color: var(--bad);
+  }
+}
+
+.btn-ghost.btn-danger-quiet:focus-visible {
+  color: var(--bad);
 }
 
 .btn-sm {

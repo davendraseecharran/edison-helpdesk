@@ -43,6 +43,9 @@ export function AccessScreen({
   const { pendingKey, run } = useRuntime();
   const [approving, setApproving] = useState<AdminAccountView | null>(null);
   const [approveRoles, setApproveRoles] = useState<AccountRole[]>(['netrider']);
+  // The account a "Deactivate" press is asking about. The press opens the
+  // question; the dialog is where the destructive answer lives.
+  const [deactivating, setDeactivating] = useState<AdminAccountView | null>(null);
   // Which account's role chips are open, and what has been ticked in them.
   // Held here rather than in the cell so the table can rerender freely.
   const [editing, setEditing] = useState<{ id: string; roles: AccountRole[] } | null>(null);
@@ -214,12 +217,20 @@ export function AccessScreen({
               </>
             ) : null}
             {account.status === 'active' ? (
+              /*
+               * Quiet, because there is one of these on every active row and a
+               * column of red outlines reads as a screen full of warnings
+               * rather than a list of colleagues. The danger is not removed,
+               * it is moved: the tone arrives under the pointer, and the
+               * confirm dialog this opens carries the destructive button.
+               */
               <Button
-                variant="danger"
+                variant="ghost"
                 size="sm"
+                className="btn-danger-quiet"
                 disabled={busy}
                 loading={pendingKey === `status:${account.id}`}
-                onClick={() => void onStatus(account, 'inactive')}
+                onClick={() => setDeactivating(account)}
               >
                 Deactivate
               </Button>
@@ -324,6 +335,38 @@ export function AccessScreen({
             somebody does more than one job; you can change this later.
           </span>
         </div>
+      </Dialog>
+
+      <Dialog
+        open={deactivating !== null}
+        onClose={() => setDeactivating(null)}
+        title="Deactivate this account?"
+        description={
+          deactivating
+            ? `${deactivating.displayName} (${deactivating.email}) will be signed out of every open session and will not be able to sign in again until an administrator reactivates the account.`
+            : undefined
+        }
+        footer={
+          <>
+            <Button onClick={() => setDeactivating(null)}>Cancel</Button>
+            <Button
+              variant="danger"
+              loading={deactivating !== null && pendingKey === `status:${deactivating.id}`}
+              onClick={async () => {
+                if (!deactivating) return;
+                await onStatus(deactivating, 'inactive');
+                setDeactivating(null);
+              }}
+            >
+              Deactivate
+            </Button>
+          </>
+        }
+      >
+        <p className="muted">
+          Everything they have written stays where it is, under their name: tickets they own, notes
+          they added and the history they are in are all preserved.
+        </p>
       </Dialog>
     </div>
   );
