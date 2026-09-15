@@ -83,8 +83,14 @@ export interface NeedItem {
   key: string;
   /** What this row is about, as a heading. */
   title: string;
-  /** The identifier and the person, as one quiet line. */
+  /** The person this is about, as one quiet line. */
   subtitle: string;
+  /**
+   * What state the row is in, in the fewest words that are true. A waiting
+   * ticket says why it is waiting rather than that it is waiting: "Waiting on
+   * the vendor" beside "Waiting on a reply" is the same fact twice.
+   */
+  state: string;
   /** The ticket number, where there is one. */
   number: string | null;
   /** Where opening this row goes. */
@@ -142,12 +148,11 @@ function ticketNeed(
     kind,
     key: `${kind}:${ticket.id}`,
     title: ticket.title,
-    subtitle:
-      count > 1
-        ? `${count} tickets`
-        : kind === 'waiting' && ticket.waitingReason
-          ? `${who}, ${ticket.waitingReason}`
-          : who,
+    subtitle: count > 1 ? `${count} tickets` : who,
+    state:
+      kind === 'waiting'
+        ? (ticket.waitingReason ?? NEED_LABELS.waiting)
+        : NEED_LABELS[kind],
     number: count > 1 ? null : ticket.number,
     href: `/tickets/${ticket.id}`,
     since: ticket.since,
@@ -208,6 +213,7 @@ export function needsYou(briefing: Briefing): NeedItem[] {
       key: `access:${request.id}`,
       title: request.name,
       subtitle: request.email,
+      state: NEED_LABELS.access,
       number: null,
       href: '/admin',
       since: request.createdAt,

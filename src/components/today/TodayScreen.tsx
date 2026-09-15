@@ -40,7 +40,6 @@ import { useNow } from '@/lib/useNow';
 import type { ListAction } from '@/lib/lists/keys';
 import {
   briefingSentence,
-  NEED_LABELS,
   needsCount,
   needsYou,
   nextBestAction,
@@ -265,7 +264,7 @@ export function TodayScreen({
                           easiest thing on this screen to delete. */}
                       <span>{item.subtitle}</span>
                       {item.claimable ? null : (
-                        <span className="today-row-kind">{NEED_LABELS[item.kind]}</span>
+                        <span className="today-row-kind">{item.state}</span>
                       )}
                       {item.priority === 'urgent' || item.priority === 'high' ? (
                         <span className="today-row-flag" data-priority={item.priority}>

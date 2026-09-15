@@ -119,9 +119,15 @@ describe('needsYou', () => {
     expect(list.find((item) => item.kind === 'waiting')?.claimable).toBe(false);
   });
 
-  it('names the reason a ticket of yours is stopped', () => {
+  it('says why a ticket of yours is stopped rather than that it is stopped', () => {
     const list = needsYou(briefing({ waiting: [ticket('1', 'normal', '2026-09-01T08:00:00Z', 'waiting')] }));
-    expect(list[0].subtitle).toBe('Nia Okonkwo, Waiting on the vendor');
+    expect(list[0].subtitle).toBe('Nia Okonkwo');
+    expect(list[0].state).toBe('Waiting on the vendor');
+  });
+
+  it('falls back to the plain state when no reason was given', () => {
+    const stopped = { ...ticket('1', 'normal', '2026-09-01T08:00:00Z', 'waiting'), waitingReason: null };
+    expect(needsYou(briefing({ waiting: [stopped] }))[0].state).toBe('Waiting on a reply');
   });
 
   it('says so when a ticket has no requester on it', () => {

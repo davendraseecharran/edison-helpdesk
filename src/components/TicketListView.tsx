@@ -439,7 +439,30 @@ export function TicketListView({
         label="Ticket filters"
         active={filtersActive}
         clearHref={pathname}
-        summary={busy ? 'Loading' : `${total} ${total === 1 ? 'ticket' : 'tickets'}`}
+        summary={
+          busy ? (
+            'Loading'
+          ) : (
+            <>
+              {/* The keys, written where they are pressed. A shortcut nobody
+                  can see is a shortcut nobody uses, and a help page nobody
+                  opens is not where it becomes visible. */}
+              {rows.length > 0 ? (
+                <span className="queue-keys" aria-hidden="true">
+                  <kbd className="kbd">j</kbd>
+                  <kbd className="kbd">k</kbd> move
+                  <kbd className="kbd">o</kbd> open
+                  {allowClaim ? (
+                    <>
+                      <kbd className="kbd">c</kbd> claim
+                    </>
+                  ) : null}
+                </span>
+              ) : null}
+              {`${total} ${total === 1 ? 'ticket' : 'tickets'}`}
+            </>
+          )
+        }
       >
         <div className="queue-filters">
           <Field label="Search" htmlFor="queue-search" className="field-search">

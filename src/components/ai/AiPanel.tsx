@@ -149,15 +149,6 @@ export function AiPanel({
   const [conversationsError, setConversationsError] = useState<string | null>(null);
   const [unread, setUnread] = useState(false);
 
-  /** One setter, so nothing can change the draft without keeping it. */
-  const setDraft = useCallback(
-    (value: string) => {
-      setDraftState(value);
-      writeDraft(actor.id, value);
-    },
-    [actor.id],
-  );
-
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -252,6 +243,25 @@ export function AiPanel({
    */
   const view: View = requestedView;
   const showConnectInline = needsConnection && connectInline && view === 'chat';
+
+  /**
+   * One setter, so nothing can change the draft without keeping it — and so the
+   * first keystroke against an unconnected assistant is what opens the
+   * connection card.
+   *
+   * The keystroke rather than the submit: somebody typing a question into a
+   * panel that cannot send it should find out while they are typing, not when
+   * they press Enter. It never re-opens a card that was closed; that was a
+   * decision, and the hint above the composer is the way back.
+   */
+  const setDraft = useCallback(
+    (value: string) => {
+      setDraftState(value);
+      writeDraft(actor.id, value);
+      if (value.trim() !== '' && needsConnection && !connectDismissed) setConnectInline(true);
+    },
+    [actor.id, needsConnection, connectDismissed],
+  );
 
   const moment: Moment = speech.listening ? 'listening' : speaker.speaking ? 'speaking' : chat.moment;
 
