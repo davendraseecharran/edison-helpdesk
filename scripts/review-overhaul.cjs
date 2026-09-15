@@ -223,6 +223,17 @@ async function assertOneLamp(page, where) {
 
 /** Wait for the streaming skeletons to be replaced by the real thing. */
 async function settle(page) {
+  // The arrival first. A fresh browser context has an empty `sessionStorage`,
+  // so the one-second boot ceremony plays on that context's first document
+  // load — and Today is the first route of the walk, which meant every
+  // `*-today.png` was a photograph of the wordmark on an empty ground rather
+  // than of Today. The sheet ends itself in CSS (`animation-fill-mode:
+  // forwards` to `visibility: hidden`), so waiting for it to be hidden is
+  // enough; a context that has already seen it renders nothing to wait for.
+  await page
+    .locator('.boot-lamp')
+    .waitFor({ state: 'hidden', timeout: 4000 })
+    .catch(() => {});
   await page.locator('main').first().waitFor();
   await page
     .waitForFunction(() => document.querySelectorAll('.skeleton').length === 0, null, { timeout: 8000 })
@@ -478,6 +489,10 @@ async function shoot(page, theme, viewport, slug) {
         await settle(session.page);
         await session.page.keyboard.press('Control+k');
         await session.page.locator('.palette-list [cmdk-item][data-selected="true"]').first().waitFor();
+        // `.rail-link` transitions `box-shadow` over `--dur-hover`, so the rail
+        // is still fading its lamp out in the frame the palette appears in.
+        // Measuring there reads two lamps where the settled screen has one.
+        await session.page.waitForTimeout(400);
         const litWithPalette = await litElements(session.page);
         if (litWithPalette.length !== 1 || !litWithPalette[0].includes('cmdk-item')) {
           problems.push(`${label} palette open: lamp on ${litWithPalette.join(', ') || 'nothing'}`);
@@ -489,6 +504,12 @@ async function shoot(page, theme, viewport, slug) {
 
         // The assistant, unconnected: the mark in the top bar on wide screens,
         // the Ask tab on a phone. Both open the same panel.
+        //
+        // What an unconnected panel shows is the welcome — the orb, a line and
+        // the example questions. Connecting moved inline: typing while
+        // disconnected opens it inside the composer and keeps the draft, so
+        // `.ai-connect` is no longer what greets somebody who has never
+        // connected. Either is a settled panel, so either ends the wait.
         stage = `${label} assistant`;
         await session.page.goto(`${base}/queue`);
         await settle(session.page);
@@ -496,7 +517,7 @@ async function shoot(page, theme, viewport, slug) {
         if (await toggle.first().isVisible()) await toggle.first().click();
         else await session.page.getByRole('button', { name: 'Ask', exact: true }).click();
         await session.page.locator('.ai-panel').waitFor();
-        await session.page.locator('.ai-connect').waitFor();
+        await session.page.locator('.ai-welcome, .ai-connect').first().waitFor();
         await session.page.waitForTimeout(500);
         await assertNoOverflow(session.page, `${label} assistant panel`);
         await assertOneLamp(session.page, `${label} assistant panel`);
