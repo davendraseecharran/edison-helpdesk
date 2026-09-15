@@ -343,7 +343,9 @@
  */
 .queue-peek {
   position: absolute;
-  top: calc(100% + 6px);
+  /* Clear of the row below rather than resting on its hairline: the gap is
+     what says this is a panel above the table and not the next row's text. */
+  top: calc(100% + 12px);
   left: 0;
   z-index: 3;
   display: -webkit-box;
@@ -372,8 +374,21 @@
   }
 }
 
+/*
+ * The pointer asks the ROW, not the title.
+ *
+ * Hung off `.queue-cell-title:hover`, the peek appeared and vanished as the
+ * pointer crossed the few words of the title and disappeared the moment it
+ * reached the requester's name underneath — a panel that flickered on its way
+ * to somewhere else. A row is one thing to a reader, so it is one hover
+ * target: anywhere on the row shows what that ticket says, and nothing shows
+ * it for longer than the pointer is on the row.
+ *
+ * Keyboard focus keeps its own rule above, because focus lands on the link
+ * rather than on the row.
+ */
 @media (min-width: 1024px) and (hover: hover) and (pointer: fine) {
-  .queue-cell-title:hover .queue-peek {
+  .table tbody tr:hover .queue-peek {
     opacity: 1;
   }
 }
