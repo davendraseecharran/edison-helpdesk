@@ -114,8 +114,12 @@ export function PersonForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    const result: ActionResult = await run(key, () =>
-      savePersonAction({ ...draft, id: person?.id ?? null, version: person?.version ?? null }),
+    const result: ActionResult = await run(
+      key,
+      () => savePersonAction({ ...draft, id: person?.id ?? null, version: person?.version ?? null }),
+      // The message lands beside the field it names, or at the foot of the
+      // form; a toast saying it again pulls the eye away from the answer.
+      { inlineError: true },
     );
     if (result.ok) {
       onSaved(result.id ?? person?.id ?? '');

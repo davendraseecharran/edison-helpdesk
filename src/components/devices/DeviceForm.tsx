@@ -94,8 +94,11 @@ export function DeviceForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    const result: ActionResult = await run(key, () =>
-      saveDeviceAction({ ...draft, id: device?.id ?? null, version: device?.version ?? null }),
+    const result: ActionResult = await run(
+      key,
+      () => saveDeviceAction({ ...draft, id: device?.id ?? null, version: device?.version ?? null }),
+      // Shown beside the field it names; a toast repeating it competes with it.
+      { inlineError: true },
     );
     if (result.ok) {
       onSaved(result.id ?? device?.id ?? '');

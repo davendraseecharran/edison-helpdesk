@@ -47,7 +47,22 @@ export interface AppRuntime {
   pendingKey: string | null;
   /** Show a message outside `run()`, for example after a client-side check. */
   notify: (kind: ToastKind, text: string) => void;
-  run: (key: string, action: () => Promise<ActionResult>) => Promise<ActionResult>;
+  /**
+   * Run one server action with the shared busy guard, refresh on success, and
+   * report the outcome.
+   *
+   * `inlineError` is for a caller that shows the failure itself, beside the
+   * field it belongs to. The same sentence in two places at once is not twice
+   * as clear: the toast draws the eye away from the field it is about, and it
+   * leaves five seconds later while the real message stays, so the reader is
+   * told twice and then told nothing. Success is still announced — there is no
+   * field for "saved" to appear beside.
+   */
+  run: (
+    key: string,
+    action: () => Promise<ActionResult>,
+    options?: { inlineError?: boolean },
+  ) => Promise<ActionResult>;
 }
 
 const RuntimeContext = createContext<AppRuntime | null>(null);
@@ -75,7 +90,11 @@ export function AppRuntimeProvider({
   const notify = useCallback((kind: ToastKind, text: string) => showToast(kind, text), []);
 
   const run = useCallback(
-    async (key: string, action: () => Promise<ActionResult>): Promise<ActionResult> => {
+    async (
+      key: string,
+      action: () => Promise<ActionResult>,
+      options?: { inlineError?: boolean },
+    ): Promise<ActionResult> => {
       if (busy.current) {
         return { ok: false, error: 'Another change is saving. Try again in a moment.' };
       }
@@ -95,13 +114,17 @@ export function AppRuntimeProvider({
           // unexplained failure has to say — it did not go through, and nothing
           // changed. The seeds pin the variant so the generic error is not a
           // different sentence each time it happens.
-          notify('error', result.error ?? say('error.generic', { seed: 0 }));
+          if (!options?.inlineError) {
+            notify('error', result.error ?? say('error.generic', { seed: 0 }));
+          }
         }
         return result;
       } catch {
         // A request that never arrived is the one case where "check your
         // connection" is advice rather than noise.
         const error = say('error.generic', { seed: 2 });
+        // A request that never arrived has no field to belong to, so this one
+        // is announced even when the caller places its own errors.
         notify('error', error);
         return { ok: false, error };
       } finally {

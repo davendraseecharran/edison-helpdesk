@@ -34,11 +34,18 @@
   left: 12px;
 }
 
+/*
+ * The bottom padding is the toast stack's room, not decoration: the stack sits
+ * 24px off the bottom-right corner, so a page whose content ends at the edge
+ * would end underneath a message. 112px clears one toast and its offset with a
+ * margin, which is what the last row of a table needs to stay pressable while
+ * something is being said about the last thing that was pressed.
+ */
 .main {
   grid-column: 2;
   grid-row: 2;
   min-width: 0;
-  padding: 24px 24px 48px;
+  padding: 24px 24px 112px;
 }
 
 /* The skip link lands here; a ring around the whole page would be noise. */

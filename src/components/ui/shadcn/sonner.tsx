@@ -95,7 +95,11 @@ export function Toaster() {
       position={toastPosition(phone)}
       visibleToasts={TOAST_LIMIT}
       gap={8}
-      offset={16}
+      // Clear of the page's own bottom edge. At 16 the stack sat over whatever
+      // the last row of a table held — on Administration, the Deactivate button
+      // of the final account — and `.main` reserves the matching room below its
+      // content so a page scrolled to the end never ends underneath a message.
+      offset={24}
       // On a phone the stack starts below the top bar rather than on top of
       // it: a message that lasts five seconds should not take the brand and
       // every action in the bar with it.
