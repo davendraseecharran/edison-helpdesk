@@ -191,6 +191,7 @@
  * alone: one busy control on a screen of settings, not five.
  */
 .switch[aria-busy='true'],
+.switch[aria-disabled='true'],
 .switch:disabled {
   cursor: default;
   opacity: 0.6;

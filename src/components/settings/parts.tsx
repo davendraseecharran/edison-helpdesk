@@ -143,15 +143,23 @@ export function PreferenceSwitch({
         ) : null}
       </div>
       <div className="setting-row-control">
-        {/* While this switch's own save is in flight it keeps focus and
-            ignores presses; a save started by another control leaves it
-            alone. `disabled` is Radix's and is real: an aria-disabled button
-            still takes a press. */}
+        {/*
+          * While this switch's own save is in flight it keeps focus and
+          * ignores presses; a save started by another control leaves it alone.
+          *
+          * `aria-disabled` rather than `disabled`, because a focused element
+          * that becomes `disabled` is not focused any more — the browser hands
+          * focus back to `<body>`, so every keyboard toggle threw the caret
+          * out of the settings list for as long as the save took and left it
+          * at the top of the page afterwards. The press it still takes is
+          * refused in `toggle`, which is where the rule belongs: the switch is
+          * not unavailable, it is busy with the last press.
+          */}
         <Switch
           checked={on}
-          disabled={saving}
           aria-labelledby={labelId}
           aria-describedby={hint ? hintId : undefined}
+          aria-disabled={saving || undefined}
           aria-busy={saving || undefined}
           onCheckedChange={() => void toggle()}
         />
