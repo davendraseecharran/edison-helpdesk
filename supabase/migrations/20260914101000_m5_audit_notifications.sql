@@ -194,7 +194,7 @@ begin
     )
     select
       f.source, f.id, f.at, f.actor_id,
-      -- Joined rather than read through app_account_label(): the caller is an
+      -- Joined rather than rendered through a helper: the caller is an
       -- administrator, who may already read every account row, and an audit line
       -- whose actor rendered as nobody would be worse than useless.
       act.display_name,

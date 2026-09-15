@@ -1,10 +1,9 @@
 /**
  * A dependency-free RFC 4180 CSV writer.
  *
- * The mirror of `src/lib/import/csv.ts`, which reads. Anything this module
- * writes is readable by `parseCsv` and comes back the same, which is the
- * property the backup screen depends on: an export the owner keeps is only
- * worth keeping if it can be read again.
+ * Anything this module writes comes back the same through any reader that keeps
+ * to the standard, which is the property the backup screen depends on: an
+ * export the owner keeps is only worth keeping if it can be read again.
  *
  * What it promises:
  *   * a field holding a comma, a quote, a line ending, or leading or trailing
@@ -13,7 +12,7 @@
  *     "undefined" — a blank cell is what a missing value looks like in a
  *     spreadsheet, and it survives a round trip through the reader;
  *   * records end with CRLF, which is what RFC 4180 asks for and what Excel
- *     writes; the reader folds every line ending back to `\n` anyway;
+ *     writes; a reader folds every line ending back to `\n` anyway;
  *   * a Date is written as its ISO instant, and an object or array as JSON, so
  *     a jsonb column exports as something a person can still read.
  *

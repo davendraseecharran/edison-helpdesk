@@ -17,10 +17,18 @@
  * session that clearly cannot, not the security boundary.
  *
  * Second, the table name is matched against a fixed list and the matched
- * CONSTANT is used, never the caller's string. The list is the fifteen tables
+ * CONSTANT is used, never the caller's string. The list is the fourteen tables
  * that hold the desk's own records; the credential, notification, preference
  * and attachment tables are deliberately absent, because a backup of them would
  * be a copy of secrets rather than a copy of records.
+ *
+ * Two of the fourteen are read through an RPC rather than the table. The
+ * district's `inventory_devices` and `inventory_events` carry row-level
+ * security with NO policies and every privilege revoked from `authenticated`:
+ * the whole inventory is reached by bounded SECURITY DEFINER function, and a
+ * backup is one more bounded read. `app_backup_rows` and `app_backup_count`
+ * (20260914130100) are that read, and they state the same administrator-only
+ * gate in their own bodies. No policy the owner wrote is loosened here.
  *
  * Third, the reads are paged. PostgREST caps a single response (`max_rows`, a
  * thousand locally and on the hosted project), so a `select *` that looks like
@@ -54,6 +62,12 @@ interface TableSpec {
    * export keeps the most recent rows rather than an arbitrary thousand.
    */
   order: readonly string[];
+  /**
+   * True for the two tables with row-level security and no policies, which a
+   * session client cannot read at all. Those go through `app_backup_rows` and
+   * `app_backup_count`, which order the same way this list says.
+   */
+  definer?: boolean;
 }
 
 const TABLES = {
@@ -87,20 +101,22 @@ const TABLES = {
     note: 'Machines described at the desk, whether or not they are in inventory.',
     order: ['recorded_at', 'id'],
   },
-  people: {
+  requesters: {
     label: 'People',
     note: 'The directory: students and staff, with contact details.',
     order: ['created_at', 'id'],
   },
-  devices: {
+  inventory_devices: {
     label: 'Devices',
-    note: 'The inventory: tags, serials, models and status.',
-    order: ['created_at', 'id'],
+    note: 'The inventory: tags, serials, models, status and who holds each one.',
+    order: ['imported_at', 'id'],
+    definer: true,
   },
-  device_assignments: {
-    label: 'Device assignments',
-    note: 'Who has which machine, and who had it before.',
-    order: ['assigned_at', 'id'],
+  inventory_events: {
+    label: 'Inventory history',
+    note: 'A before and after snapshot of every change to a person or a machine.',
+    order: ['at', 'id'],
+    definer: true,
   },
   ticket_devices: {
     label: 'Devices linked to tickets',
@@ -119,18 +135,13 @@ const TABLES = {
   },
   record_events: {
     label: 'People and device history',
-    note: 'Every change to people, devices, invites and imports.',
+    note: 'The sentence a person reads for every change to a person or a machine.',
     order: ['at', 'id'],
   },
   account_invites: {
     label: 'Invites',
     note: 'Addresses invited, the role offered, and what became of each.',
     order: ['created_at', 'id'],
-  },
-  import_runs: {
-    label: 'Imports',
-    note: 'Every spreadsheet import and what it changed.',
-    order: ['at', 'id'],
   },
 } as const satisfies Record<string, TableSpec>;
 
@@ -162,13 +173,59 @@ function isBackupTable(name: string): name is BackupTableName {
   return Object.prototype.hasOwnProperty.call(TABLES, name);
 }
 
+type SessionClient = Awaited<ReturnType<typeof createClient>>;
+
+/**
+ * How many rows one table holds, or null when it could not be read.
+ *
+ * "Could not be read" and "empty" are different answers, and only one of them
+ * means the backup is complete, so a failure is never reported as zero.
+ */
+async function countRows(
+  supabase: SessionClient,
+  name: BackupTableName,
+  spec: TableSpec,
+): Promise<number | null> {
+  if (spec.definer) {
+    const { data, error } = await supabase.rpc('app_backup_count', { p_table: name });
+    return error ? null : Number(data ?? 0);
+  }
+  const { count, error } = await supabase.from(name).select('*', { count: 'exact', head: true });
+  return error ? null : (count ?? 0);
+}
+
+/** One page of one table, newest first, or the message that says why not. */
+async function readPage(
+  supabase: SessionClient,
+  name: BackupTableName,
+  spec: TableSpec,
+  offset: number,
+  size: number,
+): Promise<{ rows?: Record<string, unknown>[]; error?: string }> {
+  if (spec.definer) {
+    const { data, error } = await supabase.rpc('app_backup_rows', {
+      p_table: name,
+      p_limit: size,
+      p_offset: offset,
+    });
+    if (error) return { error: error.message };
+    return { rows: (data ?? []) as Record<string, unknown>[] };
+  }
+
+  let query = supabase.from(name).select('*');
+  for (const column of spec.order) {
+    query = query.order(column, { ascending: false });
+  }
+  const { data, error } = await query.range(offset, offset + size - 1);
+  if (error) return { error: error.message };
+  return { rows: (data ?? []) as Record<string, unknown>[] };
+}
+
 /**
  * The tables and their sizes.
  *
  * One head request per table — `count(*)` with no rows returned — so opening the
- * screen costs fifteen counts rather than fifteen table reads. A count that
- * fails comes back as null rather than zero: "could not be read" and "empty"
- * are different answers, and only one of them means the backup is complete.
+ * screen costs fourteen counts rather than fourteen table reads.
  */
 export async function loadBackupTablesAction(): Promise<BackupTableView[]> {
   const actor = await loadActor();
@@ -179,14 +236,12 @@ export async function loadBackupTablesAction(): Promise<BackupTableView[]> {
 
   return Promise.all(
     names.map(async (table) => {
-      const { count, error } = await supabase
-        .from(table)
-        .select('*', { count: 'exact', head: true });
+      const spec: TableSpec = TABLES[table];
       return {
         table,
-        label: TABLES[table].label,
-        note: TABLES[table].note,
-        rowCount: error ? null : (count ?? 0),
+        label: spec.label,
+        note: spec.note,
+        rowCount: await countRows(supabase, table, spec),
       };
     }),
   );
@@ -214,7 +269,7 @@ export async function exportTableCsvAction(table: string): Promise<BackupCsvResu
 
   // The matched constant, not the caller's string.
   const name: BackupTableName = table;
-  const spec = TABLES[name];
+  const spec: TableSpec = TABLES[name];
   const supabase = await createClient();
 
   const rows: Record<string, unknown>[] = [];
@@ -223,25 +278,19 @@ export async function exportTableCsvAction(table: string): Promise<BackupCsvResu
   let reachedEnd = false;
   for (let offset = 0; offset < CSV_ROW_CAP && !reachedEnd; offset += READ_PAGE) {
     const size = Math.min(READ_PAGE, CSV_ROW_CAP - offset);
-    let query = supabase.from(name).select('*');
-    for (const column of spec.order) {
-      query = query.order(column, { ascending: false });
+    const page = await readPage(supabase, name, spec, offset, size);
+    if (page.error !== undefined) {
+      return { ok: false, error: `${spec.label} could not be read: ${page.error}` };
     }
-    const { data, error } = await query.range(offset, offset + size - 1);
-    if (error) {
-      return { ok: false, error: `${spec.label} could not be read: ${error.message}` };
-    }
-    const page = (data ?? []) as Record<string, unknown>[];
-    rows.push(...page);
-    reachedEnd = page.length < size;
+    rows.push(...(page.rows ?? []));
+    reachedEnd = (page.rows ?? []).length < size;
   }
 
   // Only a run that filled the cap needs a total: every other one already read
   // the whole table, so a second count would answer a question just settled.
   let total = rows.length;
   if (!reachedEnd) {
-    const { count } = await supabase.from(name).select('*', { count: 'exact', head: true });
-    total = count ?? rows.length;
+    total = (await countRows(supabase, name, spec)) ?? rows.length;
   }
   const capped = !reachedEnd && total > rows.length;
 

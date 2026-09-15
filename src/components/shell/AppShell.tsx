@@ -15,6 +15,8 @@ import { Flash } from '@/components/Primitives';
 import { AiPanel } from '@/components/ai/AiPanel';
 import { ScanPairingDialog } from '@/components/scan/ScanPairingDialog';
 import { isEditable, modalOpen, useShortcut } from '@/components/ui/shortcuts';
+import { lookupDeviceCodeAction } from '@/lib/data/device-actions';
+import { routeScannedCode } from '@/lib/scan/route';
 import type { QueueCounts } from '@/lib/data/tickets';
 import { BottomTabs } from './BottomTabs';
 import {
@@ -60,7 +62,27 @@ export function AppShell({
   // code goes; this one exists because the palette has no field to ask.
   const [scanOpen, setScanOpen] = useState(false);
   const closeScan = useCallback(() => setScanOpen(false), []);
-  const onScanned = useCallback((code: string) => openLookup(code), []);
+
+  /*
+   * A code from the paired phone goes to its machine.
+   *
+   * The inventory is asked first, by exact match on the three things printed
+   * on a machine. One answer and the operator is already on that machine's
+   * page, which is what they were holding it to find out about. No answer — or
+   * two, which the lookup reports as none on purpose — falls back to the
+   * palette with the code in the field, where the recogniser can make of it
+   * what it can.
+   */
+  const onScanned = useCallback(
+    (code: string) => {
+      void (async () => {
+        const route = routeScannedCode(code, await lookupDeviceCodeAction(code));
+        if (route.kind === 'device') router.push(route.href);
+        else openLookup(route.query);
+      })();
+    },
+    [router],
+  );
 
   useEffect(() => {
     function onScanner(event: Event) {
@@ -172,8 +194,9 @@ export function AppShell({
       <BottomTabs items={items} onOpenLookup={showLookup} canCreateTickets={ticketWorker} />
       <LookupBar open={lookupOpen} onClose={closeLookup} />
       {/* The phone as a barcode scanner, for the palette. The first code
-          closes it and searches: the code IS the search, and two modal
-          surfaces must not be open over each other. */}
+          closes it and goes to its machine, or to the search when no single
+          machine answers to it: two modal surfaces must not be open over each
+          other. */}
       <ScanPairingDialog
         open={scanOpen}
         target="lookup"

@@ -213,6 +213,13 @@ export async function recordDeviceAction(
     serialNumber?: string;
     assetTag?: string;
     identifiersNotApplicable?: boolean;
+    /**
+     * The inventory record this observation was made about, when the machine
+     * was chosen from the picker rather than described from scratch. Null for
+     * a machine the district does not own, which the desk still has to be able
+     * to write down.
+     */
+    inventoryDeviceId?: string | null;
   },
 ): Promise<ActionResult> {
   return runRpc(
@@ -225,6 +232,7 @@ export async function recordDeviceAction(
       p_serial_number: device.serialNumber ?? null,
       p_asset_tag: device.assetTag ?? null,
       p_identifiers_not_applicable: device.identifiersNotApplicable ?? false,
+      p_inventory_device_id: device.inventoryDeviceId ?? null,
     },
     'Device recorded.',
   );

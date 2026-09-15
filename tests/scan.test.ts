@@ -8,6 +8,7 @@ import {
   scanPath,
   shouldSend,
 } from '../src/lib/scan/relay';
+import { devicePath, routeScannedCode } from '../src/lib/scan/route';
 
 const ID = '2fae5f6b-0f9b-4a1e-9c9e-6b1d2f0a7c33';
 
@@ -128,5 +129,60 @@ describe('shouldSend', () => {
 
   it('waits a second and a half', () => {
     expect(DEDUPE_WINDOW_MS).toBe(1500);
+  });
+});
+
+/**
+ * Where a scanned code goes.
+ *
+ * The decision itself, with no camera, no palette and no database in it: given
+ * a code and what `app_lookup_inventory_code` made of it, either the machine's
+ * page or the search field. Both scanners — the palette's camera and the
+ * paired phone — call this, so they cannot drift apart.
+ */
+describe('routeScannedCode', () => {
+  const MATCH = { id: '2fae5f6b-0f9b-4a1e-9c9e-6b1d2f0a7c33', label: 'DOE-LN0000001' };
+
+  it('opens the machine when exactly one answers to the code', () => {
+    expect(routeScannedCode('DOE-LN0000001', MATCH)).toEqual({
+      kind: 'device',
+      id: MATCH.id,
+      label: MATCH.label,
+      href: `/devices/${MATCH.id}`,
+    });
+  });
+
+  it('falls back to the search when no machine answers to it', () => {
+    expect(routeScannedCode('9051234567', null)).toEqual({
+      kind: 'search',
+      query: '9051234567',
+    });
+  });
+
+  /**
+   * The lookup returns nothing for a code that names TWO machines, on purpose:
+   * a scanner has nobody to ask which one is in the operator's hand. That
+   * arrives here as no match, and it has to end in the search rather than in a
+   * guess.
+   */
+  it('falls back to the search for an ambiguous code, which arrives as no match', () => {
+    expect(routeScannedCode('SR0001', null).kind).toBe('search');
+  });
+
+  it('trims what the camera read, whichever way it goes', () => {
+    expect(routeScannedCode('  DOE-LN0000001 \n', MATCH).kind).toBe('device');
+    expect(routeScannedCode('  9051234567  ', null)).toEqual({
+      kind: 'search',
+      query: '9051234567',
+    });
+  });
+
+  it('searches for nothing rather than opening a machine on an empty reading', () => {
+    expect(routeScannedCode('', MATCH)).toEqual({ kind: 'search', query: '' });
+    expect(routeScannedCode('   ', null)).toEqual({ kind: 'search', query: '' });
+  });
+
+  it('names the page one machine lives on', () => {
+    expect(devicePath(MATCH.id)).toBe(`/devices/${MATCH.id}`);
   });
 });

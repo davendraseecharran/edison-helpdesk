@@ -26,6 +26,8 @@ export interface DeviceSearchResult {
   id: string;
   /** Asset tag, else serial, else the inventory id: how the machine is named. */
   label: string;
+  /** The tag itself, which is not always what the label fell back to. */
+  assetTag: string | null;
   serialNumber: string | null;
   type: string;
   model: string | null;
@@ -55,6 +57,7 @@ export async function searchDevicesAction(query: string): Promise<DeviceSearchRe
     .map((device) => ({
       id: device.id,
       label: deviceLabel(device),
+      assetTag: device.assetTag || null,
       serialNumber: device.serialNumber || null,
       type: device.deviceType,
       model: device.model || null,
