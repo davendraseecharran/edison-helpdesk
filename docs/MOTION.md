@@ -23,7 +23,7 @@ Two rules hold everywhere and are not repeated per row:
 
 | Surface | Trigger | Properties | Duration | Curve | Reduced motion |
 | --- | --- | --- | --- | --- | --- |
-| Buttons, rail items, table rows, menu items, tabs, segmented options | pointer enters or leaves | `background-color`, `color`, `border-color`, `box-shadow` | 150 ms (`--dur-hover`) | `ease` | colour changes, no transition |
+| Buttons, rail items, table rows, menu items, tabs, segmented options, Today's rows, saved-view chips, the lookup trigger, the palette's input row, the assistant's example chips | pointer enters or leaves | `background-color`, `color`, `border-color`, `box-shadow` | 150 ms (`--dur-hover`) | `ease` | colour changes, no transition |
 | Any pressable (`.btn`, `.pressable`) | pointer down | `scale` 1 → 0.98 | 120 ms (`--dur-press`) | `ease-out` | no scale |
 | Menus, selects and popovers | open | `opacity` 0 → 1, `scale` 0.97 → 1 from the corner Radix measured the surface into (`--radix-popper-transform-origin`) | 200 ms (`--dur-surface`) | `--ease-out` | opacity only |
 | Menus and popovers | close | `opacity`, `scale` | 120 ms (`--dur-press`) | `--ease-out` | opacity only |
@@ -79,6 +79,16 @@ matter most here are the phone ones.
 **One press number.** `scale(0.98)` and the 120 ms that carries it are declared
 once, in `components.css`, shared by `.btn` and `.pressable`. A second copy in
 another stylesheet is how a design system starts drifting.
+
+**One hover number, and it is the token.** The row above is every surface that
+warms up under the pointer, and each of them reads `--dur-hover` rather than a
+literal — five of them used to say 100 ms or 120 ms, which is how a table and
+the row of chips above it came to warm up at different speeds. The only
+literal durations left in the stylesheets are the six that are deliberately not
+transitions: the caret's blink, the spinner's revolution, the skeleton's sweep,
+the orb's two breathing rates, the orb canvas's 90 ms smoothing of a live
+microphone level, and the FAB label's 220 ms delay, which is measured against
+where the satellites are. Each says so where it is written.
 
 **A phone's chrome is not the same chrome.** The top bar keeps the wordmark and
 loses what a finger cannot ask for: scanning moves into the More sheet where

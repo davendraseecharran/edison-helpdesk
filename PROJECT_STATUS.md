@@ -157,10 +157,11 @@ reached.
 ports 55321/2/3 in the main worktree, 56321/2/3 in lane 2 with a distinct
 `project_id`, `[realtime] enabled = true`, and `minimum_password_length = 8`.
 The committed values are the defaults (54321/2/3, realtime off, minimum 12) and
-the hosted project reads none of them. Never stage that file. Two comments in
-the committed copy still name pre-renumber migration versions
-(`20260912100800`, `20260912101200`); correcting them needs a brief that allows
-staging the file.
+the hosted project reads none of them. Never stage that file. The committed copy
+also carries `[storage] enabled = true`, which is required rather than local —
+`docs/M5-PLATFORM-OVERHAUL.md` explains why — and one loopback callback URL for
+this machine's port 3005, which belongs in the uncommitted patch and can move
+there the next time a brief allows staging the file.
 
 ### Branch work
 
@@ -276,15 +277,12 @@ docs/M5-PLATFORM-OVERHAUL.md (current), docs/M4-DEPLOYMENT.md and
 docs/M4-BOOTSTRAP.md (hosted deployment and first admin). Prior history:
 docs/handoffs/M4-PRE-LAUNCH-STATUS.md and PRE-M4-STATUS.md.
 
-A local dev server runs on port 3005 on this machine (3000 and 3001 were
-unbindable under WSL); the documented default stays 3000. Do not restart it
-during a review. The local database is the unlinked stack on 55321/2/3. Local
-Supabase, dev on 3005 and a production build on 3002 were left running earlier;
-their continued process health was last rechecked before September 14.
+A production build (`next start -p 3005`) runs locally on this machine (3000 and
+3001 are unbindable under WSL); the documented default stays 3000. Do not restart
+it. The local database is the unlinked stack on 55321/2/3, and lane 2's is on
+56321/2/3.
 
-September 14 live Plus usage at resume: 1% five-hour, 53% weekly; resets
-1789405702 / 1789838582. No credit redeemed. No automatic wakeup; a user message
-resumes work.
+No automatic wakeup; a user message resumes work.
 
 Claude continuation: read AGENTS.md and this checkpoint, then CLAUDE-HANDOFF.md.
 The application is already live; do not recreate or reset hosted resources, and
