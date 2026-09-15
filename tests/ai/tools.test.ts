@@ -137,6 +137,15 @@ describe('tool classification', () => {
       'set_device_status',
       'move_device',
       'bulk_update_devices',
+      // P2-7: the work that was only ever on a screen.
+      'attach_to_ticket',
+      'remove_attachment',
+      'unlink_device_from_ticket',
+      'mark_notifications_read',
+      'set_preference',
+      'save_view',
+      'delete_view',
+      'archive_person',
     ]) {
       expect(WRITE_TOOLS).toContain(name);
     }
@@ -147,8 +156,56 @@ describe('tool classification', () => {
       'review_access_request',
       'create_invite',
       'set_roles',
+      'deactivate_account',
+      'reactivate_account',
+      'export_backup',
     ]) {
       expect(ADMIN_TOOLS).toContain(name);
+    }
+    for (const name of ['list_attachments', 'list_audit']) {
+      expect(READ_TOOLS).toContain(name);
+    }
+    expect(ADMIN_READ_TOOLS).toEqual(['list_audit']);
+  });
+
+  /**
+   * The point of the three lists is that they are EXHAUSTIVE, and the only way
+   * to say that is to count. A tool added to the table without being named in
+   * the test above shows up here as a number that does not match, which is a
+   * failing test rather than a tool that quietly runs unclassified.
+   */
+  it('names every tool it offers in one of the three lists', () => {
+    const offered = toolsFor(['admin']).map((tool) => tool.name);
+    expect(offered).toHaveLength(ALL.length);
+    for (const name of offered) expect(ALL).toContain(name);
+  });
+
+  it('puts every tool in exactly one group', () => {
+    for (const name of READ_TOOLS) {
+      expect(WRITE_TOOLS).not.toContain(name);
+      expect(ADMIN_TOOLS).not.toContain(name);
+    }
+    for (const name of WRITE_TOOLS) expect(ADMIN_TOOLS).not.toContain(name);
+  });
+
+  it('gives every argument of every tool a description the model can read', () => {
+    for (const tool of toolsFor(['admin'])) {
+      for (const [field, schema] of Object.entries(tool.parameters.properties)) {
+        expect(`${tool.name}.${field}`, (schema.description ?? '').trim()).toBeTruthy();
+        expect((schema.description ?? '').length).toBeGreaterThan(3);
+      }
+    }
+  });
+
+  it('offers a skills officer nothing but their own account and the directory', () => {
+    const names = toolsFor(['skills_officer']).map((tool) => tool.name);
+    for (const name of [...ADMIN_TOOLS, ...ADMIN_READ_TOOLS]) expect(names).not.toContain(name);
+    // Their own settings and their own notices are theirs, ticket work is not.
+    for (const name of ['set_preference', 'save_view', 'delete_view', 'mark_notifications_read']) {
+      expect(names).toContain(name);
+    }
+    for (const name of ['attach_to_ticket', 'remove_attachment', 'unlink_device_from_ticket']) {
+      expect(names).not.toContain(name);
     }
   });
 
@@ -295,6 +352,37 @@ describe('requiresApproval', () => {
   it('never asks for a read, whatever the setting', () => {
     for (const name of READ_TOOLS) {
       expect(requiresApproval(name, {}, true)).toBe(false);
+    }
+  });
+
+  it('never asks for an administrator READ, which is a read and not a change', () => {
+    for (const name of ADMIN_READ_TOOLS) {
+      expect(isWriteTool(name)).toBe(false);
+      expect(requiresApproval(name, {}, true)).toBe(false);
+      expect(requiresApproval(name, {}, false)).toBe(false);
+    }
+  });
+
+  it('asks before every write the assistant gained, when the person wants asking', () => {
+    for (const name of [
+      'attach_to_ticket',
+      'remove_attachment',
+      'unlink_device_from_ticket',
+      'mark_notifications_read',
+      'set_preference',
+      'save_view',
+      'delete_view',
+      'archive_person',
+    ]) {
+      expect(requiresApproval(name, {}, true)).toBe(true);
+      expect(requiresApproval(name, {}, false)).toBe(false);
+    }
+  });
+
+  it('asks before taking somebody’s access away, or a copy of a table, either way', () => {
+    for (const name of ['deactivate_account', 'reactivate_account', 'export_backup']) {
+      expect(requiresApproval(name, {}, false)).toBe(true);
+      expect(requiresApproval(name, {}, true)).toBe(true);
     }
   });
 
