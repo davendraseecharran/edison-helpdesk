@@ -318,6 +318,7 @@ export function mapPerson(row: PersonJson): Person {
     homePhone: text(row.homePhone),
     address: text(row.address),
     notes: text(row.notes),
+    archivedAt: typeof row.archivedAt === 'string' && row.archivedAt !== '' ? row.archivedAt : null,
     version: Number(row.version ?? 1),
     updatedAt: text(row.updatedAt),
     deviceCount: Number(row.deviceCount ?? 0),

@@ -81,6 +81,25 @@
   min-width: 0;
 }
 
+/*
+ * The name, and anything that qualifies it. Almost nobody in the directory has
+ * left, so "Archived" rides beside the name rather than taking a column that
+ * would be blank down its whole length to say something about one row.
+ */
+.dir-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dir-name-row > a {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .dir-name {
   color: var(--ink);
   font-weight: 600;

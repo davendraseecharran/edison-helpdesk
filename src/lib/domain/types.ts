@@ -469,6 +469,14 @@ export interface Person {
   homePhone: string;
   address: string;
   notes: string;
+  /**
+   * When they left the school, or null while they are still here.
+   *
+   * Students also carry `studentStatus`, which says graduated or other; this is
+   * the one field that means the same thing for a member of staff. Today's
+   * "devices due back" reads it to raise a machine whose holder has gone.
+   */
+  archivedAt: string | null;
   version: number;
   updatedAt: string;
   /** Machines assigned to them right now. */
@@ -486,8 +494,15 @@ export type PersonSummary = Person;
  * What a person's page may change. `id`, `version`, `updatedAt` and
  * `deviceCount` are the database's to set; `kind` is fixed once the record
  * exists, because a student does not become a member of staff.
+ *
+ * `archivedAt` becomes `archived`, because nobody types the moment somebody
+ * left: a form ticks a box and `app_save_person` stamps the time. Ticking a box
+ * that is already ticked leaves the original date where it is.
  */
-export type PersonInput = Omit<Person, 'id' | 'version' | 'updatedAt' | 'deviceCount'>;
+export type PersonInput = Omit<
+  Person,
+  'id' | 'version' | 'updatedAt' | 'deviceCount' | 'archivedAt'
+> & { archived: boolean };
 
 /**
  * An inventory status.

@@ -28,7 +28,7 @@ import {
   type PersonDetail as PersonDetailData,
 } from '@/lib/domain/types';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
-import { DeviceStatusBadge, PersonKindBadge } from '@/components/Badges';
+import { ArchivedBadge, DeviceStatusBadge, PersonKindBadge } from '@/components/Badges';
 import { Avatar } from '@/components/Primitives';
 import { Identifier } from '@/components/directory/CopyButton';
 import { deviceTypeLabel } from '@/lib/domain/device-types';
@@ -102,6 +102,7 @@ export function PersonDetail({
             <div className="record-title-row">
               <h1 className="record-title">{person.displayName}</h1>
               <PersonKindBadge kind={person.kind} />
+              {person.archivedAt ? <ArchivedBadge /> : null}
             </div>
             <div className="ticket-meta record-idents">
               {person.externalId ? (

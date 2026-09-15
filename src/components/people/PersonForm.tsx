@@ -19,6 +19,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { savePersonAction } from '@/lib/data/people-actions';
 import type { ActionResult } from '@/lib/data/actions';
+import { formatDateTime } from '@/lib/format';
 import { personErrorField } from '@/lib/domain/records';
 import {
   PERSON_KIND_LABELS,
@@ -34,6 +35,7 @@ import { Field } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { Select } from '@/components/ui/Select';
+import { Switch } from '@/components/ui/shadcn/switch';
 
 const KIND_OPTIONS: { value: PersonKind; label: string }[] = [
   { value: 'student', label: PERSON_KIND_LABELS.student },
@@ -61,6 +63,7 @@ function draftFrom(person: Person | undefined, kind: PersonKind): Draft {
     homePhone: person?.homePhone ?? '',
     address: person?.address ?? '',
     notes: person?.notes ?? '',
+    archived: person?.archivedAt != null,
   };
 }
 
@@ -370,6 +373,36 @@ export function PersonForm({
             value={draft.notes}
             rows={3}
             onChange={(event) => set('notes', event.target.value)}
+          />
+        </Field>
+
+        {/*
+          * Last, and on its own line, because it is not a detail about somebody
+          * — it is a statement that they are gone, and the fields above it are
+          * the record it applies to.
+          *
+          * A switch rather than a date: nobody knows the minute a member of
+          * staff left, and `app_save_person` stamps the time on the way past.
+          * Ticking a box that is already ticked keeps the date it already has,
+          * so correcting a phone number a year later does not restate when they
+          * left. Nothing is deleted either way; the tickets they asked for and
+          * the machines they are holding stay exactly where they are, which is
+          * the whole reason this is a column and not a delete.
+          */}
+        <Field
+          label="Archived"
+          htmlFor="person-archived"
+          className="form-grid-full"
+          hint={
+            draft.archived && person?.archivedAt
+              ? `Left the school. Recorded ${formatDateTime(person.archivedAt)}. Their tickets, machines and history stay where they are, and a machine still assigned to them shows on Today as due back.`
+              : 'Tick when somebody has left the school. Their tickets, machines and history stay where they are, and a machine still assigned to them shows on Today as due back.'
+          }
+        >
+          <Switch
+            id="person-archived"
+            checked={draft.archived}
+            onCheckedChange={(checked) => set('archived', checked)}
           />
         </Field>
       </div>

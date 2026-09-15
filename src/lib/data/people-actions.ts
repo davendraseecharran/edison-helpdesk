@@ -96,6 +96,11 @@ export async function savePersonAction(
     lastName: fields.lastName,
     email: fields.email,
     notes: fields.notes,
+    // Always sent, like every other field on this form: a cleared box has to
+    // really clear. The database keeps the date it already had when the box was
+    // already ticked, so saving a phone number does not restate when somebody
+    // left.
+    archived: fields.archived,
   };
 
   if (fields.kind === 'student') {

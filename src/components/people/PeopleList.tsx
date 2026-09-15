@@ -19,6 +19,7 @@ import { Plus } from 'lucide-react';
 import type { PeoplePage } from '@/lib/data/people';
 import { personPlacement, personSubtitle } from '@/lib/domain/records';
 import { type PersonKind, type PersonSummary } from '@/lib/domain/types';
+import { ArchivedBadge } from '@/components/Badges';
 import { EmptyState, Field } from '@/components/Primitives';
 import { ButtonLink } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -100,9 +101,15 @@ export function PeopleList({ page }: { page: PeoplePage }) {
       hideOnPhone: true,
       cell: (person) => (
         <div className="dir-cell-title">
-          <Link href={`/people/${person.id}`} className="dir-name">
-            {person.displayName}
-          </Link>
+          <span className="dir-name-row">
+            <Link href={`/people/${person.id}`} className="dir-name">
+              {person.displayName}
+            </Link>
+            {/* Beside the name rather than in a column of its own: almost
+                nobody in the directory has left, so a column would be empty
+                down its whole length to say something about one row. */}
+            {person.archivedAt ? <ArchivedBadge /> : null}
+          </span>
           <span className="dir-sub">{personSubtitle(person)}</span>
         </div>
       ),
@@ -220,7 +227,10 @@ export function PeopleList({ page }: { page: PeoplePage }) {
             caption={isStudent ? 'Students in the directory' : 'Staff in the directory'}
             settle
             cardTitle={(person) => (
-              <Link href={`/people/${person.id}`}>{person.displayName}</Link>
+              <span className="dir-name-row">
+                <Link href={`/people/${person.id}`}>{person.displayName}</Link>
+                {person.archivedAt ? <ArchivedBadge /> : null}
+              </span>
             )}
             cardMeta={(person) => personSubtitle(person)}
           />
