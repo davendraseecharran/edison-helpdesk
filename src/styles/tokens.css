@@ -59,10 +59,17 @@
 
   /* --- Text ------------------------------------------------------------- */
 
-  /* Three steps: what you read, what you glance at, what is only a label. */
+  /*
+   * Three steps: what you read, what you glance at, what is only a label.
+   *
+   * Three steps and no fourth: the last of them is still text somebody has to
+   * read — a placeholder, a timestamp, a keycap — so it clears 4.5:1 on the
+   * page like the two above it. It used to be a step lighter and 3.2:1, which
+   * is a contrast for a line, not for a word.
+   */
   --ink: #1b1b1f;
   --ink-2: #62626a;
-  --ink-3: #8c8c94;
+  --ink-3: #6f6f77;
 
   /* --- Accent ----------------------------------------------------------- */
 
@@ -253,7 +260,9 @@
 
   --ink: #f2f2f3;
   --ink-2: #a7a7ad;
-  --ink-3: #707078;
+  /* 5.6:1 on the page. The step it replaces was 3.9:1, which on a near-black
+     ground reads as text that has been switched off. */
+  --ink-3: #8a8a92;
 
   --accent: #f2f2f3;
   --accent-hover: #ffffff;

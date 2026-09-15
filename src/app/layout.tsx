@@ -29,9 +29,12 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  // The colour the browser paints its own chrome with, which should be the
+  // page's ground and not the black and white either theme stopped short of.
+  // These are `--bg` from `tokens.css`, the one place a value may be typed.
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#000000' },
+    { media: '(prefers-color-scheme: light)', color: '#fbfbfc' },
+    { media: '(prefers-color-scheme: dark)', color: '#0f0f10' },
   ],
 };
 
