@@ -1,232 +1,71 @@
 /**
- * The toast queue, as a pure reducer.
+ * What a toast is, in numbers.
  *
- * Time comes in with every action instead of being read from a clock, so the
- * reducer is deterministic and the component that owns the timer decides when
- * "now" is. A success toast leaves on its own five seconds after it appears;
- * the clock stops while the pointer or keyboard focus rests on a toast; an
- * error stays until it is dismissed, because it asks for a decision.
+ * The queue itself is Sonner's now. What used to be a hand-written reducer —
+ * a stack, per-toast clocks, hold records, a hidden-tab flag and one armed
+ * timer — was a correct implementation of a thing that is solved: Sonner
+ * stacks, pauses on hover, pauses while the tab is hidden, takes a swipe, and
+ * keeps its own timers. Deleting it removed the two bugs that live in every
+ * hand-rolled toast queue (a hold left behind by a toast that unmounted, and a
+ * timer that lands a millisecond short and re-arms forever).
  *
- * A hold belongs to the toast it rests on. The browser sends no leave or blur
- * for an element that is removed, so when a toast goes (dismissed, expired,
- * or pushed out by the limit) its holds go with it, and the survivors' clocks
- * restart if that was the last one. Without this, closing a focused toast
- * would stop every other toast's clock for good.
+ * What did not move to the library is the product's opinion, which is these
+ * four rules, kept pure so they can be read and tested without a DOM:
  *
- * A hidden tab stops every clock as well, and it is not a hold: it belongs to
- * no toast and it outlives all of them. Switch away while "Ticket resolved" is
- * on screen and come back a minute later and the message is still there,
- * because it was never read. `hidden` is tracked beside the holds and the
- * clocks run only when both are clear.
+ *   - A success leaves by itself after five seconds. An error does not leave
+ *     at all, because it is asking for a decision and nobody decides in five
+ *     seconds.
+ *   - A message that is being read has no clock. Sonner stops one under the
+ *     pointer; `toastDuration(kind, true)` is the same rule for the keyboard,
+ *     applied while focus rests inside the toast.
+ *   - The same message twice is one message. The id is the message, so a
+ *     repeat refreshes what is on screen instead of stacking a duplicate.
+ *   - Three at once. Beyond that the oldest goes, because a corner of the
+ *     screen holding five messages is not a notification, it is a log.
  */
 
 export type ToastKind = 'success' | 'error';
 
-/** What is keeping the clock stopped. Both can apply at once. */
-export type ToastHold = 'hover' | 'focus';
-
-export interface Toast {
-  id: number;
-  kind: ToastKind;
-  text: string;
-  /**
-   * Epoch milliseconds at which the toast leaves on its own. Null while the
-   * clock is stopped, and always null for an error.
-   */
-  deadline: number | null;
-  /**
-   * Life left in milliseconds, kept while paused so resuming continues the
-   * countdown rather than restarting it. Null for an error.
-   */
-  remaining: number | null;
-}
-
-/** One reason the clock is stopped, and the toast it rests on. */
-export interface ToastHoldRecord {
-  by: ToastHold;
-  toast: number;
-}
-
-export interface ToastState {
-  /** Oldest first. */
-  toasts: Toast[];
-  holds: ToastHoldRecord[];
-  /** The tab is in the background. */
-  hidden: boolean;
-  /** True while the clocks are stopped, by a hold or by a hidden tab. */
-  paused: boolean;
-  nextId: number;
-}
-
-export type ToastAction =
-  | { type: 'push'; kind: ToastKind; text: string; now: number }
-  | { type: 'dismiss'; id: number; now: number }
-  | { type: 'hold'; by: ToastHold; toast: number; now: number }
-  | { type: 'release'; by: ToastHold; toast: number; now: number }
-  /** The tab went to the background; nothing on screen is being read. */
-  | { type: 'hide'; now: number }
-  /** The tab came back; every clock that was not held resumes where it stopped. */
-  | { type: 'show'; now: number }
-  | { type: 'expire'; now: number };
-
+/** How long a success stays when nothing is holding it. */
 export const TOAST_LIFETIME_MS = 5_000;
 
-/** The most toasts on screen at once; beyond this the oldest success goes. */
+/** The most toasts on screen at once; beyond this the oldest goes. */
 export const TOAST_LIMIT = 3;
 
-export const initialToastState: ToastState = {
-  toasts: [],
-  holds: [],
-  hidden: false,
-  paused: false,
-  nextId: 1,
-};
+/** Bottom-right where there is room; on a phone the bottom belongs to the tabs. */
+export type ToastPosition = 'bottom-right' | 'top-center';
 
 /**
- * Drop the oldest success when the stack overflows. An error is only pushed
- * out by other errors: a message that asks for a decision must not vanish
- * behind two quick confirmations.
+ * The id of a message, which is the message.
+ *
+ * Sonner replaces a toast whose id is already on the stack, so two identical
+ * confirmations a second apart are one confirmation with its clock restarted.
+ * Kind is part of the id so a success and an error that happen to read the
+ * same are still two different things.
  */
-function withinLimit(toasts: Toast[]): Toast[] {
-  if (toasts.length <= TOAST_LIMIT) return toasts;
-  const victim = toasts.find((toast) => toast.kind !== 'error') ?? toasts[0];
-  return toasts.filter((toast) => toast !== victim);
-}
-
-function stopClock(toast: Toast, now: number): Toast {
-  if (toast.deadline === null) return toast;
-  return { ...toast, deadline: null, remaining: Math.max(0, toast.deadline - now) };
-}
-
-function startClock(toast: Toast, now: number): Toast {
-  if (toast.remaining === null || toast.deadline !== null) return toast;
-  return { ...toast, deadline: now + toast.remaining };
-}
-
-function sameHold(record: ToastHoldRecord, by: ToastHold, toast: number): boolean {
-  return record.by === by && record.toast === toast;
+export function toastKey(kind: ToastKind, text: string): string {
+  return `${kind}:${text}`;
 }
 
 /**
- * Settle a new list of toasts. Holds whose toast has gone are dropped, and if
- * that was the last hold the survivors' clocks restart from `now`.
+ * The life of a toast in milliseconds, or `Infinity` for one that stays.
+ *
+ * `held` is the keyboard's half of the pause: Sonner stops the clock under the
+ * pointer on its own, and this is the same courtesy for somebody who arrived
+ * at the dismiss button with Tab.
  */
-function withToasts(state: ToastState, toasts: Toast[], now: number): ToastState {
-  const holds = state.holds.filter((hold) => toasts.some((toast) => toast.id === hold.toast));
-  if (state.paused && holds.length === 0 && !state.hidden) {
-    return {
-      ...state,
-      toasts: toasts.map((toast) => startClock(toast, now)),
-      holds,
-      paused: false,
-    };
-  }
-  return { ...state, toasts, holds };
+export function toastDuration(kind: ToastKind, held = false): number {
+  if (held || kind === 'error') return Number.POSITIVE_INFINITY;
+  return TOAST_LIFETIME_MS;
 }
 
-export function toastReducer(state: ToastState, action: ToastAction): ToastState {
-  switch (action.type) {
-    case 'push': {
-      const lifetime = action.kind === 'error' ? null : TOAST_LIFETIME_MS;
-      const deadline = lifetime === null || state.paused ? null : action.now + lifetime;
-      const existing = state.toasts.find(
-        (toast) => toast.kind === action.kind && toast.text === action.text,
-      );
-      if (existing) {
-        // The same message again refreshes the one on screen instead of
-        // stacking a duplicate.
-        return {
-          ...state,
-          toasts: state.toasts.map((toast) =>
-            toast === existing ? { ...toast, deadline, remaining: lifetime } : toast,
-          ),
-        };
-      }
-      const toast: Toast = {
-        id: state.nextId,
-        kind: action.kind,
-        text: action.text,
-        deadline,
-        remaining: lifetime,
-      };
-      return withToasts(
-        { ...state, nextId: state.nextId + 1 },
-        withinLimit([...state.toasts, toast]),
-        action.now,
-      );
-    }
-
-    case 'dismiss': {
-      const toasts = state.toasts.filter((toast) => toast.id !== action.id);
-      return toasts.length === state.toasts.length ? state : withToasts(state, toasts, action.now);
-    }
-
-    case 'hold': {
-      // A hold can only rest on a toast that is on the stack; one that arrives
-      // for a toast already gone (its exit still playing) is ignored.
-      if (!state.toasts.some((toast) => toast.id === action.toast)) return state;
-      if (state.holds.some((hold) => sameHold(hold, action.by, action.toast))) return state;
-      return {
-        ...state,
-        holds: [...state.holds, { by: action.by, toast: action.toast }],
-        paused: true,
-        toasts: state.paused
-          ? state.toasts
-          : state.toasts.map((toast) => stopClock(toast, action.now)),
-      };
-    }
-
-    case 'release': {
-      if (!state.holds.some((hold) => sameHold(hold, action.by, action.toast))) return state;
-      const holds = state.holds.filter((hold) => !sameHold(hold, action.by, action.toast));
-      if (holds.length > 0 || state.hidden) return { ...state, holds };
-      return {
-        ...state,
-        holds,
-        paused: false,
-        toasts: state.toasts.map((toast) => startClock(toast, action.now)),
-      };
-    }
-
-    case 'hide': {
-      if (state.hidden) return state;
-      return {
-        ...state,
-        hidden: true,
-        paused: true,
-        toasts: state.paused
-          ? state.toasts
-          : state.toasts.map((toast) => stopClock(toast, action.now)),
-      };
-    }
-
-    case 'show': {
-      if (!state.hidden) return state;
-      if (state.holds.length > 0) return { ...state, hidden: false };
-      return {
-        ...state,
-        hidden: false,
-        paused: false,
-        toasts: state.toasts.map((toast) => startClock(toast, action.now)),
-      };
-    }
-
-    case 'expire': {
-      const toasts = state.toasts.filter(
-        (toast) => toast.deadline === null || toast.deadline > action.now,
-      );
-      return toasts.length === state.toasts.length ? state : withToasts(state, toasts, action.now);
-    }
-  }
-}
-
-/** The earliest deadline on the stack, for scheduling a single timer. Null when nothing will expire. */
-export function nextDeadline(state: ToastState): number | null {
-  let next: number | null = null;
-  for (const toast of state.toasts) {
-    if (toast.deadline !== null && (next === null || toast.deadline < next)) {
-      next = toast.deadline;
-    }
-  }
-  return next;
+/**
+ * Where the stack lives.
+ *
+ * Bottom-right on a desktop, beside the work and out of the way. On a phone
+ * the bottom edge is the tab bar and the thumb, so the stack moves to the top
+ * where it covers a page header rather than a control.
+ */
+export function toastPosition(phone: boolean): ToastPosition {
+  return phone ? 'top-center' : 'bottom-right';
 }

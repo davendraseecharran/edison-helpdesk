@@ -11,11 +11,9 @@
  *   - `run()` invokes a real server action and then refreshes the server data,
  *     so queues, counts and detail views all reflect the committed state.
  *   - One action at a time, so a double click cannot submit twice.
- *   - What an action reports back becomes a toast. The queue lives here so
- *     the message is produced in the same event as the result; the stack in
- *     `Primitives.tsx` only renders it and keeps its clock. The queue sits in
- *     its own context so a hover or an expiry re-renders the stack alone,
- *     not every `useRuntime()` consumer.
+ *   - What an action reports back becomes a toast, raised in the same event as
+ *     the result. The stack itself is Sonner's and lives outside React state,
+ *     so a message arriving, pausing or expiring re-renders nothing here.
  */
 
 import {
@@ -23,11 +21,9 @@ import {
   useCallback,
   useContext,
   useMemo,
-  useReducer,
   useRef,
   useState,
   useTransition,
-  type Dispatch,
   type ReactNode,
 } from 'react';
 import { useRouter } from 'next/navigation';
@@ -36,13 +32,8 @@ import type { ActorAccount } from '@/lib/auth/session';
 import type { AccountRole } from '@/lib/auth/roles';
 import type { ActionResult } from '@/lib/data/actions';
 import type { SavedView } from '@/lib/domain/saved-views';
-import {
-  initialToastState,
-  toastReducer,
-  type ToastAction,
-  type ToastKind,
-  type ToastState,
-} from '@/components/ui/toast';
+import { showToast } from '@/components/ui/shadcn/sonner';
+import type { ToastKind } from '@/components/ui/toast';
 
 export interface AppRuntime {
   actor: ActorAccount;
@@ -59,14 +50,7 @@ export interface AppRuntime {
   run: (key: string, action: () => Promise<ActionResult>) => Promise<ActionResult>;
 }
 
-/** The toast stack: what recent actions reported, oldest first, and its reducer. */
-export interface ToastStore {
-  toasts: ToastState;
-  dispatchToast: Dispatch<ToastAction>;
-}
-
 const RuntimeContext = createContext<AppRuntime | null>(null);
-const ToastContext = createContext<ToastStore | null>(null);
 
 export function AppRuntimeProvider({
   actor,
@@ -83,16 +67,12 @@ export function AppRuntimeProvider({
 }) {
   const router = useRouter();
   const [pendingKey, setPendingKey] = useState<string | null>(null);
-  const [toasts, dispatchToast] = useReducer(toastReducer, initialToastState);
   const [, startTransition] = useTransition();
   // Synchronous guard: React state updates are async, so two fast clicks could
   // both pass a state-based check before either re-render lands.
   const busy = useRef(false);
 
-  const notify = useCallback(
-    (kind: ToastKind, text: string) => dispatchToast({ type: 'push', kind, text, now: Date.now() }),
-    [],
-  );
+  const notify = useCallback((kind: ToastKind, text: string) => showToast(kind, text), []);
 
   const run = useCallback(
     async (key: string, action: () => Promise<ActionResult>): Promise<ActionResult> => {
@@ -130,26 +110,13 @@ export function AppRuntimeProvider({
     () => ({ actor, directory, today, savedViews: views, pendingKey, notify, run }),
     [actor, directory, today, views, pendingKey, notify, run],
   );
-  const toastStore = useMemo<ToastStore>(() => ({ toasts, dispatchToast }), [toasts]);
-
-  return (
-    <RuntimeContext.Provider value={value}>
-      <ToastContext.Provider value={toastStore}>{children}</ToastContext.Provider>
-    </RuntimeContext.Provider>
-  );
+  return <RuntimeContext.Provider value={value}>{children}</RuntimeContext.Provider>;
 }
 
 export function useRuntime(): AppRuntime {
   const runtime = useContext(RuntimeContext);
   if (!runtime) throw new Error('useRuntime must be used inside AppRuntimeProvider');
   return runtime;
-}
-
-/** The toast stack. Only the component that renders it should need this. */
-export function useToasts(): ToastStore {
-  const store = useContext(ToastContext);
-  if (!store) throw new Error('useToasts must be used inside AppRuntimeProvider');
-  return store;
 }
 
 /**

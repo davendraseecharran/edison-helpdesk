@@ -2,13 +2,8 @@
 
 /** Small shared building blocks: time display, empty states, skeletons, avatars, toasts. */
 
-import { useEffect, type Dispatch, type ReactNode } from 'react';
-import { X } from 'lucide-react';
-import { useToasts } from '@/components/AppRuntime';
-import { Button } from '@/components/ui/Button';
-import { useReducedMotion } from '@/components/ui/media';
-import { AnimatePresence, INSTANT, motion } from '@/components/ui/Motion';
-import { nextDeadline, type Toast, type ToastAction, type ToastHold } from '@/components/ui/toast';
+import { type ReactNode } from 'react';
+import { Toaster } from '@/components/ui/shadcn/sonner';
 import { useNow } from '@/lib/useNow';
 import { formatAge, formatDateTime, formatRelative, initialsOf } from '@/lib/format';
 
@@ -60,125 +55,15 @@ export function EmptyState({
 }
 
 /**
- * The toast stack: what actions reported, bottom-right on a desktop and above
- * the tabs on a phone.
+ * The toast stack: what actions reported, bottom-right on a desktop and at the
+ * top on a phone.
  *
- * The queue itself is the runtime's (`toastReducer`); this component keeps
- * its clock. One timer is armed for the earliest deadline, and the clock
- * stops while the pointer or keyboard focus rests on a toast, so a message
- * cannot vanish while it is being read. Each hold names its toast, so the
- * reducer can let go of it when that toast leaves; the browser sends no
- * blur or leave for an element that is unmounted. A success leaves after
- * five seconds; an error stays until dismissed. The container is a polite
- * live region that is always mounted, so insertions are announced, and each
- * toast keeps its own role so an error is heard at once.
+ * Sonner underneath, through `ui/shadcn/sonner`. `Flash` stays the name and
+ * stays where it was mounted, because what the shell wants at this point in
+ * the tree is "the place messages appear", and that has not changed.
  */
 export function Flash() {
-  const { toasts, dispatchToast } = useToasts();
-  const reduced = useReducedMotion();
-  const deadline = nextDeadline(toasts);
-
-  /*
-   * A message nobody is looking at has not been read. Switching to another tab
-   * stops every clock and coming back starts them again from where they
-   * stopped, so "Ticket resolved." is still on screen a minute later rather
-   * than having expired into an empty corner. The initial dispatch covers the
-   * case where the page was restored into a background tab.
-   */
-  useEffect(() => {
-    function sync(): void {
-      dispatchToast({
-        type: document.visibilityState === 'hidden' ? 'hide' : 'show',
-        now: Date.now(),
-      });
-    }
-    sync();
-    document.addEventListener('visibilitychange', sync);
-    return () => document.removeEventListener('visibilitychange', sync);
-  }, [dispatchToast]);
-
-  useEffect(() => {
-    if (deadline === null) return;
-    // Expire at the deadline the timer was armed for, not at whatever the
-    // wall clock reads when it fires: a timer that lands a millisecond short
-    // would otherwise remove nothing and never be re-armed.
-    const timer = window.setTimeout(
-      () => dispatchToast({ type: 'expire', now: deadline }),
-      Math.max(0, deadline - Date.now()),
-    );
-    return () => window.clearTimeout(timer);
-  }, [deadline, dispatchToast]);
-
-  return (
-    <div className="toasts" aria-live="polite">
-      <AnimatePresence initial={false}>
-        {toasts.toasts.map((toast) => (
-          <ToastItem key={toast.id} toast={toast} reduced={reduced} dispatch={dispatchToast} />
-        ))}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/*
- * A toast is the one surface in the product that arrives unasked, so it is
- * also the one allowed to take its time arriving: 300ms up and out of a blur,
- * 200ms away again.
- */
-const TOAST_IN = { duration: 0.3, ease: 'easeOut' } as const;
-const TOAST_OUT = { duration: 0.2, ease: 'easeOut' } as const;
-
-/** One toast: its text, its close button, and the holds it puts on the clock. */
-function ToastItem({
-  toast,
-  reduced,
-  dispatch,
-}: {
-  toast: Toast;
-  reduced: boolean;
-  dispatch: Dispatch<ToastAction>;
-}) {
-  function hold(by: ToastHold) {
-    dispatch({ type: 'hold', by, toast: toast.id, now: Date.now() });
-  }
-
-  function release(by: ToastHold) {
-    dispatch({ type: 'release', by, toast: toast.id, now: Date.now() });
-  }
-
-  return (
-    <motion.div
-      className={toast.kind === 'success' ? 'toast toast-success' : 'toast toast-error'}
-      role={toast.kind === 'error' ? 'alert' : 'status'}
-      layout={reduced ? false : 'position'}
-      /*
-       * A toast rises from below the corner it lives in and resolves out of a
-       * soft blur, over 300ms — slow enough to be noticed arriving, which is
-       * the whole job. It leaves in 200ms, because a message that has been
-       * read should not make anybody wait for it; an exit as slow as its
-       * entrance reads as the interface being reluctant.
-       */
-      initial={reduced ? false : { opacity: 0, y: 16, filter: 'blur(2px)' }}
-      animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-      exit={reduced ? undefined : { opacity: 0, y: 8, transition: TOAST_OUT }}
-      transition={reduced ? INSTANT : TOAST_IN}
-      onPointerEnter={() => hold('hover')}
-      onPointerLeave={() => release('hover')}
-      onFocus={() => hold('focus')}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) release('focus');
-      }}
-    >
-      <span className="toast-text">{toast.text}</span>
-      <Button
-        variant="ghost"
-        size="sm"
-        icon={X}
-        aria-label="Dismiss message"
-        onClick={() => dispatch({ type: 'dismiss', id: toast.id, now: Date.now() })}
-      />
-    </motion.div>
-  );
+  return <Toaster />;
 }
 
 export function PageHeader({

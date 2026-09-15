@@ -168,21 +168,12 @@
 /* --- Toasts ------------------------------------------------------------- */
 
 /*
- * A fixed stack in the bottom-right corner, above the modal surfaces so a
- * change made from inside a sheet is still confirmed. The container itself
- * lets pointer events through; only the toasts catch them.
+ * The stack is Sonner's: a fixed column bottom-right on a desktop, top-centre
+ * on a phone where the bottom edge belongs to the tabs and the thumb. It lifts
+ * and expands under the pointer, stops its clocks while the tab is hidden, and
+ * takes a swipe away from the edge it sits on. What is below is only what a
+ * toast looks like.
  */
-.toasts {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 55;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  width: min(360px, calc(100vw - 32px));
-  pointer-events: none;
-}
 
 /*
  * The stripe names the kind of message; the box that used to be drawn round
@@ -194,6 +185,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+  width: 100%;
   padding: 8px 8px 8px 14px;
   border: 1px solid var(--line);
   border-left: 3px solid var(--line-strong);
@@ -201,7 +193,6 @@
   background: var(--surface-2);
   color: var(--ink);
   box-shadow: var(--shadow-2);
-  pointer-events: auto;
 }
 
 .toast-text {
@@ -217,12 +208,3 @@
   border-left-color: var(--bad);
 }
 
-/* On phones the stack sits above the bottom tabs and spans the width. */
-@media (max-width: 719.98px) {
-  .toasts {
-    right: 12px;
-    bottom: calc(var(--tabs-h) + 12px + env(safe-area-inset-bottom));
-    left: 12px;
-    width: auto;
-  }
-}
