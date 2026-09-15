@@ -332,13 +332,20 @@ person's own ChatGPT account.
 - **The model** is `gpt-5.6-luna` and nothing else. Reasoning defaults to high;
   Settings offers High, Extra high and Max.
 - **Tools** are classified read, write or admin, in one exhaustive list that a
-  test asserts against, so a tool added without being classified is a tool that
-  fails the suite rather than one that quietly runs. Read tools run. Write tools
-  run without asking by default, and Settings has a per-person switch that
-  makes the assistant stop and ask first. Admin tools — invites, roles, an
-  access decision — always stop and ask, whatever the switch says. Which tools
-  an account is offered at all follows its role set: a skills officer is given
-  the directory tools and no ticket tool.
+  test asserts against — by counting, not by sampling — so a tool added without
+  being classified is a tool that fails the suite rather than one that quietly
+  runs. Read tools run. Write tools run without asking by default, and Settings
+  has a per-person switch that makes the assistant stop and ask first. Admin
+  tools — invites, roles, an access decision, deactivating somebody, taking a
+  backup — always stop and ask, whatever the switch says. Which tools an
+  account is offered at all follows its role set: a skills officer is given the
+  directory tools, their own settings, and no ticket tool.
+- **The principle** is that the assistant may do exactly what the signed-in
+  person may do, and nothing more. Every tool is gated by `toolsFor(roles)` the
+  same way the interface is, every one of them runs the RPC that screen's
+  button runs, on that person's own client, and the database re-derives the
+  actor from `auth.uid()` inside each function. There is nothing the assistant
+  can reach that its operator could not.
 - **It reads the same things the screens do.** `get_today_briefing` is the
   Today read, so the panel and the screen agree; `draft_ticket_from_text` is the
   same pure reader the intake form uses on a pasted email. Typing a question
@@ -347,6 +354,89 @@ person's own ChatGPT account.
   the ticket on screen.
 - Everything it can do, it does through the same RPCs a person uses, on that
   person's own client, so it can never see or change anything they could not.
+
+### Every tool, and who is offered it
+
+Fifty-three tools. A skills officer is offered fourteen, a NetRider forty-two,
+an administrator all of them. "Asks" is whether the change is put to the person
+before it runs: **setting** means it follows their "ask before changes" switch,
+**always** means it asks whatever the switch says, and a read never asks.
+
+| Tool | Does | Roles | Asks |
+| --- | --- | --- | --- |
+| `search_records` | Tickets, people and devices at once | All | read |
+| `get_today_briefing` | The Today screen's own read | NetRider, admin | read |
+| `draft_ticket_from_text` | Reads a pasted email as a draft; creates nothing | NetRider, admin | read |
+| `get_ticket` | One ticket in full, with history and notes | NetRider, admin | read |
+| `list_queue` | Tickets by scope, status, priority, category | NetRider, admin | read |
+| `list_my_tickets` | What this person owns | NetRider, admin | read |
+| `list_people` | Students or staff | All | read |
+| `get_person` | One record, with the machines they hold | All | read |
+| `list_devices` | The inventory | All | read |
+| `get_device` | One machine | All | read |
+| `list_attachments` | The files on a ticket or a device | All | read |
+| `list_notifications` | Their own notices | All | read |
+| `list_audit` | The whole log, by day, kind, record type or by hand/AI | Admin | read |
+| `create_ticket` | Opens one, optionally claimed | NetRider, admin | setting |
+| `claim_ticket` | Takes an unclaimed one | NetRider, admin | setting |
+| `add_note` | A permanent work note | NetRider, admin | setting |
+| `set_priority` / `set_category` | What kind, how urgent | NetRider, admin | setting |
+| `set_waiting` / `resume_work` | On hold, and off it again | NetRider, admin | setting |
+| `resolve_ticket` | Closes it with what fixed it | NetRider, admin | setting |
+| `return_to_queue` | Gives it back | NetRider, admin | setting |
+| `add_collaborator` / `remove_collaborator` | Who else is on it | NetRider, admin | setting |
+| `log_work` | Minutes against a school day | NetRider, admin | setting |
+| `record_device_observation` | A machine that is not in inventory | NetRider, admin | setting |
+| `link_device_to_ticket` / `unlink_device_from_ticket` | One that is | NetRider, admin | setting |
+| `attach_to_ticket` | A picture from THIS message onto a ticket | NetRider, admin | setting |
+| `remove_attachment` | Takes a file off, if they may | NetRider, admin | setting |
+| `mark_notifications_read` | Their own, by id or all | All | setting |
+| `set_preference` | Their own theme, notices and assistant settings | All | setting |
+| `save_view` / `delete_view` | Their own named filter sets | All | setting |
+| `create_person` / `update_person` | The directory | All | setting |
+| `archive_person` | Records that somebody has left, or has not | All | setting |
+| `create_device` / `update_device` | The inventory | NetRider, admin | setting |
+| `assign_device` / `return_device` | Handing a machine out and taking it back | NetRider, admin | setting |
+| `set_device_status` / `move_device` | Where it is in its life, and where it lives | NetRider, admin | setting |
+| `bulk_update_devices` | Up to 200 at once | NetRider, admin | setting |
+| `reassign_ticket` | A different owner | Admin | always |
+| `reopen_ticket` / `cancel_ticket` | Undoing or voiding a close | Admin | always |
+| `review_access_request` | Approve or decline somebody waiting | Admin | always |
+| `create_invite` | An address and a role | Admin | always |
+| `set_roles` | Replaces what a colleague holds | Admin | always |
+| `deactivate_account` / `reactivate_account` | Access away, and back | Admin | always |
+| `export_backup` | One table as CSV | Admin | always |
+
+Three of those have a rule worth stating outside the table.
+
+**`attach_to_ticket` only sees this message's pictures.** The model is sent the
+bytes in the turn they arrive in; the conversation row keeps the file names and
+nothing else, because `ai_messages` refuses a row over 256 KiB and four
+megabytes of base64 is many times that. So attaching works in the same message
+and says so plainly otherwise. The one exception is an approval: a person with
+"ask before changes" on answers on a later request, so the panel sends that
+turn's pictures back with the "yes", under their own field, and they never
+appear in the conversation as a second message.
+
+It takes the browser's path rather than a shortcut around it — `app_can_attach`
+in the person's own session, the path built by the server, the bytes through
+the same one-path upload grant, and the row written by the same
+read-back-and-verify sequence, which fetches the object again and asks its first
+bytes what it really is. A file that disagrees with its own label gets no row
+and no bytes.
+
+**`export_backup` will not put a whole table in a chat turn.** Same fourteen
+tables as the Backups screen, same constant-not-string lookup, same 50,000-row
+ceiling, same "capped" in the file name. Under 200 KB the CSV comes back as a
+file to hand over; over it, the result is the row count, the columns and the
+first twenty rows, and the download stays on the Backups screen.
+
+**`list_audit` is a read that only an administrator is offered.** The group
+answers "is this a change?", and that question is what decides whether somebody
+is asked first — so the audit log cannot sit in the admin group, where every
+tool asks and asking before a read would be a confirmation card for nothing. A
+separate `adminOnly` flag says the second thing, and the suite asserts that a
+NetRider is offered every read and write except those.
 
 ## Attribution
 
@@ -359,6 +449,15 @@ all carry it, and the interface renders it as "Nia's AI" beside the
 change. The headers are declared by the client, so the stamp is a label for
 readers, never a permission: nothing in the database treats an AI-marked action
 differently from the same person's own.
+
+Attachment registration is the one write that does not go out on the person's
+own client — `app_trusted_register_attachment` is granted to the service role
+alone, because the size and the type in the registry have to be read back off
+the stored object rather than claimed by whoever uploaded it. So that call
+carries the same two headers, and `app_request_via()` reads them the same way.
+The actor still arrives as an id that the function re-reads and re-judges for
+itself, and no Server Action takes `via` as an argument: the browser's own
+upload path never sets it, so nobody can label their own file as somebody's AI.
 
 ## The design system
 
