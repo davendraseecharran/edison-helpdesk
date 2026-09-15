@@ -480,9 +480,17 @@ npx supabase migration up --local --include-all
 npx supabase migration list --local        # 52 rows, local == remote on every one
 
 # 3. the suites, against that database
-npx vitest run --config vitest.db.config.mts    # 428 tests, 30 files, all passing
+npx vitest run --config vitest.db.config.mts    # 427 of 428 — see below
 npx vitest run --config vitest.auth.config.mts  # 53 tests, 7 files, all passing
 ```
+
+The single database-suite failure was a test fixture, not the schema: one
+staff record was left on the harness's default display name and answered a
+search another file asserts the exact results of. It failed identically on a
+full local reset in the main worktree, so it says nothing about applying these
+migrations onto the owner's database. Named in
+`tests/db/m5-today-devices.test.ts`, after which `npm run test:local` is 428 of
+428 and 53 of 53.
 
 Every migration applied first time against the owner's live objects — their
 `requesters` columns, `inventory_devices`, `device_catalog`, `inventory_events`
