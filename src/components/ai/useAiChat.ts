@@ -26,10 +26,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isRecord, textOf } from '@/lib/guards';
 import { isBusyMoment, momentForTool, type Moment } from './orb-state';
 import type { PageContext } from './page-context';
+import type { TurnImage } from '@/lib/ai/images';
 
 export interface ChatRequest {
   conversationId?: string;
   message?: string;
+  /** Pictures attached to this turn, as data URLs. */
+  images?: TurnImage[];
   approve?: string[];
   reject?: string[];
   page?: PageContext;
@@ -85,6 +88,8 @@ export interface UserTurn {
   id: string;
   role: 'user';
   text: string;
+  /** What was attached, so the transcript shows it where it was sent. */
+  images?: TurnImage[];
 }
 
 export interface AssistantTurn {
@@ -108,7 +113,7 @@ export interface UseAiChat {
   busy: boolean;
   /** Tool calls waiting for a decision, oldest first. */
   pending: ToolPart[];
-  send: (text: string) => void;
+  send: (text: string, images?: readonly TurnImage[]) => void;
   approve: (callId: string) => void;
   reject: (callId: string) => void;
   /** Sends the last message again after a failure. */
@@ -349,7 +354,7 @@ export function useAiChat({
   }, []);
 
   const controller = useRef<AbortController | null>(null);
-  const lastMessage = useRef<string | null>(null);
+  const lastMessage = useRef<{ text: string; images: TurnImage[] } | null>(null);
   const conversationRef = useRef<string | null>(initial?.conversationId ?? null);
   const callbacks = useRef({ page, onReply, onBlocked });
   useEffect(() => {
@@ -556,16 +561,24 @@ export function useAiChat({
   );
 
   const send = useCallback(
-    (raw: string) => {
+    (raw: string, images: readonly TurnImage[] = []) => {
       const message = raw.trim();
-      if (message === '') return;
-      lastMessage.current = message;
+      // A photograph on its own is a message. Only a turn with neither words
+      // nor pictures in it is nothing to send.
+      if (message === '' && images.length === 0) return;
+      const attached = [...images];
+      lastMessage.current = { text: message, images: attached };
 
       // A new message answers any open approvals with "no": the person has
       // moved on, and the server treats an unanswered call the same way.
       const unanswered = pending.map((part) => part.callId);
 
-      const userTurn: UserTurn = { id: newId(), role: 'user', text: message };
+      const userTurn: UserTurn = {
+        id: newId(),
+        role: 'user',
+        text: message,
+        ...(attached.length > 0 ? { images: attached } : {}),
+      };
       const assistantTurn: AssistantTurn = { id: newId(), role: 'assistant', parts: [], streaming: true };
       writeTurns((current) => [...current, userTurn, assistantTurn]);
 
@@ -574,6 +587,7 @@ export function useAiChat({
         {
           conversationId: conversationRef.current ?? undefined,
           message,
+          images: attached.length > 0 ? attached : undefined,
           reject: unanswered.length > 0 ? unanswered : undefined,
           page: pageContext ?? undefined,
         },
@@ -609,10 +623,11 @@ export function useAiChat({
   const reject = useCallback((callId: string) => answer(callId, 'reject'), [answer]);
 
   const retry = useCallback(() => {
-    const message = lastMessage.current;
-    if (!message) return;
-    // The failed turn stays as the record; the retry is a fresh exchange.
-    send(message);
+    const last = lastMessage.current;
+    if (!last) return;
+    // The failed turn stays as the record; the retry is a fresh exchange, and
+    // it carries the same pictures — they never reached the model.
+    send(last.text, last.images);
   }, [send]);
 
   const newConversation = useCallback(() => {

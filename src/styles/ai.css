@@ -319,7 +319,27 @@
 
 .ai-turn-user {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+/* What was sent with the words, at the size a thumbnail is worth looking at. */
+.ai-bubble-images {
+  display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 6px;
+  max-width: 85%;
+}
+
+.ai-bubble-image {
+  width: auto;
+  max-width: 160px;
+  max-height: 160px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  object-fit: cover;
 }
 
 /*
@@ -725,6 +745,114 @@
 .ai-composer-hint {
   margin-top: 6px;
   font-size: var(--fs-0);
+}
+
+/* --- Attached pictures --------------------------------------------------- */
+
+/*
+ * A chip is the thumbnail, the filename and a way to take it off again.
+ *
+ * Concentric, not coincidental: the chip's 4px of padding is exactly the
+ * difference between its own radius and the thumbnail's, so the two curves are
+ * parallel rather than nested at random.
+ */
+.ai-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.ai-attachment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 4px;
+  padding-right: 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--surface-2);
+}
+
+.ai-attachment-thumb {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-1);
+  background: var(--surface-3);
+  object-fit: cover;
+}
+
+.ai-attachment-name {
+  min-width: 0;
+  max-width: 14ch;
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: var(--fs-0);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ai-attachment-remove {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ai-attachment-remove:hover {
+    background: var(--surface-3);
+    color: var(--ink);
+  }
+}
+
+/* The attach button wears the microphone's shape, because they are the same
+   kind of thing: a way of putting something in the field. */
+.ai-attach {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ai-attach:hover:not(:disabled) {
+    background: var(--surface-3);
+    color: var(--ink);
+  }
+}
+
+.ai-attach:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* A picture that could not be attached says so where it was dropped. */
+.ai-composer-notice {
+  margin: 0 0 8px;
+  color: var(--ink-2);
+  font-size: var(--fs-0);
+}
+
+/* Dragging a file over the composer: the field says it will take it. */
+.ai-composer[data-dragging] .ai-composer-row {
+  border-color: var(--line-focus);
+  border-style: dashed;
 }
 
 /* --- Conversations ------------------------------------------------------ */

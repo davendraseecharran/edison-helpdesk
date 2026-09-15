@@ -18,7 +18,7 @@ import { Flash } from '@/components/Primitives';
 import { AiPanel } from '@/components/ai/AiPanel';
 import { openAssistant } from '@/components/ai/assistant-store';
 import type { AiServices, AiStatus } from '@/components/ai/services';
-import { turnsFromTranscript, type ChatRequest, type Turn } from '@/components/ai/useAiChat';
+import { defaultTransport, turnsFromTranscript, type ChatRequest, type Turn } from '@/components/ai/useAiChat';
 import { AiToggle } from '@/components/shell/AiToggle';
 import { useTheme } from '@/components/shell/ThemeProvider';
 import { SkeletonPanel } from '@/components/ui/Skeleton';
@@ -305,7 +305,17 @@ function demoServices(scenario: string, pace: number, connectAfter: number): AiS
     }),
     loadConversation: async () => ({ ok: true, title: 'Anything waiting on a requester today?', items: [], pending: [] }),
     deleteConversation: async () => ({ ok: true }),
-    transport: async (body, signal) => {
+    /*
+     * `pictures` is the one scenario that talks to the real endpoint.
+     *
+     * Everything else about the panel can be shown with a scripted stream,
+     * because what is interesting is what arrives. The picture path is the
+     * opposite: what is interesting is what the composer SENDS, and a
+     * transport that never touches the network is a transport nothing can
+     * read the request off. Opened without an intercept in front of it, this
+     * is simply the real assistant, and says so if no account is connected.
+     */
+    transport: scenario === 'pictures' ? defaultTransport : async (body, signal) => {
       if (scenario === 'signed-out') return problem(401, 'signed_out', 'Your session is not able to do that. Sign in again.');
       if (!live.connected) return problem(409, 'not_connected', 'Connect a ChatGPT account before using the assistant.');
       const script = SCRIPTS[scenario] ?? SCRIPTS.streaming;

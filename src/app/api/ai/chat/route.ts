@@ -56,6 +56,7 @@ import {
   type ToolContext,
 } from '@/lib/ai/tools';
 import { systemInstructions, type PageKind } from '@/lib/ai/prompt';
+import { readImages, storedMessageItem, userMessageItem, type TurnImage } from '@/lib/ai/images';
 import {
   appendItems,
   appendPending,
@@ -64,7 +65,6 @@ import {
   loadConversation,
   trimItems,
   toolOutputItem,
-  userItem,
   type PendingCall,
 } from '@/lib/ai/conversations';
 
@@ -91,6 +91,7 @@ const MAX_MESSAGE_CHARS = 30_000;
 interface ChatBody {
   conversationId?: string;
   message?: string;
+  images?: TurnImage[];
   approve?: string[];
   reject?: string[];
   page?: { kind: PageKind; id: string; label: string };
@@ -129,12 +130,20 @@ export async function POST(request: NextRequest): Promise<Response> {
   }
 
   let body: ChatBody;
+  let pictures: TurnImage[];
   try {
     const parsed: unknown = await request.json();
     if (!isRecord(parsed)) throw new Error('not an object');
+    // The browser's own limits are a courtesy to the person typing; this
+    // endpoint is reachable with curl, so the count, the media type and the
+    // decoded size are all re-derived from the bytes that actually arrived.
+    const read = readImages(parsed.images);
+    if (!read.ok) return problem(read.status, read.code, read.message);
+    pictures = read.images;
     body = {
       conversationId: typeof parsed.conversationId === 'string' ? parsed.conversationId : undefined,
       message: typeof parsed.message === 'string' ? parsed.message : undefined,
+      images: pictures,
       approve: stringList(parsed.approve),
       reject: stringList(parsed.reject),
       page: readPage(parsed.page),
@@ -143,7 +152,10 @@ export async function POST(request: NextRequest): Promise<Response> {
     return problem(400, 'bad_request', 'That request was not readable.');
   }
 
-  const hasMessage = (body.message ?? '').trim() !== '';
+  // A photograph on its own is a question. "What is this error?" with a picture
+  // of the dialog is a complete turn, and refusing it for having no prose would
+  // be this application insisting on the slower half of the message.
+  const hasMessage = (body.message ?? '').trim() !== '' || pictures.length > 0;
   const answering = (body.approve ?? []).length > 0 || (body.reject ?? []).length > 0;
   if (!hasMessage && !answering) {
     return problem(400, 'bad_request', 'Send a message, or an answer to a pending change.');
@@ -214,7 +226,13 @@ export async function POST(request: NextRequest): Promise<Response> {
     conversationId =
       body.conversationId && body.conversationId.trim() !== ''
         ? body.conversationId.trim()
-        : await createConversation(supabase, account.id, body.message ?? 'New conversation');
+        : // A turn that is only a photograph still deserves a name in the list,
+          // and the file is the only thing anybody said about it.
+          await createConversation(
+            supabase,
+            account.id,
+            (body.message ?? '').trim() || pictures[0]?.name || 'New conversation',
+          );
   } catch (error) {
     console.error('[ai] conversation open failed', {
       message: error instanceof Error ? error.message : String(error),
@@ -314,11 +332,18 @@ export async function POST(request: NextRequest): Promise<Response> {
           input.push(...outputs);
         }
 
-        // --- What the person just typed ----------------------------------
+        // --- What the person just typed, and what they attached -----------
+        //
+        // Two different items on purpose. The model is sent the pictures
+        // themselves, as `input_image` parts in the SAME user message as the
+        // text, because a photograph and the sentence about it are one thing to
+        // say. The conversation row is given the text and the names of what was
+        // attached: `ai_messages_content_size` refuses a row over 256 KiB, and
+        // four megabytes of base64 is many times that. See `images.ts`.
         if (hasMessage) {
-          const item = userItem((body.message ?? '').trim());
-          await appendItems(supabase, conversationId, 'user', [item]);
-          input.push(item);
+          const said = (body.message ?? '').trim();
+          await appendItems(supabase, conversationId, 'user', [storedMessageItem(said, pictures)]);
+          input.push(userMessageItem(said, pictures));
         }
 
         void touchUsed(account.id);

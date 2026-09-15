@@ -100,9 +100,27 @@ export function AiMessage({
   onRetry: () => void;
 }) {
   if (turn.role === 'user') {
+    const images = turn.images ?? [];
     return (
       <div className="ai-turn ai-turn-user">
-        <div className="ai-bubble">{turn.text}</div>
+        {/* The pictures above the words, in the order they were sent. They are
+            in the transcript because a conversation where half of what you
+            said is invisible is a conversation you cannot read back. */}
+        {images.length > 0 ? (
+          <div className="ai-bubble-images">
+            {images.map((image, at) => (
+              /* eslint-disable-next-line @next/next/no-img-element -- A data URL
+                 this browser encoded a moment ago; nothing to fetch or resize. */
+              <img
+                key={`${image.name}-${at}`}
+                className="ai-bubble-image"
+                src={image.dataUrl}
+                alt={image.name}
+              />
+            ))}
+          </div>
+        ) : null}
+        {turn.text !== '' ? <div className="ai-bubble">{turn.text}</div> : null}
       </div>
     );
   }

@@ -49,6 +49,7 @@ import { readPageContext, usePageContext } from './page-context';
 import { serverServices, type AiServices, type AiStatus } from './services';
 import { say } from '@/lib/voice/moments';
 import { turnsFromTranscript, useAiChat, type ChatBlock, type Turn } from './useAiChat';
+import { useAttachments } from './useAttachments';
 import { useSpeaker, useSpeechRecognition } from './useSpeech';
 import '@/styles/ai.css';
 import '@/styles/ai-connect.css';
@@ -286,14 +287,25 @@ export function AiPanel({
 
   // --- Sending --------------------------------------------------------------
 
+  /**
+   * The pictures waiting to go with the next message.
+   *
+   * Held here rather than in the composer because sending is decided here: the
+   * chips have to survive the composer re-rendering, and they have to be
+   * cleared by the same call that sends them, never by the field emptying.
+   */
+  const attachments = useAttachments();
+  const { items: attached, clear: clearAttachments } = attachments;
+
   const sendText = useCallback(
     (text: string) => {
       stopSpeaking();
       stickToBottom.current = true;
       setRequestedView('chat');
-      sendToChat(text);
+      sendToChat(text, attached);
+      clearAttachments();
     },
-    [sendToChat, stopSpeaking],
+    [attached, clearAttachments, sendToChat, stopSpeaking],
   );
 
   /**
@@ -307,7 +319,9 @@ export function AiPanel({
   const submit = useCallback(
     (text: string) => {
       const trimmed = text.trim();
-      if (trimmed === '') return;
+      // A photograph on its own is a question; only a turn with neither words
+      // nor pictures is nothing to send.
+      if (trimmed === '' && attached.length === 0) return;
       if (status?.enabled === false) return;
       if (!ready) {
         setDraft(trimmed);
@@ -320,7 +334,7 @@ export function AiPanel({
       setDraft('');
       dictationBase.current = '';
     },
-    [ready, status?.enabled, sendText, setDraft],
+    [attached.length, ready, status?.enabled, sendText, setDraft],
   );
 
   /** A prompt handed in from elsewhere, before the status is known. */
@@ -884,6 +898,10 @@ export function AiPanel({
                     ref={composerRef}
                     value={draft}
                     onChange={setDraft}
+                    images={attachments.items}
+                    onAttach={(files) => void attachments.add(files)}
+                    onRemoveImage={attachments.remove}
+                    imageNotice={attachments.notice}
                     onSend={send}
                     onStop={chat.stop}
                     busy={chat.busy}

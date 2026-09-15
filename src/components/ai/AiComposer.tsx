@@ -1,14 +1,24 @@
 'use client';
 
 /**
- * Where the person types, or talks.
+ * Where the person types, talks, or shows.
  *
  * A textarea that grows to six lines, Enter to send and Shift+Enter for a
- * new line, and two buttons: the microphone, when the browser has one to
- * offer, and Send, which becomes Stop while a reply is on its way. On a
+ * new line, and three buttons: attach, the microphone when the browser has one
+ * to offer, and Send, which becomes Stop while a reply is on its way. On a
  * touch screen the microphone is held; with a pointer or a keyboard it is
  * a toggle. Nothing is sent when the microphone lets go: the words are in
  * the field to be read first.
+ *
+ * Pictures arrive three ways — paste, drop, and the picker — because all three
+ * are how somebody actually has one. A screenshot is on the clipboard, a photo
+ * off a phone is a file in a folder, and a picture already on screen gets
+ * dragged. Each becomes a chip above the field: the thumbnail, because a
+ * filename is not how anybody recognises a photograph they just took, and a
+ * remove button, because the wrong one gets attached.
+ *
+ * The rules live in `src/lib/ai/images.ts` and the file work in
+ * `useAttachments`; this file is the arrangement and the events.
  */
 
 import {
@@ -16,15 +26,20 @@ import {
   useImperativeHandle,
   useLayoutEffect,
   useRef,
+  useState,
   type ChangeEvent,
+  type ClipboardEvent,
+  type DragEvent,
   type KeyboardEvent,
   type PointerEvent,
 } from 'react';
-import { ArrowUp, FileText, Mic, Square } from 'lucide-react';
+import { ArrowUp, FileText, ImagePlus, Mic, Square, X } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { OpenBeam } from '@/components/ui/OpenBeam';
+import { IMAGE_TYPES, MAX_IMAGES } from '@/lib/ai/images';
 import type { PageContext } from './page-context';
+import { imageFilesFrom, type Attachment } from './useAttachments';
 import type { SpeechRecognitionHandle } from './useSpeech';
 
 /** Six lines of 14px body text, plus the field's own padding. */
@@ -47,14 +62,43 @@ export interface AiComposerProps {
   /** What the current page is about, shown so the person knows the assistant knows. */
   page?: PageContext | null;
   placeholder?: string;
+  /** The pictures waiting to go with the next message. */
+  images?: Attachment[];
+  /** Files from a paste, a drop or the picker. */
+  onAttach?: (files: readonly File[]) => void;
+  onRemoveImage?: (id: string) => void;
+  /** What went wrong with the last picture offered. */
+  imageNotice?: string | null;
 }
 
 export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function AiComposer(
-  { value, onChange, onSend, onStop, busy, disabled, speech, page, placeholder },
+  {
+    value,
+    onChange,
+    onSend,
+    onStop,
+    busy,
+    disabled,
+    speech,
+    page,
+    placeholder,
+    images = [],
+    onAttach,
+    onRemoveImage,
+    imageNotice = null,
+  },
   ref,
 ) {
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
   const holding = useRef(false);
+  // A counter rather than a flag: dragging over a child fires dragleave on the
+  // parent, and a flag would flicker the frame off every time the pointer
+  // crossed the Send button.
+  const dragDepth = useRef(0);
+  const [dragging, setDragging] = useState(false);
+  const canAttach = onAttach !== undefined;
+  const full = images.length >= MAX_IMAGES;
 
   useImperativeHandle(ref, () => ({ focus: () => textarea.current?.focus() }), []);
 
@@ -67,7 +111,56 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
     field.style.overflowY = field.scrollHeight > MAX_HEIGHT ? 'auto' : 'hidden';
   }, [value]);
 
-  const canSend = value.trim() !== '' && !disabled;
+  // A photograph on its own is a question worth asking.
+  const canSend = (value.trim() !== '' || images.length > 0) && !disabled;
+
+  function attach(files: readonly File[]) {
+    if (!onAttach || files.length === 0) return;
+    onAttach(files);
+  }
+
+  function onPaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    if (!canAttach) return;
+    const files = imageFilesFrom(event.clipboardData);
+    if (files.length === 0) return;
+    // Only when there really are pictures: a paste that is text as well as an
+    // image should still put the text in the field.
+    if (event.clipboardData.getData('text/plain') === '') event.preventDefault();
+    attach(files);
+  }
+
+  function onDragEnter(event: DragEvent<HTMLDivElement>) {
+    if (!canAttach || !event.dataTransfer?.types.includes('Files')) return;
+    dragDepth.current += 1;
+    setDragging(true);
+  }
+
+  function onDragLeave() {
+    if (!canAttach) return;
+    dragDepth.current = Math.max(0, dragDepth.current - 1);
+    if (dragDepth.current === 0) setDragging(false);
+  }
+
+  function onDragOver(event: DragEvent<HTMLDivElement>) {
+    if (!canAttach || !event.dataTransfer?.types.includes('Files')) return;
+    // Without this the browser opens the dropped file in the tab, which loses
+    // the whole conversation.
+    event.preventDefault();
+  }
+
+  function onDrop(event: DragEvent<HTMLDivElement>) {
+    if (!canAttach) return;
+    event.preventDefault();
+    dragDepth.current = 0;
+    setDragging(false);
+    attach(imageFilesFrom(event.dataTransfer));
+  }
+
+  function onPicked(event: ChangeEvent<HTMLInputElement>) {
+    attach(Array.from(event.target.files ?? []));
+    // Cleared so choosing the same file twice in a row still fires a change.
+    event.target.value = '';
+  }
 
   function onKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
@@ -103,7 +196,15 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
   }
 
   return (
-    <div className="ai-composer" data-listening={speech?.listening || undefined}>
+    <div
+      className="ai-composer"
+      data-listening={speech?.listening || undefined}
+      data-dragging={dragging || undefined}
+      onDragEnter={onDragEnter}
+      onDragLeave={onDragLeave}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
       {page ? (
         <div className="ai-composer-context">
           <Icon icon={FileText} size={14} />
@@ -112,6 +213,32 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
             <span className={page.kind === 'person' ? undefined : 'mono'}>{page.label}</span>
           </span>
         </div>
+      ) : null}
+      {images.length > 0 ? (
+        <ul className="ai-attachments" aria-label="Pictures attached to this message">
+          {images.map((image) => (
+            <li key={image.id} className="ai-attachment">
+              {/* eslint-disable-next-line @next/next/no-img-element -- A data URL
+                  the browser just encoded; there is nothing for the image
+                  optimiser to fetch or resize. */}
+              <img className="ai-attachment-thumb" src={image.dataUrl} alt="" />
+              <span className="ai-attachment-name">{image.name}</span>
+              <button
+                type="button"
+                className="ai-attachment-remove pressable"
+                aria-label={`Remove ${image.name}`}
+                onClick={() => onRemoveImage?.(image.id)}
+              >
+                <Icon icon={X} size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {imageNotice ? (
+        <p className="ai-composer-notice" role="status">
+          {imageNotice}
+        </p>
       ) : null}
       <OpenBeam className="ai-composer-beam">
         <div className="ai-composer-row">
@@ -125,9 +252,34 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
           disabled={disabled}
           onChange={(event: ChangeEvent<HTMLTextAreaElement>) => onChange(event.target.value)}
           onKeyDown={onKeyDown}
+          onPaste={onPaste}
           data-autofocus
         />
         <div className="ai-composer-actions">
+          {canAttach ? (
+            <>
+              <input
+                ref={picker}
+                type="file"
+                className="visually-hidden"
+                accept={IMAGE_TYPES.join(',')}
+                multiple
+                tabIndex={-1}
+                aria-hidden="true"
+                onChange={onPicked}
+              />
+              <button
+                type="button"
+                className="ai-attach pressable"
+                aria-label="Attach a picture"
+                title={full ? `Up to ${MAX_IMAGES} pictures in one message` : 'Attach a picture'}
+                disabled={disabled || full}
+                onClick={() => picker.current?.click()}
+              >
+                <Icon icon={ImagePlus} size={18} />
+              </button>
+            </>
+          ) : null}
           {speech ? (
             <button
               type="button"

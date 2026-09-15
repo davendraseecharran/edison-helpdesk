@@ -33,6 +33,8 @@ const state = {
   events: [] as ResponsesEvent[],
   rpcCalls: [] as { fn: string; args: Record<string, unknown> }[],
   inserted: [] as { table: string; row: unknown }[],
+  /** The input items each round was sent, so the wire shape can be asserted. */
+  sent: [] as Record<string, unknown>[][],
 };
 
 /**
@@ -147,7 +149,8 @@ vi.mock('../../src/lib/ai/responses-client', async (importOriginal) => {
     ...actual,
     // One scripted turn, then nothing: the route stops when a round produces no
     // tool call, so the second round ends the loop on its own.
-    streamResponses: async function* () {
+    streamResponses: async function* (request: { input: Record<string, unknown>[] }) {
+      state.sent.push(request.input.map((item) => ({ ...item })));
       const events = state.events;
       state.events = [];
       for (const event of events) yield event;
@@ -202,7 +205,23 @@ beforeEach(() => {
   state.events = [];
   state.rpcCalls = [];
   state.inserted = [];
+  state.sent = [];
 });
+
+/** A data URL of `bytes` decoded bytes, matching tests/ai/images.test.ts. */
+function dataUrl(type: string, bytes: number): string {
+  const whole = Math.floor(bytes / 3);
+  const rest = bytes % 3;
+  const body = 'AAAA'.repeat(whole) + (rest === 0 ? '' : rest === 1 ? 'AA==' : 'AAA=');
+  return `data:${type};base64,${body}`;
+}
+
+/** The parts of the last user message actually put on the wire. */
+function sentUserParts(): Record<string, unknown>[] {
+  const input = state.sent[0] ?? [];
+  const user = [...input].reverse().find((item) => item.type === 'message' && item.role === 'user');
+  return (user?.content as Record<string, unknown>[]) ?? [];
+}
 
 describe('POST /api/ai/chat', () => {
   it('refuses with 503 when the server has no AI_TOKEN_KEY', async () => {
@@ -323,6 +342,69 @@ describe('POST /api/ai/chat', () => {
     const content = (assistantRows[0].row as { content: { type: string }[] }).content;
     expect(Array.isArray(content)).toBe(true);
     expect(content.map((item) => item.type)).toEqual(['reasoning', 'message']);
+  });
+
+  it('sends a picture as an input_image part in the SAME user message as the text', async () => {
+    state.events = textTurn('That is a cracked panel.');
+    const image = { dataUrl: dataUrl('image/jpeg', 900), name: 'crack.jpg' };
+    const response = await POST(request({ message: 'what is this', images: [image] }));
+    expect(response.status).toBe(200);
+    await lines(response);
+
+    expect(sentUserParts()).toEqual([
+      { type: 'input_text', text: 'what is this' },
+      { type: 'input_image', image_url: image.dataUrl, detail: 'auto' },
+    ]);
+  });
+
+  it('takes a picture with no words at all', async () => {
+    state.events = textTurn('A projector with no signal.');
+    const image = { dataUrl: dataUrl('image/png', 120), name: 'screen.png' };
+    const response = await POST(request({ images: [image] }));
+    expect(response.status).toBe(200);
+    await lines(response);
+    expect(sentUserParts()).toEqual([{ type: 'input_image', image_url: image.dataUrl, detail: 'auto' }]);
+  });
+
+  it('keeps the names but not the bytes in the conversation row', async () => {
+    state.events = textTurn('Noted.');
+    const image = { dataUrl: dataUrl('image/webp', 400), name: 'label.webp' };
+    await lines(await POST(request({ message: 'read this label', images: [image] })));
+
+    const userRows = state.inserted.filter(
+      (entry) => entry.table === 'ai_messages' && (entry.row as { role?: string }).role === 'user',
+    );
+    expect(userRows).toHaveLength(1);
+    const stored = JSON.stringify(userRows[0].row);
+    // The row constraint is 256 KiB; a picture is many times that, and a row
+    // that cannot be written is a turn that is lost.
+    expect(stored).not.toContain('base64');
+    expect(stored).toContain('label.webp');
+    expect(stored).toContain('not kept');
+  });
+
+  it('refuses a fifth picture, before opening a conversation', async () => {
+    const image = { dataUrl: dataUrl('image/png', 60), name: 'a.png' };
+    const response = await POST(request({ message: 'look', images: Array(5).fill(image) }));
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: 'too_many_images' });
+    expect(state.inserted).toEqual([]);
+  });
+
+  it('refuses a picture over four megabytes', async () => {
+    const response = await POST(
+      request({ message: 'look', images: [{ dataUrl: dataUrl('image/png', 4 * 1024 * 1024 + 1), name: 'a.png' }] }),
+    );
+    expect(response.status).toBe(413);
+    expect(await response.json()).toMatchObject({ error: 'image_too_large' });
+  });
+
+  it('refuses a file that is not a picture the model reads', async () => {
+    const response = await POST(
+      request({ message: 'look', images: [{ dataUrl: dataUrl('application/pdf', 60), name: 'a.pdf' }] }),
+    );
+    expect(response.status).toBe(415);
+    expect(await response.json()).toMatchObject({ error: 'image_type' });
   });
 
   it('reports a model error and still closes the stream', async () => {
