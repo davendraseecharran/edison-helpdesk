@@ -16,6 +16,7 @@
 
 import { createClient } from '@/lib/supabase/server';
 import { loadActor } from '@/lib/auth/session';
+import { openDuplicates, isStillOpen, type DuplicateHit } from '@/lib/intake/duplicates';
 import { hitFromRow, SEARCH_MIN_LENGTH, type SearchHit } from './search';
 
 /** Hits per kind. The palette shows a few of each, not a page. */
@@ -47,6 +48,59 @@ export async function searchAction(query: string): Promise<SearchHit[]> {
     return hits;
   } catch (cause) {
     console.error(`searchAction failed (${cause instanceof Error ? cause.name : 'unknown'})`);
+    return [];
+  }
+}
+
+/**
+ * The tickets the intake form should warn about: still open, and opened this
+ * week.
+ *
+ * The lookup is the right search — it is the one the whole application uses and
+ * it runs under the caller's own policies — but `app_search` renders one line
+ * per hit and does not carry a date, because nothing else needs one. Rather
+ * than widen a function every screen depends on for the sake of one warning,
+ * the dates for the few surviving candidates are read back from `tickets`,
+ * which is governed by the same policies the search just applied: a row whose
+ * date comes back is a row the caller could already see.
+ *
+ * Like `searchAction`, this never throws to the browser and never logs the
+ * query text.
+ */
+export async function duplicateTicketsAction(query: string): Promise<DuplicateHit[]> {
+  const hits = await searchAction(query);
+  const candidates = hits.filter((hit) => hit.kind === 'ticket' && isStillOpen(hit.meta));
+  if (candidates.length === 0) return [];
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from('tickets')
+      .select('id, created_at')
+      .in(
+        'id',
+        candidates.map((hit) => hit.id),
+      );
+    if (error) {
+      console.error(`duplicate ticket dates failed (${error.code ?? 'no code'})`);
+      return [];
+    }
+
+    const opened = new Map<string, string>();
+    for (const row of Array.isArray(data) ? data : []) {
+      const { id, created_at: createdAt } = row as Record<string, unknown>;
+      if (typeof id === 'string' && typeof createdAt === 'string') opened.set(id, createdAt);
+    }
+
+    const dated: DuplicateHit[] = candidates.map((hit) => ({
+      ...hit,
+      createdAt: opened.get(hit.id) ?? null,
+    }));
+    return openDuplicates(dated, Date.now());
+  } catch (cause) {
+    console.error(
+      `duplicateTicketsAction failed (${cause instanceof Error ? cause.name : 'unknown'})`,
+    );
     return [];
   }
 }

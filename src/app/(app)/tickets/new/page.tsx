@@ -25,7 +25,8 @@ import { canChooseChannelAndOwner } from '@/lib/domain/permissions';
 import { DuplicateWarning } from '@/components/ticket/DuplicateWarning';
 import { IntakeSuggestions } from '@/components/ticket/IntakeSuggestions';
 import { PasteToDraft } from '@/components/ticket/PasteToDraft';
-import { createTicketAction } from '@/lib/data/actions';
+import { addNoteAction, createTicketAction } from '@/lib/data/actions';
+import { relatedNote } from '@/lib/intake/duplicates';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { ChosenPerson, PersonPicker, type PersonSearchResult } from '@/components/people/PersonPicker';
 import { DevicePicker, type DeviceSearchResult } from '@/components/devices/DevicePicker';
@@ -106,7 +107,7 @@ function IntakeSection({
 }
 
 export default function NewTicketPage() {
-  const { directory, today, pendingKey, run } = useRuntime();
+  const { directory, today, notify, pendingKey, run } = useRuntime();
   const actor = useActorAccount();
   const router = useRouter();
   const isAdminIntake = canChooseChannelAndOwner(actor);
@@ -126,6 +127,22 @@ export default function NewTicketPage() {
   const [devices, setDevices] = useState<DeviceDraft[]>([]);
   const [nextDeviceKey, setNextDeviceKey] = useState(1);
   const [fieldError, setFieldError] = useState<{ field?: string; error: string } | null>(null);
+  /*
+   * Tickets the desk said were the same issue, by number.
+   *
+   * Collected while the title is being typed and written as notes the moment
+   * this ticket exists, because before then there is no record to write them
+   * on. Nothing is written if the form is abandoned, which is the right
+   * outcome: a relation to a ticket that was never recorded is not a fact.
+   */
+  const [relatedNumbers, setRelatedNumbers] = useState<string[]>([]);
+
+  function relateTo(number: string) {
+    setRelatedNumbers((current) =>
+      current.includes(number) ? current : [...current, number],
+    );
+  }
+
 
   const activeAccounts = useMemo(
     () => directory.filter((account) => account.status === 'active'),
@@ -199,6 +216,14 @@ export default function NewTicketPage() {
     );
 
     if (result.ok && result.id) {
+      // The relations, now that there is something to relate. A note that does
+      // not save is reported and the ticket still opens: it exists either way,
+      // and sending the desk back to a form it has already submitted would ask
+      // for the ticket twice.
+      for (const number of relatedNumbers) {
+        const note = await addNoteAction(result.id, relatedNote(number));
+        if (!note.ok) notify('error', `${number} could not be linked. Add a note on the ticket.`);
+      }
       router.push(`/tickets/${result.id}`);
       return;
     }
@@ -342,7 +367,12 @@ export default function NewTicketPage() {
                 onCategory={setCategory}
                 onPriority={setPriority}
               />
-              <DuplicateWarning title={title} location={location} />
+              <DuplicateWarning
+                title={title}
+                location={location}
+                related={relatedNumbers}
+                onRelate={relateTo}
+              />
             </div>
           </div>
         </IntakeSection>

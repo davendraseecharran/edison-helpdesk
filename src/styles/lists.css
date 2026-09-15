@@ -366,6 +366,30 @@
   color: var(--ink-3);
 }
 
+/* The offer beside each hit, and what it turns into once it has been taken. */
+.duplicate-warning-relate {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--fs-1);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .duplicate-warning-relate:hover {
+    color: var(--ink);
+  }
+}
+
+.duplicate-warning-linked {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
 .duplicate-warning-no {
   flex: none;
   padding: 0;

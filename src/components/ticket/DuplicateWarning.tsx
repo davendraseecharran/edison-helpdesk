@@ -13,26 +13,45 @@
  * is information, and "you may not record this" would be the form overruling
  * somebody who knows more than it does. Submitting is never touched.
  *
- * The search is the ordinary one (`searchAction`, RLS applies), run against the
- * words of the title that actually name something. Debounced, because it runs
- * while somebody types, and cancelled by sequence number so a slow answer for
- * an old spelling cannot paint over a new one.
+ * What it shows is only what is still true: a ticket that is still somebody's
+ * problem and was opened within the grouping window. A ticket closed in
+ * November matches the same words as this morning's, and printing it under
+ * "already open" is how a desk learns to stop reading the warning.
+ *
+ * The search is the ordinary one (`app_search` through `duplicateTicketsAction`,
+ * RLS applies), run against the words of the title that actually name
+ * something. Debounced, because it runs while somebody types, and cancelled by
+ * sequence number so a slow answer for an old spelling cannot paint over a new
+ * one.
  */
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { TriangleAlert } from 'lucide-react';
 import { Icon } from '@/components/ui/Icon';
-import { searchAction } from '@/lib/data/search-actions';
-import { splitTicketTitle, type SearchHit } from '@/lib/data/search';
+import { duplicateTicketsAction } from '@/lib/data/search-actions';
+import { splitTicketTitle } from '@/lib/data/search';
+import type { DuplicateHit } from '@/lib/intake/duplicates';
 import { duplicateTokens } from '@/lib/intake/suggest';
 import '@/styles/lists.css';
 
 /** Long enough that the title has settled, short enough to land before the next field. */
 const DEBOUNCE_MS = 400;
 
-export function DuplicateWarning({ title, location }: { title: string; location: string }) {
-  const [hits, setHits] = useState<SearchHit[]>([]);
+export function DuplicateWarning({
+  title,
+  location,
+  related,
+  onRelate,
+}: {
+  title: string;
+  location: string;
+  /** Ticket numbers already marked as the same issue, from the form above. */
+  related: string[];
+  /** Mark one, to be written as a note the moment this ticket exists. */
+  onRelate: (number: string) => void;
+}) {
+  const [hits, setHits] = useState<DuplicateHit[]>([]);
   const [dismissed, setDismissed] = useState(false);
   const sequence = useRef(0);
 
@@ -53,14 +72,14 @@ export function DuplicateWarning({ title, location }: { title: string; location:
     // request, and the answer that arrives is the one that clears the warning.
     const id = (sequence.current += 1);
     const timer = window.setTimeout(async () => {
-      let found: SearchHit[] = [];
+      let found: DuplicateHit[] = [];
       try {
-        if (searchable) found = await searchAction(term);
+        if (searchable) found = await duplicateTicketsAction(term);
       } catch {
         // The action itself never throws; a lost connection can. A warning that
         // could not be looked up is simply not shown.
       }
-      if (id === sequence.current) setHits(found.filter((hit) => hit.kind === 'ticket').slice(0, 2));
+      if (id === sequence.current) setHits(found);
     }, DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
   }, [term, searchable]);
@@ -79,12 +98,26 @@ export function DuplicateWarning({ title, location }: { title: string; location:
         <ul>
           {hits.map((hit) => {
             const { number, rest } = splitTicketTitle(hit.title);
+            const linked = number !== null && related.includes(number);
             return (
               <li key={hit.id}>
                 <Link href={hit.href} target="_blank" rel="noreferrer">
                   {number ? <span className="mono">{number}</span> : null} {rest || hit.title}
                 </Link>
                 {hit.subtitle ? <span className="duplicate-warning-sub">{hit.subtitle}</span> : null}
+                {/* Without a number there is nothing a note could name, so the
+                    offer is simply not made. */}
+                {number === null ? null : linked ? (
+                  <span className="duplicate-warning-linked">Related</span>
+                ) : (
+                  <button
+                    type="button"
+                    className="duplicate-warning-relate"
+                    onClick={() => onRelate(number)}
+                  >
+                    Link as related
+                  </button>
+                )}
               </li>
             );
           })}
