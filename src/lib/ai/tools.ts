@@ -1484,6 +1484,50 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  archive_person: {
+    group: 'write',
+    description:
+      'Record that somebody has left the school, or that they have not after all. Their tickets, machines and history stay exactly where they are; a machine still assigned to them shows on Today as due back. Use this rather than trying to delete a record.',
+    fields: {
+      person: { type: 'string', required: true, description: 'Name, email, OSIS, staff id or record id.' },
+      archived: {
+        type: 'boolean',
+        required: true,
+        description: 'True when they have left. False to undo it.',
+      },
+    },
+    run: async (args, ctx) => {
+      const person = await resolvePerson(ctx, String(args.person));
+      const archived = args.archived === true;
+
+      /*
+       * A separate tool rather than a field on update_person, because the two
+       * halves of the contract are different shapes. `app_get_person` reads
+       * back `archivedAt` — a timestamp, or null — and `app_save_person` takes
+       * `archived`, a boolean, and stamps the moment itself. Nobody types when
+       * somebody left. Putting a boolean called `archived` in the same table as
+       * the fifteen text fields, next to a read that answers `archivedAt`,
+       * would be the confusing way to say a simple thing.
+       *
+       * The current record goes back with it because the save states the whole
+       * record, and the version with it, so an edit somebody else has already
+       * made is refused rather than lost.
+       */
+      const current = await rpc(ctx, 'app_get_person', { p_id: person.id });
+      if (!isRecord(current)) throw new ToolError('There is no directory record with that id.');
+      await rpc(ctx, 'app_save_person', {
+        p_id: person.id,
+        p_version: Number(current.version ?? 1),
+        p_data: { ...current, archived },
+      });
+
+      return outcome(
+        { id: person.id, archived },
+        archived ? `Recorded that ${person.name} has left` : `${person.name} is no longer archived`,
+      );
+    },
+  },
+
   create_device: {
     group: 'write',
     description: 'Add a machine to the inventory.',
@@ -2034,6 +2078,7 @@ const DIRECTORY_TOOLS = [
   'delete_view',
   'create_person',
   'update_person',
+  'archive_person',
 ] as const;
 
 export function toolsFor(roles: readonly AccountRole[]): ToolDef[] {

@@ -283,6 +283,54 @@ describe('delete_view', () => {
   });
 });
 
+describe('archive_person', () => {
+  const PERSON = '77777777-7777-4777-8777-777777777777';
+  const record = {
+    id: PERSON,
+    kind: 'staff',
+    displayName: 'Marcus Ellery',
+    email: 'marcus@edison.example',
+    version: 4,
+    archivedAt: null,
+  };
+
+  it('sends the whole record back with the boolean the save takes', async () => {
+    const { ctx, calls } = context({ results: { app_get_person: record } });
+    const result = await executeTool('archive_person', { person: PERSON, archived: true }, ctx);
+    expect(result.ok).toBe(true);
+
+    const saved = calls.find((call) => call.fn === 'app_save_person');
+    expect(saved?.args.p_id).toBe(PERSON);
+    // The version travels with it, so an edit somebody else made is refused
+    // rather than overwritten.
+    expect(saved?.args.p_version).toBe(4);
+    expect((saved?.args.p_data as Record<string, unknown>).archived).toBe(true);
+    expect((saved?.args.p_data as Record<string, unknown>).displayName).toBe('Marcus Ellery');
+    expect(result.summary).toBe('Recorded that Marcus Ellery has left');
+  });
+
+  it('undoes it, because somebody coming back is not a different person', async () => {
+    const { ctx, calls } = context({
+      results: { app_get_person: { ...record, archivedAt: '2026-09-01T12:00:00Z' } },
+    });
+    const result = await executeTool('archive_person', { person: PERSON, archived: false }, ctx);
+    expect(result.ok).toBe(true);
+    expect((calls.find((call) => call.fn === 'app_save_person')?.args.p_data as Record<string, unknown>)
+      .archived).toBe(false);
+    expect(result.summary).toBe('Marcus Ellery is no longer archived');
+  });
+
+  it('is the only way to say it: update_person does not take the field', () => {
+    const checked = validateArgs('update_person', { person: PERSON, archived: true });
+    expect(checked.ok).toBe(false);
+    expect(checked.error).toMatch(/does not take archived/);
+  });
+
+  it('needs to be told which way round', () => {
+    expect(validateArgs('archive_person', { person: PERSON }).ok).toBe(false);
+  });
+});
+
 const DIRECTORY = [
   { id: '55555555-5555-4555-8555-555555555555', display_name: 'Dev Okafor' },
   { id: '66666666-6666-4666-8666-666666666666', display_name: 'Nia Example' },

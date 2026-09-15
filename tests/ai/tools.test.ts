@@ -56,6 +56,7 @@ describe('tool classification', () => {
   it('offers a skills officer the directory and no ticket tool at all', () => {
     const names = toolsFor(['skills_officer']).map((tool) => tool.name).sort();
     expect(names).toEqual([
+      'archive_person',
       'create_person',
       'delete_view',
       'get_device',
