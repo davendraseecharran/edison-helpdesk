@@ -446,10 +446,30 @@ input[type='date']::-webkit-datetime-edit-day-field:focus {
 }
 
 /*
- * Status walks the gray ladder rather than a rainbow: brightest is the one
- * nobody has picked up, and each step down is a step further from needing
- * anybody. The word beside the dot is what actually says which state it is —
- * the dot only says how loud.
+ * Status, and the one place a third colour is spent.
+ *
+ * It used to walk the gray ladder — brightest for the one nobody had picked
+ * up, each step down a step further from needing anybody — and the idea was
+ * right and the execution said nothing: five statuses drawn as five dots of
+ * near-identical gray, in a column somebody scans rather than reads. The word
+ * is still what says which state it is; the mark now says which KIND of state
+ * without being read.
+ *
+ * Four marks, not five colours:
+ *
+ *   Open         `--ink`, the strongest thing in the row — nobody has this.
+ *   In progress  the muted green, the only cool mark in the product: somebody
+ *                is on it. Assigned takes it too; the difference between
+ *                assigned and in progress is a word, not a temperature.
+ *   Waiting      the same amber as High — stopped on somebody else's reply,
+ *                which is the other thing that costs a day.
+ *   Resolved     a check instead of a dot, in `--ink-3`. Finished work is not
+ *                an achievement to be coloured; it is out of the way.
+ *   Cancelled    the same quiet, with the word struck through: it did not
+ *                finish, it stopped.
+ *
+ * No blue anywhere. Blue is the operating system's colour for a link and a
+ * selection, and a status that borrows it reads as something to click.
  */
 .status-open {
   --badge-tone: var(--ink);
@@ -457,20 +477,41 @@ input[type='date']::-webkit-datetime-edit-day-field:focus {
 
 .status-assigned,
 .status-in_progress {
-  --badge-tone: var(--ink-2);
+  --badge-tone: var(--ok);
 }
 
 .status-waiting {
-  --badge-tone: var(--ink-3);
+  --badge-tone: var(--warn);
 }
 
 .status-resolved {
   --badge-tone: var(--ink-3);
 }
 
+/*
+ * The check. Drawn as a mask over the dot rather than as another element, so
+ * every badge in the product keeps the same markup and the same 8px gap, and
+ * the glyph recolours with `--badge-tone` like the dot it replaces.
+ */
+.status-resolved .badge-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 0;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
 .status-cancelled {
   --badge-tone: var(--ink-3);
   color: var(--ink-3);
+}
+
+.status-cancelled .badge-label {
+  text-decoration: line-through;
 }
 
 .badge-glyph {
@@ -531,16 +572,6 @@ input[type='date']::-webkit-datetime-edit-day-field:focus {
   background: var(--slate-soft);
 }
 
-/*
- * Archived: somebody who has left. A hairline chip rather than a filled one —
- * it sits beside a name, and a record of somebody leaving is a fact about them,
- * not a warning about the row.
- */
-.badge-archived {
-  background: transparent;
-  border: 1px solid var(--line-strong);
-  color: var(--ink-3);
-}
 
 /* --- Avatar, actor ------------------------------------------------------ */
 

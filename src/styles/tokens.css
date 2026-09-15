@@ -1,12 +1,17 @@
 /*
  * Design tokens — the only place in the codebase that names a colour.
  *
- * The palette is monochrome. Grounds, surfaces, lines and text are one gray
- * ladder; the only colour left in the product is on two priorities — urgent
- * and high — and even those are desaturated to the point of reading as
- * temperature rather than paint. Everything a coloured accent used to carry —
- * focus, links, the primary action, the selected row — is carried by contrast
- * instead, which is what a gray ladder is good at.
+ * The palette is monochrome with three exceptions, and all three answer the
+ * same kind of question: what state is this in. Two priorities — urgent and
+ * high — and the status of a ticket. Everything else is one gray ladder, and
+ * everything a coloured accent used to carry — focus, links, the primary
+ * action, the selected row — is carried by contrast instead, which is what a
+ * gray ladder is good at.
+ *
+ * All three are desaturated to the point of reading as temperature rather than
+ * paint, and none of them is blue: blue is the operating system's colour for a
+ * link and a selection, and a product that borrows it stops looking like
+ * itself.
  *
  * Depth comes from that ladder: six surface steps about 3–4% of luminance
  * apart, each one meaning "further forward". A hairline separates two things
@@ -91,9 +96,9 @@
   /* --- Semantic --------------------------------------------------------- */
 
   /*
-   * The only colour left, and it is spent on one question: is this urgent. Both
-   * are desaturated far enough that a table of them is still a gray table with
-   * two warm rows in it.
+   * Spent on one question each: is this urgent, and where has this got to. All
+   * three are desaturated far enough that a table of them is still a gray table
+   * with a few warm and cool marks in it.
    *
    * Both are also darker than they were. A priority is carried by a 12px glyph
    * and a 13px word, and at that size the anti-aliasing spends a good part of
@@ -104,17 +109,22 @@
    * chroma are the ones that were there; only the lightness moved — so the
    * table is the same gray table.
    *
-   * `--good` is gray on purpose: a resolved ticket is not an achievement, it is
-   * a finished thing, and the check beside it already says so. `--ok` is the
-   * name the screens use for it, and `--info` — the assistant's violet — is
-   * gone, because the assistant is monochrome too.
+   * `--good` is a muted green, and it does NOT mean "resolved". A resolved
+   * ticket is not an achievement, it is a finished thing, and it is set in
+   * `--ink-3` with a check beside it. The green means live, moving work — a
+   * ticket somebody has claimed and is on, a machine back on the shelf — which
+   * is the state a scan of the queue most needs to separate from "nobody has
+   * touched this". It was `--ink-2` until the critique, and with every dot the
+   * same gray the column said nothing at all. `--ok` is the name the screens
+   * use for it, and `--info` — the assistant's violet — is gone, because the
+   * assistant is monochrome too.
    */
   --bad: #9b352f;
   --bad-soft: rgb(155 53 47 / 0.1);
   --warn: #725012;
   --warn-soft: rgb(114 80 18 / 0.1);
-  --good: var(--ink-2);
-  --good-soft: var(--surface-3);
+  --good: #2e7d55;
+  --good-soft: rgb(46 125 85 / 0.1);
   --ok: var(--good);
   --ok-soft: var(--good-soft);
   --info: var(--ink-2);
@@ -286,6 +296,9 @@
   --bad-soft: rgb(212 114 107 / 0.1);
   --warn: #b98a3a;
   --warn-soft: rgb(185 138 58 / 0.1);
+  /* 5.8:1 on the page, 4.7:1 on the deepest surface a dot lands on. */
+  --good: #3f9e6f;
+  --good-soft: rgb(63 158 111 / 0.1);
 
   /* Dark leans on its borders; the shadows are only a darkening. */
   --shadow-1: 0 1px 2px rgb(0 0 0 / 0.6);

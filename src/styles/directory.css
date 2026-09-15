@@ -278,8 +278,14 @@
   color: var(--bad);
 }
 
+/*
+ * Archived: somebody who has left. A hairline chip rather than a filled one —
+ * it sits beside a name, and a record of somebody leaving is a fact about them,
+ * not a warning about the row.
+ */
 .badge-archived {
-  background: var(--slate-soft);
+  background: transparent;
+  border: 1px solid var(--line-strong);
   color: var(--ink-3);
 }
 

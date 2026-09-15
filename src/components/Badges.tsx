@@ -20,11 +20,17 @@ import {
 } from '@/lib/domain/types';
 import { ACCOUNT_ROLES, ROLE_LABELS, type AccountRole } from '@/lib/auth/roles';
 
+/*
+ * The word is wrapped rather than left bare so one status can strike it —
+ * cancelled work stopped, it did not finish — without the rule reaching the
+ * mark beside it. Every status badge in the product takes the same shape, so
+ * there is one place to change if a second state ever needs the label styled.
+ */
 export function StatusBadge({ status }: { status: TicketStatus }) {
   return (
     <span className={`badge badge-status status-${status}`}>
       <span className="badge-dot" aria-hidden="true" />
-      {TICKET_STATUS_LABELS[status]}
+      <span className="badge-label">{TICKET_STATUS_LABELS[status]}</span>
     </span>
   );
 }
@@ -90,7 +96,7 @@ export function AccountStatusBadge({ status }: { status: AccountStatus }) {
   return (
     <span className={`badge badge-status ${ACCOUNT_STATUS_TONE[status]}`}>
       <span className="badge-dot" aria-hidden="true" />
-      {ACCOUNT_STATUS_LABELS[status]}
+      <span className="badge-label">{ACCOUNT_STATUS_LABELS[status]}</span>
     </span>
   );
 }
@@ -114,7 +120,7 @@ export function DeviceStatusBadge({ status }: { status: DeviceStatus }) {
   return (
     <span className={`badge badge-status ${deviceStatusClass(label)}`}>
       <span className="badge-dot" aria-hidden="true" />
-      {label}
+      <span className="badge-label">{label}</span>
     </span>
   );
 }
