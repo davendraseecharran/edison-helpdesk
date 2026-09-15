@@ -233,7 +233,10 @@
   height: 100%;
   border-radius: 999px;
   background: var(--brass);
-  transition: width 180ms ease-out;
+  /* An upload's real progress, smoothed. `--dur-surface` is the longest thing
+     the interface does and still short enough that the bar never trails the
+     bytes. */
+  transition: width var(--dur-surface) ease-out;
 }
 
 .attachment-job-error {

@@ -159,8 +159,8 @@
   background: var(--surface-3);
   cursor: pointer;
   transition:
-    background-color 120ms ease,
-    border-color 120ms ease;
+    background-color var(--dur-press) ease,
+    border-color var(--dur-press) ease;
 }
 
 .switch-thumb {
@@ -171,8 +171,8 @@
   border-radius: 50%;
   background: var(--ink-3);
   transition:
-    transform 120ms ease,
-    background-color 120ms ease;
+    transform var(--dur-press) ease,
+    background-color var(--dur-press) ease;
 }
 
 .switch[aria-checked='true'] {

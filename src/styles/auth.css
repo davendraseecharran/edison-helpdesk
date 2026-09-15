@@ -128,7 +128,9 @@
 .auth-disclosure > summary .icon {
   flex: 0 0 auto;
   color: var(--ink-3);
-  transition: transform 120ms ease-out;
+  /* A disclosure's chevron is a select's chevron: the same gesture, the same
+     200ms. */
+  transition: transform var(--dur-surface) ease-out;
 }
 
 @media (hover: hover) and (pointer: fine) {

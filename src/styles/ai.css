@@ -171,8 +171,8 @@
   border-radius: 999px;
   background: var(--surface-3);
   transition:
-    background-color 120ms ease-out,
-    border-color 120ms ease-out;
+    background-color var(--dur-press) ease-out,
+    border-color var(--dur-press) ease-out;
 }
 
 .ai-switch::after {
@@ -185,8 +185,8 @@
   border-radius: 50%;
   background: var(--ink-3);
   transition:
-    transform 120ms ease-out,
-    background-color 120ms ease-out;
+    transform var(--dur-press) ease-out,
+    background-color var(--dur-press) ease-out;
 }
 
 .ai-menu-switch[aria-checked='true'] .ai-switch {
@@ -277,9 +277,9 @@
   text-align: left;
   cursor: pointer;
   transition:
-    background-color 120ms ease-out,
-    border-color 120ms ease-out,
-    color 120ms ease-out;
+    background-color var(--dur-hover) ease-out,
+    border-color var(--dur-hover) ease-out,
+    color var(--dur-hover) ease-out;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -430,6 +430,8 @@
   border-radius: 1px;
   background: var(--brass);
   vertical-align: -0.15em;
+  /* Not a motion token: a caret is a blink, and 900ms in two steps is a
+     cursor's rate rather than a transition's length. */
   animation: ai-caret 900ms steps(2, jump-none) infinite;
 }
 
@@ -1122,6 +1124,10 @@
     transparent 70%
   );
   opacity: 0.7;
+  /* Not motion tokens: these two are the orb's breathing rate, named in
+     docs/MOTION.md as "6 s turn, 2.4 s breath" and chosen against each other
+     rather than against the interface's transitions. A duration on the scale
+     of a hover would be a flicker. */
   animation: ai-glow 4.4s ease-in-out infinite;
   pointer-events: none;
 }
@@ -1147,6 +1153,9 @@
   position: relative;
   display: block;
   scale: calc(1 + var(--ai-level, 0) * 0.12);
+  /* Not a motion token, and deliberately under every one of them: this follows
+     a microphone level sampled many times a second, so the transition is a
+     smoothing window. At 120ms the orb lags the voice it is drawing. */
   transition: scale 90ms linear;
 }
 

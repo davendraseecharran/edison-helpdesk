@@ -216,7 +216,7 @@
   border-bottom: 1px solid var(--line);
   /* Colour only. The lamp on the focused row is a box-shadow, and a shadow
      that animates on every `j` is the definition of a cost paid all day. */
-  transition: background-color 100ms ease-out;
+  transition: background-color var(--dur-hover) ease-out;
 }
 
 .today-list li:last-child .today-row {

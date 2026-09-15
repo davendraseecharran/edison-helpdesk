@@ -67,7 +67,7 @@
 
 .directory[data-busy='true'] .data-table {
   opacity: 0.6;
-  transition: opacity 120ms ease-out;
+  transition: opacity var(--dur-press) ease-out;
 }
 
 .directory .table td {

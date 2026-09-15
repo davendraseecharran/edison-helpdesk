@@ -179,8 +179,8 @@
   text-align: left;
   cursor: text;
   transition:
-    background-color 120ms ease-out,
-    border-color 120ms ease-out;
+    background-color var(--dur-hover) ease-out,
+    border-color var(--dur-hover) ease-out;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -259,7 +259,7 @@
   height: 56px;
   padding: 0 10px 0 16px;
   border-bottom: 1px solid var(--line);
-  transition: border-color 120ms ease-out;
+  transition: border-color var(--dur-hover) ease-out;
 }
 
 /* The input has no box of its own; the row's lower edge is its focus ring. */
@@ -961,7 +961,7 @@
   background: transparent;
   color: var(--ink);
   cursor: pointer;
-  transition: opacity 120ms ease-out;
+  transition: opacity var(--dur-press) ease-out;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -1006,6 +1006,9 @@
 
 .fab[data-open='true'] .fab-label {
   opacity: 1;
+  /* Not a motion token: this is a delay, not a duration, and it is measured
+     against where the satellites are — 40ms of stagger plus their travel —
+     rather than against anything else the interface does. */
   transition-delay: 220ms;
 }
 

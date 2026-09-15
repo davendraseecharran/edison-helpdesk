@@ -46,11 +46,11 @@
  * translated (the collapsed phone button, the FAB satellites) keeps its
  * place. `.btn-static` switches it off where the motion would distract.
  *
- * Both halves — the 0.98 and the 160ms that carries it — are declared once,
- * here. Anything pressable that is not a `.btn` (the assistant's push-to-talk
- * microphone) wears `.pressable` and gets the same contract, rather than
- * copying the numbers into another stylesheet where the next pressable would
- * copy whichever of the two it found first.
+ * Both halves — the 0.98 and the `--dur-press` that carries it — are declared
+ * once, here. Anything pressable that is not a `.btn` (the assistant's
+ * push-to-talk microphone) wears `.pressable` and gets the same contract,
+ * rather than copying the numbers into another stylesheet where the next
+ * pressable would copy whichever of the two it found first.
  */
 .btn,
 .pressable {
@@ -217,6 +217,8 @@
 }
 
 .icon-spin {
+  /* Not a motion token: a spinner's revolution is a rate, and the tokens are
+     the lengths of things that start and finish. */
   animation: spin 800ms linear infinite;
 }
 
@@ -675,6 +677,8 @@ p.flash {
   border-radius: var(--radius-1);
   background: linear-gradient(90deg, var(--surface-3) 25%, var(--surface-2) 50%, var(--surface-3) 75%);
   background-size: 200% 100%;
+  /* Not a motion token, for the same reason as the spinner: this is how often
+     the sweep comes round, not how long a state change takes. */
   animation: shimmer 1.4s linear infinite;
 }
 
@@ -1522,7 +1526,7 @@ p.flash {
 
 /*
  * A row hover fires tens of times a minute, so it gets the cheapest possible
- * feedback: one colour, 100ms, nothing that moves. The transition lives on the
+ * feedback: one colour, `--dur-hover`, nothing that moves. It lives on the
  * row rather than on the hovered state: declared only on `:hover` it fades in
  * and snaps out, and the eye reads that asymmetry as a glitch on every row the
  * pointer crosses.
