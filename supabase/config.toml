@@ -118,7 +118,7 @@ port = 54324
 [storage]
 # ENABLED so the `attachments` bucket exists locally.
 #
-# Migration 20260912100800 creates the bucket row only when `storage.buckets`
+# Migration 20260914100800 creates the bucket row only when `storage.buckets`
 # is present, so with storage off a local reset produced a schema in which
 # attachments could be registered but never uploaded — and the bucket, which is
 # half of that feature's security (private, 8 MiB, five mime types), was never
@@ -333,7 +333,7 @@ max_frequency = "5s"
 # refused with 403, 'google' and every other provider pass through. The admin
 # API does not run the hook at all, so administrator provisioning is untouched.
 # The function ships in
-# supabase/migrations/20260912101200_m5_signup_hook.sql.
+# supabase/migrations/20260914101200_m5_signup_hook.sql.
 [auth.hook.before_user_created]
 enabled = true
 uri = "pg-functions://postgres/public/hook_before_user_created"
