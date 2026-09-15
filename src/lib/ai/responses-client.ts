@@ -64,6 +64,63 @@ export const REASONING_LEVELS: readonly Reasoning[] = [
  */
 export const REASONING_FALLBACK: Reasoning = 'high';
 
+/**
+ * The efforts the Responses API itself takes.
+ *
+ * `max` is this product's word, not the provider's. Nobody at the desk wants to
+ * choose between `xhigh` and a token budget, so the setting says Max and this
+ * module is the one place that knows what Max costs.
+ */
+export type ApiEffort = 'low' | 'medium' | 'high' | 'xhigh';
+
+/**
+ * The largest output this client ever asks for, in tokens.
+ *
+ * It is a ceiling, not a reservation: the service stops when the answer is
+ * finished, and a request that never approaches this number costs nothing
+ * extra. Max exists for the one turn a month that is genuinely long — a
+ * migration walked through, twenty tickets summarised — and a ceiling lower
+ * than the model's own is the only way that turn gets cut off mid-sentence.
+ */
+export const MAX_OUTPUT_TOKENS = 128_000;
+
+/** What one stored level asks the API for. */
+export interface EffortRequest {
+  effort: ApiEffort;
+  /** `detailed` only where the person asked for the model's full working. */
+  summary: 'auto' | 'detailed';
+  /** Sent only when this level raises the ceiling; otherwise the service decides. */
+  maxOutputTokens?: number;
+}
+
+/**
+ * The stored reasoning level as the API takes it.
+ *
+ * Three of these are offered in the panel. High and Extra high are the
+ * provider's own efforts passed through. Max is not an effort the API has ever
+ * accepted: it is `xhigh` with the ceiling lifted and the reasoning summary set
+ * to `detailed`, which is what "the most the model gives" actually means. Send
+ * the word `max` and the request is refused, which is how this was wrong.
+ */
+export function effortFor(level: Reasoning): EffortRequest {
+  if (level === 'max') {
+    return { effort: 'xhigh', summary: 'detailed', maxOutputTokens: MAX_OUTPUT_TOKENS };
+  }
+  return { effort: level, summary: 'auto' };
+}
+
+/**
+ * The level to retry at after the service refused this one, or null when there
+ * is nothing left to try.
+ *
+ * Always `high`, and never `max`: `max` is a word this application invented, so
+ * retrying with it would send the same `xhigh` that was just refused. A level
+ * that already resolves to `high` has had its one retry by definition.
+ */
+export function fallbackFor(level: Reasoning): Reasoning | null {
+  return effortFor(level).effort === REASONING_FALLBACK ? null : REASONING_FALLBACK;
+}
+
 /** Whether an error from the service is about the reasoning effort specifically. */
 export function isEffortRejection(message: string): boolean {
   const text = message.toLowerCase();
@@ -236,6 +293,7 @@ function requestHeaders(request: StreamRequest): Record<string, string> {
 }
 
 function requestBody(request: StreamRequest): string {
+  const asked = effortFor(request.reasoning);
   return JSON.stringify({
     model: AI_MODEL,
     instructions: request.instructions,
@@ -245,7 +303,10 @@ function requestBody(request: StreamRequest): string {
     // One tool at a time. Approval is per call, and a parallel batch would ask
     // the operator to approve changes that were decided together.
     parallel_tool_calls: false,
-    reasoning: { effort: request.reasoning, summary: 'auto' },
+    reasoning: { effort: asked.effort, summary: asked.summary },
+    // Absent unless the level raises it: an omitted ceiling is the service's
+    // own, and sending `undefined` would serialise as a missing key anyway.
+    ...(asked.maxOutputTokens === undefined ? {} : { max_output_tokens: asked.maxOutputTokens }),
     // Nothing is retained by the service; the conversation lives in this
     // application's own tables, under the technician's own row-level security.
     store: false,
@@ -309,12 +370,9 @@ export async function* streamResponses(request: StreamRequest): AsyncGenerator<R
       // Nothing readable; the status is the whole message.
     }
     const message = failureMessage(response.status, body);
-    if (
-      response.status === 400 &&
-      attempt.reasoning !== REASONING_FALLBACK &&
-      isEffortRejection(message)
-    ) {
-      attempt = { ...attempt, reasoning: REASONING_FALLBACK };
+    const retryAt = fallbackFor(attempt.reasoning);
+    if (response.status === 400 && retryAt !== null && isEffortRejection(message)) {
+      attempt = { ...attempt, reasoning: retryAt };
       continue;
     }
     yield { type: 'error', message };
