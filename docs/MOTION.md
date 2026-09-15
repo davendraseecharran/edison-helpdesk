@@ -114,6 +114,7 @@ is where this product's ideas are.
 | `Skeleton` | ours | shadcn's is a pulsing div. Ours carries the route-level parity the loading tests assert. |
 | `Badge` | ours | A status chip with its own tone tokens, not a styled span. |
 | `Button`, inputs, tables | ours | Our `variant/size/block/loading/icon` API and the optical centring that goes with it. |
+| Date field | the browser | The one native control left, and kept deliberately. `type=date` types, arrows, takes Home and Page Up, speaks the reader's locale and knows what a month is; a hand-rolled calendar grid buys a nicer popup and pays for it in every one of those. What was not kept is how it looked: the picker button is a filled black glyph in both themes and a selected segment lights up in the operating system's blue, which is the one colour this palette does not contain. `components.css` replaces the button with our own calendar mark — a mask, so it recolours by state like every other icon rather than being a second asset — and gives the digits `--ink`, the separators a step back and the focused segment `--accent-soft`. Firefox and Safari expose no picker button, so there is nothing there to restyle and the field is the same box either way. |
 | Separator | Radix, inside the menu and the select | The only place a rule that needs a role was ever wanted. shadcn's standalone Separator, Badge, Button, Skeleton, Tabs and ScrollArea files were deleted unused: nothing imported them and all of them still carried Tailwind utility strings, which the tokens rule forbids. |
 
 ## Verifying
