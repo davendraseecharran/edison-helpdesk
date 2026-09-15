@@ -375,18 +375,21 @@ describe('export_backup', () => {
     return context({ roles: ['admin'], table: rows });
   }
 
-  it('hands over a small table whole, as something that can be saved', async () => {
+  it('hands over a count, the columns and a preview, never the file itself', async () => {
     const { ctx } = tableOf([{ id: 'inv-1', email: 'sam@edison.example' }]);
     const result = await executeTool('export_backup', { table: 'account_invites' }, ctx);
     expect(result.ok).toBe(true);
     const payload = result.result as Record<string, unknown>;
     expect(String(payload.filename)).toContain('account_invites');
-    expect(String(payload.download)).toMatch(/^data:text\/csv;base64,/);
-    const decoded = Buffer.from(String(payload.download).split(',')[1], 'base64').toString('utf8');
-    expect(decoded).toContain('sam@edison.example');
+    expect(payload.download).toBeUndefined();
+    expect(payload.rowCount).toBe(1);
+    expect(payload.columns).toEqual(['id', 'email']);
+    expect(payload.previewRows).toBe(1);
+    expect(String(payload.preview)).toContain('sam@edison.example');
+    expect(result.summary).toContain('Download the full file from Administration → Backups.');
   });
 
-  it('sends a summary and the first rows rather than a table that would not fit', async () => {
+  it('never sends more than the preview rows, however large the table', async () => {
     const big = Array.from({ length: 900 }, (_, at) => ({
       id: `row-${at}`,
       notes: 'x'.repeat(400),
@@ -396,9 +399,14 @@ describe('export_backup', () => {
     expect(result.ok).toBe(true);
     const payload = result.result as Record<string, unknown>;
     expect(payload.download).toBeUndefined();
+    expect(payload.rowCount).toBe(900);
     expect(payload.previewRows).toBe(20);
+    const previewLines = String(payload.preview).trim().split('\r\n');
+    // One header line plus at most twenty rows: the whole table never rides
+    // along just because it was small enough to fit in a message.
+    expect(previewLines.length).toBeLessThanOrEqual(21);
     expect(String(payload.preview).length).toBeLessThan(20_000);
-    expect(result.summary).toMatch(/Backups screen/);
+    expect(result.summary).toContain('Download the full file from Administration → Backups.');
   });
 
   it('takes only a table from the fixed list', () => {

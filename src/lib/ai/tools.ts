@@ -139,17 +139,14 @@ const ROLES = ['admin', 'netrider', 'skills_officer'] as const;
 const SEEDED_STATUSES = 'Available, Assigned, In repair, Retired or Lost';
 
 /**
- * The most an export may weigh before it stops travelling in the turn.
- *
- * An `ai_messages` row is refused over 256 KiB and every character of a tool
- * result is also sent to the model, which pays for it and can do nothing with
- * base64. 200 KB leaves room for the rest of the row and is more than a small
- * table ever needs; past it, the person gets the first rows and a count and
- * downloads the file where downloading already works.
+ * How much of a table comes back through the model. Enough to see the shape
+ * of it, never enough to be the export: an `ai_messages` row is refused over
+ * 256 KiB, every character of a tool result is also sent to the model, which
+ * pays for it and can do nothing useful with a whole table anyway, and the
+ * route that carries a result back to the panel forwards only `{ok, summary}`
+ * — so a `data:` href in here would never even reach a place that could use
+ * it. The file itself is downloaded from Administration → Backups.
  */
-const MAX_INLINE_EXPORT = 200 * 1024;
-
-/** How much of a large table comes back instead. Enough to see the shape of it. */
 const EXPORT_PREVIEW_ROWS = 20;
 
 // ---------------------------------------------------------------------------
@@ -1796,7 +1793,7 @@ const TOOLS: Record<string, ToolSpec> = {
   export_backup: {
     group: 'admin',
     description:
-      'Take the school’s own copy of one table as CSV, the same read the Backups screen makes. A small table comes back as a file you can hand over; a large one comes back as its first rows and a count, and the whole thing is downloaded from the Backups screen.',
+      'Take the school’s own copy of one table as CSV, the same read the Backups screen makes. This never hands over the file itself: it comes back as a row count, the columns and a preview of up to 20 rows, and the full file is downloaded from Administration → Backups.',
     fields: {
       table: {
         type: 'string',
@@ -1812,44 +1809,41 @@ const TOOLS: Record<string, ToolSpec> = {
       const read = await readBackupTable(ctx.supabase, table, CSV_ROW_CAP);
       if ('error' in read) throw new ToolError(read.error);
 
-      const csv = encodeCsv(csvHeaders(read.rows), read.rows);
       const filename = csvFileName(table, schoolToday(), read.capped);
       const message = read.capped
         ? cappedExportMessage(spec.label, read.total)
         : `${spec.label}: ${read.rows.length.toLocaleString('en-US')} ${read.rows.length === 1 ? 'row' : 'rows'}.`;
+      const note = 'Download the full file from Administration → Backups.';
 
       /*
        * A whole table is not something to put in a chat turn.
        *
        * The result is written into an `ai_messages` row, which the database
        * refuses over 256 KiB, and it is sent to the model, which pays for every
-       * character of it and can do nothing useful with base64 anyway. So a file
-       * small enough to hand over comes back whole, and anything larger comes
-       * back as what a person actually asked about — how many rows, what the
-       * columns are, and the first few — with the download left where it
+       * character of it and can do nothing useful with a table it cannot save
+       * anywhere. The route that turns a tool result into what the panel sees
+       * also forwards only `{ok, summary}`, never the result payload, so a
+       * `data:` href here would reach nobody who could act on it. What actually
+       * answers "what's in it" — the columns, a bounded preview, and a count —
+       * comes back every time; the file itself stays where downloading it
        * already works.
        */
-      const download = `data:text/csv;base64,${Buffer.from(csv, 'utf8').toString('base64')}`;
-      if (download.length <= MAX_INLINE_EXPORT) {
-        return outcome(
-          { table, filename, rowCount: read.rows.length, capped: read.capped, message, download },
-          `Exported ${message}`,
-        );
-      }
-
-      const preview = encodeCsv(csvHeaders(read.rows), read.rows.slice(0, EXPORT_PREVIEW_ROWS));
+      const columns = csvHeaders(read.rows);
+      const previewRows = Math.min(EXPORT_PREVIEW_ROWS, read.rows.length);
+      const preview = encodeCsv(columns, read.rows.slice(0, previewRows));
       return outcome(
         {
           table,
           filename,
           rowCount: read.rows.length,
           capped: read.capped,
-          message,
+          columns,
           preview,
-          previewRows: Math.min(EXPORT_PREVIEW_ROWS, read.rows.length),
-          note: 'Too large to hand over in a message. Download it from the Backups screen.',
+          previewRows,
+          message,
+          note,
         },
-        `Read ${message} Too large to send here; download it from the Backups screen.`,
+        `Read ${message} ${note}`,
       );
     },
   },
