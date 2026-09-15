@@ -608,6 +608,24 @@
   align-self: flex-start;
 }
 
+/*
+ * `.person-form` is a column flex container, so a flex child's default
+ * `min-width: auto` still lets it claim its content width and hold the whole
+ * form open sideways inside the 560px sheet. Zero that out, and cap the grid
+ * and its wide controls at the form's own width, so the sheet's own scroll
+ * area stays vertical only.
+ */
+.person-form > * {
+  min-width: 0;
+}
+
+.person-form .form-grid,
+.person-form input,
+.person-form textarea,
+.person-form .select-trigger {
+  max-width: 100%;
+}
+
 /* The edit sheets carry a two-column form, so they are a little wider. */
 .sheet-wide {
   width: min(560px, 100%);
