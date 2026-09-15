@@ -1,5 +1,28 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- standalone local browser review. */
-// Run after the local DB has been migrated and the app is serving locally.
+//
+// RETIRED. Kept as the record of what the owner's inventory screens asserted;
+// it can no longer pass, and it is not fixed in place because there is nothing
+// left for it to drive.
+//
+// It walked the InventoryManager under `/inventory/students`, `/inventory/staff`
+// and `/inventory/devices` — the rail's "Inventory" group, "Master Inventory",
+// `.inventory-editor-form`, `#person-external-id`, "Add record". Phase 2
+// deleted all of it: People and Devices are now the only way into the roster,
+// on the same `requesters` and `inventory_devices` rows, through
+// `app_save_person` and `app_save_inventory_device`.
+//
+// Everything below is covered by `scripts/review-overhaul.cjs`, which walks
+// People (students and staff), a person, Devices and a device at three widths
+// on both themes, and by `tests/db/m5-inventory-workflow.test.ts` for the RPCs.
+// The OSIS leading-zero and derived-staff-ID rules this script guarded are unit
+// tested in `tests/directory-records.test.ts`.
+//
+// Below this line is the September 2026 original, unchanged.
+console.error(
+  'review-inventory-management.cjs is retired: the /inventory screens it drives were deleted. Use scripts/review-overhaul.cjs.',
+);
+process.exit(1);
+
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const { createClient } = require('@supabase/supabase-js');
 const { execFileSync } = require('node:child_process');

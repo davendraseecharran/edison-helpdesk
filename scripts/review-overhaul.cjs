@@ -4,12 +4,18 @@
  * screenshot cannot show on its own: that no page scrolls sideways, and that
  * no page logs a browser error.
  *
- * It creates its own synthetic administrator and technician through the LOCAL
- * Supabase admin API, seeds a handful of directory records, machines and
- * tickets through
- * the ordinary RPCs (so row-level security is exercised rather than bypassed),
+ * It creates its own synthetic accounts — one of each role: an administrator,
+ * a NetRider and a skills officer — through the LOCAL Supabase admin API,
+ * seeds a handful of directory records, machines and tickets through the
+ * owner's own RPCs (so row-level security is exercised rather than bypassed),
  * signs in with the password form, and then walks every route at three widths
  * on both themes.
+ *
+ * The walk is Today, the queue, a ticket, intake, My tickets, People (students
+ * and staff), a person, Devices, a device, Administration (Access, with the
+ * role chips of all three accounts, and the audit log), Settings,
+ * notifications, the palette and the assistant panel, plus the signed-out
+ * sign-in page. There is no Insights screen: the user removed it.
  *
  * Development tooling, not part of the build. It needs the dev server already
  * running and Playwright with Chromium, which on this machine lives outside
@@ -104,15 +110,28 @@ const ok = (result) => {
   return result.data;
 };
 
-/** A synthetic account: auth user plus the app row that decides role and status. */
-async function makeAccount(key, role, displayName) {
+/**
+ * A synthetic account: auth user plus the app row that decides roles and status.
+ *
+ * `roles` is the source of truth and `role` is derived from it by a trigger,
+ * but the insert states both: an insert that leaves `roles` at its default has
+ * `role` read as the whole statement of intent, and naming only one of them
+ * makes which trigger branch runs depend on a default rather than on this line
+ * (`20260914140000_m5_roles_set.sql`).
+ */
+async function makeAccount(key, roles, displayName) {
   const email = `overhaul-${key}-${runId}@edison.example`;
   const password = `Review-${randomUUID()}`;
   const created = ok(await service.auth.admin.createUser({ email, password, email_confirm: true }));
   ok(
-    await service
-      .from('app_accounts')
-      .insert({ id: created.user.id, email, display_name: displayName, role, status: 'active' }),
+    await service.from('app_accounts').insert({
+      id: created.user.id,
+      email,
+      display_name: displayName,
+      roles,
+      role: roles.includes('admin') ? 'admin' : 'technician',
+      status: 'active',
+    }),
   );
   people[key] = { id: created.user.id, email, password, displayName };
   return people[key];
@@ -129,9 +148,16 @@ async function sessionFor(key) {
 
 /* --- The walk ------------------------------------------------------------ */
 
-/** Every route the review visits, in the order a reviewer would read them. */
+/**
+ * Every route the review visits, in the order a reviewer would read them.
+ *
+ * Today is first because it is where signing in lands. Administration is the
+ * Access screen, which is where the role chips are, and the audit log beside
+ * it. There is no `/insights` and no `/inventory/*`: both are gone.
+ */
 function routes(seed) {
   return [
+    { slug: 'today', path: '/today', title: 'Today — Edison Helpdesk' },
     { slug: 'queue', path: '/queue', title: 'Queue — Edison Helpdesk' },
     { slug: 'ticket-detail', path: `/tickets/${seed.workedTicket}`, title: 'Ticket — Edison Helpdesk' },
     { slug: 'ticket-new', path: '/tickets/new' },
@@ -164,9 +190,9 @@ async function assertNoOverflow(page, where) {
  *
  * `--edge-light` means "your next keystroke acts on this". A second lit
  * element takes that meaning away from both, so the count is measured rather
- * than trusted to the three rules in `src/styles/lamp.css`. The reference is
- * read from a probe element rather than matched by colour, because the brass
- * focus ring and the conversation list's brass rule are not the lamp.
+ * than trusted to the rules in `src/styles/lamp.css`. The reference is read
+ * from a probe element rather than matched by colour: the lamp is colourless
+ * now, and several other rules draw a shadow that is not it.
  */
 async function litElements(page) {
   return page.evaluate(() => {
@@ -214,8 +240,11 @@ async function shoot(page, theme, viewport, slug) {
 
 (async () => {
   stage = 'accounts';
-  await makeAccount('admin', 'admin', 'Review Admin');
-  await makeAccount('tech', 'technician', 'Review Technician');
+  await makeAccount('admin', ['admin'], 'Review Admin');
+  await makeAccount('tech', ['netrider'], 'Review NetRider');
+  // Never signed in; it exists so the Access screen has an account whose chips
+  // are not the default set, which is the thing that screen is photographed for.
+  await makeAccount('skills', ['skills_officer'], 'Review Skills Officer');
 
   stage = 'seed';
   const admin = await sessionFor('admin');
@@ -342,7 +371,7 @@ async function shoot(page, theme, viewport, slug) {
   );
   ok(await admin.rpc('app_resolve_ticket', { p_ticket: resolved, p_solution: 'Cleared the queue and restarted the print spooler.' }));
 
-  // The technician's own walk-in, with the administrator invited onto it, so
+  // The NetRider's own walk-in, with the administrator invited onto it, so
   // the bell and the notifications page have a real row to show.
   const shared = ok(
     await tech.rpc('app_create_ticket', {
@@ -399,7 +428,8 @@ async function shoot(page, theme, viewport, slug) {
     await first.page.getByLabel('School email', { exact: true }).fill(people.admin.email);
     await first.page.getByLabel('App password', { exact: true }).fill(people.admin.password);
     await first.page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await first.page.waitForURL('**/queue');
+    // `landingPath` sends anybody who works tickets to Today, not the queue.
+    await first.page.waitForURL('**/today');
     const signedIn = await first.context.storageState();
     await first.context.close();
 
@@ -457,8 +487,8 @@ async function shoot(page, theme, viewport, slug) {
         await session.page.keyboard.press('Escape');
         await session.page.locator('.palette').waitFor({ state: 'detached' });
 
-        // The assistant, unconnected: the top-bar sparkle on wide screens, the
-        // Ask tab on a phone. Both open the same panel.
+        // The assistant, unconnected: the mark in the top bar on wide screens,
+        // the Ask tab on a phone. Both open the same panel.
         stage = `${label} assistant`;
         await session.page.goto(`${base}/queue`);
         await settle(session.page);

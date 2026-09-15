@@ -1,5 +1,31 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- standalone local browser review. */
-// Run after the local DB has been migrated and the app is serving locally.
+//
+// RETIRED. Kept as the record of what the owner's intake screen asserted; it
+// can no longer pass, and it is not fixed in place because every surface it
+// drives has been replaced rather than changed.
+//
+// Four things it depends on are gone: the sign-in form's "Email" and
+// "Password" labels (they are "School email" and "App password", inside a
+// disclosure under the Google button); the landing page after sign-in (Today,
+// not the queue); the owner's intake markup (`#requester-mode`,
+// `#requester-kind`, `.intake-device-drafts`, "No intake notes." — the form is
+// now PersonPicker and DevicePicker over `requesters` and `inventory_devices`,
+// and it drafts a category and a priority and warns about a likely duplicate);
+// and Administration → Access, where a role is a set of chips rather than one
+// combobox, so "Role changed to administrator." is no longer said.
+//
+// What covers it now: `scripts/review-overhaul.cjs` walks intake, the ticket,
+// Access and the sign-in page at three widths on both themes;
+// `tests/db/intake.test.ts` holds the seventeen-argument `app_create_ticket`;
+// `tests/intake-*.test.ts` hold the drafting, the suggestions and the duplicate
+// warning; `tests/db/roles-set.test.ts` holds the role matrix.
+//
+// Below this line is the September 2026 original, unchanged.
+console.error(
+  'review-intake.cjs is retired: the sign-in labels, the landing page, the intake markup and the role editor it drives have all been replaced. Use scripts/review-overhaul.cjs.',
+);
+process.exit(1);
+
 const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const { createClient } = require('@supabase/supabase-js');
 const { execFileSync } = require('node:child_process');

@@ -5,7 +5,7 @@ One page. The copy rules live in `src/lib/voice/moments.ts` and are enforced by
 
 ## Who the application sounds like
 
-A calm senior technician who has seen this before. They name what happened, say
+A calm senior NetRider who has seen this before. They name what happened, say
 what it means for you, and stop. They have been at the desk long enough to know
 that a cleared queue is worth a sentence and that claiming a ticket is not.
 
@@ -74,8 +74,10 @@ over 300ms on `--ease-out` (`.voice-mark` in `src/styles/voice.css`). Nothing
 else in the voice moves. Under `prefers-reduced-motion` the line is simply
 there.
 
-The other signature is the bench lamp (`.boot-lamp`): one second at the start of
-a session, the wordmark with `--edge-light` warming up behind it, then gone. It
-is rendered by the authenticated layout, so it plays on a real page load and
-never on an in-app navigation, and it is pure CSS so no failed script can leave
-it on screen.
+The other signature is the lamp (`.boot-lamp`): one second at the start of a
+session, the wordmark with `--edge-light`'s ring drawing itself around it, then
+both gone. The lamp carries no colour — it is a ring a step stronger than a
+hairline and a soft drop, the same lift that means "your next keystroke acts on
+this" everywhere else. It is rendered by the authenticated layout, so it plays
+on a real page load and never on an in-app navigation, and it is pure CSS so no
+failed script can leave it on screen.

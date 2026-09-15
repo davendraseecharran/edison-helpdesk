@@ -4,10 +4,11 @@ Prepared September 10, 2026; revised with the user's platform selection. Status:
 
 ## Superseded decisions (M5, September 2026)
 
-This plan is the original specification and is kept as written. Five of its
-decisions have since been reversed or overtaken by the M5 platform overhaul;
-where this document and [docs/M5-PLATFORM-OVERHAUL.md](docs/M5-PLATFORM-OVERHAUL.md)
-disagree, M5 is what was built.
+This plan is the original specification and is kept as written. Seven of its
+decisions have since been reversed or overtaken by the M5 platform overhaul and
+its Phase 2; where this document and
+[docs/M5-PLATFORM-OVERHAUL.md](docs/M5-PLATFORM-OVERHAUL.md) disagree, that
+document is what was built.
 
 1. **Google sign-in is in.** "Google OAuth/SSO is not part of this release" and
    "technicians sign in with student email addresses and a separate application
@@ -21,14 +22,25 @@ disagree, M5 is what was built.
    provider.
 3. **Attachments are in.** Images and PDFs up to 8 MiB, in a private bucket
    reachable only through short-lived signed URLs.
-4. **Inventory and the directory are in.** Stages 5 and 6 below ("Add
-   inventory", "Expand people and assignments") were brought forward into M5:
-   people and devices are imported from the AppSheet CSV exports, tickets link
-   to both, and this system becomes their authoritative home after
-   reconciliation.
+4. **Inventory and the directory are in, and the migration already happened.**
+   Stages 5 and 6 below ("Add inventory", "Expand people and assignments") were
+   brought forward. The one-time load from the AppSheet exports has been done:
+   3,448 students, 261 staff and 4,278 machines are live in `public.requesters`
+   and `public.inventory_devices`, and this system is their authoritative home.
+   The migration guidance below is therefore a record of how it was done, not
+   work to plan. **There is no import path in the application** — no in-app
+   importer, no CSV in — and the "staged rehearsal" and "cutover" language below
+   describes an event that is finished.
 5. **An AI assistant was added**, which this plan does not mention at all. It
-   runs on each technician's own ChatGPT account and acts only through the same
+   runs on each person's own ChatGPT account and acts only through the same
    operations a person has.
+6. **The role is a set, and the word changed.** "Technician" is now **NetRider**,
+   what this school calls the students who run the helpdesk, and an account
+   holds one or more of administrator, NetRider and skills officer rather than
+   a single role. A skills officer works the student and staff directory and
+   cannot reach a ticket. Read "technician" below as "NetRider".
+7. **The landing page is Today**, not the queue: a ranked list of what needs
+   this person, rather than a list of what exists.
 
 Unchanged: the platform selection (Next.js on Vercel Hobby with Supabase), the
 ticket workflows and permission rules, the pilot acceptance checks, and the
