@@ -10,11 +10,12 @@
  * product. Everything below it, and every list on every other screen, is
  * instant.
  *
- * The entrance never plays twice in a session. A layout effect in `TodayScreen`
- * stamps `data-today-seen` on the document element before the first paint of a
- * client-side navigation, reading a `sessionStorage` flag it sets the first
- * time. A full document load still plays it, and should: a reload is the
- * application arriving, the same moment the bench lamp is drawn for.
+ * The entrance plays once per arrival, never on a return within the session.
+ * A layout effect in `TodayScreen` stamps `data-today-seen` on the document
+ * element before the first paint of a client-side navigation, reading a
+ * `sessionStorage` flag it sets the first time. A full document load (a reload,
+ * a deep link) still plays it, and should: that is the application arriving,
+ * the same moment the bench lamp is drawn for.
  *
  * Tokens only, and no colour except where colour is information: a priority
  * that is above normal, and the single accent on the one action the screen is
