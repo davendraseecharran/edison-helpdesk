@@ -275,13 +275,10 @@ export function DeviceDetail({
                       {formatDateTime(device.updatedAt)} (<TimeAgo iso={device.updatedAt} />)
                     </span>
                   </div>
-                  <Button
-                    disabled={busy}
-                    loading={pendingKey === returnKey}
-                    onClick={() => setDialog('return')}
-                  >
-                    Return device
-                  </Button>
+                  {/* No button. "Return device" is the screen's primary action,
+                      in the header above and in the phone's bar, and a device
+                      screen that says it twice is a screen asking whether the
+                      two do the same thing. */}
                 </div>
               ) : (
                 <div className="holder-empty">
@@ -291,9 +288,6 @@ export function DeviceDetail({
                       ? ` Its status is ${device.status}.`
                       : ''}
                   </p>
-                  <Button disabled={busy} onClick={() => setDialog('assign')}>
-                    Assign device
-                  </Button>
                 </div>
               )}
             </div>

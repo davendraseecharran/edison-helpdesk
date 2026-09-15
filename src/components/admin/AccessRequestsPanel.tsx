@@ -16,7 +16,6 @@
 import { formatDateTime } from '@/lib/format';
 import { Button } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
-import { EmptyState } from '@/components/Primitives';
 import type { AdminAccountView } from '@/lib/data/admin-view';
 
 export function AccessRequestsPanel({
@@ -97,11 +96,15 @@ export function AccessRequestsPanel({
         caption="People who signed in with Google and are waiting for an access decision"
         cardTitle={(account) => account.displayName}
         cardMeta={(account) => account.email}
+        /* One line, not a 280px illustration of nothing. The panel's own head
+           already says "Nobody waiting" four inches above this, and an empty
+           state that restates the heading in three sentences pushes the
+           accounts table — the thing an administrator came for — below the
+           fold. */
         empty={
-          <EmptyState title="No one is waiting">
-            When somebody signs in with Google and has no invite, their request appears here until
-            you approve or decline it. They can reach nothing in the meantime.
-          </EmptyState>
+          <p className="panel-empty empty-line">
+            Requests appear here when somebody signs in with no invite.
+          </p>
         }
       />
     </section>

@@ -181,11 +181,11 @@ export function InvitesPanel({
             {loadError}
           </p>
         ) : null}
-        <p className="panel-note">
-          An invite decides the role the address gets the first time it signs in with Google. It
-          is not a link and not a password, so there is nothing in it worth stealing. Inviting the
-          same address again replaces the earlier invite.
-        </p>
+        {/* One sentence, and it is the one the page header does not already
+            say: the header above states that an invite sets the role an address
+            gets. Repeating that here in longer words was the third telling on
+            one screen. */}
+        <p className="panel-note">Inviting an address again replaces its earlier invite.</p>
 
         <form onSubmit={onSend} className="form">
           <Field

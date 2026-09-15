@@ -563,8 +563,14 @@ input[type='date']::-webkit-datetime-edit-day-field:focus {
   font-size: var(--fs-0);
 }
 
+/*
+ * The administrator chip is a fact about an account, not an action. In the
+ * accent's soft tone it read as the one thing on the row worth pressing, beside
+ * the buttons that actually are; it takes the neutral surface every other chip
+ * takes and says what it says by its word.
+ */
 .badge-role {
-  background: var(--accent-soft);
+  background: var(--surface-3);
   color: var(--ink);
 }
 
@@ -1739,6 +1745,17 @@ p.flash {
 .data-table-empty {
   padding: 40px 16px;
   text-align: center;
+}
+
+/*
+ * The other kind of empty: a list whose own heading already said it is empty,
+ * where a full empty state is a second announcement taking three hundred pixels
+ * of a screen somebody is scanning. One line, on the row height a row would
+ * have had.
+ */
+.data-table-empty:has(> .empty-line) {
+  padding: 16px 12px;
+  text-align: left;
 }
 
 /*

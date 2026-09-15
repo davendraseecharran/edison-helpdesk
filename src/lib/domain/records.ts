@@ -97,6 +97,49 @@ export function personSubtitle(person: {
   return parts.join(', ');
 }
 
+/**
+ * Whether an identifier was made up by the system rather than issued by anyone.
+ *
+ * A student's OSIS is nine digits a person can read out over the phone, and a
+ * member of staff's ID is the local part of the address they sign in with —
+ * `mellery`, which the school also uses. But a record imported or seeded without
+ * a real address gets `marcus.ellery-1e1ec7b6`: a name slug with a hex tail,
+ * unique and useful to the database and meaningless to anybody reading it under
+ * a person's name in a picker.
+ *
+ * The shape is the test, because it is the only thing available where this
+ * matters: one run of word characters, dots, hyphens or underscores, ending in a
+ * hyphen and six or more hex digits, with no spaces. A department ("Grade 6
+ * ELA", "Facilities") never matches; a real staff ID never matches either.
+ */
+/**
+ * Whether a URL points at the machine it is displayed on.
+ *
+ * The pairing QR carries whatever `NEXT_PUBLIC_APP_ORIGIN` says the application
+ * is reachable at, and in production that is the Vercel address. Locally it is
+ * a loopback address, which a phone camera will happily read and then fail to
+ * open, because 127.0.0.1 on a phone is the phone. The dialog says so rather
+ * than letting somebody photograph a monitor twice.
+ */
+const LOOPBACK_HOSTS = ['localhost', '127.0.0.1', '[::1]', '::1', '0.0.0.0'];
+
+export function isLoopbackUrl(value: string): boolean {
+  try {
+    return LOOPBACK_HOSTS.includes(new URL(value).hostname);
+  } catch {
+    // Not a URL at all is not a loopback URL; the dialog shows it either way.
+    return false;
+  }
+}
+
+const GENERATED_IDENTIFIER = /^[a-z0-9]+(?:[._-][a-z0-9]+)*-[0-9a-f]{6,}$/i;
+
+export function isGeneratedIdentifier(value: string | null | undefined): boolean {
+  const trimmed = (value ?? '').trim();
+  if (trimmed === '') return false;
+  return GENERATED_IDENTIFIER.test(trimmed);
+}
+
 /** "Class 9A, class of 2029" for a student; "Science, Teacher" for staff. Empty when nothing is known. */
 export function personPlacement(person: {
   kind: PersonKind;

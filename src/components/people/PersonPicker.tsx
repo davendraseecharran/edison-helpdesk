@@ -10,7 +10,7 @@
  */
 
 import { searchPeopleAction, type PersonSearchResult } from '@/lib/data/people-actions';
-import { groupPeople } from '@/lib/domain/records';
+import { groupPeople, isGeneratedIdentifier } from '@/lib/domain/records';
 import { PERSON_KIND_LABELS } from '@/lib/domain/types';
 import { SearchPicker } from '@/components/directory/SearchPicker';
 
@@ -61,14 +61,7 @@ export function PersonPicker({
         <>
           <span className="picker-option-name">{person.displayName}</span>
           <span className="picker-option-meta">
-            {PERSON_KIND_LABELS[person.kind]}
-            {person.identifier ? (
-              <>
-                , <span className="mono">{person.identifier}</span>
-              </>
-            ) : person.descriptor ? (
-              `, ${person.descriptor}`
-            ) : null}
+            <PersonMeta person={person} />
           </span>
         </>
       )}
@@ -98,14 +91,7 @@ export function ChosenPerson({
       <span className="person-text">
         <span className="person-name">{person.displayName}</span>
         <span className="person-meta">
-          {PERSON_KIND_LABELS[person.kind]}
-          {person.identifier ? (
-            <>
-              , <span className="mono">{person.identifier}</span>
-            </>
-          ) : person.descriptor ? (
-            `, ${person.descriptor}`
-          ) : null}
+          <PersonMeta person={person} />
         </span>
       </span>
       <span className="person-end">
@@ -114,5 +100,35 @@ export function ChosenPerson({
         </button>
       </span>
     </div>
+  );
+}
+
+/**
+ * What is said under a name: what they are, then the identifier the school
+ * actually uses for them.
+ *
+ * A student's OSIS belongs here — it is what a teacher reads off a form and what
+ * this picker searches. A member of staff's belongs here too when it is the one
+ * they sign in with. What does not is an identifier the system invented for a
+ * record that arrived without one (`marcus.ellery-1e1ec7b6`): it is unique,
+ * nobody can use it, and printed in mono under somebody's name it reads as a
+ * fact about them. Those are left out, and what they are is the whole meta line.
+ */
+function PersonMeta({ person }: { person: PersonSearchResult }) {
+  const identifier =
+    person.identifier && !isGeneratedIdentifier(person.identifier) ? person.identifier : null;
+  const descriptor =
+    person.descriptor && !isGeneratedIdentifier(person.descriptor) ? person.descriptor : null;
+  return (
+    <>
+      {PERSON_KIND_LABELS[person.kind]}
+      {identifier ? (
+        <>
+          , <span className="mono">{identifier}</span>
+        </>
+      ) : descriptor ? (
+        `, ${descriptor}`
+      ) : null}
+    </>
   );
 }

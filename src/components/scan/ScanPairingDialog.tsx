@@ -38,6 +38,7 @@ import {
   startScanSessionAction,
   type StartScanResult,
 } from '@/lib/data/scan-actions';
+import { isLoopbackUrl } from '@/lib/domain/records';
 import { useScanRelay } from './useScanRelay';
 import '@/styles/scan.css';
 
@@ -179,6 +180,15 @@ export function ScanPairingDialog({
         <div className="scan-pairing-body">
           <QrCode svg={pairing.qrSvg} label={`QR code for ${pairing.url}`} size={240} />
           <p className="scan-pairing-url mono">{pairing.url}</p>
+          {/* A phone that reads this code would be asking itself for the page.
+              Said once, quietly, and only when it is true — the hosted origin
+              is the Vercel address and never trips this. */}
+          {isLoopbackUrl(pairing.url) ? (
+            <p className="scan-pairing-note">
+              This address only works on this computer. Set NEXT_PUBLIC_APP_ORIGIN to the
+              machine&apos;s network address to pair a phone.
+            </p>
+          ) : null}
 
           <p className="scan-pairing-wait">
             <Orb moment="pairing" size={20} label="Waiting for a scan" />

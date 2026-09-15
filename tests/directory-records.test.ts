@@ -9,6 +9,8 @@ import {
   countLabel,
   deviceErrorField,
   groupPeople,
+  isGeneratedIdentifier,
+  isLoopbackUrl,
   personErrorField,
   personPlacement,
   personSubtitle,
@@ -181,5 +183,48 @@ describe('pickerGateOpen', () => {
     expect(pickerGateOpen('  ab  ')).toBe(true);
     expect(pickerGateOpen('Whitfield')).toBe(true);
     expect(pickerGateOpen('240000123')).toBe(true);
+  });
+});
+
+describe('isGeneratedIdentifier', () => {
+  it('recognises the name slug with a hex tail a record without an address gets', () => {
+    expect(isGeneratedIdentifier('marcus.ellery-1e1ec7b6')).toBe(true);
+    expect(isGeneratedIdentifier('nia_okonkwo-9f0a1b2c')).toBe(true);
+    expect(isGeneratedIdentifier('shot-admin-1e1ec7b6')).toBe(true);
+  });
+
+  it('leaves alone the identifiers a school actually issues', () => {
+    // A nine-digit OSIS, a staff ID that is the address they sign in with, and
+    // the department or role a picker shows when there is no identifier.
+    expect(isGeneratedIdentifier('212345678')).toBe(false);
+    expect(isGeneratedIdentifier('mellery')).toBe(false);
+    expect(isGeneratedIdentifier('m.ellery')).toBe(false);
+    expect(isGeneratedIdentifier('Grade 6 ELA')).toBe(false);
+    expect(isGeneratedIdentifier('Facilities')).toBe(false);
+    expect(isGeneratedIdentifier('Room 212')).toBe(false);
+  });
+
+  it('is false for nothing at all', () => {
+    expect(isGeneratedIdentifier(null)).toBe(false);
+    expect(isGeneratedIdentifier(undefined)).toBe(false);
+    expect(isGeneratedIdentifier('   ')).toBe(false);
+  });
+});
+
+describe('isLoopbackUrl', () => {
+  it('knows the addresses a phone camera cannot follow', () => {
+    expect(isLoopbackUrl('http://127.0.0.1:3005/scan/abc')).toBe(true);
+    expect(isLoopbackUrl('http://localhost:3000/scan/abc')).toBe(true);
+    expect(isLoopbackUrl('http://[::1]:3000/scan/abc')).toBe(true);
+  });
+
+  it('leaves a hosted or network origin alone', () => {
+    expect(isLoopbackUrl('https://edison-helpdesk.vercel.app/scan/abc')).toBe(false);
+    expect(isLoopbackUrl('http://192.168.1.24:3005/scan/abc')).toBe(false);
+  });
+
+  it('treats something that is not a URL as not loopback', () => {
+    expect(isLoopbackUrl('')).toBe(false);
+    expect(isLoopbackUrl('not a url')).toBe(false);
   });
 });
