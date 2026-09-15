@@ -25,7 +25,7 @@
  * what happened.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Bell, CheckCheck } from 'lucide-react';
 import { useRuntime } from '@/components/AppRuntime';
@@ -35,7 +35,7 @@ import {
   useOptimisticReads,
 } from '@/components/notifications/NotificationList';
 import { Button } from '@/components/ui/Button';
-import { useEscape, useFocusTrap, useOutsidePress } from '@/components/ui/focus';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
 import { usePhone } from '@/components/ui/media';
 import { Sheet } from '@/components/ui/Sheet';
 import { Skeleton } from '@/components/ui/Skeleton';
@@ -82,8 +82,6 @@ export function NotificationsBell({ unread, showCount = true }: NotificationsBel
   const [loading, setLoading] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  const anchorRef = useRef<HTMLSpanElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
   // Only the newest fetch may write state: opening, closing and opening again
   // must not be settled by whichever response happens to land last.
   const request = useRef(0);
@@ -162,11 +160,7 @@ export function NotificationsBell({ unread, showCount = true }: NotificationsBel
   }, []);
   const { read, open: openItem } = useOptimisticReads(onOpened);
 
-  const anchors = useMemo(() => [anchorRef], []);
   const popoverOpen = open && !phone;
-  useFocusTrap(panelRef, popoverOpen);
-  useEscape(popoverOpen, close);
-  useOutsidePress(popoverOpen, anchors, close);
 
   async function markAll() {
     const result = await run(MARK_ALL_KEY, () => markReadAction(null));
@@ -221,15 +215,13 @@ export function NotificationsBell({ unread, showCount = true }: NotificationsBel
     </div>
   );
 
-  return (
-    <span className="bell" ref={anchorRef}>
+  const bell = (
+    <span className="bell">
       <Button
         variant="ghost"
         icon={Bell}
         aria-label={bellLabel(count, showCount)}
         title="Notifications"
-        aria-haspopup="dialog"
-        aria-expanded={open}
         onClick={toggle}
       />
       {badge ? (
@@ -237,27 +229,31 @@ export function NotificationsBell({ unread, showCount = true }: NotificationsBel
           {badge}
         </span>
       ) : null}
+    </span>
+  );
 
-      {popoverOpen ? (
-        <div
-          ref={panelRef}
-          className="popover popover-end notifications-pop"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Notifications"
-          tabIndex={-1}
-        >
+  return (
+    <>
+      <Popover
+        open={popoverOpen}
+        onOpenChange={(next) => {
+          if (next) toggle();
+          else close();
+        }}
+      >
+        <PopoverTrigger asChild>{bell}</PopoverTrigger>
+        <PopoverContent aria-label="Notifications" className="notifications-pop">
           <h2 className="notifications-pop-title">Notifications</h2>
           <div className="notifications-pop-body">{body}</div>
           {footer}
-        </div>
-      ) : null}
+        </PopoverContent>
+      </Popover>
 
       {/* Below 720px the same content arrives as a bottom sheet, which brings
           its own focus trap, scroll lock and dismissal. */}
       <Sheet open={open && phone} onClose={close} side="bottom" title="Notifications" footer={footer}>
         {body}
       </Sheet>
-    </span>
+    </>
   );
 }
