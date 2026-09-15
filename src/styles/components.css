@@ -395,8 +395,19 @@ textarea[aria-invalid='true'] {
   font-weight: 600;
 }
 
+/*
+ * High says so in the word as well as the glyph.
+ *
+ * With the tone on `--badge-tone` alone, the only difference between High and
+ * Normal in a row of tickets was a 12px triangle; the label beside it was the
+ * same `--ink-2` as everything else, and the priority read as absent. Urgent
+ * already colours its word. High takes the same treatment one step quieter —
+ * the colour, not the extra weight — so the two stay ranked against each
+ * other. The glyph stays, because colour is never the only signal.
+ */
 .priority-high {
   --badge-tone: var(--warn);
+  color: var(--warn);
 }
 
 .priority-normal {

@@ -105,15 +105,24 @@
    * are desaturated far enough that a table of them is still a gray table with
    * two warm rows in it.
    *
+   * Both are also darker than they were. A priority is carried by a 12px glyph
+   * and a 13px word, and at that size the anti-aliasing spends a good part of
+   * the nominal contrast before the eye gets it: High at 5.2:1 measured as
+   * passing and read as switched off. These sit near 7:1 on the page and still
+   * near 6:1 on the deepest surface a badge lands on, which is the headroom
+   * small type needs. Neither gained any saturation doing it — the hue and the
+   * chroma are the ones that were there; only the lightness moved — so the
+   * table is the same gray table.
+   *
    * `--good` is gray on purpose: a resolved ticket is not an achievement, it is
    * a finished thing, and the check beside it already says so. `--ok` is the
    * name the screens use for it, and `--info` — the assistant's violet — is
    * gone, because the assistant is monochrome too.
    */
-  --bad: #b0413a;
-  --bad-soft: rgb(176 65 58 / 0.1);
-  --warn: #8a6318;
-  --warn-soft: rgb(138 99 24 / 0.1);
+  --bad: #9b352f;
+  --bad-soft: rgb(155 53 47 / 0.1);
+  --warn: #725012;
+  --warn-soft: rgb(114 80 18 / 0.1);
   --good: var(--ink-2);
   --good-soft: var(--surface-3);
   --ok: var(--good);
@@ -279,8 +288,12 @@
 
   --scrim: rgb(15 15 16 / 0.55);
 
-  --bad: #c8564f;
-  --bad-soft: rgb(200 86 79 / 0.1);
+  /* The dark red was 4.5:1 on the page and 4.2:1 on a menu — below the floor
+     on both, and the only token in either theme that was. Lightened to 5.9:1
+     on the page and 4.7:1 on the deepest surface it lands on; the dark ochre
+     beside it already cleared the floor everywhere and is untouched. */
+  --bad: #d4726b;
+  --bad-soft: rgb(212 114 107 / 0.1);
   --warn: #b98a3a;
   --warn-soft: rgb(185 138 58 / 0.1);
 
