@@ -78,6 +78,11 @@ describe('viewFromRow', () => {
   it('refuses a path that is not in-app, even from the database', () => {
     expect(viewFromRow({ id: 'a', name: 'x', path: 'https://evil.example' })).toBeNull();
     expect(viewFromRow({ id: 'a', name: 'x', path: '//evil.example' })).toBeNull();
+    // A browser normalises `/\` into `//`, so the backslash spelling is the
+    // same off-site link wearing a chip that says "Room 214".
+    expect(viewFromRow({ id: 'a', name: 'x', path: '/\\evil.example' })).toBeNull();
+    expect(viewFromRow({ id: 'a', name: 'x', path: 'queue' })).toBeNull();
+    expect(viewFromRow({ id: 'a', name: 'x', path: '/queue' })?.path).toBe('/queue');
   });
 
   it('caps a long name rather than refusing it', () => {

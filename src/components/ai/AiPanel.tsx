@@ -687,6 +687,26 @@ export function AiPanel({
                           className="popover popover-end ai-menu"
                           tabIndex={-1}
                         >
+                          {/* Settings live in the menu, not in the header: the
+                              picker is touched once a month and a permanent row
+                              costs a line of the conversation on every screen,
+                              which at 390 is the whole point of the panel. */}
+                          <div className="ai-menu-reasoning">
+                            <span className="ai-reasoning-label">Reasoning</span>
+                            <SegmentedControl
+                              label="Reasoning effort"
+                              size="sm"
+                              value={status?.reasoning ?? 'high'}
+                              options={REASONING_OPTIONS}
+                              onChange={(next) =>
+                                void savePreference(
+                                  { reasoning: next },
+                                  'Could not save the reasoning level.',
+                                )
+                              }
+                            />
+                          </div>
+                          <div className="menu-separator" role="separator" />
                           <button
                             type="button"
                             role="switch"
@@ -759,20 +779,6 @@ export function AiPanel({
                     <Button variant="ghost" icon={X} aria-label="Close" title="Close" onClick={close} />
                   </div>
                 </div>
-                {view === 'chat' && status?.enabled !== false ? (
-                  <div className="ai-head-row ai-head-reasoning">
-                    <span className="ai-reasoning-label">Reasoning</span>
-                    <SegmentedControl
-                      label="Reasoning effort"
-                      size="sm"
-                      value={status?.reasoning ?? 'high'}
-                      options={REASONING_OPTIONS}
-                      onChange={(next) =>
-                        void savePreference({ reasoning: next }, 'Could not save the reasoning level.')
-                      }
-                    />
-                  </div>
-                ) : null}
               </header>
 
               <div className="ai-body" ref={bodyRef} onScroll={onBodyScroll}>

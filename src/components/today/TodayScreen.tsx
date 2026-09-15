@@ -262,6 +262,12 @@ export function TodayScreen({
         router.push(`${item.href}?do=resolve`);
         return;
       }
+      // `e` means the same thing here as it does in the queue: open the ticket
+      // with the note composer already revealed. One keyboard model, or none.
+      if (action === 'edit' && item.ticketId) {
+        router.push(`${item.href}?do=note`);
+        return;
+      }
       router.push(item.href);
     },
     [claim, returnDevice, router],

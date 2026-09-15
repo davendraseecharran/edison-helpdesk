@@ -211,7 +211,9 @@ export function recogniseInText(raw: string): Recognition | null {
   // Most specific first: a device or a ticket named in a line is what the line
   // is about; an email address in a signature is the least surprising thing in
   // it and should not beat an asset tag sitting two tokens away.
-  const order: LookupKind[] = ['ticket', 'asset_tag', 'device_id', 'serial', 'osis', 'email', 'staff_id', 'phone'];
+  // No 'serial' here: a serial is never `certain` (see above), and only certain
+  // recognitions are collected, so an entry for it could never match.
+  const order: LookupKind[] = ['ticket', 'asset_tag', 'device_id', 'osis', 'email', 'staff_id', 'phone'];
   const found = new Map<LookupKind, Recognition>();
   for (const token of tokens) {
     const recognition = recognise(token);

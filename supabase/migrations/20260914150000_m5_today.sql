@@ -95,9 +95,15 @@ begin
   ) as built
   where pg_catalog.jsonb_typeof(entry.value) = 'object'
     -- A view with no name is not a view; a path that is not in-app is not ours.
+    --
+    -- One slash and then neither a second slash nor a backslash: `//evil.com`
+    -- is a protocol-relative URL, and browsers normalise `/\evil.com` into
+    -- exactly that, so both spellings are the same off-site link wearing a chip
+    -- that says "Room 214". 20260914150300 carries this same check to databases
+    -- that already ran this file.
     and pg_catalog.btrim(coalesce(entry.value ->> 'name', '')) <> ''
     and coalesce(entry.value ->> 'path', '') like '/%'
-    and coalesce(entry.value ->> 'path', '') not like '//%';
+    and pg_catalog.left(coalesce(entry.value ->> 'path', ''), 2) not in ('//', '/\');
 
   insert into public.account_preferences (account_id)
   values (v_actor.id)

@@ -186,7 +186,9 @@ export function useRowKeys<Row>({
 
       const { keys: current, rows: currentRows, onAction: act, can: allows, focusedKey: at } = latest.current;
 
-      if (nextFocus(-1, event.key, current.length) !== null && event.key.toLowerCase() !== 'enter') {
+      // `nextFocus` already returns null for Enter, so movement is the whole
+      // test: j/k, the arrows, Home, End and the number keys, and nothing else.
+      if (nextFocus(-1, event.key, current.length) !== null) {
         // Home and End are movement too, but they belong to the list's own
         // handler: pressed with the focus elsewhere they mean "top of the page".
         const key = event.key.toLowerCase();

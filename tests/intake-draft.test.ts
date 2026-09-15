@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { draftFromText, DRAFT_ISSUE_MAX, DRAFT_TITLE_MAX } from '../src/lib/intake/draft';
+import {
+  draftFromText,
+  stripReplyPrefixes,
+  DRAFT_ISSUE_MAX,
+  DRAFT_TITLE_MAX,
+} from '../src/lib/intake/draft';
 
 const EMAIL = `From: Marcus Ellery <marcus.ellery@edison.example>
 To: helpdesk@edison.example
@@ -85,5 +90,28 @@ describe('draftFromText', () => {
     const windows = 'Subject: Wi-Fi drops\r\n\r\nIt keeps dropping in the library.\r\n';
     expect(draftFromText(windows).title).toBe('Wi-Fi drops');
     expect(draftFromText(windows).category).toBe('network');
+  });
+});
+
+describe('stripReplyPrefixes', () => {
+  it('takes every marker off, not just the first', () => {
+    // Forwarded, then replied to. A title that still says "Fwd:" is a title
+    // about an email rather than about a projector.
+    expect(stripReplyPrefixes('Re: Fwd: Projector in 118')).toBe('Projector in 118');
+    expect(stripReplyPrefixes('FW: RE: FW: Chromebook cart')).toBe('Chromebook cart');
+  });
+
+  it('reads the numbered form some clients write', () => {
+    expect(stripReplyPrefixes('Re[2]: Wi-Fi in the library')).toBe('Wi-Fi in the library');
+  });
+
+  it('leaves a subject that is not a reply alone', () => {
+    expect(stripReplyPrefixes('Retirement of the old printers')).toBe(
+      'Retirement of the old printers',
+    );
+  });
+
+  it('is empty for a subject that was nothing but markers', () => {
+    expect(stripReplyPrefixes('Re: Fwd:')).toBe('');
   });
 });

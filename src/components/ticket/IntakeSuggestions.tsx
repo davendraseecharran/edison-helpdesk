@@ -20,8 +20,12 @@
  * free-text field, and the one whose text the guess was read from — takes every
  * suggestion on offer. The default is never prevented: Tab still moves to the
  * next control, it just leaves the answers behind. The chips are real buttons
- * as well, and out of the tab order, because they are a shortcut past the
- * fields rather than a stop inside them.
+ * as well, and they are in the tab order, which is the only way "No" is
+ * reachable without a pointer: Tab forward from the issue box takes the
+ * suggestions and the chips are gone by the time focus lands, but Shift-Tab
+ * back from the field below walks onto "No" and then onto the chip itself. A
+ * control that can only be refused with a mouse is not a control everybody
+ * has.
  *
  * The rules are in `src/lib/intake/suggest.ts` and are keyword tables rather
  * than a model, because this has to answer on every keystroke with no network
@@ -154,7 +158,7 @@ function Chip({
 }) {
   return (
     <span className="suggestion-chip">
-      <button type="button" className="suggestion-chip-accept" tabIndex={-1} onClick={onAccept}>
+      <button type="button" className="suggestion-chip-accept" onClick={onAccept}>
         <Icon icon={Check} size={12} />
         {label}
         <span className="suggestion-chip-why">from “{because}”</span>
@@ -162,7 +166,6 @@ function Chip({
       <button
         type="button"
         className="suggestion-chip-no"
-        tabIndex={-1}
         aria-label={`Do not suggest ${label}`}
         onClick={onDismiss}
       >

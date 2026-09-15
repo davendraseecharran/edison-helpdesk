@@ -125,13 +125,6 @@
   gap: 2px;
 }
 
-.ai-head-reasoning {
-  justify-content: space-between;
-  gap: 8px;
-  margin-top: 10px;
-  padding-right: 6px;
-}
-
 .ai-reasoning-label {
   color: var(--ink-3);
   font-size: var(--fs-1);
@@ -141,6 +134,18 @@
 
 .ai-menu {
   width: 248px;
+}
+
+/*
+ * The reasoning picker, where a setting belongs. It was a permanent header row,
+ * which cost a line of the conversation on every screen for a control that is
+ * touched about once a month.
+ */
+.ai-menu-reasoning {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 10px 8px;
 }
 
 .ai-menu-switch {

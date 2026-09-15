@@ -66,7 +66,14 @@ export function viewFromRow(row: unknown): SavedView | null {
   if (trimmed === '') return null;
   // An in-app path only. A stored value is not a trusted value even when the
   // database wrote it, and this is the one field that becomes a link.
-  if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) return null;
+  //
+  // One slash and then anything but a second slash or a backslash: `//evil.com`
+  // is a protocol-relative URL, and every browser normalises `/\evil.com` to
+  // exactly that, so both spellings are the same off-site link wearing a chip
+  // that says "Room 214". The database refuses both as well; this is the second
+  // of the two places, because the value is read here whether or not the
+  // database was the one that wrote it.
+  if (typeof path !== 'string' || !/^\/(?![/\\])/.test(path)) return null;
   return {
     id,
     name: trimmed.slice(0, SAVED_VIEW_NAME_MAX),

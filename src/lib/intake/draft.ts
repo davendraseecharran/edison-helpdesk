@@ -48,6 +48,24 @@ const EMAIL = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
 const HEADER = /^\s*(?:from|to|cc|bcc|sent|date|subject|reply-to)\s*:/i;
 
 /**
+ * The reply and forward markers a subject line collects on its way to the desk.
+ *
+ * Every one of them, not the first: a message that has been forwarded and then
+ * replied to arrives as "Re: Fwd: Projector in 118", and a title that still
+ * says "Fwd:" is a title about an email rather than about a projector. Some
+ * clients number them ("Re[2]:"), and Outlook writes "FW:".
+ */
+const REPLY_PREFIX = /^\s*(?:re|fwd|fw)\s*(?:\[\d+\])?\s*:\s*/i;
+
+/** A subject with every reply and forward marker taken off the front. */
+export function stripReplyPrefixes(subject: string): string {
+  let text = subject.trim();
+  // Bounded by construction: every pass removes at least one character.
+  while (REPLY_PREFIX.test(text)) text = text.replace(REPLY_PREFIX, '');
+  return text.trim();
+}
+
+/**
  * Where the message stops being the message.
  *
  * A quoted thread (`>`, "On … wrote:", "-----Original Message-----") and a
@@ -110,10 +128,7 @@ export function draftFromText(raw: string): TicketDraft {
   // No subject line: the first sentence of the body is what the message is
   // about, which is what a subject line would have said.
   const firstSentence = body.split(/(?<=[.!?])\s|\n/)[0]?.trim() ?? '';
-  const title = trimToSentence(
-    (subject || firstSentence).replace(/^(?:re|fwd|fw)\s*:\s*/i, '').trim(),
-    DRAFT_TITLE_MAX,
-  );
+  const title = trimToSentence(stripReplyPrefixes(subject || firstSentence), DRAFT_TITLE_MAX);
 
   const issue = trimToSentence(body, DRAFT_ISSUE_MAX);
   const category = suggestCategory(title, issue)?.value ?? null;

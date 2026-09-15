@@ -303,6 +303,16 @@
   cursor: pointer;
 }
 
+/*
+ * The chip clips on both axes so the two halves share one rounded outline, and
+ * an outset ring would be cut off against the seam. The same ring is drawn
+ * inside the button instead: identical colour and width, nothing to clip.
+ */
+.suggestion-chip-accept:focus-visible,
+.suggestion-chip-no:focus-visible {
+  box-shadow: inset var(--focus);
+}
+
 @media (hover: hover) and (pointer: fine) {
   .suggestion-chip-accept:hover {
     background: var(--surface-3);
