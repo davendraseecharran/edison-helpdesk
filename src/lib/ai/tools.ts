@@ -1176,6 +1176,59 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  unlink_device_from_ticket: {
+    group: 'write',
+    description:
+      'Take an inventory machine off a ticket. The machine and the ticket both stay; only the link between them goes.',
+    fields: {
+      ticket: { type: 'string', required: true, description: 'Ticket number or id.' },
+      device: { type: 'string', required: true, description: 'Asset tag, serial number or inventory id.' },
+    },
+    run: async (args, ctx) => {
+      const ticket = await resolveTicket(ctx, String(args.ticket));
+      const device = await resolveDevice(ctx, String(args.device));
+      await rpc(ctx, 'app_unlink_ticket_device', { p_ticket: ticket.id, p_device: device.id });
+      return outcome({ id: ticket.id }, `Unlinked ${device.label} from ${ticket.number}`);
+    },
+  },
+
+  mark_notifications_read: {
+    group: 'write',
+    description:
+      "Mark this person's own notifications read. Name the ids from list_notifications, or say all to clear every unread one. Nobody else's notices are reachable.",
+    fields: {
+      notification_ids: {
+        type: 'string[]',
+        description: 'The ids list_notifications gave. Leave out when using all.',
+      },
+      all: { type: 'boolean', description: 'True to mark every unread notice read.' },
+    },
+    run: async (args, ctx) => {
+      const ids = args.notification_ids as string[] | undefined;
+      const everything = args.all === true;
+      // Both is a contradiction and neither is a call with nothing in it. An
+      // empty list is NOT read as "everything": that is the opposite of what
+      // was asked for, and the screen refuses the same way.
+      if (everything === (ids !== undefined)) {
+        throw new ToolError('Name the notifications to mark read, or say all. Not both.');
+      }
+
+      const selected = everything ? null : (ids ?? []).filter(isUuid);
+      if (selected !== null && selected.length === 0) {
+        throw new ToolError('Those are not notification ids. Read them with list_notifications first.');
+      }
+
+      const marked = await rpc(ctx, 'app_mark_notifications_read', { p_ids: selected });
+      const count = Number(marked ?? 0);
+      return outcome(
+        { marked: count },
+        count === 0
+          ? 'Nothing was unread.'
+          : `Marked ${count} ${count === 1 ? 'notification' : 'notifications'} read`,
+      );
+    },
+  },
+
   create_person: {
     group: 'write',
     description: 'Add somebody to the directory.',
@@ -1626,6 +1679,7 @@ const DIRECTORY_TOOLS = [
   'get_device',
   'list_attachments',
   'list_notifications',
+  'mark_notifications_read',
   'create_person',
   'update_person',
 ] as const;

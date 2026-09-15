@@ -58,6 +58,7 @@ describe('tool classification', () => {
       'list_devices',
       'list_notifications',
       'list_people',
+      'mark_notifications_read',
       'search_records',
       'update_person',
     ]);
