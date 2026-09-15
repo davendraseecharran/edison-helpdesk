@@ -50,3 +50,6 @@ supabase/.temp/
 
 # Keep the safe environment template in source control.
 !.env.example
+
+# Impeccable critique snapshots (session artifacts, like .superpowers)
+.impeccable/
