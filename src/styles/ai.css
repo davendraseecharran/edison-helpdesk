@@ -1125,10 +1125,10 @@
     transparent 70%
   );
   opacity: 0.7;
-  /* Not motion tokens: these two are the orb's breathing rate, named in
-     docs/MOTION.md as "6 s turn, 2.4 s breath" and chosen against each other
-     rather than against the interface's transitions. A duration on the scale
-     of a hover would be a flicker. */
+  /* Not a motion token: 4.4s is the orb's resting breath, chosen against the
+     2.4s it quickens to below rather than against the interface's transitions.
+     (The top-bar mark's 6s turn and 2.4s breath are its own numbers, in
+     `AiMark`.) A duration on the scale of a hover would be a flicker. */
   animation: ai-glow 4.4s ease-in-out infinite;
   pointer-events: none;
 }
@@ -1139,6 +1139,8 @@
 
 .ai-orb[data-active]::before {
   opacity: 1;
+  /* The quickened breath, and the other half of the pair above: not a motion
+     token, and only meaningful against the 4.4s it replaces. */
   animation-duration: 2.4s;
 }
 

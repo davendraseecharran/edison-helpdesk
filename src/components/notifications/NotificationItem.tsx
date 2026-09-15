@@ -12,7 +12,7 @@
  *
  * Nothing here is carried by colour or by a glyph alone: the kind's icon is
  * labelled with what it means, so the row is announced as "Assigned to you, You
- * were assigned EDT-1042, 4h, Unread", and the brass dot has the word "Unread"
+ * were assigned EDT-1042, 4h, Unread", and the lit dot has the word "Unread"
  * beside it for anything that cannot see a dot.
  *
  * The age is the queue's one-token form ("12m", "4h", "2d", "5w") with the full

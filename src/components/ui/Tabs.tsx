@@ -25,7 +25,7 @@ function pathOf(href: string): string {
  *
  * Each tab is a real link so it works with the URL, the back button and
  * middle-click. The current one is marked with `aria-current="page"` and a
- * brass underline; counts sit in a quiet pill after the label.
+ * accent underline; counts sit in a quiet pill after the label.
  */
 export function Tabs({ items, label }: TabsProps) {
   const pathname = usePathname();

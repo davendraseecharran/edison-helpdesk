@@ -20,6 +20,7 @@
  * row-level security; this only decides the order it is read in.
  */
 
+import { deviceTypeLabel } from './device-types';
 import { normaliseTitle } from './grouping';
 import type { Priority, TicketStatus } from './types';
 
@@ -85,7 +86,10 @@ export const DUE_LABELS: Record<DueReason, string> = {
 /** The machine, as a person names it: "Dell Latitude 3190", "HP Chromebook". */
 export function deviceTitle(device: DueDevice): string {
   const parts = [device.manufacturer, device.model].filter((part) => (part ?? '').trim() !== '');
-  return parts.length > 0 ? parts.join(' ') : device.deviceType || 'Device';
+  // The fallback is a type, and a type reaches a screen through the vocabulary
+  // like every other one: a machine recorded as a "chromebook" is not shown as
+  // one here because the make and model happen to be blank.
+  return parts.length > 0 ? parts.join(' ') : deviceTypeLabel(device.deviceType) || 'Device';
 }
 
 /** The identifier to print beside it: the sticker if there is one, else the id. */

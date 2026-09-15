@@ -35,7 +35,17 @@ import { useRuntime } from '@/components/AppRuntime';
 import { Field } from '@/components/Primitives';
 import { ScanTargetButton } from '@/components/scan/ScanTargetButton';
 import { Button } from '@/components/ui/Button';
-import { deviceTypeOptions } from '@/lib/domain/device-types';
+import { deviceTypeLabel, deviceTypeOptions } from '@/lib/domain/device-types';
+
+/*
+ * The catalogue holds the district's own spelling and the field offers the
+ * canonical one, so "chromebook" from `inventory_devices` and "Chromebook" in
+ * the box are the same type and a raw `===` said they were not — picking a
+ * type from the list emptied the manufacturer and model suggestions under it.
+ */
+function sameType(a: string, b: string): boolean {
+  return deviceTypeLabel(a) === deviceTypeLabel(b);
+}
 
 type Draft = DeviceInput;
 
@@ -122,7 +132,7 @@ export function DeviceForm({
       [
         ...new Set(
           catalog
-            .filter((entry) => !draft.deviceType || entry.deviceType === draft.deviceType)
+            .filter((entry) => !draft.deviceType || sameType(entry.deviceType, draft.deviceType))
             .map((entry) => entry.manufacturer),
         ),
       ].sort(),
@@ -135,7 +145,7 @@ export function DeviceForm({
           catalog
             .filter(
               (entry) =>
-                (!draft.deviceType || entry.deviceType === draft.deviceType) &&
+                (!draft.deviceType || sameType(entry.deviceType, draft.deviceType)) &&
                 (!draft.manufacturer || entry.manufacturer === draft.manufacturer),
             )
             .map((entry) => entry.model),

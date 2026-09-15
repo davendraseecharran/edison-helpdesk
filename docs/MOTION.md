@@ -84,11 +84,12 @@ another stylesheet is how a design system starts drifting.
 warms up under the pointer, and each of them reads `--dur-hover` rather than a
 literal — five of them used to say 100 ms or 120 ms, which is how a table and
 the row of chips above it came to warm up at different speeds. The only
-literal durations left in the stylesheets are the six that are deliberately not
-transitions: the caret's blink, the spinner's revolution, the skeleton's sweep,
-the orb's two breathing rates, the orb canvas's 90 ms smoothing of a live
-microphone level, and the FAB label's 220 ms delay, which is measured against
-where the satellites are. Each says so where it is written.
+literal durations left in the stylesheets are the seven that are deliberately
+not transitions: the caret's blink, the spinner's revolution, the skeleton's
+sweep, the orb's two breathing rates (4.4 s at rest, 2.4 s while working), the
+orb canvas's 90 ms smoothing of a live microphone level, and the FAB label's
+220 ms delay, which is measured against where the satellites are. Each says so
+where it is written.
 
 **A phone's chrome is not the same chrome.** The top bar keeps the wordmark and
 loses what a finger cannot ask for: scanning moves into the More sheet where

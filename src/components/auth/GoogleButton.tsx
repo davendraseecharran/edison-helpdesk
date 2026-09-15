@@ -6,7 +6,7 @@
  * A plain form posting to a server action, so it works before hydration and
  * without JavaScript: the action builds the provider URL and redirects. The
  * mark is drawn in the current colour rather than the four brand colours, so it
- * sits inside a brass button in both themes and needs no image request.
+ * sits inside an accented button in both themes and needs no image request.
  */
 
 import { useFormStatus } from 'react-dom';

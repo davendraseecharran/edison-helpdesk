@@ -544,11 +544,15 @@ export function AiPanel({
    * inside its own wrapper instead of the page scrolling sideways.
    */
   useEffect(() => {
-    if (!open || layout !== 'docked') return;
+    // `present`, not `open`: the panel stays mounted through its exit, and
+    // dropping the attribute on the press would snap the page 420px sideways
+    // under a panel still sliding out — the reflow racing the animation it is
+    // supposed to accompany.
+    if (!present || layout !== 'docked') return;
     const root = document.documentElement;
     root.setAttribute('data-ai-dock', '');
     return () => root.removeAttribute('data-ai-dock');
-  }, [open, layout]);
+  }, [present, layout]);
 
   useEffect(() => {
     setAssistant({ open, moment, busy: chat.busy, unread });
