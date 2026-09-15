@@ -193,19 +193,67 @@
  * table is in view, so the actions are at hand however far down the page the
  * last box was ticked; above the bottom tabs on phones.
  */
+/*
+ * The bar for a selection, where a selection can still see it.
+ *
+ * It was `position: sticky` and it never stuck, because sticky is bounded by
+ * the containing block and this sits between the table and the pagination — a
+ * few dozen pixels from the panel's bottom edge, which is all the travel it
+ * had. So on a 300-machine inventory you ticked four rows at the top, scrolled
+ * to find the fifth, and the four actions you had picked them for were a page
+ * and a half above you.
+ *
+ * Fixed, then, for as long as a selection exists — the bar is rendered only
+ * then — centred over the content column rather than over the whole window, so
+ * it is under the rows it is about. The rail's width is a variable on `.shell`
+ * and the assistant's dock announces itself on the document element, so both
+ * sides follow the layout instead of guessing at it.
+ */
 .bulk-bar {
-  position: sticky;
+  position: fixed;
+  right: 16px;
   bottom: 16px;
+  left: calc(var(--rail-w) + 16px);
   z-index: 20;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
-  margin: 12px 16px;
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  margin-inline: auto;
   padding: 10px 12px 10px 16px;
   border-radius: var(--radius-3);
   background: var(--surface);
-  box-shadow: var(--shadow-2);
+  box-shadow: var(--shadow-3);
+  /* A surface arriving, on the table's terms: see docs/MOTION.md. It runs once
+     when the first row is ticked, so a keyframe rather than a transition. */
+  animation: bulk-bar-in var(--dur-surface) var(--ease-out);
+}
+
+@keyframes bulk-bar-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bulk-bar {
+    animation: none;
+  }
+}
+
+/* Room at the end of the list for a bar that is no longer in the flow. */
+.directory:has(> .bulk-bar) {
+  margin-bottom: 72px;
+}
+
+/* The docked assistant keeps its strip; the bar centres on what is left. */
+@media (min-width: 1024px) {
+  :root[data-ai-dock] .bulk-bar {
+    right: calc(16px + 24px + var(--ai-panel-w));
+  }
 }
 
 .bulk-bar-count {
@@ -226,9 +274,15 @@
 }
 
 @media (max-width: 719.98px) {
+  /* Above the thumb's tab bar, the full width of the page: down here there is
+     no column to centre on. */
   .bulk-bar {
+    right: 12px;
     bottom: calc(var(--tabs-h) + 12px + env(safe-area-inset-bottom));
-    margin: 12px;
+    left: 12px;
+    width: auto;
+    max-width: none;
+    margin-inline: 0;
     padding: 10px 12px;
   }
 
