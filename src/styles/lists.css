@@ -248,16 +248,29 @@
 /* --- What the form already knows ----------------------------------------- */
 
 /*
- * The suggested category and priority, read off the sentence above them. They
- * sit under the issue box, which is the field they were read from and the field
- * Tab accepts them out of.
+ * The suggested category and priority, read off the sentence and rendered under
+ * the select each one would change. They used to sit in a row under the issue
+ * box — the field they were read FROM rather than the field they are ABOUT — so
+ * taking "Hardware" meant trusting that a chip at the foot of the section had
+ * moved a select four rows above it, out of sight.
  */
 .suggestions {
   display: flex;
+  /* Last in the field, under the hint: the guess is an offer about the control,
+     and the hint is what the control is. `.field` is a column flex, so one
+     `order` puts it there without the Field primitive growing a slot. */
+  order: 1;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
-  margin-top: 8px;
+  margin-top: 2px;
+}
+
+/* The key that takes them, named under the box it is pressed in. */
+.suggestions-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .suggestions-label {
@@ -276,10 +289,15 @@
 
 .suggestion-chip-accept {
   display: inline-flex;
+  /* A category name and the word it was read from do not fit one line in a
+     half-width column, and a fixed height turned that into two lines of text in
+     a 26px box. It grows instead. */
+  flex-wrap: wrap;
   align-items: center;
-  gap: 5px;
-  height: 26px;
-  padding: 0 9px;
+  gap: 2px 5px;
+  min-height: 26px;
+  padding: 4px 9px;
+  text-align: left;
   border: 0;
   background: none;
   color: var(--ink);
@@ -400,6 +418,38 @@
   font-size: var(--fs-1);
 }
 
+/*
+ * The two answers, side by side.
+ *
+ * "Link as related" sat under the hit against the left edge and "Not the same"
+ * against the right, two corners of the same box — which reads as two unrelated
+ * controls rather than as the pair of answers to one question. They share a row
+ * at the end of the callout now, and on the one-hit case that row is the rest
+ * of the same line.
+ */
+.duplicate-warning-actions {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 12px;
+  /* Pushed to the end of whatever row it lands in: beside the sentence on the
+     one-hit case, under the list on the other. */
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.duplicate-warning-text > .duplicate-warning-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.duplicate-warning-one {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+}
+
 .duplicate-warning-no {
   flex: none;
   padding: 0;
@@ -412,6 +462,13 @@
   text-underline-offset: 2px;
   cursor: pointer;
 }
+
+@media (hover: hover) and (pointer: fine) {
+  .duplicate-warning-no:hover {
+    color: var(--ink);
+  }
+}
+
 
 /* --- A pasted email, read as a ticket ------------------------------------ */
 

@@ -23,7 +23,13 @@ import {
 } from '@/lib/domain/types';
 import { canChooseChannelAndOwner } from '@/lib/domain/permissions';
 import { DuplicateWarning } from '@/components/ticket/DuplicateWarning';
-import { IntakeSuggestions } from '@/components/ticket/IntakeSuggestions';
+import {
+  IntakeSuggestions,
+  SuggestedCategory,
+  SuggestedPriority,
+  SuggestionTabHint,
+} from '@/components/ticket/IntakeSuggestions';
+import { MoreDetails } from '@/components/ticket/MoreDetails';
 import { PasteToDraft } from '@/components/ticket/PasteToDraft';
 import { addNoteAction, createTicketAction } from '@/lib/data/actions';
 import { relatedNote } from '@/lib/intake/duplicates';
@@ -225,6 +231,26 @@ export default function NewTicketPage() {
       setFieldError({ error: result.error ?? 'The ticket could not be created.' });
     }
   }
+  /*
+   * What is filled in behind "More details", named on the control that hides
+   * it. Closing a section that holds a typed serial number must not be the same
+   * as forgetting it: the values go with the ticket either way, so the toggle
+   * says what it is holding.
+   */
+  const moreSummary =
+    [
+      location.trim() === '' ? null : location.trim(),
+      linked.length === 0 ? null : `${linked.length} from the inventory`,
+      devices.length === 0
+        ? null
+        : `${devices.length} ${devices.length === 1 ? 'device' : 'devices'}`,
+      isAdminIntake && submittedOn !== today ? 'backdated' : null,
+      collaboratorIds.length === 0
+        ? null
+        : `${collaboratorIds.length} ${collaboratorIds.length === 1 ? 'collaborator' : 'collaborators'}`,
+    ]
+      .filter((part): part is string => part !== null)
+      .join(', ') || undefined;
 
   return (
     <div className="intake">
@@ -237,469 +263,506 @@ export default function NewTicketPage() {
         }
       />
 
-      <form onSubmit={onSubmit} noValidate className="panel">
-        <IntakeSection
-          id="who"
-          title="Who is asking"
-          help="Find them in the directory, or record the request as unidentified."
-        >
-          <div className="form-grid">
-            <div className="field form-grid-full">
-              <span className="field-label">Requester</span>
-              <SegmentedControl
-                label="Requester"
-                value={requesterMode}
-                options={REQUESTER_MODES}
-                onChange={setRequesterMode}
-              />
-              {errorFor('requester') ? (
-                <span className="field-error" role="alert">
-                  {errorFor('requester')}
-                </span>
-              ) : null}
-            </div>
-
-            {requesterMode === 'existing' ? (
-              <div className="form-grid-full picker">
-                {person ? (
-                  <ChosenPerson person={person} onChange={() => setPerson(null)} />
-                ) : (
-                  /* The directory type-ahead the device screens use: grouped
-                     results, keyboard walkable, announced as a combobox. It
-                     searches the district's own requesters, so the person it
-                     finds is the person the ticket names. */
-                  <PersonPicker
-                    id="person-query"
-                    label="Search the directory"
-                    hint="Search by name, OSIS or staff ID."
-                    placeholder="Whitfield"
-                    onSelect={setPerson}
-                  />
-                )}
+      {/* What the sentence already said, offered back. The provider holds the
+          guesses; each chip is rendered under the select it would change. */}
+      <IntakeSuggestions
+        title={title}
+        issue={issue}
+        fieldId="issue"
+        category={category}
+        priority={priority}
+        onCategory={setCategory}
+        onPriority={setPriority}
+      >
+        <form onSubmit={onSubmit} noValidate className="panel">
+          <IntakeSection
+            id="who"
+            title="Who is asking"
+            help="Find them in the directory, or record the request as unidentified."
+          >
+            <div className="form-grid">
+              <div className="field form-grid-full">
+                <span className="field-label">Requester</span>
+                <SegmentedControl
+                  label="Requester"
+                  value={requesterMode}
+                  options={REQUESTER_MODES}
+                  onChange={setRequesterMode}
+                />
+                {errorFor('requester') ? (
+                  <span className="field-error" role="alert">
+                    {errorFor('requester')}
+                  </span>
+                ) : null}
               </div>
-            ) : null}
 
-            {requesterMode === 'unknown' ? (
-              <p className="panel-note form-grid-full">
-                The ticket is recorded as coming from an unidentified requester.
-              </p>
-            ) : null}
-          </div>
-        </IntakeSection>
-
-        <IntakeSection
-          id="what"
-          title="What is wrong"
-          help="A short title for the queue, then the issue in the requester's own words."
-        >
-          <div className="form-grid">
-            {/* Half the walk-ins arrive as forwarded mail. Reading it is one
-                press; retyping it into four fields is the most mechanical
-                thing anybody does at this desk. */}
-            <div className="form-grid-full">
-              <PasteToDraft
-                onApply={(draft) => {
-                  if (draft.title) setTitle(draft.title);
-                  if (draft.issue) setIssue(draft.issue);
-                  if (draft.category) setCategory(draft.category);
-                  if (draft.priority) setPriority(draft.priority);
-                }}
-              />
-            </div>
-            <Field
-              label="Title"
-              htmlFor="title"
-              error={errorFor('title')}
-              className="form-grid-full"
-            >
-              <input
-                id="title"
-                type="text"
-                value={title}
-                aria-invalid={errorFor('title') ? 'true' : undefined}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="Projector in Room 212 will not display"
-              />
-            </Field>
-            <Field label="Category" htmlFor="category" hint="Used to filter the queue.">
-              <Select
-                id="category"
-                value={category}
-                onChange={(value) => setCategory(value as TicketCategory)}
-                options={TICKET_CATEGORIES.map((value) => ({
-                  value,
-                  label: TICKET_CATEGORY_LABELS[value],
-                }))}
-              />
-            </Field>
-            <Field
-              label="Issue"
-              htmlFor="issue"
-              error={errorFor('issue')}
-              className="form-grid-full"
-            >
-              <textarea
-                id="issue"
-                value={issue}
-                aria-invalid={errorFor('issue') ? 'true' : undefined}
-                onChange={(event) => setIssue(event.target.value)}
-                rows={4}
-              />
-            </Field>
-            {/* What the sentence above already said, offered back. Tab out of
-                the issue box takes it; nothing is filled in on its own. */}
-            <div className="form-grid-full">
-              <IntakeSuggestions
-                title={title}
-                issue={issue}
-                fieldId="issue"
-                category={category}
-                priority={priority}
-                onCategory={setCategory}
-                onPriority={setPriority}
-              />
-              <DuplicateWarning
-                title={title}
-                location={location}
-                related={relatedNumbers}
-                onRelate={relateTo}
-              />
-            </div>
-          </div>
-        </IntakeSection>
-
-        <IntakeSection id="where" title="Where" help="The room or area the problem is in.">
-          <div className="form-grid">
-            <Field label="Location" htmlFor="location" optional hint="Leave blank if unknown.">
-              <input
-                id="location"
-                type="text"
-                value={location}
-                onChange={(event) => setLocation(event.target.value)}
-                placeholder="Room 212"
-              />
-            </Field>
-          </div>
-        </IntakeSection>
-
-        <IntakeSection
-          id="linked"
-          title="Inventory"
-          help="Name the machines from the inventory this ticket is about, so the ticket shows in their history."
-        >
-          <div className="stack-sm">
-            {linked.length === 0 ? (
-              <p className="panel-note">
-                No machine from the inventory is named yet. A room-wide fault may legitimately
-                have none.
-              </p>
-            ) : (
-              <ul className="linked-devices">
-                {linked.map((device) => (
-                  <li className="linked-device" key={device.id}>
-                    <span className="person-text">
-                      <span className="person-name mono">{device.label}</span>
-                      <span className="person-meta">
-                        {device.type}
-                        {device.model ? `, ${device.model}` : ''}
-                      </span>
-                    </span>
-                    <span className="person-end">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          setLinked((current) => current.filter((one) => one.id !== device.id))
-                        }
-                      >
-                        Remove
-                      </Button>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <DevicePicker
-              id="intake-link-device"
-              label="Find a machine"
-              scan
-              onSelect={(device) =>
-                setLinked((current) =>
-                  current.some((one) => one.id === device.id) ? current : [...current, device],
-                )
-              }
-              excludeIds={linked.map((device) => device.id)}
-              excludeNote="already named"
-            />
-          </div>
-        </IntakeSection>
-
-        <IntakeSection
-          id="device"
-          title="Device"
-          help="Optional. Record what you can see now; serials and asset tags can be filled in later."
-        >
-          <div className="stack-sm">
-            {devices.length === 0 ? (
-              <p className="panel-note">
-                Device details can be added while working. A room-wide fault may have no device
-                at all.
-              </p>
-            ) : (
-              devices.map((device, index) => (
-                <fieldset key={device.key} className="draft">
-                  <legend>Device {index + 1}</legend>
-                  <div className="form-grid">
-                    <Field
-                      label="Device type"
-                      htmlFor={`device-type-${device.key}`}
-                      error={errorFor('deviceType')}
-                    >
-                      <input
-                        id={`device-type-${device.key}`}
-                        type="text"
-                        list="device-type-options"
-                        value={device.deviceType}
-                        onChange={(event) =>
-                          updateDevice(device.key, { deviceType: event.target.value })
-                        }
-                        placeholder="Laptop"
-                      />
-                    </Field>
-                    <Field label="Manufacturer and model" htmlFor={`device-model-${device.key}`} optional>
-                      <input
-                        id={`device-model-${device.key}`}
-                        type="text"
-                        value={device.model ?? ''}
-                        onChange={(event) => updateDevice(device.key, { model: event.target.value })}
-                        placeholder="Dell Latitude 3440"
-                      />
-                    </Field>
-                    <Field label="OS or firmware" htmlFor={`device-os-${device.key}`} optional>
-                      <input
-                        id={`device-os-${device.key}`}
-                        type="text"
-                        value={device.osVersion ?? ''}
-                        onChange={(event) =>
-                          updateDevice(device.key, { osVersion: event.target.value })
-                        }
-                        placeholder="Windows 11 23H2"
-                      />
-                    </Field>
-                    <Field
-                      label="Serial number"
-                      htmlFor={`device-serial-${device.key}`}
-                      optional
-                      hint="Leave blank when unknown."
-                    >
-                      <input
-                        id={`device-serial-${device.key}`}
-                        type="text"
-                        className="mono"
-                        value={device.serialNumber ?? ''}
-                        disabled={device.identifiersNotApplicable}
-                        onChange={(event) =>
-                          updateDevice(device.key, { serialNumber: event.target.value })
-                        }
-                      />
-                    </Field>
-                    <Field label="Asset tag" htmlFor={`device-asset-${device.key}`} optional>
-                      <input
-                        id={`device-asset-${device.key}`}
-                        type="text"
-                        className="mono"
-                        value={device.assetTag ?? ''}
-                        disabled={device.identifiersNotApplicable}
-                        onChange={(event) =>
-                          updateDevice(device.key, { assetTag: event.target.value })
-                        }
-                      />
-                    </Field>
-                    <div className="field">
-                      <span className="field-label">Identifiers</span>
-                      <label className="check">
-                        <input
-                          type="checkbox"
-                          checked={device.identifiersNotApplicable === true}
-                          onChange={(event) =>
-                            updateDevice(device.key, {
-                              identifiersNotApplicable: event.target.checked,
-                            })
-                          }
-                        />
-                        <span className="check-text">Serial and asset tag not applicable</span>
-                      </label>
-                    </div>
-                    <div className="form-grid-full">
-                      <Button variant="ghost" size="sm" onClick={() => removeDevice(device.key)}>
-                        Remove device {index + 1}
-                      </Button>
-                    </div>
-                  </div>
-                </fieldset>
-              ))
-            )}
-            <div className="form-actions">
-              <Button size="sm" icon={Plus} onClick={addDevice}>
-                Add device
-              </Button>
-            </div>
-            <datalist id="device-type-options">
-              {DEVICE_TYPE_OPTIONS.map((suggestion) => (
-                <option key={suggestion} value={suggestion} />
-              ))}
-            </datalist>
-          </div>
-        </IntakeSection>
-
-        <IntakeSection
-          id="priority"
-          title="Priority and date"
-          help="How urgent it is, how it came in, when, and who owns it."
-        >
-          <div className="form-grid">
-            <Field label="Priority" htmlFor="priority">
-              <Select
-                id="priority"
-                value={priority}
-                onChange={(value) => setPriority(value as Priority)}
-                options={(Object.keys(PRIORITY_LABELS) as Priority[]).map((value) => ({
-                  value,
-                  label: PRIORITY_LABELS[value],
-                }))}
-              />
-            </Field>
-
-            {isAdminIntake ? (
-              <Field label="Channel" htmlFor="channel" error={errorFor('channel')}>
-                <Select
-                  id="channel"
-                  value={channel}
-                  onChange={(value) => setChannel(value as IntakeChannel)}
-                  options={(Object.keys(CHANNEL_LABELS) as IntakeChannel[]).map((value) => ({
-                    value,
-                    label: CHANNEL_LABELS[value],
-                  }))}
-                />
-              </Field>
-            ) : (
-              <Field label="Channel" htmlFor="channel-fixed" hint="NetRider intake is walk-in only.">
-                <input id="channel-fixed" type="text" value="Walk-in" readOnly disabled />
-              </Field>
-            )}
-
-            {isAdminIntake ? (
-              <Field
-                label="Submission date"
-                htmlFor="submitted-on"
-                error={errorFor('submittedOn')}
-                hint="Defaults to today. Backdating keeps the real creation timestamp."
-              >
-                <input
-                  id="submitted-on"
-                  type="date"
-                  value={submittedOn}
-                  max={today}
-                  aria-invalid={errorFor('submittedOn') ? 'true' : undefined}
-                  onChange={(event) => setSubmittedOn(event.target.value)}
-                />
-              </Field>
-            ) : (
-              <Field
-                label="Submission date"
-                htmlFor="submitted-on-fixed"
-                hint="Walk-ins are dated today."
-              >
-                <input id="submitted-on-fixed" type="date" value={today} readOnly disabled />
-              </Field>
-            )}
-
-            {isAdminIntake ? (
-              <Field
-                label="Owner"
-                htmlFor="owner"
-                error={errorFor('ownerId')}
-                hint="Leave on the queue so any NetRider can claim it."
-              >
-                <Select
-                  id="owner"
-                  value={ownerId}
-                  onChange={(value) => {
-                    setOwnerId(value);
-                    setCollaboratorIds((current) => current.filter((id) => id !== value));
-                  }}
-                  options={[
-                    { value: '', label: 'Queue, unassigned' },
-                    ...activeAccounts.map((account) => ({
-                      value: account.id,
-                      label:
-                        account.role === 'admin'
-                          ? `${account.displayName} (administrator)`
-                          : account.displayName,
-                    })),
-                  ]}
-                />
-              </Field>
-            ) : (
-              <Field
-                label="Owner"
-                htmlFor="owner-fixed"
-                hint="A NetRider's walk-in is always assigned to themselves."
-              >
-                <input
-                  id="owner-fixed"
-                  type="text"
-                  value={actor?.displayName ?? ''}
-                  readOnly
-                  disabled
-                />
-              </Field>
-            )}
-
-            <fieldset className="field-group form-grid-full">
-              <legend>
-                Collaborators <span className="field-optional">optional</span>
-              </legend>
-              {collaboratorChoices.length === 0 ? (
-                <p className="panel-empty">No other active accounts are available.</p>
-              ) : (
-                <div className="check-list">
-                  {collaboratorChoices.map((account) => (
-                    <label key={account.id} className="check">
-                      <input
-                        type="checkbox"
-                        checked={collaboratorIds.includes(account.id)}
-                        onChange={() => toggleCollaborator(account.id)}
-                      />
-                      <span className="check-text">{account.displayName}</span>
-                    </label>
-                  ))}
+              {requesterMode === 'existing' ? (
+                <div className="form-grid-full picker">
+                  {person ? (
+                    <ChosenPerson person={person} onChange={() => setPerson(null)} />
+                  ) : (
+                    /* The directory type-ahead the device screens use: grouped
+                       results, keyboard walkable, announced as a combobox. It
+                       searches the district's own requesters, so the person it
+                       finds is the person the ticket names. */
+                    <PersonPicker
+                      id="person-query"
+                      label="Search the directory"
+                      hint="Search by name, OSIS or staff ID."
+                      placeholder="Whitfield"
+                      onSelect={setPerson}
+                    />
+                  )}
                 </div>
-              )}
-              {errorFor('collaborators') ? (
-                <p className="field-error" role="alert">
-                  {errorFor('collaborators')}
+              ) : null}
+
+              {requesterMode === 'unknown' ? (
+                <p className="panel-note form-grid-full">
+                  The ticket is recorded as coming from an unidentified requester.
                 </p>
               ) : null}
-            </fieldset>
+            </div>
+          </IntakeSection>
+
+          <IntakeSection
+            id="what"
+            title="What is wrong"
+            help="A short title for the queue, then the issue in the requester's own words."
+          >
+            <div className="form-grid">
+              {/* Half the walk-ins arrive as forwarded mail. Reading it is one
+                  press; retyping it into four fields is the most mechanical
+                  thing anybody does at this desk. */}
+              <div className="form-grid-full">
+                <PasteToDraft
+                  onApply={(draft) => {
+                    if (draft.title) setTitle(draft.title);
+                    if (draft.issue) setIssue(draft.issue);
+                    if (draft.category) setCategory(draft.category);
+                    if (draft.priority) setPriority(draft.priority);
+                  }}
+                />
+              </div>
+              <Field
+                label="Title"
+                htmlFor="title"
+                error={errorFor('title')}
+                className="form-grid-full"
+              >
+                <input
+                  id="title"
+                  type="text"
+                  value={title}
+                  aria-invalid={errorFor('title') ? 'true' : undefined}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="Projector in Room 212 will not display"
+                />
+              </Field>
+              <Field label="Category" htmlFor="category" hint="Used to filter the queue.">
+                <Select
+                  id="category"
+                  value={category}
+                  onChange={(value) => setCategory(value as TicketCategory)}
+                  options={TICKET_CATEGORIES.map((value) => ({
+                    value,
+                    label: TICKET_CATEGORY_LABELS[value],
+                  }))}
+                />
+                <SuggestedCategory />
+              </Field>
+              <Field
+                label="Issue"
+                htmlFor="issue"
+                error={errorFor('issue')}
+                className="form-grid-full"
+              >
+                <textarea
+                  id="issue"
+                  value={issue}
+                  aria-invalid={errorFor('issue') ? 'true' : undefined}
+                  onChange={(event) => setIssue(event.target.value)}
+                  rows={4}
+                />
+                <SuggestionTabHint />
+              </Field>
+              <div className="form-grid-full">
+                <DuplicateWarning
+                  title={title}
+                  location={location}
+                  related={relatedNumbers}
+                  onRelate={relateTo}
+                />
+              </div>
+            </div>
+          </IntakeSection>
+
+          <IntakeSection
+            id="priority"
+            title="Priority and channel"
+            help="How urgent it is, how it came in, and who owns it."
+          >
+            <div className="form-grid">
+              <Field label="Priority" htmlFor="priority">
+                <Select
+                  id="priority"
+                  value={priority}
+                  onChange={(value) => setPriority(value as Priority)}
+                  options={(Object.keys(PRIORITY_LABELS) as Priority[]).map((value) => ({
+                    value,
+                    label: PRIORITY_LABELS[value],
+                  }))}
+                />
+                <SuggestedPriority />
+              </Field>
+
+              {isAdminIntake ? (
+                <Field label="Channel" htmlFor="channel" error={errorFor('channel')}>
+                  <Select
+                    id="channel"
+                    value={channel}
+                    onChange={(value) => setChannel(value as IntakeChannel)}
+                    options={(Object.keys(CHANNEL_LABELS) as IntakeChannel[]).map((value) => ({
+                      value,
+                      label: CHANNEL_LABELS[value],
+                    }))}
+                  />
+                </Field>
+              ) : (
+                <Field
+                  label="Channel"
+                  htmlFor="channel-fixed"
+                  hint="NetRider intake is walk-in only."
+                >
+                  <input id="channel-fixed" type="text" value="Walk-in" readOnly disabled />
+                </Field>
+              )}
+
+              {isAdminIntake ? (
+                <Field
+                  label="Owner"
+                  htmlFor="owner"
+                  error={errorFor('ownerId')}
+                  hint="Leave on the queue so any NetRider can claim it."
+                >
+                  <Select
+                    id="owner"
+                    value={ownerId}
+                    onChange={(value) => {
+                      setOwnerId(value);
+                      setCollaboratorIds((current) => current.filter((id) => id !== value));
+                    }}
+                    options={[
+                      { value: '', label: 'Queue, unassigned' },
+                      ...activeAccounts.map((account) => ({
+                        value: account.id,
+                        label:
+                          account.role === 'admin'
+                            ? `${account.displayName} (administrator)`
+                            : account.displayName,
+                      })),
+                    ]}
+                  />
+                </Field>
+              ) : (
+                <Field
+                  label="Owner"
+                  htmlFor="owner-fixed"
+                  hint="A NetRider's walk-in is always assigned to themselves."
+                >
+                  <input
+                    id="owner-fixed"
+                    type="text"
+                    value={actor?.displayName ?? ''}
+                    readOnly
+                    disabled
+                  />
+                </Field>
+              )}
+            </div>
+          </IntakeSection>
+
+          {/*
+            Everything above is every ticket. Everything below is some tickets:
+            the room, the machines, a serial, a date that is not today, a second
+            pair of hands. A phone call is a title, a requester and a sentence,
+            and it should not have to scroll past nine fields it will leave
+            empty to reach the button.
+          */}
+          <MoreDetails accountId={actor?.id ?? 'anonymous'} summary={moreSummary}>
+            <IntakeSection id="where" title="Where" help="The room or area the problem is in.">
+              <div className="form-grid">
+                <Field label="Location" htmlFor="location" optional hint="Leave blank if unknown.">
+                  <input
+                    id="location"
+                    type="text"
+                    value={location}
+                    onChange={(event) => setLocation(event.target.value)}
+                    placeholder="Room 212"
+                  />
+                </Field>
+              </div>
+            </IntakeSection>
+
+            <IntakeSection
+              id="linked"
+              title="Inventory"
+              help="Name the machines from the inventory this ticket is about, so the ticket shows in their history."
+            >
+              <div className="stack-sm">
+                {linked.length === 0 ? (
+                  <p className="panel-note">
+                    No machine from the inventory is named yet. A room-wide fault may legitimately
+                    have none.
+                  </p>
+                ) : (
+                  <ul className="linked-devices">
+                    {linked.map((device) => (
+                      <li className="linked-device" key={device.id}>
+                        <span className="person-text">
+                          <span className="person-name mono">{device.label}</span>
+                          <span className="person-meta">
+                            {device.type}
+                            {device.model ? `, ${device.model}` : ''}
+                          </span>
+                        </span>
+                        <span className="person-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              setLinked((current) =>
+                                current.filter((one) => one.id !== device.id),
+                              )
+                            }
+                          >
+                            Remove
+                          </Button>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <DevicePicker
+                  id="intake-link-device"
+                  label="Find a machine"
+                  scan
+                  onSelect={(device) =>
+                    setLinked((current) =>
+                      current.some((one) => one.id === device.id) ? current : [...current, device],
+                    )
+                  }
+                  excludeIds={linked.map((device) => device.id)}
+                  excludeNote="already named"
+                />
+              </div>
+            </IntakeSection>
+
+            <IntakeSection
+              id="device"
+              title="Device"
+              help="Optional. Record what you can see now; serials and asset tags can be filled in later."
+            >
+              <div className="stack-sm">
+                {devices.length === 0 ? (
+                  <p className="panel-note">
+                    Device details can be added while working. A room-wide fault may have no device
+                    at all.
+                  </p>
+                ) : (
+                  devices.map((device, index) => (
+                    <fieldset key={device.key} className="draft">
+                      <legend>Device {index + 1}</legend>
+                      <div className="form-grid">
+                        <Field
+                          label="Device type"
+                          htmlFor={`device-type-${device.key}`}
+                          error={errorFor('deviceType')}
+                        >
+                          <input
+                            id={`device-type-${device.key}`}
+                            type="text"
+                            list="device-type-options"
+                            value={device.deviceType}
+                            onChange={(event) =>
+                              updateDevice(device.key, { deviceType: event.target.value })
+                            }
+                            placeholder="Laptop"
+                          />
+                        </Field>
+                        <Field
+                          label="Manufacturer and model"
+                          htmlFor={`device-model-${device.key}`}
+                          optional
+                        >
+                          <input
+                            id={`device-model-${device.key}`}
+                            type="text"
+                            value={device.model ?? ''}
+                            onChange={(event) =>
+                              updateDevice(device.key, { model: event.target.value })
+                            }
+                            placeholder="Dell Latitude 3440"
+                          />
+                        </Field>
+                        <Field label="OS or firmware" htmlFor={`device-os-${device.key}`} optional>
+                          <input
+                            id={`device-os-${device.key}`}
+                            type="text"
+                            value={device.osVersion ?? ''}
+                            onChange={(event) =>
+                              updateDevice(device.key, { osVersion: event.target.value })
+                            }
+                            placeholder="Windows 11 23H2"
+                          />
+                        </Field>
+                        <Field
+                          label="Serial number"
+                          htmlFor={`device-serial-${device.key}`}
+                          optional
+                          hint="Leave blank when unknown."
+                        >
+                          <input
+                            id={`device-serial-${device.key}`}
+                            type="text"
+                            className="mono"
+                            value={device.serialNumber ?? ''}
+                            disabled={device.identifiersNotApplicable}
+                            onChange={(event) =>
+                              updateDevice(device.key, { serialNumber: event.target.value })
+                            }
+                          />
+                        </Field>
+                        <Field label="Asset tag" htmlFor={`device-asset-${device.key}`} optional>
+                          <input
+                            id={`device-asset-${device.key}`}
+                            type="text"
+                            className="mono"
+                            value={device.assetTag ?? ''}
+                            disabled={device.identifiersNotApplicable}
+                            onChange={(event) =>
+                              updateDevice(device.key, { assetTag: event.target.value })
+                            }
+                          />
+                        </Field>
+                        <div className="field">
+                          <span className="field-label">Identifiers</span>
+                          <label className="check">
+                            <input
+                              type="checkbox"
+                              checked={device.identifiersNotApplicable === true}
+                              onChange={(event) =>
+                                updateDevice(device.key, {
+                                  identifiersNotApplicable: event.target.checked,
+                                })
+                              }
+                            />
+                            <span className="check-text">Serial and asset tag not applicable</span>
+                          </label>
+                        </div>
+                        <div className="form-grid-full">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeDevice(device.key)}
+                          >
+                            Remove device {index + 1}
+                          </Button>
+                        </div>
+                      </div>
+                    </fieldset>
+                  ))
+                )}
+                <div className="form-actions">
+                  <Button size="sm" icon={Plus} onClick={addDevice}>
+                    Add device
+                  </Button>
+                </div>
+                <datalist id="device-type-options">
+                  {DEVICE_TYPE_OPTIONS.map((suggestion) => (
+                    <option key={suggestion} value={suggestion} />
+                  ))}
+                </datalist>
+              </div>
+            </IntakeSection>
+
+            <IntakeSection
+              id="when"
+              title="Date and collaborators"
+              help="When the request came in, and anyone else working on it."
+            >
+              <div className="form-grid">
+                {isAdminIntake ? (
+                  <Field
+                    label="Submission date"
+                    htmlFor="submitted-on"
+                    error={errorFor('submittedOn')}
+                    hint="Defaults to today. Backdating keeps the real creation timestamp."
+                  >
+                    <input
+                      id="submitted-on"
+                      type="date"
+                      value={submittedOn}
+                      max={today}
+                      aria-invalid={errorFor('submittedOn') ? 'true' : undefined}
+                      onChange={(event) => setSubmittedOn(event.target.value)}
+                    />
+                  </Field>
+                ) : (
+                  <Field
+                    label="Submission date"
+                    htmlFor="submitted-on-fixed"
+                    hint="Walk-ins are dated today."
+                  >
+                    <input id="submitted-on-fixed" type="date" value={today} readOnly disabled />
+                  </Field>
+                )}
+
+                <fieldset className="field-group form-grid-full">
+                  <legend>
+                    Collaborators <span className="field-optional">optional</span>
+                  </legend>
+                  {collaboratorChoices.length === 0 ? (
+                    <p className="panel-empty">No other active accounts are available.</p>
+                  ) : (
+                    <div className="check-list">
+                      {collaboratorChoices.map((account) => (
+                        <label key={account.id} className="check">
+                          <input
+                            type="checkbox"
+                            checked={collaboratorIds.includes(account.id)}
+                            onChange={() => toggleCollaborator(account.id)}
+                          />
+                          <span className="check-text">{account.displayName}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  {errorFor('collaborators') ? (
+                    <p className="field-error" role="alert">
+                      {errorFor('collaborators')}
+                    </p>
+                  ) : null}
+                </fieldset>
+              </div>
+            </IntakeSection>
+          </MoreDetails>
+
+          {fieldError && !fieldError.field ? (
+            <p className="flash flash-error intake-error" role="alert">
+              {fieldError.error}
+            </p>
+          ) : null}
+
+          <div className="intake-actions">
+            <Button type="submit" variant="primary" disabled={submitting} loading={submitting}>
+              Create ticket
+            </Button>
+            <Button onClick={() => router.back()} disabled={submitting}>
+              Cancel
+            </Button>
           </div>
-        </IntakeSection>
-
-        {fieldError && !fieldError.field ? (
-          <p className="flash flash-error intake-error" role="alert">
-            {fieldError.error}
-          </p>
-        ) : null}
-
-        <div className="intake-actions">
-          <Button type="submit" variant="primary" disabled={submitting} loading={submitting}>
-            Create ticket
-          </Button>
-          <Button onClick={() => router.back()} disabled={submitting}>
-            Cancel
-          </Button>
-        </div>
-      </form>
+        </form>
+      </IntakeSuggestions>
     </div>
   );
 }

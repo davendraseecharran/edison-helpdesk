@@ -86,46 +86,102 @@ export function DuplicateWarning({
 
   if (dismissed || hits.length === 0) return null;
 
+  /*
+   * One hit is the shape this is nearly always in — the projector in 118, the
+   * second person to walk up about it — and when it is, the whole warning is
+   * one line: what it looks like, then the two answers to that question next to
+   * each other at the end of it. They used to sit in opposite corners of a box,
+   * "Link as related" against the left edge under the hit and "Not the same"
+   * against the right, which reads as two unrelated controls rather than as the
+   * pair of answers they are.
+   *
+   * With several hits the list stays, because each one is a different ticket
+   * and "link as related" has to name which; only the refusal is shared, and it
+   * sits in the same actions row at the end.
+   */
+  const single = hits.length === 1 ? hits[0] : null;
+  const singleNumber = single ? splitTicketTitle(single.title).number : null;
+  const singleLinked = singleNumber !== null && related.includes(singleNumber);
+
   return (
     <div className="duplicate-warning" role="status">
       <Icon icon={TriangleAlert} size={15} className="duplicate-warning-glyph" />
       <div className="duplicate-warning-text">
-        <p>
-          {hits.length === 1
-            ? 'This looks like a ticket that is already open.'
-            : 'This looks like tickets that are already open.'}
-        </p>
-        <ul>
-          {hits.map((hit) => {
-            const { number, rest } = splitTicketTitle(hit.title);
-            const linked = number !== null && related.includes(number);
-            return (
-              <li key={hit.id}>
-                <Link href={hit.href} target="_blank" rel="noreferrer">
-                  {number ? <span className="mono">{number}</span> : null} {rest || hit.title}
-                </Link>
-                {hit.subtitle ? <span className="duplicate-warning-sub">{hit.subtitle}</span> : null}
-                {/* Without a number there is nothing a note could name, so the
-                    offer is simply not made. */}
-                {number === null ? null : linked ? (
-                  <span className="duplicate-warning-linked">Related</span>
-                ) : (
-                  <button
-                    type="button"
-                    className="duplicate-warning-relate"
-                    onClick={() => onRelate(number)}
-                  >
-                    Link as related
-                  </button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        {single ? (
+          <p className="duplicate-warning-one">
+            <span>Already open:</span>{' '}
+            <Link href={single.href} target="_blank" rel="noreferrer">
+              {singleNumber ? <span className="mono">{singleNumber}</span> : null}{' '}
+              {splitTicketTitle(single.title).rest || single.title}
+            </Link>
+            {single.subtitle ? (
+              <span className="duplicate-warning-sub">{single.subtitle}</span>
+            ) : null}
+            <span className="duplicate-warning-actions">
+              {singleNumber === null ? null : singleLinked ? (
+                <span className="duplicate-warning-linked">Related</span>
+              ) : (
+                <button
+                  type="button"
+                  className="duplicate-warning-relate"
+                  onClick={() => onRelate(singleNumber)}
+                >
+                  Link as related
+                </button>
+              )}
+              <button
+                type="button"
+                className="duplicate-warning-no"
+                onClick={() => setDismissed(true)}
+              >
+                Not the same
+              </button>
+            </span>
+          </p>
+        ) : (
+          <>
+            <p>These look like tickets that are already open.</p>
+            <ul>
+              {hits.map((hit) => {
+                const { number, rest } = splitTicketTitle(hit.title);
+                const linked = number !== null && related.includes(number);
+                return (
+                  <li key={hit.id}>
+                    <Link href={hit.href} target="_blank" rel="noreferrer">
+                      {number ? <span className="mono">{number}</span> : null} {rest || hit.title}
+                    </Link>
+                    {hit.subtitle ? (
+                      <span className="duplicate-warning-sub">{hit.subtitle}</span>
+                    ) : null}
+                    {/* Without a number there is nothing a note could name, so
+                        the offer is simply not made. */}
+                    {number === null ? null : linked ? (
+                      <span className="duplicate-warning-linked">Related</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="duplicate-warning-relate"
+                        onClick={() => onRelate(number)}
+                      >
+                        Link as related
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="duplicate-warning-actions">
+              <button
+                type="button"
+                className="duplicate-warning-no"
+                onClick={() => setDismissed(true)}
+              >
+                Not the same
+              </button>
+            </div>
+          </>
+        )}
       </div>
-      <button type="button" className="duplicate-warning-no" onClick={() => setDismissed(true)}>
-        Not the same
-      </button>
     </div>
   );
 }
