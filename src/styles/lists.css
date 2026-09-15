@@ -378,3 +378,74 @@
   text-underline-offset: 2px;
   cursor: pointer;
 }
+
+/* --- A pasted email, read as a ticket ------------------------------------ */
+
+.paste-draft-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--fs-1);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .paste-draft-open:hover {
+    color: var(--ink);
+    text-decoration: underline;
+  }
+}
+
+.paste-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--surface);
+}
+
+.paste-draft-label {
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.paste-draft-field {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: var(--fs-1);
+}
+
+/* What was read, before anything is filled in. */
+.paste-draft-read {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 2px 12px;
+  margin: 0;
+  font-size: var(--fs-1);
+}
+
+.paste-draft-read > div {
+  display: contents;
+}
+
+.paste-draft-read dt {
+  color: var(--ink-3);
+}
+
+.paste-draft-read dd {
+  margin: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.paste-draft-actions {
+  display: flex;
+  gap: 8px;
+}

@@ -24,6 +24,7 @@ import {
 import { canChooseChannelAndOwner } from '@/lib/domain/permissions';
 import { DuplicateWarning } from '@/components/ticket/DuplicateWarning';
 import { IntakeSuggestions } from '@/components/ticket/IntakeSuggestions';
+import { PasteToDraft } from '@/components/ticket/PasteToDraft';
 import { createTicketAction } from '@/lib/data/actions';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { ChosenPerson, PersonPicker, type PersonSearchResult } from '@/components/people/PersonPicker';
@@ -274,6 +275,19 @@ export default function NewTicketPage() {
           help="A short title for the queue, then the issue in the requester's own words."
         >
           <div className="form-grid">
+            {/* Half the walk-ins arrive as forwarded mail. Reading it is one
+                press; retyping it into four fields is the most mechanical
+                thing anybody does at this desk. */}
+            <div className="form-grid-full">
+              <PasteToDraft
+                onApply={(draft) => {
+                  if (draft.title) setTitle(draft.title);
+                  if (draft.issue) setIssue(draft.issue);
+                  if (draft.category) setCategory(draft.category);
+                  if (draft.priority) setPriority(draft.priority);
+                }}
+              />
+            </div>
             <Field
               label="Title"
               htmlFor="title"

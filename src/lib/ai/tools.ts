@@ -29,6 +29,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isRecord, isUuid, textOf } from '@/lib/guards';
+import { draftFromText } from '@/lib/intake/draft';
 import {
   canWorkTickets,
   normalizeRoles,
@@ -529,6 +530,43 @@ const TOOLS: Record<string, ToolSpec> = {
         p_limit: Math.min(Number(args.limit ?? 8), 25),
       });
       return outcome(data, `Searched for "${String(args.query)}" and found ${countOf(data)}.`);
+    },
+  },
+
+  get_today_briefing: {
+    group: 'read',
+    description:
+      "What needs this person today: how many tickets are unclaimed, how many of theirs are waiting on a reply, how many they own, and who is waiting for access, with the top few rows under each. The same read the Today screen uses, so the assistant and the screen never disagree about the numbers.",
+    fields: {},
+    run: async (_args, ctx) => {
+      const data = await rpc(ctx, 'app_today_briefing', {});
+      return outcome(data, 'Read what needs you today.');
+    },
+  },
+
+  draft_ticket_from_text: {
+    group: 'read',
+    description:
+      'Read a pasted email or message as a ticket draft: a title, the issue with the quoted thread and signature removed, the sender to search the directory for, and a suggested category and priority. It creates NOTHING. Use create_ticket afterwards, with whatever the person corrected.',
+    fields: {
+      text: {
+        type: 'string',
+        required: true,
+        description: 'The message as it was pasted, headers and all.',
+        maxLength: 20000,
+      },
+    },
+    run: async (args) => {
+      /*
+       * No database call, and that is the point: this is the same pure reader
+       * the intake form uses with no account and no network, so a draft is a
+       * draft whichever way it was asked for. Naming it as a tool lets the
+       * assistant do the paste-and-fill in one turn without the model inventing
+       * a title of its own — and, because it changes nothing, it never has to
+       * ask first.
+       */
+      const draft = draftFromText(String(args.text));
+      return outcome(draft, `Read a ${String(args.text).length}-character message as a draft.`);
     },
   },
 

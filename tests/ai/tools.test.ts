@@ -94,6 +94,11 @@ describe('tool classification', () => {
       'list_devices',
       'get_device',
       'list_notifications',
+      // Every tool added after the first pass belongs in this list too: the
+      // point of the list is that "is this a change?" is answered from
+      // something exhaustive rather than from a name that starts with `get_`.
+      'get_today_briefing',
+      'draft_ticket_from_text',
     ]) {
       expect(READ_TOOLS).toContain(name);
     }
