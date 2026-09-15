@@ -34,7 +34,6 @@ import {
   attachmentPath,
   attachmentRefusal,
   sanitiseFilename,
-  sniffMime,
   uniqueFilename,
   type Attachment,
 } from '@/lib/attachments';
@@ -44,13 +43,11 @@ import {
   loadAttachments,
   loadVisibleAttachment,
   parentOf,
-  readObjectHead,
-  readStoredObject,
-  registerAttachment,
   registryMessage,
   removeObject,
   signedDownloadUrl,
   storageMessage,
+  verifyAndRegister,
   type AttachmentTarget,
 } from '@/lib/data/attachments';
 import type { ActionResult } from '@/lib/data/actions';
@@ -191,58 +188,21 @@ export async function registerAttachmentAction(
   const actor = await activeAccount();
   if (!actor) return { ok: false, error: SIGN_IN_AGAIN };
 
-  const parent = parentOf(request);
-  if (!parent) return { ok: false, error: NOT_ALLOWED };
-
-  // The path has to be one this server could have issued. The RPC rebuilds the
-  // same prefix and refuses anything else, so this is the early, clearer no.
-  const prefix = `${parent.kind}/${parent.id}/`;
-  if (!request.path.startsWith(prefix) || request.path.length <= prefix.length) {
-    return { ok: false, error: NOT_ALLOWED };
-  }
-
-  const stored = await readStoredObject(request.path);
-  if (!stored) {
-    return { ok: false, error: 'That file did not finish uploading. Try attaching it again.' };
-  }
-
-  // The type storage reports is the one the browser declared when it asked for
-  // the upload URL; the bucket does not open the file. So the file is asked
-  // itself, and a PDF that turns out to be something else never gets a row —
-  // nor does it stay in the bucket.
-  const head = await readObjectHead(request.path);
-  const actualMime = head === null ? null : sniffMime(head);
-  if (actualMime === null || actualMime !== stored.mime.split(';')[0].trim().toLowerCase()) {
-    await removeObject(request.path);
-    return {
-      ok: false,
-      error: 'That file is not the kind it claims to be. Attach a JPEG, PNG, WebP, GIF or PDF.',
-    };
-  }
-
-  const filename = sanitiseFilename(request.filename ?? request.path.slice(prefix.length));
-
-  const registered = await registerAttachment({
+  // The read-back, the signature check and the registry write are the same
+  // sequence whoever sent the bytes, so they live in one place; `via` is left
+  // unset, which is this action's whole claim about attribution: a browser
+  // upload is somebody's own hands.
+  const registered = await verifyAndRegister({
     actorId: actor.id,
     target: { ticketId: request.ticketId ?? null, deviceId: request.deviceId ?? null },
     path: request.path,
-    filename,
-    mime: actualMime,
-    bytes: stored.bytes,
+    filename: request.filename,
   });
-
-  if ('error' in registered) {
-    // Nothing points at the object now, and nothing ever will.
-    await removeObject(request.path);
-    return { ok: false, error: registryMessage({ code: registered.code, message: registered.error }) };
-  }
-
-  const attachment = await loadVisibleAttachment(registered.id);
-  if (!attachment) return { ok: false, error: GONE };
+  if ('error' in registered) return { ok: false, error: registered.error };
 
   // The history gained an event, so the record's own page needs re-reading.
   revalidateRecord(request);
-  return { ok: true, attachment };
+  return { ok: true, attachment: registered.attachment };
 }
 
 /* --- Reading one file ----------------------------------------------------- */

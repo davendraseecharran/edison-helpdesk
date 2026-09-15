@@ -33,6 +33,12 @@ export interface ChatRequest {
   message?: string;
   /** Pictures attached to this turn, as data URLs. */
   images?: TurnImage[];
+  /**
+   * The last turn's pictures, sent back with an approval so the change being
+   * approved still has them. The server keeps them out of the conversation —
+   * this is not a new message — and uses them only for the call it is running.
+   */
+  carryImages?: TurnImage[];
   approve?: string[];
   reject?: string[];
   page?: PageContext;
@@ -607,11 +613,17 @@ export function useAiChat({
             entry.parts.some((part) => part.type === 'tool' && part.callId === callId),
         );
       if (!turn || !conversationRef.current) return;
+      // "Yes" to a change that was going to attach a photograph has to carry the
+      // photograph: the server keeps only the names of what was sent, so by this
+      // request the bytes exist nowhere but here. Only on an approval, and only
+      // the pictures of the message the approval belongs to.
+      const carried = decision === 'approve' ? (lastMessage.current?.images ?? []) : [];
       void run(
         {
           conversationId: conversationRef.current,
           approve: decision === 'approve' ? [callId] : undefined,
           reject: decision === 'reject' ? [callId] : undefined,
+          carryImages: carried.length > 0 ? carried : undefined,
         },
         turn.id,
       );

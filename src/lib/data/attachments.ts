@@ -36,7 +36,13 @@ import 'server-only';
 
 import { createClient } from '@/lib/supabase/server';
 import { adminClient } from '@/lib/supabase/admin';
-import { MIME_SIGNATURE_BYTES, type Attachment, type AttachmentTarget } from '@/lib/attachments';
+import {
+  MIME_SIGNATURE_BYTES,
+  sanitiseFilename,
+  sniffMime,
+  type Attachment,
+  type AttachmentTarget,
+} from '@/lib/attachments';
 
 export type { AttachmentTarget };
 
@@ -169,6 +175,27 @@ export async function createUploadGrant(path: string): Promise<UploadGrant> {
   return { path: data.path, token: data.token, signedUrl: data.signedUrl };
 }
 
+/**
+ * Puts bytes at the path a grant was issued for.
+ *
+ * The browser does this itself with `fetch`, which is why `requestUploadAction`
+ * hands the signed URL back. A server-side uploader — the assistant attaching a
+ * picture somebody sent it in the panel — has no browser to hand it to, and
+ * uses the SAME grant rather than the service role's general write: the token
+ * is good for that one path and nothing else, so the path stays the thing the
+ * server chose whichever side sends the bytes.
+ */
+export async function uploadToGrant(
+  grant: UploadGrant,
+  body: Uint8Array,
+  mime: string,
+): Promise<void> {
+  const { error } = await bucket().uploadToSignedUrl(grant.path, grant.token, body, {
+    contentType: mime,
+  });
+  if (error) throw new Error(storageMessage(error.message));
+}
+
 export interface StoredObject {
   bytes: number;
   mime: string;
@@ -286,6 +313,33 @@ export interface RegisterInput {
   /** Read back from the stored object's own bytes, not claimed by the uploader. */
   mime: string;
   bytes: number;
+  /**
+   * How the upload was made, for the attribution columns. Set only by the
+   * assistant's own path, and never reachable from the browser: this module is
+   * `server-only` and no Server Action takes it as an argument, so nobody can
+   * label their own upload as somebody's AI.
+   */
+  via?: 'user' | 'ai';
+  /** The assistant's model name, carried beside `via: 'ai'`. */
+  aiModel?: string;
+}
+
+/**
+ * The request headers the attribution functions read, for a trusted call.
+ *
+ * `app_request_via()` reads them inside the database and stamps `performed_via`
+ * and `ai_model` on the row, exactly as it does for a tool call made on the
+ * person's own client. The service role is used here because the registration
+ * function is granted to it alone — the headers say HOW the change was made and
+ * never who made it, and `p_actor` is still re-read and re-judged inside the
+ * function.
+ */
+function attributionHeaders(input: RegisterInput): Record<string, string> {
+  if (input.via !== 'ai') return {};
+  return {
+    'x-edison-via': 'ai',
+    ...(input.aiModel ? { 'x-edison-ai-model': input.aiModel } : {}),
+  };
 }
 
 /**
@@ -301,7 +355,7 @@ export interface RegisterInput {
 export async function registerAttachment(
   input: RegisterInput,
 ): Promise<{ id: string } | { error: string; code: string | null }> {
-  const { data, error } = await adminClient().rpc('app_trusted_register_attachment', {
+  const { data, error } = await adminClient(attributionHeaders(input)).rpc('app_trusted_register_attachment', {
     p_actor: input.actorId,
     p_ticket: input.target.ticketId ?? null,
     p_device: input.target.deviceId ?? null,
@@ -316,6 +370,79 @@ export async function registerAttachment(
   // considered sentence for the other.
   if (error) return { error: error.message, code: error.code ?? null };
   return { id: data as string };
+}
+
+export interface VerifyAndRegisterInput {
+  actorId: string;
+  target: AttachmentTarget;
+  /** The path the server issued the grant for, returned unchanged. */
+  path: string;
+  /** The display name. Sanitised again here; the path is what is load-bearing. */
+  filename?: string;
+  via?: 'user' | 'ai';
+  aiModel?: string;
+}
+
+/**
+ * The half of registration that is the same whoever sent the bytes.
+ *
+ * The object is read BACK first, so the row describes what storage holds rather
+ * than what the uploader said it was sending; the file is then asked what it
+ * actually is, because storage only repeats the type it was told. A file whose
+ * first bytes disagree with its declared type gets no row AND no object. If the
+ * database then refuses the row — a ticket resolved while the upload was in
+ * flight — the object goes too, because an object with no row is unreachable
+ * and would sit in the bucket forever.
+ *
+ * Shared by the browser's `registerAttachmentAction` and by the assistant's
+ * `attachAssistantFile`: a sequence this load-bearing is written once, so the
+ * two paths cannot drift into checking different things.
+ */
+export async function verifyAndRegister(
+  input: VerifyAndRegisterInput,
+): Promise<{ attachment: Attachment } | { error: string }> {
+  const parent = parentOf(input.target);
+  if (!parent) return { error: 'You cannot attach a file to that record. Refresh the page and try again.' };
+
+  // The path has to be one this server could have issued. The RPC rebuilds the
+  // same prefix and refuses anything else, so this is the early, clearer no.
+  const prefix = `${parent.kind}/${parent.id}/`;
+  if (!input.path.startsWith(prefix) || input.path.length <= prefix.length) {
+    return { error: 'You cannot attach a file to that record. Refresh the page and try again.' };
+  }
+
+  const stored = await readStoredObject(input.path);
+  if (!stored) return { error: 'That file did not finish uploading. Try attaching it again.' };
+
+  const head = await readObjectHead(input.path);
+  const actualMime = head === null ? null : sniffMime(head);
+  if (actualMime === null || actualMime !== stored.mime.split(';')[0].trim().toLowerCase()) {
+    await removeObject(input.path);
+    return { error: 'That file is not the kind it claims to be. Attach a JPEG, PNG, WebP, GIF or PDF.' };
+  }
+
+  const filename = sanitiseFilename(input.filename ?? input.path.slice(prefix.length));
+
+  const registered = await registerAttachment({
+    actorId: input.actorId,
+    target: { ticketId: input.target.ticketId ?? null, deviceId: input.target.deviceId ?? null },
+    path: input.path,
+    filename,
+    mime: actualMime,
+    bytes: stored.bytes,
+    via: input.via,
+    aiModel: input.aiModel,
+  });
+
+  if ('error' in registered) {
+    // Nothing points at the object now, and nothing ever will.
+    await removeObject(input.path);
+    return { error: registryMessage({ code: registered.code, message: registered.error }) };
+  }
+
+  const attachment = await loadVisibleAttachment(registered.id);
+  if (!attachment) return { error: 'That attachment is no longer available.' };
+  return { attachment };
 }
 
 /**

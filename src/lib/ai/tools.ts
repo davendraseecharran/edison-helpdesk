@@ -30,6 +30,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isRecord, isUuid, textOf } from '@/lib/guards';
 import { draftFromText } from '@/lib/intake/draft';
+import { ATTACHMENT_MIME_TYPES, formatBytes } from '@/lib/attachments';
+import { readDataUrl } from '@/lib/ai/images';
 import { DEVICE_TYPES, deviceTypeLabel } from '@/lib/domain/device-types';
 import {
   canWorkTickets,
@@ -150,10 +152,55 @@ export interface ToolActor {
   roles: AccountRole[];
 }
 
+/** A picture the person attached to the turn the assistant is answering. */
+export interface ToolImage {
+  /** What the file was called. The name the model and the chip both show. */
+  name: string;
+  /** `data:image/jpeg;base64,...` — the same value the model was sent. */
+  dataUrl: string;
+}
+
+export interface AttachInput {
+  /** The verified account. Never a value that came out of the model. */
+  actorId: string;
+  ticketId: string;
+  filename: string;
+  mime: string;
+  base64: string;
+}
+
+export type AttachOutcome =
+  | { ok: true; id: string; filename: string; bytes: number }
+  | { ok: false; error: string };
+
+/**
+ * The storage plumbing an attachment needs, injected rather than imported.
+ *
+ * Both halves live behind `server-only` modules — the bucket carries no storage
+ * policies and the registry function is granted to the service role alone — and
+ * this file is imported by the unit suite. So the route hands the tools a port
+ * (`src/lib/ai/attach.ts`) and a test hands them a fake. Authorization is NOT in
+ * here: `app_can_attach` and `app_delete_attachment` are asked on the person's
+ * own client, as every other tool asks.
+ */
+export interface AttachmentPort {
+  attach(input: AttachInput): Promise<AttachOutcome>;
+  /** Deletes the stored object, after the registry row has already gone. */
+  removeObject(path: string): Promise<void>;
+}
+
 export interface ToolContext {
   /** The signed-in technician's client, already carrying `x-edison-via: ai`. */
   supabase: SupabaseClient;
   actor: ToolActor;
+  /**
+   * The pictures this turn carried. They are not kept after the turn — see
+   * `images.ts` — so a tool that wants one has to be called in the same turn it
+   * arrived in, and says so plainly when the list is empty.
+   */
+  images?: readonly ToolImage[];
+  /** Absent wherever files cannot be uploaded, which `attach_to_ticket` reports. */
+  attachments?: AttachmentPort;
 }
 
 export interface ToolOutcome {
@@ -401,6 +448,83 @@ async function resolveAccount(ctx: ToolContext, value: string): Promise<AccountR
     throw new ToolError(`"${query}" matches more than one colleague: ${options}. Say which one.`);
   }
   return { id: textOf(candidates[0].id), name: textOf(candidates[0].display_name) };
+}
+
+/**
+ * Which picture from this turn somebody meant.
+ *
+ * A person says "attach that one", "the second photo" or "the cracked-screen
+ * one", so all three resolve: nothing said and exactly one picture is that
+ * picture, a bare number is a position starting at one, and anything else is
+ * matched against the file names. A tie is refused with the names in it rather
+ * than guessed at, the same way every other resolver here refuses one.
+ */
+/**
+ * The one record an attachment call is about.
+ *
+ * `app_list_attachments` takes a ticket or a device and treats both or neither
+ * as a malformed question, so the tool asks for exactly one and says so in the
+ * words a person would use rather than letting the database answer with an
+ * empty list — which is also what "you cannot see that ticket" looks like.
+ */
+async function resolveAttachmentTarget(
+  ctx: ToolContext,
+  args: Record<string, unknown>,
+): Promise<{ ticketId: string | null; deviceId: string | null; label: string }> {
+  const hasTicket = args.ticket !== undefined;
+  const hasDevice = args.device !== undefined;
+  if (hasTicket === hasDevice) {
+    throw new ToolError('Name either a ticket or a device, not both and not neither.');
+  }
+  if (hasTicket) {
+    const ticket = await resolveTicket(ctx, String(args.ticket));
+    return { ticketId: ticket.id, deviceId: null, label: ticket.number };
+  }
+  const device = await resolveDevice(ctx, String(args.device));
+  return { ticketId: null, deviceId: device.id, label: device.label };
+}
+
+/**
+ * Which picture from this turn somebody meant.
+ *
+ * A person says "attach that one", "the second photo" or "the cracked-screen
+ * one", so all three resolve: nothing said and exactly one picture is that
+ * picture, a bare number is a position starting at one, and anything else is
+ * matched against the file names. A tie is refused with the names in it rather
+ * than guessed at, the same way every other resolver here refuses one.
+ */
+function resolvePicture(ctx: ToolContext, value: string | undefined): ToolImage {
+  const images = ctx.images ?? [];
+  if (images.length === 0) {
+    throw new ToolError(
+      'There are no pictures in this message. Pictures are only available in the turn they were sent, so ask them to send it again with what it should go on.',
+    );
+  }
+
+  const names = images.map((image, at) => `${at + 1}. ${image.name}`).join('; ');
+  const query = (value ?? '').trim();
+  if (query === '') {
+    if (images.length === 1) return images[0];
+    throw new ToolError(`Say which picture: ${names}.`);
+  }
+
+  if (/^\d{1,3}$/.test(query)) {
+    const index = Number(query) - 1;
+    if (index < 0 || index >= images.length) {
+      throw new ToolError(`There is no picture ${query} in this message. There is ${names}.`);
+    }
+    return images[index];
+  }
+
+  const folded = query.toLowerCase();
+  const exact = images.filter((image) => image.name.toLowerCase() === folded);
+  const partial = images.filter((image) => image.name.toLowerCase().includes(folded));
+  const candidates = exact.length > 0 ? exact : partial;
+  if (candidates.length === 0) {
+    throw new ToolError(`No picture in this message is called "${query}". There is ${names}.`);
+  }
+  if (candidates.length > 1) throw new ToolError(`"${query}" matches more than one picture: ${names}.`);
+  return candidates[0];
 }
 
 // ---------------------------------------------------------------------------
@@ -698,6 +822,35 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  list_attachments: {
+    group: 'read',
+    description:
+      'The files attached to one ticket or one device: what each is called, how big it is, who attached it and when. Name exactly one of the two.',
+    fields: {
+      ticket: { type: 'string', description: 'Ticket number or id.' },
+      device: { type: 'string', description: 'Asset tag, serial number or inventory id.' },
+    },
+    run: async (args, ctx) => {
+      const target = await resolveAttachmentTarget(ctx, args);
+      const data = rows(
+        await rpc(ctx, 'app_list_attachments', {
+          p_ticket: target.ticketId,
+          p_device: target.deviceId,
+        }),
+      ).map((row) => ({
+        id: textOf(row.id),
+        filename: textOf(row.filename),
+        mime: textOf(row.mime),
+        size: formatBytes(Number(row.bytes ?? 0)),
+        uploadedAt: textOf(row.uploaded_at),
+        // The path is how the server finds the bytes, and it is no use to a
+        // model that cannot reach the bucket. It stays out of the result.
+        via: row.performed_via === 'ai' ? 'ai' : 'user',
+      }));
+      return outcome(data, `Read ${data.length} ${data.length === 1 ? 'file' : 'files'} on ${target.label}.`);
+    },
+  },
+
   list_notifications: {
     group: 'read',
     description: "This NetRider's own notifications, newest first.",
@@ -951,6 +1104,75 @@ const TOOLS: Record<string, ToolSpec> = {
       const device = await resolveDevice(ctx, String(args.device));
       await rpc(ctx, 'app_link_ticket_device', { p_ticket: ticket.id, p_device: device.id });
       return outcome({ id: ticket.id }, `Linked ${device.label} to ${ticket.number}`);
+    },
+  },
+
+  attach_to_ticket: {
+    group: 'write',
+    description:
+      'Put a picture the person sent you in THIS message onto a ticket, as a real attachment on the record. Pictures are not kept after the turn they arrive in, so this only works in the same message. It attaches what they sent; it cannot make a picture.',
+    fields: {
+      ticket: { type: 'string', required: true, description: 'Ticket number or id.' },
+      picture: {
+        type: 'string',
+        description:
+          'Which picture: its file name, or its position in the message as a number starting at 1. Leave it out when only one was sent.',
+      },
+    },
+    run: async (args, ctx) => {
+      if (ctx.attachments === undefined) {
+        throw new ToolError('Files cannot be attached from here. Use the attachments panel on the ticket.');
+      }
+
+      const picture = resolvePicture(ctx, args.picture as string | undefined);
+      // The bytes are read from the data URL rather than trusted: the same
+      // reader the route uses on the way in, so the type and the size the
+      // registry records are facts about the file.
+      const read = readDataUrl(picture.dataUrl);
+      if (read === null || !(ATTACHMENT_MIME_TYPES as readonly string[]).includes(read.mediaType)) {
+        throw new ToolError('That picture is not a kind the helpdesk stores. Attach a JPEG, PNG, WebP, GIF or PDF.');
+      }
+
+      const ticket = await resolveTicket(ctx, String(args.ticket));
+      const attached = await ctx.attachments.attach({
+        actorId: ctx.actor.id,
+        ticketId: ticket.id,
+        filename: picture.name,
+        mime: read.mediaType,
+        base64: read.body,
+      });
+      if (!attached.ok) throw new ToolError(attached.error);
+
+      return outcome(
+        { id: attached.id, filename: attached.filename, ticket: ticket.number },
+        `Attached ${attached.filename} (${formatBytes(attached.bytes)}) to ${ticket.number}`,
+      );
+    },
+  },
+
+  remove_attachment: {
+    group: 'write',
+    description:
+      'Take a file off a ticket or a device. Only the person who attached it, or an administrator, may remove it, and the helpdesk decides which. Get the id from list_attachments.',
+    fields: {
+      attachment_id: { type: 'string', required: true, description: 'The id list_attachments gave for the file.' },
+    },
+    run: async (args, ctx) => {
+      const id = String(args.attachment_id);
+      if (!isUuid(id)) {
+        throw new ToolError('That is not an attachment id. Read the files with list_attachments first.');
+      }
+
+      // The RPC runs in this person's own session and decides everything —
+      // whether the file exists as far as they are concerned, whether the
+      // ticket is closed, whether they uploaded it — and hands back the path.
+      // Only then is the object removed, and only through the port, because the
+      // bucket is unreachable from here.
+      const path = await rpc(ctx, 'app_delete_attachment', { p_id: id });
+      if (typeof path === 'string' && path !== '' && ctx.attachments !== undefined) {
+        await ctx.attachments.removeObject(path);
+      }
+      return outcome({ id }, 'Removed the attachment');
     },
   },
 
@@ -1402,6 +1624,7 @@ const DIRECTORY_TOOLS = [
   'get_person',
   'list_devices',
   'get_device',
+  'list_attachments',
   'list_notifications',
   'create_person',
   'update_person',

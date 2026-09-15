@@ -54,6 +54,7 @@ describe('tool classification', () => {
       'create_person',
       'get_device',
       'get_person',
+      'list_attachments',
       'list_devices',
       'list_notifications',
       'list_people',

@@ -55,6 +55,7 @@ import {
   validateArgs,
   type ToolContext,
 } from '@/lib/ai/tools';
+import { assistantAttachments } from '@/lib/ai/attach';
 import { systemInstructions, type PageKind } from '@/lib/ai/prompt';
 import {
   MAX_IMAGES,
@@ -110,6 +111,20 @@ interface ChatBody {
   conversationId?: string;
   message?: string;
   images?: TurnImage[];
+  /**
+   * The previous turn's pictures, resent with an approval and NOTHING else.
+   *
+   * A picture lives for one turn: the model is sent the bytes and the
+   * conversation row keeps only the names, because `ai_messages` refuses a row
+   * over 256 KiB. That is right for memory and wrong for one case — the person
+   * who has "ask before changes" on, whose `attach_to_ticket` stops at an
+   * approval card and is run on the NEXT request, by which time the picture it
+   * was going to attach is gone. So the panel hands them back with the answer.
+   * A separate field rather than `images` on purpose: these are not a new turn,
+   * and reusing `images` would have the panel's "yes" appear in the
+   * conversation as a second message with the same photograph attached.
+   */
+  carryImages?: TurnImage[];
   approve?: string[];
   reject?: string[];
   page?: { kind: PageKind; id: string; label: string };
@@ -164,6 +179,7 @@ export async function POST(request: NextRequest): Promise<Response> {
 
   let body: ChatBody;
   let pictures: TurnImage[];
+  let carried: TurnImage[];
   try {
     const parsed: unknown = JSON.parse(raw.text);
     if (!isRecord(parsed)) throw new Error('not an object');
@@ -173,10 +189,16 @@ export async function POST(request: NextRequest): Promise<Response> {
     const read = readImages(parsed.images);
     if (!read.ok) return problem(read.status, read.code, read.message);
     pictures = read.images;
+    // Checked by exactly the same rules. Nothing about these being a repeat
+    // makes them more trustworthy than the first time they arrived.
+    const again = readImages(parsed.carryImages);
+    if (!again.ok) return problem(again.status, again.code, again.message);
+    carried = again.images;
     body = {
       conversationId: typeof parsed.conversationId === 'string' ? parsed.conversationId : undefined,
       message: typeof parsed.message === 'string' ? parsed.message : undefined,
       images: pictures,
+      carryImages: carried,
       approve: stringList(parsed.approve),
       reject: stringList(parsed.reject),
       page: readPage(parsed.page),
@@ -252,6 +274,12 @@ export async function POST(request: NextRequest): Promise<Response> {
   const toolContext: ToolContext = {
     supabase: toolSupabase,
     actor: { id: account.id, displayName: account.displayName, roles: account.roles },
+    // What `attach_to_ticket` has to work with. A turn that is only an approval
+    // carries its pictures again under `carryImages` — see `carried` above —
+    // because the conversation does not keep them and the call being approved
+    // is the one that wanted them.
+    images: pictures.length > 0 ? pictures : carried,
+    attachments: assistantAttachments,
   };
 
   let conversationId: string;

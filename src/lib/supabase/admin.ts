@@ -18,9 +18,18 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { publicSupabaseConfig, serviceRoleKey } from './config';
 
-export function adminClient(): SupabaseClient {
+/**
+ * `headers` exists for one caller: the trusted attachment registration, which
+ * has to say whether the upload was made by somebody's hands or by their
+ * assistant. The database reads `x-edison-via` through `app_request_via()` and
+ * stamps the attribution columns from it. It is a LABEL and never a permission:
+ * this client already bypasses row-level security, and every caller has already
+ * verified the actor through the database.
+ */
+export function adminClient(headers: Record<string, string> = {}): SupabaseClient {
   const { url } = publicSupabaseConfig();
   return createSupabaseClient(url, serviceRoleKey(), {
     auth: { persistSession: false, autoRefreshToken: false },
+    ...(Object.keys(headers).length > 0 ? { global: { headers } } : {}),
   });
 }
