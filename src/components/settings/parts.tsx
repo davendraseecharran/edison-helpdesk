@@ -16,6 +16,7 @@
 
 import { useCallback, useId, useState, type ReactNode } from 'react';
 import { useRuntime } from '@/components/AppRuntime';
+import { Switch } from '@/components/ui/shadcn/switch';
 import { updatePreferencesAction } from '@/lib/data/preferences-actions';
 import type { PreferencePatch } from '@/lib/domain/preferences';
 
@@ -142,19 +143,18 @@ export function PreferenceSwitch({
         ) : null}
       </div>
       <div className="setting-row-control">
-        <button
-          type="button"
-          role="switch"
-          className="switch"
-          aria-checked={on}
+        {/* While this switch's own save is in flight it keeps focus and
+            ignores presses; a save started by another control leaves it
+            alone. `disabled` is Radix's and is real: an aria-disabled button
+            still takes a press. */}
+        <Switch
+          checked={on}
+          disabled={saving}
           aria-labelledby={labelId}
           aria-describedby={hint ? hintId : undefined}
           aria-busy={saving || undefined}
-          aria-disabled={saving || undefined}
-          onClick={() => void toggle()}
-        >
-          <span className="switch-thumb" />
-        </button>
+          onCheckedChange={() => void toggle()}
+        />
       </div>
     </div>
   );

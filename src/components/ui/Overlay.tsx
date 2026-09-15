@@ -1,11 +1,16 @@
 'use client';
 
-import { useId, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
+import type { ReactNode } from 'react';
 import { X } from 'lucide-react';
+
 import { Button } from './Button';
-import { useBodyScrollLock, useEscape, useFocusTrap } from './focus';
-import { AnimatePresence, SpringSurface } from './Motion';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from './shadcn/dialog';
 
 export interface OverlayProps {
   open: boolean;
@@ -25,28 +30,39 @@ export interface OverlayProps {
   className?: string;
 }
 
-function subscribeToNothing(): () => void {
-  return () => {};
+/**
+ * The first focusable element is the right one to focus, unless the surface
+ * says otherwise.
+ *
+ * `data-autofocus` is how a caller names the control somebody came here to
+ * use: "Stop scanning" on the pairing dialog, the one field on a short form.
+ * Without it Radix's own rule applies, which is the first focusable thing —
+ * and that is usually the close button, which is the one control nobody opened
+ * the surface to press.
+ */
+function focusPreferred(event: Event): void {
+  const root = event.currentTarget as HTMLElement | null;
+  const preferred = root?.querySelector<HTMLElement>('[data-autofocus]');
+  if (!preferred) return;
+  event.preventDefault();
+  preferred.focus({ preventScroll: true });
 }
 
 /**
  * The modal surface behind `Sheet` and `Dialog`.
  *
- * Renders into `document.body` so no ancestor's overflow or transform can
- * clip it. While open it traps focus, locks page scroll, closes on Escape or
- * a backdrop press, and on close hands focus back to the element that opened
- * it. Arrival and departure are `SpringSurface`'s one orchestrated moment:
- * the backdrop fades while the panel springs in from its edge (or a dialog
- * scales from 0.98), and `AnimatePresence` keeps the panel mounted just long
- * enough to leave the same way, faster. The focus trap and the scroll lock
- * hold until that exit completes, so the page behind does not scroll or take
- * focus while the surface is still visible. Under `prefers-reduced-motion`
- * both simply appear and disappear.
+ * Radix underneath, through shadcn. While it is open the rest of the document
+ * is inert and hidden from assistive technology, the page behind keeps its
+ * scroll position rather than jumping to the top, focus is trapped and handed
+ * back to whatever opened it, and Escape and a press outside close it. None of
+ * that is new behaviour — all of it is behaviour that used to be four hooks of
+ * ours, each correct in the cases we had thought of.
  *
- * While `open` is false the leaving surface shows the content of its last
- * open render, so a caller may clear the state that fed it in the same
- * update (`open={item !== null}` with children built from `item`) without
- * the panel emptying mid-exit.
+ * The moment is unchanged: the backdrop fades while the panel scales up from
+ * 0.98, or slides in from its edge, and leaves the same way faster. It is CSS
+ * on `data-state` now, so Radix holds the unmount until the exit has played;
+ * the leaving surface therefore still shows the content of its last open
+ * render, and a caller may clear the state that fed it in the same update.
  */
 export function Overlay({
   open,
@@ -60,77 +76,37 @@ export function Overlay({
   side = 'right',
   className,
 }: OverlayProps) {
-  const panelRef = useRef<HTMLDivElement>(null);
-  const titleId = useId();
-  const descriptionId = useId();
-
-  // `present` outlives `open` by the length of the exit: it drops only once
-  // `AnimatePresence` reports the surface gone.
-  const [wasOpen, setWasOpen] = useState(open);
-  const [exiting, setExiting] = useState(false);
-  if (open !== wasOpen) {
-    setWasOpen(open);
-    if (!open) setExiting(true);
-  }
-  const present = open || exiting;
-
-  useFocusTrap(panelRef, present);
-  useBodyScrollLock(present);
-  useEscape(open, onClose);
-
-  // The portal exists only on the client, and only after hydration, so the
-  // server and the hydrating render agree on rendering nothing here.
-  const client = useSyncExternalStore(
-    subscribeToNothing,
-    () => true,
-    () => false,
-  );
-  if (!client) return null;
-
-  const panelClass = [
-    'overlay-panel',
-    kind === 'sheet' ? `sheet sheet-${side}` : 'dialog',
-    className ?? '',
-  ]
+  const panelClass = [kind === 'sheet' ? `sheet sheet-${side}` : 'dialog', className ?? '']
     .join(' ')
     .trim();
 
-  return createPortal(
-    <AnimatePresence onExitComplete={() => setExiting(false)}>
-      {open ? (
-        <SpringSurface
-          key="surface"
-          kind={kind}
-          side={side}
-          panelRef={panelRef}
-          panelClassName={panelClass}
-          onBackdropPress={onClose}
-          panelProps={{
-            role: 'dialog',
-            'aria-modal': true,
-            'aria-labelledby': titleId,
-            'aria-describedby': description ? descriptionId : undefined,
-            tabIndex: -1,
-          }}
-        >
-          <header className={hideTitle ? 'overlay-head overlay-head-quiet' : 'overlay-head'}>
-            <div className="overlay-head-text">
-              <h2 id={titleId} className={hideTitle ? 'visually-hidden' : 'overlay-title'}>
-                {title}
-              </h2>
-              {description ? (
-                <p id={descriptionId} className="overlay-description">
-                  {description}
-                </p>
-              ) : null}
-            </div>
-            <Button variant="ghost" icon={X} aria-label="Close" onClick={onClose} />
-          </header>
-          <div className="overlay-body">{children}</div>
-          {footer ? <footer className="overlay-foot">{footer}</footer> : null}
-        </SpringSurface>
-      ) : null}
-    </AnimatePresence>,
-    document.body,
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+    >
+      <DialogContent kind={kind} className={panelClass} onOpenAutoFocus={focusPreferred}>
+        <header className={hideTitle ? 'overlay-head overlay-head-quiet' : 'overlay-head'}>
+          <div className="overlay-head-text">
+            <DialogTitle className={hideTitle ? 'visually-hidden' : undefined}>{title}</DialogTitle>
+            {description ? (
+              <DialogDescription>{description}</DialogDescription>
+            ) : (
+              /* Radix names the panel by its title and warns when it has no
+                 description; a hidden empty one is the documented way to say
+                 "there is nothing more to add" without inventing copy. */
+              <DialogDescription className="visually-hidden" />
+            )}
+          </div>
+          <DialogClose asChild>
+            <Button variant="ghost" icon={X} aria-label="Close" />
+          </DialogClose>
+        </header>
+        <div className="overlay-body">{children}</div>
+        {footer ? <footer className="overlay-foot">{footer}</footer> : null}
+      </DialogContent>
+    </Dialog>
   );
 }

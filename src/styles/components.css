@@ -638,6 +638,15 @@ p.flash {
   inset: 0;
   z-index: 50;
   display: flex;
+  /* The layer is always in the document; only the two things inside it come
+     and go. It must therefore catch nothing itself, or a press after a dialog
+     has closed would land on an invisible sheet of glass. */
+  pointer-events: none;
+}
+
+.overlay-backdrop,
+.overlay-panel {
+  pointer-events: auto;
 }
 
 /*
@@ -671,6 +680,77 @@ p.flash {
 
 .overlay-panel:focus-visible {
   box-shadow: var(--shadow-3);
+}
+
+/*
+ * One orchestrated moment: the page behind goes out of focus while the surface
+ * arrives. The backdrop fades over the full 200ms; the panel scales up from
+ * 0.98 or slides in from its edge over the same span, and both leave in 120ms,
+ * because a surface that has been dealt with should not make anybody wait for
+ * it. Radix holds the unmount until these have played.
+ */
+.overlay-backdrop[data-state='open'] {
+  animation: scrim-in var(--dur-surface) var(--ease-out);
+}
+
+.overlay-backdrop[data-state='closed'] {
+  animation: scrim-out var(--dur-press) var(--ease-out);
+}
+
+@keyframes scrim-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes scrim-out {
+  to {
+    opacity: 0;
+  }
+}
+
+.dialog[data-state='open'] {
+  animation: dialog-in var(--dur-surface) var(--ease-out);
+}
+
+.dialog[data-state='closed'] {
+  animation: dialog-out var(--dur-press) var(--ease-out);
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    scale: 0.98;
+  }
+}
+
+@keyframes dialog-out {
+  to {
+    opacity: 0;
+    scale: 0.98;
+  }
+}
+
+/* A side panel travels its own width, so the distance says where it came
+   from; it never fades, because a thing sliding in is not also appearing. */
+.sheet-right[data-state='open'] {
+  animation: sheet-right-in var(--dur-surface) var(--ease-out);
+}
+
+.sheet-right[data-state='closed'] {
+  animation: sheet-right-out var(--dur-press) var(--ease-out);
+}
+
+@keyframes sheet-right-in {
+  from {
+    translate: 100% 0;
+  }
+}
+
+@keyframes sheet-right-out {
+  to {
+    translate: 100% 0;
+  }
 }
 
 .sheet-right {

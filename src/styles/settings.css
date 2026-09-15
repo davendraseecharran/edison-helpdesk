@@ -140,8 +140,11 @@
 /* --- Switch ------------------------------------------------------------- */
 
 /*
- * A button with `role="switch"`, so it is one tab stop, Space and Enter both
- * work, and the state is read out rather than inferred from the colour.
+ * Radix's Switch: `role="switch"` on a real button, so it is one tab stop,
+ * Space and Enter both work, and the state is read out rather than inferred
+ * from the colour. Radix marks it `data-state` as well as `aria-checked`; the
+ * rules below read the ARIA attribute, because that is the one that has to be
+ * right anyway.
  */
 .switch {
   position: relative;
@@ -187,7 +190,8 @@
  * presses, and dims to say so. A save started by another control leaves it
  * alone: one busy control on a screen of settings, not five.
  */
-.switch[aria-busy='true'] {
+.switch[aria-busy='true'],
+.switch:disabled {
   cursor: default;
   opacity: 0.6;
 }

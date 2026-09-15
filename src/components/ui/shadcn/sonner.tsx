@@ -27,15 +27,7 @@ import {
 } from '@/components/ui/toast';
 
 /** One toast: its message, its dismiss button, and the hold the keyboard puts on the clock. */
-function ToastBody({
-  id,
-  kind,
-  text,
-}: {
-  id: string | number;
-  kind: ToastKind;
-  text: string;
-}) {
+function ToastBody({ id, kind, text }: { id: string | number; kind: ToastKind; text: string }) {
   return (
     <div
       className={kind === 'success' ? 'toast toast-success' : 'toast toast-error'}
