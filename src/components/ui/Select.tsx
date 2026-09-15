@@ -13,8 +13,14 @@
  * — and lets the list be ours.
  *
  * The API is the native one's shape on purpose: an `id` the `Field` label
- * points at, a `value`, and a change handler that is handed the value rather
- * than an event, because no caller ever wanted the event.
+ * points at, a `value`, a `name` for a form that is read as `FormData`, and a
+ * change handler that is handed the value rather than an event, because no
+ * caller ever wanted the event.
+ *
+ * There is no `placeholder`. Every list here has an option that means "any" or
+ * "none", so a select always has a value, and the empty string is mapped to a
+ * real item rather than left as Radix's "nothing is chosen" — which is the
+ * only state a placeholder is ever shown in.
  */
 
 import type { ReactNode } from 'react';
@@ -57,8 +63,15 @@ export interface SelectProps {
   value: string;
   onChange: (value: string) => void;
   options: readonly SelectOption[];
-  /** Shown when `value` matches no option. A select always has a value here. */
-  placeholder?: string;
+  /**
+   * The field name this select submits under, for a form that is read as
+   * `FormData` rather than from state.
+   *
+   * It is our own hidden input rather than Radix's, because Radix would submit
+   * the private token the empty option is mapped to; this submits what the
+   * caller passed and what the option means.
+   */
+  name?: string;
   disabled?: boolean;
   /** For a select with no visible label. */
   'aria-label'?: string;
@@ -76,7 +89,7 @@ export function Select({
   value,
   onChange,
   options,
-  placeholder,
+  name,
   disabled,
   className,
   children,
@@ -88,8 +101,9 @@ export function Select({
       onValueChange={(next) => onChange(fromItem(next))}
       disabled={disabled}
     >
+      {name ? <input type="hidden" name={name} value={value} /> : null}
       <SelectTrigger id={id} className={className} {...aria}>
-        <SelectValue placeholder={placeholder} />
+        <SelectValue />
       </SelectTrigger>
       <SelectContent>
         {options.map((option) => (

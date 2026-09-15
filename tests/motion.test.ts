@@ -4,12 +4,35 @@
  * with Playwright; everything with an edge case worth naming lives here.
  */
 
-import { createElement as h } from 'react';
+import { createElement as h, type ReactElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+/*
+ * Sonner stands in, so the stack it owns stays its own business and what this
+ * file can see is the wiring: which id a message is raised under, which
+ * duration comes with it, and which of the product's rules reach the stack as
+ * props. Everything else about a toast — the queue, the clocks, the swipe — is
+ * the library's and is tested there.
+ */
+const sonner = vi.hoisted(() => ({
+  custom: vi.fn(() => 'toast-id'),
+  dismiss: vi.fn(),
+  stack: { props: null as Record<string, unknown> | null },
+}));
+
+vi.mock('sonner', () => ({
+  toast: { custom: sonner.custom, dismiss: sonner.dismiss },
+  Toaster: (props: Record<string, unknown>) => {
+    sonner.stack.props = props;
+    return null;
+  },
+}));
+
 import AdminLoading from '../src/app/(app)/admin/loading';
 import TicketLoading from '../src/app/(app)/tickets/[id]/loading';
 import { STAGGER_CAP, STAGGER_STEP, staggerDelay } from '../src/components/ui/Motion';
+import { showToast, Toaster } from '../src/components/ui/shadcn/sonner';
 import {
   TOAST_LIFETIME_MS,
   TOAST_LIMIT,
@@ -46,12 +69,46 @@ describe('staggerDelay', () => {
 
 /*
  * The stack, the clocks, the hover pause and the swipe are Sonner's, and are
- * its own to test. What is ours is the four rules in `ui/toast.ts`, which is
- * what a repeated message is, how long each kind lives, what a held clock
- * reads, and where the stack sits. These replace the reducer's tests: the
- * reducer is gone, and each behaviour it covered is named again here against
- * the rule that now produces it.
+ * its own to test. What is ours is the four rules in `ui/toast.ts` — what a
+ * repeated message is, how long each kind lives, what a held clock reads, and
+ * where the stack sits — and, just as much, whether those rules actually reach
+ * the library. These replace the reducer's tests: the reducer is gone, and each
+ * behaviour it covered is named again here against the rule that now produces
+ * it and the call that now carries it.
  */
+
+interface ToastHandlers {
+  onFocus: () => void;
+  onBlur: (event: {
+    currentTarget: { contains: (node: unknown) => boolean };
+    relatedTarget: unknown;
+  }) => void;
+  children: ReactElement[];
+}
+
+/** The last message raised: the options Sonner was handed, and what it renders. */
+function lastToast(): { options: Record<string, unknown>; body: ReactElement } {
+  const call = sonner.custom.mock.lastCall;
+  if (!call) throw new Error('nothing was raised');
+  const [render, options] = call as unknown as [
+    (id: string | number) => ReactElement,
+    Record<string, unknown>,
+  ];
+  return { options, body: render('toast-id') };
+}
+
+/**
+ * The toast's own element, one step inside the element Sonner is handed.
+ *
+ * `toast.custom` is given `<ToastBody>`; the handlers under test are on the
+ * `<div>` that component returns, and it is a plain function of its props.
+ */
+function lastToastBox(): ToastHandlers {
+  const body = lastToast().body;
+  const render = body.type as (props: unknown) => ReactElement;
+  return render(body.props).props as unknown as ToastHandlers;
+}
+
 describe('toast rules', () => {
   it('gives a success five seconds and an error no clock at all', () => {
     expect(toastDuration('success')).toBe(TOAST_LIFETIME_MS);
@@ -63,26 +120,93 @@ describe('toast rules', () => {
     expect(toastDuration('error', true)).toBe(Number.POSITIVE_INFINITY);
   });
 
-  it('restores the five seconds when focus leaves a success', () => {
-    expect(toastDuration('success', false)).toBe(TOAST_LIFETIME_MS);
-  });
-
-  it('gives the same message the same id, so a repeat refreshes rather than stacks', () => {
-    expect(toastKey('success', 'Ticket claimed')).toBe(toastKey('success', 'Ticket claimed'));
-  });
-
   it('separates two different messages, and a success from an error that reads the same', () => {
     expect(toastKey('success', 'Note added')).not.toBe(toastKey('success', 'Note removed'));
     expect(toastKey('success', 'Saved')).not.toBe(toastKey('error', 'Saved'));
   });
 
-  it('keeps the stack to three, so a corner of messages is never a log', () => {
-    expect(TOAST_LIMIT).toBe(3);
-  });
-
   it('sits bottom-right where there is room and at the top where the tabs are', () => {
     expect(toastPosition(false)).toBe('bottom-right');
     expect(toastPosition(true)).toBe('top-center');
+  });
+});
+
+describe('raising a toast', () => {
+  beforeEach(() => {
+    sonner.custom.mockClear();
+    sonner.dismiss.mockClear();
+  });
+
+  it('raises the message under its own id, with the life its kind is given', () => {
+    showToast('success', 'Ticket claimed');
+    const { options } = lastToast();
+    expect(options.id).toBe(toastKey('success', 'Ticket claimed'));
+    expect(options.duration).toBe(TOAST_LIFETIME_MS);
+  });
+
+  it('gives the same message the same id, so a repeat refreshes rather than stacks', () => {
+    showToast('success', 'Ticket claimed');
+    const first = lastToast().options.id;
+    showToast('success', 'Ticket claimed');
+    expect(lastToast().options.id).toBe(first);
+    showToast('error', 'Ticket claimed');
+    expect(lastToast().options.id).not.toBe(first);
+  });
+
+  it('leaves an error on screen with no clock at all', () => {
+    showToast('error', 'Could not save that note.');
+    expect(lastToast().options.duration).toBe(Number.POSITIVE_INFINITY);
+  });
+
+  it('renders the message, its stripe and a dismiss button, and no live region of its own', () => {
+    showToast('error', 'Could not save that note.');
+    const html = renderToStaticMarkup(lastToast().body);
+    expect(html).toContain('class="toast toast-error"');
+    expect(html).toContain('Could not save that note.');
+    expect(html).toContain('aria-label="Dismiss message"');
+    // Sonner's own <li> is the live region; a second one inside it is a
+    // message a reader may announce twice.
+    expect(html).not.toContain('role=');
+  });
+
+  it('stops the clock while focus rests inside, and starts it again when focus leaves', () => {
+    showToast('success', 'Ticket claimed');
+    const props = lastToastBox();
+
+    props.onFocus();
+    expect(lastToast().options.duration).toBe(Number.POSITIVE_INFINITY);
+    // Under the same id, so the toast is updated in place rather than replaced.
+    expect(lastToast().options.id).toBe(toastKey('success', 'Ticket claimed'));
+
+    props.onBlur({ currentTarget: { contains: () => false }, relatedTarget: null });
+    expect(lastToast().options.duration).toBe(TOAST_LIFETIME_MS);
+  });
+
+  it('keeps the clock stopped while focus only moves within the toast', () => {
+    showToast('success', 'Ticket claimed');
+    const props = lastToastBox();
+    props.onFocus();
+    sonner.custom.mockClear();
+    props.onBlur({ currentTarget: { contains: () => true }, relatedTarget: {} });
+    expect(sonner.custom).not.toHaveBeenCalled();
+  });
+
+  it('dismisses the toast it was rendered for', () => {
+    showToast('success', 'Ticket claimed');
+    const dismiss = lastToastBox().children[1].props as { onClick: () => void };
+    dismiss.onClick();
+    expect(sonner.dismiss).toHaveBeenCalledWith('toast-id');
+  });
+});
+
+describe('the stack', () => {
+  it('carries the product rules to Sonner: three at once, and where they sit', () => {
+    renderToStaticMarkup(h(Toaster));
+    const props = sonner.stack.props;
+    expect(props).not.toBeNull();
+    expect(props?.visibleToasts).toBe(TOAST_LIMIT);
+    expect(props?.position).toBe(toastPosition(false));
+    expect(props?.toastOptions).toEqual({ unstyled: true });
   });
 });
 

@@ -23,7 +23,7 @@
  * not cancelled by closing; the toggle shows it instead.
  */
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname } from 'next/navigation';
 import { Ellipsis, MessagesSquare, SquarePen, Unplug, X } from 'lucide-react';
@@ -31,7 +31,15 @@ import { motion } from 'motion/react';
 import { useRuntime } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
-import { useBodyScrollLock, useEscape, useFocusTrap, useOutsidePress } from '@/components/ui/focus';
+import { useBodyScrollLock, useEscape, useFocusTrap } from '@/components/ui/focus';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/shadcn/dropdown-menu';
 import { useMediaQuery, usePhone, useReducedMotion } from '@/components/ui/media';
 import { AnimatePresence, DURATION, EASE_OUT_FAST, INSTANT, SPRING } from '@/components/ui/Motion';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
@@ -154,9 +162,6 @@ export function AiPanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<AiComposerHandle>(null);
-  const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const menuRefs = useMemo(() => [menuButtonRef, menuRef], []);
   const queuedPrompt = useRef<string | null>(null);
   const stickToBottom = useRef(true);
   const dictationBase = useRef('');
@@ -534,11 +539,6 @@ export function AiPanel({
 
   // --- Menu -----------------------------------------------------------------
 
-  const closeMenu = useCallback(() => setMenuOpen(false), []);
-  useFocusTrap(menuRef, menuOpen);
-  useEscape(menuOpen, closeMenu);
-  useOutsidePress(menuOpen, menuRefs, closeMenu);
-
   async function savePreference(
     patch: Partial<Pick<AiStatus, 'reasoning' | 'confirmChanges' | 'speakReplies'>>,
     failure: string,
@@ -669,113 +669,103 @@ export function AiPanel({
                     </h2>
                   </div>
                   <div className="ai-head-actions">
-                    <span className="menu-anchor">
-                      <Button
-                        ref={menuButtonRef}
-                        variant="ghost"
-                        icon={Ellipsis}
-                        aria-label="Assistant menu"
-                        aria-haspopup="dialog"
-                        aria-expanded={menuOpen}
-                        onClick={() => setMenuOpen((value) => !value)}
-                      />
-                      {menuOpen ? (
+                    <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" icon={Ellipsis} aria-label="Assistant menu" />
+                      </DropdownMenuTrigger>
+                      {/* Not portaled: the panel runs its own focus trap over
+                          its own descendants, and a menu at the end of the
+                          document would be outside it. */}
+                      <DropdownMenuContent
+                        portal={false}
+                        align="end"
+                        aria-label="Assistant settings"
+                        className="ai-menu"
+                      >
+                        {/* Settings live in the menu, not in the header: the
+                            picker is touched once a month and a permanent row
+                            costs a line of the conversation on every screen,
+                            which at 390 is the whole point of the panel. The
+                            keys stay inside it, because the arrows belong to
+                            the segmented control while it has focus and to the
+                            menu everywhere else. */}
                         <div
-                          ref={menuRef}
-                          role="dialog"
-                          aria-label="Assistant settings"
-                          className="popover popover-end ai-menu"
-                          tabIndex={-1}
+                          className="ai-menu-reasoning"
+                          onKeyDown={(event) => event.stopPropagation()}
                         >
-                          {/* Settings live in the menu, not in the header: the
-                              picker is touched once a month and a permanent row
-                              costs a line of the conversation on every screen,
-                              which at 390 is the whole point of the panel. */}
-                          <div className="ai-menu-reasoning">
-                            <span className="ai-reasoning-label">Reasoning</span>
-                            <SegmentedControl
-                              label="Reasoning effort"
-                              size="sm"
-                              value={status?.reasoning ?? 'high'}
-                              options={REASONING_OPTIONS}
-                              onChange={(next) =>
-                                void savePreference(
-                                  { reasoning: next },
-                                  'Could not save the reasoning level.',
-                                )
-                              }
-                            />
-                          </div>
-                          <div className="menu-separator" role="separator" />
-                          <button
-                            type="button"
-                            role="switch"
-                            className="ai-menu-switch"
-                            aria-checked={status?.confirmChanges === true}
-                            disabled={!status}
-                            onClick={() =>
+                          <span className="ai-reasoning-label">Reasoning</span>
+                          <SegmentedControl
+                            label="Reasoning effort"
+                            size="sm"
+                            value={status?.reasoning ?? 'high'}
+                            options={REASONING_OPTIONS}
+                            onChange={(next) =>
                               void savePreference(
-                                { confirmChanges: !(status?.confirmChanges === true) },
-                                'Could not save that setting.',
+                                { reasoning: next },
+                                'Could not save the reasoning level.',
                               )
                             }
-                          >
-                            <span>Ask before changes</span>
-                            <span className="ai-switch" aria-hidden="true" />
-                          </button>
-                          <button
-                            type="button"
-                            role="switch"
-                            className="ai-menu-switch"
-                            aria-checked={status?.speakReplies === true}
-                            disabled={!status || !speaker.supported}
-                            onClick={() => {
-                              if (status?.speakReplies) speaker.cancel();
-                              void savePreference(
-                                { speakReplies: !(status?.speakReplies === true) },
-                                'Could not save that setting.',
-                              );
-                            }}
-                          >
-                            <span>Speak replies</span>
-                            <span className="ai-switch" aria-hidden="true" />
-                          </button>
-                          <div className="menu-separator" role="separator" />
-                          <button
-                            type="button"
-                            className="menu-item"
-                            onClick={() => void showConversations()}
-                            disabled={!ready}
-                          >
-                            <Icon icon={MessagesSquare} size={16} />
-                            <span>Conversations</span>
-                          </button>
-                          <button
-                            type="button"
-                            className="menu-item"
-                            onClick={startNewConversation}
-                            disabled={!ready}
-                          >
-                            <Icon icon={SquarePen} size={16} />
-                            <span>New conversation</span>
-                          </button>
-                          <div className="menu-separator" role="separator" />
-                          <button
-                            type="button"
-                            className="menu-item menu-item-danger"
-                            disabled={!status?.connected}
-                            onClick={() => {
-                              setMenuOpen(false);
-                              setConnectAtOnce(false);
-                              setRequestedView('connect');
-                            }}
-                          >
-                            <Icon icon={Unplug} size={16} />
-                            <span>Disconnect</span>
-                          </button>
+                          />
                         </div>
-                      ) : null}
-                    </span>
+                        <DropdownMenuSeparator />
+                        {/* A switch is a setting rather than a command, so the
+                            menu stays open when one is flipped. */}
+                        <DropdownMenuCheckboxItem
+                          mark={false}
+                          className="ai-menu-switch"
+                          checked={status?.confirmChanges === true}
+                          disabled={!status}
+                          onSelect={(event) => event.preventDefault()}
+                          onCheckedChange={() =>
+                            void savePreference(
+                              { confirmChanges: !(status?.confirmChanges === true) },
+                              'Could not save that setting.',
+                            )
+                          }
+                        >
+                          <span>Ask before changes</span>
+                          <span className="ai-switch" aria-hidden="true" />
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                          mark={false}
+                          className="ai-menu-switch"
+                          checked={status?.speakReplies === true}
+                          disabled={!status || !speaker.supported}
+                          onSelect={(event) => event.preventDefault()}
+                          onCheckedChange={() => {
+                            if (status?.speakReplies) speaker.cancel();
+                            void savePreference(
+                              { speakReplies: !(status?.speakReplies === true) },
+                              'Could not save that setting.',
+                            );
+                          }}
+                        >
+                          <span>Speak replies</span>
+                          <span className="ai-switch" aria-hidden="true" />
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem disabled={!ready} onSelect={() => void showConversations()}>
+                          <Icon icon={MessagesSquare} size={16} />
+                          <span>Conversations</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem disabled={!ready} onSelect={startNewConversation}>
+                          <Icon icon={SquarePen} size={16} />
+                          <span>New conversation</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          disabled={!status?.connected}
+                          onSelect={() => {
+                            setConnectAtOnce(false);
+                            setRequestedView('connect');
+                          }}
+                        >
+                          <Icon icon={Unplug} size={16} />
+                          <span>Disconnect</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button variant="ghost" icon={X} aria-label="Close" title="Close" onClick={close} />
                   </div>
                 </div>

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
+import { BOOT_LAMP_SCRIPT } from '@/components/shell/boot-lamp-script';
 import { ThemeProvider } from '@/components/shell/ThemeProvider';
 import { THEME_BOOT_SCRIPT } from '@/components/shell/theme-script';
 import { mono, sans } from './fonts';
@@ -45,10 +46,18 @@ export const viewport: Viewport = {
  * state is resolved per request on the server, so there is no long-lived client
  * store that could survive a sign-out or leak between accounts.
  *
- * The one inline script stamps `data-theme` on `<html>` before the first paint,
- * which is the only way to avoid a light flash on a dark-theme reload; it reads
- * nothing but the theme preference. `suppressHydrationWarning` covers the
- * attribute it adds, which the server render cannot know about.
+ * The two inline scripts stamp attributes on `<html>` before the first paint,
+ * which is the only way to decide anything a CSS rule reads on the first frame:
+ * `data-theme`, without which a dark-theme reload flashes white, and
+ * `data-boot-seen`, without which the arrival moment plays a second time in a
+ * session that has already had it. Each reads one key of storage and writes
+ * nothing. `suppressHydrationWarning` covers the attributes they add, which the
+ * server render cannot know about.
+ *
+ * They are here rather than beside the components that care because a
+ * `<script>` rendered inside a component is a browser error on every page —
+ * React warns about every one it encounters — and because the head is the only
+ * place early enough for either to be worth running.
  */
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
@@ -59,6 +68,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: BOOT_LAMP_SCRIPT }} />
       </head>
       <body>
         <ThemeProvider>{children}</ThemeProvider>

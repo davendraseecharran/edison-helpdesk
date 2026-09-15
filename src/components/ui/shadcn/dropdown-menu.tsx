@@ -41,23 +41,35 @@ function DropdownMenuTrigger({
 function DropdownMenuContent({
   className,
   sideOffset = 6,
+  portal = true,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.Content>) {
-  return (
-    <DropdownMenuPrimitive.Portal>
-      <DropdownMenuPrimitive.Content
-        data-slot="dropdown-menu-content"
-        /* An open menu owns the keyboard: it navigates with the arrows and it
-           types ahead, and Radix does not stop a character key travelling on
-           to the document. Without this the shell's `n` would both jump the
-           typeahead to "Notes" and navigate away to the new-ticket form. */
-        data-keyboard-owner=""
-        sideOffset={sideOffset}
-        className={cn('menu', className)}
-        {...props}
-      />
-    </DropdownMenuPrimitive.Portal>
+}: React.ComponentProps<typeof DropdownMenuPrimitive.Content> & {
+  /**
+   * A menu goes to the end of the document, where nothing can clip it.
+   *
+   * `portal={false}` leaves it where it is written, which is what a menu
+   * inside a surface that runs its own focus trap needs: the assistant's panel
+   * keeps Tab among its own descendants, and a menu that is not one of them is
+   * a menu the keyboard cannot reach. Radix positions it against the trigger
+   * either way.
+   */
+  portal?: boolean;
+}) {
+  const content = (
+    <DropdownMenuPrimitive.Content
+      data-slot="dropdown-menu-content"
+      /* An open menu owns the keyboard: it navigates with the arrows and it
+         types ahead, and Radix does not stop a character key travelling on
+         to the document. Without this the shell's `n` would both jump the
+         typeahead to "Notes" and navigate away to the new-ticket form. */
+      data-keyboard-owner=""
+      sideOffset={sideOffset}
+      className={cn('menu', className)}
+      {...props}
+    />
   );
+  if (!portal) return content;
+  return <DropdownMenuPrimitive.Portal>{content}</DropdownMenuPrimitive.Portal>;
 }
 
 function DropdownMenuGroup({
@@ -86,20 +98,30 @@ function DropdownMenuCheckboxItem({
   className,
   children,
   checked,
+  mark = true,
   ...props
-}: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem>) {
+}: React.ComponentProps<typeof DropdownMenuPrimitive.CheckboxItem> & {
+  /**
+   * The tick in the gutter. `mark={false}` is for a row that shows its own
+   * state — a switch pill at the end of the line — where a tick as well would
+   * be the same answer given twice.
+   */
+  mark?: boolean;
+}) {
   return (
     <DropdownMenuPrimitive.CheckboxItem
       data-slot="dropdown-menu-checkbox-item"
-      className={cn('menu-item menu-item-marked', className)}
+      className={cn('menu-item', mark && 'menu-item-marked', className)}
       checked={checked}
       {...props}
     >
-      <span className="menu-mark" aria-hidden="true">
-        <DropdownMenuPrimitive.ItemIndicator>
-          <CheckIcon size={14} strokeWidth={2} />
-        </DropdownMenuPrimitive.ItemIndicator>
-      </span>
+      {mark ? (
+        <span className="menu-mark" aria-hidden="true">
+          <DropdownMenuPrimitive.ItemIndicator>
+            <CheckIcon size={14} strokeWidth={2} />
+          </DropdownMenuPrimitive.ItemIndicator>
+        </span>
+      ) : null}
       {children}
     </DropdownMenuPrimitive.CheckboxItem>
   );

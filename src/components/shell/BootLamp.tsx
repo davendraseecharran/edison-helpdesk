@@ -1,21 +1,9 @@
+'use client';
+
+import { useEffect } from 'react';
+
+import { BOOT_LAMP_SEEN_KEY } from './boot-lamp-script';
 import '@/styles/voice.css';
-
-/** Where the browsing session records that it has already seen the lamp. */
-export const BOOT_LAMP_SEEN_KEY = 'edison.boot.seen';
-
-/**
- * The gate, as the only thing early enough to be one.
- *
- * A CSS animation runs the moment the element is painted, so a decision made
- * after hydration is a decision made after the lamp is already on screen. This
- * runs where it is written — before the parser has reached the element below
- * it — and it can only ever HIDE the lamp: storage refused, a script blocked,
- * anything at all goes wrong and the moment simply plays, which is the failure
- * everybody would rather have.
- */
-const BOOT_LAMP_SCRIPT = `(function(){var s=false;try{var k=${JSON.stringify(
-  BOOT_LAMP_SEEN_KEY,
-)};if(window.sessionStorage.getItem(k))s=true;else window.sessionStorage.setItem(k,'1');}catch(e){}if(s){try{document.documentElement.setAttribute('data-boot-seen','');}catch(e){}}})();`;
 
 /**
  * The application arriving.
@@ -36,17 +24,29 @@ const BOOT_LAMP_SCRIPT = `(function(){var s=false;try{var k=${JSON.stringify(
  * decides only whether the moment happens at all, and never whether it ends.
  * `aria-hidden` because it says nothing a reader needs: the page behind it is
  * already being announced.
+ *
+ * Marking the session is an effect rather than a second inline script: React
+ * warns on every `<script>` a component renders, which put a browser error on
+ * every page for a line that only ever had to run once a document loaded. By
+ * the time this effect runs the lamp has already been painted, which is the
+ * only timing the mark has to beat — the reading half is in the `<head>`.
  */
 export function BootLamp() {
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(BOOT_LAMP_SEEN_KEY, '1');
+    } catch {
+      // Storage refused. The moment plays again next time, which is the
+      // failure worth having.
+    }
+  }, []);
+
   return (
-    <>
-      <script dangerouslySetInnerHTML={{ __html: BOOT_LAMP_SCRIPT }} />
-      <div className="boot-lamp" aria-hidden="true">
-        <span className="boot-lamp-mark">
-          <b>Edison</b>
-          <span>Helpdesk</span>
-        </span>
-      </div>
-    </>
+    <div className="boot-lamp" aria-hidden="true">
+      <span className="boot-lamp-mark">
+        <b>Edison</b>
+        <span>Helpdesk</span>
+      </span>
+    </div>
   );
 }

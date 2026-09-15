@@ -26,12 +26,22 @@ import {
   type ToastKind,
 } from '@/components/ui/toast';
 
-/** One toast: its message, its dismiss button, and the hold the keyboard puts on the clock. */
+/**
+ * One toast: its message, its dismiss button, and the hold the keyboard puts
+ * on the clock.
+ *
+ * It carries no role of its own. Sonner already wraps every toast in an `<li
+ * role="status" aria-live="polite" aria-atomic="true">`, and a live region
+ * inside a live region is a message a reader may announce twice; `alert`
+ * inside `status` is announced politely regardless, so the inner role was
+ * buying nothing and risking that. An error here waits rather than interrupts
+ * anyway — it has no clock at all, and it is still on screen to be read when
+ * the reader arrives at it.
+ */
 function ToastBody({ id, kind, text }: { id: string | number; kind: ToastKind; text: string }) {
   return (
     <div
       className={kind === 'success' ? 'toast toast-success' : 'toast toast-error'}
-      role={kind === 'error' ? 'alert' : 'status'}
       /*
        * The pointer's pause is Sonner's. This is the keyboard's: arriving at
        * the dismiss button with Tab stops the clock the same way resting the
@@ -99,7 +109,11 @@ export function Toaster() {
       // a thumb on a full-width toast flicks more easily across than up.
       swipeDirections={phone ? ['top', 'left', 'right'] : ['right', 'bottom']}
       style={{ '--width': 'min(360px, calc(100vw - 24px))' } as React.CSSProperties}
+      // Every toast is `toast.custom`, so the only thing left to say about one
+      // is that none of Sonner's own look applies. The announcement is the
+      // `<li>` Sonner wraps it in; see the note in `ToastBody`.
       toastOptions={{ unstyled: true }}
+      containerAriaLabel="Messages"
     />
   );
 }

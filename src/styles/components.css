@@ -922,13 +922,7 @@ p.flash {
   }
 }
 
-/* --- Menu and popover --------------------------------------------------- */
-
-.menu-anchor,
-.menu-trigger {
-  position: relative;
-  display: inline-flex;
-}
+/* --- Menu --------------------------------------------------------------- */
 
 /*
  * A menu belongs to the control that opened it, so it grows out of that
@@ -943,9 +937,13 @@ p.flash {
  * one place that is right: Radix unmounts the surface when it closes and holds
  * the unmount until the animation ends, so there is no half-finished state to
  * retarget — every open genuinely starts from 0.97.
+ *
+ * Every floating list in the product is one of these now: the account panel and
+ * the notifications list are Radix popovers, and the assistant's own menu is
+ * the kit's menu, so the hand-anchored `.popover` that positioned itself
+ * against its trigger has no callers left.
  */
-.menu,
-.popover {
+.menu {
   z-index: 40;
   min-width: 200px;
   padding: 4px;
@@ -953,9 +951,6 @@ p.flash {
   border-radius: var(--radius-3);
   background: var(--overlay);
   box-shadow: var(--shadow-2);
-}
-
-.menu {
   transform-origin: var(--radix-popper-transform-origin, top right);
 }
 
@@ -981,38 +976,7 @@ p.flash {
   }
 }
 
-/* The hand-anchored surfaces that are not menus: they position themselves
-   against the trigger they sit beside and animate out of `@starting-style`. */
-.popover {
-  position: absolute;
-  top: calc(100% + 6px);
-  opacity: 1;
-  scale: 1;
-  transition-property: opacity, scale;
-  transition-duration: var(--dur-surface);
-  transition-timing-function: var(--ease-out);
-}
 
-.popover-end {
-  right: 0;
-  transform-origin: top right;
-}
-
-.popover-start {
-  left: 0;
-  transform-origin: top left;
-}
-
-@starting-style {
-  .popover {
-    opacity: 0;
-    scale: 0.97;
-  }
-}
-
-.popover:focus-visible {
-  box-shadow: var(--shadow-2);
-}
 
 .menu-item {
   display: flex;
@@ -1161,9 +1125,6 @@ p.flash {
   border-color: var(--bad);
 }
 
-.select-trigger[data-placeholder] .select-value {
-  color: var(--ink-3);
-}
 
 .select-value {
   flex: 1 1 auto;
@@ -1201,9 +1162,6 @@ p.flash {
   animation: menu-in var(--dur-surface) var(--ease-out);
 }
 
-.select-content[data-state='closed'] {
-  animation: menu-out var(--dur-press) var(--ease-out);
-}
 
 .select-viewport {
   overflow-y: auto;
@@ -1672,12 +1630,13 @@ p.flash {
 /* --- Motion ------------------------------------------------------------- */
 
 /*
- * Menus and popovers arrive on a CSS transition out of `@starting-style`,
- * scaling from the corner their trigger sits in (see the menu block above).
- * A keyframe was doing that job and could not be interrupted: a menu closed
- * and reopened inside the animation restarted from the beginning. Sheets,
- * dialogs, list rows and toasts are driven by `motion` (see `Motion.tsx`),
- * which also plays their exit.
+ * Menus, select lists, dialogs and sheets are keyframes on `data-state`, and
+ * Radix holds each surface mounted until its exit has played (see the menu and
+ * overlay blocks above). Keyframes rather than a transition out of
+ * `@starting-style`, because there is no half-finished state to retarget: a
+ * surface that closes is gone, and the next open genuinely starts from the
+ * beginning. List rows are `motion` (see `Motion.tsx`) and the toast stack is
+ * Sonner's.
  */
 
 /* --- Role chips --------------------------------------------------------- */

@@ -15,6 +15,7 @@
  */
 
 import { useApplePlatform } from '@/components/ui/media';
+import { Tooltip } from '@/components/ui/Tooltip';
 import { AiMark } from '@/components/ai/AiMark';
 import { toggleAssistant, useAssistant } from '@/components/ai/assistant-store';
 
@@ -34,17 +35,29 @@ export function AiToggle() {
 
   return (
     <span className="ai-toggle-anchor">
-      <button
-        type="button"
-        className="btn btn-ghost btn-icon ai-toggle"
-        aria-label={label}
-        aria-pressed={open}
-        title={`Ask the assistant (${shortcut})`}
-        data-ai-toggle
-        onClick={toggleAssistant}
+      {/* The same words as the label, in the same tooltip as the two controls
+          beside it. A native `title` was a second kind of tooltip in one bar,
+          on its own clock and in its own colours, and it said something the
+          label did not. */}
+      <Tooltip
+        label={
+          <>
+            {label}
+            <kbd className="kbd">{shortcut}</kbd>
+          </>
+        }
       >
-        <AiMark size={20} state={waiting ? 'working' : 'still'} />
-      </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-icon ai-toggle"
+          aria-label={label}
+          aria-pressed={open}
+          data-ai-toggle
+          onClick={toggleAssistant}
+        >
+          <AiMark size={20} state={waiting ? 'working' : 'still'} />
+        </button>
+      </Tooltip>
       {unread && !open ? <span className="ai-toggle-dot" aria-hidden="true" /> : null}
     </span>
   );
