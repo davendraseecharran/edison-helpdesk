@@ -12,6 +12,13 @@
  * than leaving the window, and reports the corner it grew from. The guard is
  * told by `data-keyboard-owner`, which is the attribute it already looks for
  * and is truer than `aria-modal` on a surface that is not a dialog.
+ *
+ * All of that is true only of a modal popover, and Radix's default is the
+ * other one: without `modal` there is no focus trap, the rest of the page
+ * stays reachable and keeps scrolling under the surface, and the two here —
+ * the account panel and the notifications list — are each a panel somebody
+ * opened to work in, not a hint hanging off a control. So `modal` is the
+ * default of this wrapper rather than something each caller must remember.
  */
 
 import * as React from 'react';
@@ -19,8 +26,8 @@ import { Popover as PopoverPrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
 
-function Popover({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
-  return <PopoverPrimitive.Root data-slot="popover" {...props} />;
+function Popover({ modal = true, ...props }: React.ComponentProps<typeof PopoverPrimitive.Root>) {
+  return <PopoverPrimitive.Root data-slot="popover" modal={modal} {...props} />;
 }
 
 function PopoverTrigger({ ...props }: React.ComponentProps<typeof PopoverPrimitive.Trigger>) {

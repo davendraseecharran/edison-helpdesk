@@ -47,6 +47,11 @@ function DropdownMenuContent({
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
         data-slot="dropdown-menu-content"
+        /* An open menu owns the keyboard: it navigates with the arrows and it
+           types ahead, and Radix does not stop a character key travelling on
+           to the document. Without this the shell's `n` would both jump the
+           typeahead to "Notes" and navigate away to the new-ticket form. */
+        data-keyboard-owner=""
         sideOffset={sideOffset}
         className={cn('menu', className)}
         {...props}

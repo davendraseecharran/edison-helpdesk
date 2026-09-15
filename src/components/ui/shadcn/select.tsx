@@ -63,6 +63,9 @@ function SelectContent({
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
         data-slot="select-content"
+        /* An open list types ahead, and the character never stops travelling
+           on its own; the shell's single-key shortcuts have to be told. */
+        data-keyboard-owner=""
         className={cn('menu select-content', className)}
         position={position}
         sideOffset={4}

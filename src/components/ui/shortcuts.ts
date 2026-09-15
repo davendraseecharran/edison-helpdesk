@@ -17,30 +17,44 @@
 
 import { useEffect, useRef } from 'react';
 
-/** Whether a keystroke would type into `target`: a field, or anything editable. */
+/**
+ * Whether a keystroke would type into `target`: a field, anything editable, or
+ * the one control that types without looking like a field.
+ *
+ * A select's trigger takes a letter the moment it has focus and jumps its list
+ * to the first option that starts with it, list open or closed — that is what
+ * every select on the machine does, and Radix does not stop the character
+ * travelling on to the document afterwards. It used to be a native `<select>`
+ * and the tag check below covered it; there is no `<select>` left in this
+ * product, so the check that names it is the one that is left.
+ */
 export function isEditable(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
+  if (target.closest('[data-slot="select-trigger"]') !== null) return true;
   const tag = target.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  return tag === 'INPUT' || tag === 'TEXTAREA';
 }
 
 /**
- * Whether a modal surface owns the keyboard.
+ * The two ways a surface says "the keyboard is mine while I am here".
  *
- * The palette, the sheets, the dialogs and the account and bell popovers all
- * carry `role="dialog"` with `aria-modal="true"`, which is both the honest
- * accessibility answer and the one selector everything here can agree on. The
- * assistant panel is a partial exception: on desktop it sits beside the page
- * rather than over it, so it only sets `aria-modal` in the phone layout — but
- * it still owns the keyboard while it has focus, so it marks its root with
- * `data-keyboard-owner` for this check to catch either way.
+ * The palette, the sheets and the dialogs all carry `role="dialog"` with
+ * `aria-modal="true"`, which is both the honest accessibility answer and a
+ * selector everything here can agree on. `data-keyboard-owner` is for the rest,
+ * and there are more of them than there look: the assistant panel sits beside
+ * the page on desktop and so only claims `aria-modal` in the phone layout; the
+ * account and notifications popovers are panels rather than dialogs; and an
+ * open menu or select list is neither, but it navigates with the arrows and
+ * types ahead, and Radix passes a character key straight on to the document
+ * after using it. With a menu open, a bare `n` used to jump the typeahead *and*
+ * navigate to the new-ticket form behind it.
  */
+const KEYBOARD_OWNERS = '[role="dialog"][aria-modal="true"], [data-keyboard-owner]';
+
+/** Whether any of those is on screen right now. */
 export function modalOpen(): boolean {
-  return (
-    document.querySelector('[role="dialog"][aria-modal="true"]') !== null ||
-    document.querySelector('[data-keyboard-owner]') !== null
-  );
+  return document.querySelector(KEYBOARD_OWNERS) !== null;
 }
 
 /** A plain press of `key`: no modifier, no repeat, not mid-composition. */
