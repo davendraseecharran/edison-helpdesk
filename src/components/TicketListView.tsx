@@ -295,7 +295,7 @@ export function TicketListView({
           <div className="queue-cell-title">
             <Link
               href={`/tickets/${ticket.id}`}
-              className="queue-title"
+              className="queue-title row-link"
               aria-describedby={issue === '' ? undefined : peekId}
             >
               {ticket.title}

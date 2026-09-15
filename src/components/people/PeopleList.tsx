@@ -102,7 +102,7 @@ export function PeopleList({ page }: { page: PeoplePage }) {
       cell: (person) => (
         <div className="dir-cell-title">
           <span className="dir-name-row">
-            <Link href={`/people/${person.id}`} className="dir-name">
+            <Link href={`/people/${person.id}`} className="dir-name row-link">
               {person.displayName}
             </Link>
             {/* Beside the name rather than in a column of its own: almost

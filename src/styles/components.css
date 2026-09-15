@@ -1599,6 +1599,79 @@ p.flash {
   }
 }
 
+/*
+ * The whole row is the target.
+ *
+ * A row is one thing to a reader: it names a ticket, a machine, a person, and
+ * pointing at any part of it means "that one". Only the eight characters of the
+ * number and the few words of the title did anything, so the middle of every
+ * row — most of its area — was inert, and the hover colour that lit the whole
+ * row was promising a press that nothing answered.
+ *
+ * The stretched-link pattern rather than a click handler on the row: the link
+ * is still a real link, so it keeps its href in the status bar, its middle
+ * click, its context menu and its place in the tab order, and the keyboard
+ * model above (`useRowKeys`, `o` to open) is untouched. One `::after` on the
+ * primary link covers the row; every other control in the row is lifted over
+ * it, so a checkbox, a claim button, a group toggle and a link to somebody
+ * else all still take their own press.
+ *
+ * The cost is text selection inside a row, which is what a stretched link
+ * always costs. These rows are a place to choose from rather than a place to
+ * read from — anything worth copying (a serial, an asset tag, a ticket number)
+ * has its own screen one press away.
+ */
+.queue .table tbody tr,
+.directory .table tbody tr,
+.queue .row-card,
+.directory .row-card {
+  position: relative;
+}
+
+.row-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* Zero, not auto: it has to be a positioned box so the controls below can be
+     lifted over it, and no higher than that so they can. */
+  z-index: 0;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .queue .table tbody tr:has(.row-link),
+  .directory .table tbody tr:has(.row-link),
+  .queue .row-card:has(.row-link),
+  .directory .row-card:has(.row-link) {
+    cursor: pointer;
+  }
+}
+
+/*
+ * Everything else in the row rides above the stretched link. Named by what they
+ * are rather than by a shared class, because a control that is added to one of
+ * these rows and not listed here fails visibly — it stops taking presses — and
+ * that is the failure that gets fixed.
+ */
+.queue .table tbody td a:not(.row-link),
+.queue .table tbody td button,
+.queue .table tbody td input,
+.queue .table tbody td label,
+.directory .table tbody td a:not(.row-link),
+.directory .table tbody td button,
+.directory .table tbody td input,
+.directory .table tbody td label,
+.queue .row-card a:not(.row-link),
+.queue .row-card button,
+.queue .row-card input,
+.queue .row-card label,
+.directory .row-card a:not(.row-link),
+.directory .row-card button,
+.directory .row-card input,
+.directory .row-card label {
+  position: relative;
+  z-index: 1;
+}
+
 .table .num {
   text-align: right;
 }
@@ -1673,10 +1746,25 @@ p.flash {
  * the first row scrolls out through the corner. `clip` clips without creating
  * a scroll container, so the header still sticks to the page rather than to
  * this box.
+ *
+ * On the x axis only. Clipping both axes also cut off anything a row hangs
+ * below itself — which on the queue is the peek, so the reported issue was
+ * silently invisible on any list short enough that the pagination bar was not
+ * rendered after the table. What the vertical clip was doing for the corners is
+ * done by the corners themselves below.
  */
 .panel > .data-table:last-child {
   border-radius: 0 0 var(--radius-4) var(--radius-4);
-  overflow: clip;
+  overflow-x: clip;
+}
+
+/* The last row's own bottom corners, since the panel can no longer cut them. */
+.panel > .data-table:last-child .table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: var(--radius-4);
+}
+
+.panel > .data-table:last-child .table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: var(--radius-4);
 }
 
 /*

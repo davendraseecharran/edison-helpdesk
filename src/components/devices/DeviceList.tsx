@@ -244,7 +244,7 @@ export function DeviceList({
       width: 180,
       cell: (device) => (
         <div className="dir-cell-title">
-          <Link href={`/devices/${device.id}`} className="dir-tag">
+          <Link href={`/devices/${device.id}`} className="dir-tag row-link">
             {deviceLabel(device)}
           </Link>
           {device.serialNumber && device.assetTag ? (

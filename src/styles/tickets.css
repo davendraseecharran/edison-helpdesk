@@ -311,9 +311,16 @@
   font-weight: 500;
 }
 
-/* Two-line cells: the title link over the requester, the badge over a reason. */
+/*
+ * Two-line cells: the title link over the requester, the badge over a reason.
+ *
+ * Deliberately not positioned. The row is, so that the title's stretched link
+ * can cover it (`components.css`), and a positioned cell here would catch that
+ * link's `::after` and shrink the target back to the two lines it was. The peek
+ * below hangs off the row for the same reason, which is also where it belongs:
+ * it is about the row, and it lines up with the row's left edge.
+ */
 .queue-cell-title {
-  position: relative;
   display: block;
   min-width: 0;
 }
@@ -344,9 +351,11 @@
 .queue-peek {
   position: absolute;
   /* Clear of the row below rather than resting on its hairline: the gap is
-     what says this is a panel above the table and not the next row's text. */
+     what says this is a panel above the table and not the next row's text.
+     Measured from the ROW's bottom edge, and inset to the row's own 12px
+     gutter, so it reads as a panel belonging to the row it came from. */
   top: calc(100% + 12px);
-  left: 0;
+  left: 12px;
   z-index: 3;
   display: -webkit-box;
   overflow: hidden;
