@@ -251,15 +251,20 @@ export function AccessScreen({
     },
   ];
 
+  /*
+   * No banner. The page header directly above this said the same two sentences
+   * — people sign in with Google, an invite sets the role and anyone without
+   * one waits here — and a screen that explains itself twice in four inches is
+   * a screen that trusts neither copy.
+   *
+   * The two facts the banner had that the header does not are now where they
+   * are actually needed rather than in a paragraph read once: that an account
+   * can hold more than one role is under the role picker in the approve
+   * dialog, and what deactivation does to open sessions is in the dialog that
+   * deactivates.
+   */
   return (
     <div className="stack">
-      <p className="callout">
-        People sign in with Google. An invite decides the roles an address gets the first time it
-        is used; anyone else who signs in lands in access requests and can reach nothing until you
-        answer. An account can hold more than one role. Deactivation preserves authorship and
-        history and takes effect immediately for sessions that are already open.
-      </p>
-
       <AccessRequestsPanel
         requests={requests}
         busy={busy}

@@ -30,6 +30,7 @@ export const MOMENTS = [
   'ticket.claimed',
   'device.returned',
   'signin.first',
+  'signin.first.phone',
   'friday.afternoon',
   'error.generic',
   'assistant.idle',
@@ -153,6 +154,27 @@ const COPY: Record<MomentId, MomentCopy> = {
       'Press {key} for anything. Paste a tag or a number and it jumps.',
       'One key worth knowing: {key} reaches everything you can see.',
       '{key} opens the palette. It is the short way through this app.',
+    ],
+  },
+  /*
+   * The same welcome, for a screen with no keyboard.
+   *
+   * A phone was being told to press Ctrl K on the one visit where the reader
+   * has no idea yet what this application is. Down there the palette is behind
+   * the Lookup button in the thumb's corner, so that is what the line names.
+   * The greetings are word for word the ones above: only the second line
+   * differs, because only the second line was ever about a keyboard.
+   */
+  'signin.first.phone': {
+    lines: [
+      'Welcome, {name}. This is the desk.',
+      'Welcome in, {name}. Everything starts here.',
+      'Welcome, {name}. You are on the helpdesk now.',
+    ],
+    follow: [
+      'Tap Lookup. It reaches anything you can see, and a pasted tag jumps.',
+      'One button worth knowing: Lookup reaches everything you can see.',
+      'Lookup opens the palette. It is the short way through this app.',
     ],
   },
   'friday.afternoon': {

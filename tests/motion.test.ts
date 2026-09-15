@@ -211,11 +211,13 @@ describe('the stack', () => {
 });
 
 describe('route skeletons', () => {
-  it('mirrors the administration page: header without an action, three tabs, a callout and four panels', () => {
+  it('mirrors the administration page: header without an action, three tabs and four panels', () => {
     const html = renderToStaticMarkup(h(AdminLoading));
     expect(html).toContain('aria-busy="true"');
     expect(html.match(/class="tab"/g)).toHaveLength(3);
-    expect(html.match(/class="callout"/g)).toHaveLength(1);
+    // No callout: the screen's banner said what the page header above it
+    // already said, and the skeleton has to reserve what actually arrives.
+    expect(html).not.toContain('class="callout"');
     expect(html.match(/class="panel"/g)).toHaveLength(4);
     // The header carries a title and a description bar only; no action placeholder.
     const header = html.slice(html.indexOf('class="page-header"'), html.indexOf('class="tabs"'));

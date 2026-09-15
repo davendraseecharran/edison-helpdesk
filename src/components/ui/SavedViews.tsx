@@ -111,7 +111,7 @@ export function SavedViews({ path, query, stored }: SavedViewsProps) {
   );
 
   const save = useCallback(() => {
-    const invalid = savedViewError(name, all);
+    const invalid = savedViewError(name, all, path, here);
     if (invalid) {
       setError(invalid);
       return;

@@ -32,7 +32,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useRuntime } from '@/components/AppRuntime';
 import { Button, ButtonLink } from '@/components/ui/Button';
-import { useApplePlatform, useReducedMotion } from '@/components/ui/media';
+import { useApplePlatform, usePhone, useReducedMotion } from '@/components/ui/media';
 import { useRowKeys } from '@/components/ui/useRowKeys';
 import { claimTicketsAction } from '@/lib/data/actions';
 import { markDeviceAvailableAction, returnDeviceAction } from '@/lib/data/device-actions';
@@ -534,6 +534,7 @@ function ClearState({
  */
 function FirstVisitNote({ mac, name }: { mac: boolean; name: string }) {
   const { actor } = useRuntime();
+  const phone = usePhone();
   const [dismissed, setDismissed] = useState(false);
 
   /*
@@ -565,7 +566,15 @@ function FirstVisitNote({ mac, name }: { mac: boolean; name: string }) {
   }, [actor.id]);
 
   if (welcomed || dismissed) return null;
-  const line = voiceLine('signin.first', { name, key: mac ? '⌘K' : 'Ctrl K' });
+  /*
+   * A phone has no Ctrl K and no ⌘K, and this is the one visit where the reader
+   * does not yet know what the application is — so it is the worst possible
+   * place to name a key that is not there. Down there the palette lives behind
+   * the Lookup button in the thumb's corner, and the line says so.
+   */
+  const line = phone
+    ? voiceLine('signin.first.phone', { name })
+    : voiceLine('signin.first', { name, key: mac ? '⌘K' : 'Ctrl K' });
   return (
     <div className="today-welcome">
       <p className="today-welcome-text">

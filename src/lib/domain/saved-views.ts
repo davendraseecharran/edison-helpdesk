@@ -28,6 +28,15 @@ export interface SavedView {
 /** What the database's CHECK allows, mirrored so a save is refused before the round trip. */
 export const SAVED_VIEW_LIMIT = 24;
 export const SAVED_VIEW_NAME_MAX = 60;
+/*
+ * `app_set_saved_views` also takes `left(path, 120)` and `left(query, 400)`,
+ * and truncation is worse than refusal here: a view saved with its filters cut
+ * short is a DIFFERENT view, it goes to a different list than the one it was
+ * saved from, and it never matches the current query so its chip never reads as
+ * current. Nothing said so, because only the name was checked.
+ */
+export const SAVED_VIEW_PATH_MAX = 120;
+export const SAVED_VIEW_QUERY_MAX = 400;
 
 /** Where a saved view goes. */
 export function viewHref(view: SavedView): string {
@@ -130,11 +139,29 @@ export function removeSavedView(list: readonly SavedView[], id: string): SavedVi
   return list.filter((entry) => entry.id !== id);
 }
 
-/** Why this view cannot be saved, or null. The same bounds the RPC enforces. */
-export function savedViewError(name: string, list: readonly SavedView[]): string | null {
+/**
+ * Why this view cannot be saved, or null. Every bound the RPC enforces.
+ *
+ * `path` and `query` are optional so the existing callers and tests that only
+ * ask about a name keep working; when they are given, the two caps the
+ * database silently truncates at are checked here instead, because a truncated
+ * view is not a shorter view, it is a different one.
+ */
+export function savedViewError(
+  name: string,
+  list: readonly SavedView[],
+  path?: string,
+  query?: string,
+): string | null {
   if (name.trim() === '') return 'Give the view a name so you can find it again.';
   if (name.trim().length > SAVED_VIEW_NAME_MAX) {
     return `A name can be up to ${SAVED_VIEW_NAME_MAX} characters.`;
+  }
+  if (path !== undefined && path.length > SAVED_VIEW_PATH_MAX) {
+    return 'This page has too long an address to save as a view.';
+  }
+  if (query !== undefined && query.length > SAVED_VIEW_QUERY_MAX) {
+    return 'That is more filtering than a saved view holds. Remove a filter or two and save again.';
   }
   if (list.length >= SAVED_VIEW_LIMIT) {
     return `You can keep up to ${SAVED_VIEW_LIMIT} saved views. Remove one and save again.`;

@@ -4,13 +4,12 @@ import {
   SkeletonPageHeader,
   SkeletonPanel,
   SkeletonRows,
-  SkeletonText,
 } from '@/components/ui/Skeleton';
 
 /**
  * Administration: the page header (no action), the tab row, then the access
- * screen's stack: a callout, the access requests panel, the accounts table,
- * invites and password accounts, as `AccessScreen` lays them out.
+ * screen's stack: the access requests panel, the accounts table, invites and
+ * password accounts, as `AccessScreen` lays them out.
  */
 export default function Loading() {
   return (
@@ -24,9 +23,6 @@ export default function Loading() {
         ))}
       </nav>
       <div className="stack" aria-hidden="true">
-        <div className="callout">
-          <SkeletonText lines={2} />
-        </div>
         <SkeletonPanel title={112} flush>
           <SkeletonRows rows={2} facts={2} />
         </SkeletonPanel>

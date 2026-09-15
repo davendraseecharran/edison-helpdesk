@@ -6,6 +6,8 @@ import {
   removeSavedView,
   SAVED_VIEW_LIMIT,
   SAVED_VIEW_NAME_MAX,
+  SAVED_VIEW_PATH_MAX,
+  SAVED_VIEW_QUERY_MAX,
   savedViewError,
   viewFromRow,
   viewHref,
@@ -150,8 +152,23 @@ describe('savedViewError', () => {
     expect(savedViewError('Another', full)).toContain('up to 24 saved views');
   });
 
+  /*
+   * The RPC does not refuse a long path or a long query, it TRUNCATES them —
+   * and a truncated view is not a shorter view, it is a different one: it goes
+   * to a different list than the one it was saved from and never matches the
+   * current query, so its chip never reads as current. Refusing beats saving
+   * something that quietly is not what was asked for.
+   */
+  it('refuses filters longer than the column takes, rather than letting them be cut', () => {
+    expect(savedViewError('Everything', [], '/queue', 'q='.concat('x'.repeat(SAVED_VIEW_QUERY_MAX))))
+      .toContain('more filtering than a saved view holds');
+    expect(savedViewError('Everything', [], `/${'x'.repeat(SAVED_VIEW_PATH_MAX)}`, ''))
+      .toContain('too long an address');
+  });
+
   it('is happy with a name and room', () => {
     expect(savedViewError('Room 214', [])).toBeNull();
+    expect(savedViewError('Room 214', [], '/queue', 'room=214')).toBeNull();
   });
 });
 

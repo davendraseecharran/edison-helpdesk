@@ -154,7 +154,11 @@ export function preferencePatch(patch: PreferencePatch): PatchResult {
 
   if (patch.aiReasoning !== undefined) {
     if (!isReasoningEffort(patch.aiReasoning)) {
-      return { ok: false, error: 'Choose a reasoning level: low, medium, high, xhigh or max.' };
+      // The words the interface offers, in the interface's own spelling. `low`
+      // and `medium` are still accepted values — older accounts carry them —
+      // but no screen offers either, so naming them in the message sends the
+      // reader looking for a control that is not there.
+      return { ok: false, error: 'Choose High, Extra high or Max.' };
     }
     out.ai_reasoning = patch.aiReasoning;
   }
