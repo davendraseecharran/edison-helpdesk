@@ -493,7 +493,7 @@ setup of the project itself and its order still stands; this section is the
 release.
 
 **What is pending.** The hosted project carries the nineteen migrations through
-`20260914010000_staff_directory_options.sql`. This branch adds thirty-three
+`20260914010000_staff_directory_options.sql`. This branch adds thirty-six
 more, every one of them numbered `20260914100000` or above precisely so that
 they apply *after* the owner's four (`20260912210000`, `20260912220000`,
 `20260913150000`, `20260914010000`) and build on the live `requesters`,
@@ -505,13 +505,13 @@ is restated tighter (`tickets_select_visible`, `20260914140000`), five owner
 functions are replaced in place at the same names (`app_set_account_role` is
 superseded by `app_set_account_roles`, and four inventory and directory RPCs
 are dropped and recreated with their grants restated), and one column is added
-(`requesters.archived_at`, `if not exists`). Every one of the thirty-three also sorts
+(`requesters.archived_at`, `if not exists`). Every one of the thirty-six also sorts
 strictly after the highest version the hosted project holds, so `db push`
 applies them in version order and never needs `--include-all` to accept an
 out-of-order file. Confirm the list before you push:
 
 ```bash
-npx supabase migration list --linked   # nothing local pending, 33 remote-missing
+npx supabase migration list --linked   # nothing local pending, 36 remote-missing
 ```
 
 **Pre-flight, before the push.**
@@ -536,7 +536,7 @@ npx supabase migration list --linked   # nothing local pending, 33 remote-missin
 **The release.**
 
 ```bash
-npx supabase db push        # applies the 33 pending migrations, in version order
+npx supabase db push        # applies the 36 pending migrations, in version order
 vercel --prod --skip-domain # build and deploy
 # then promote the alias once the deployment is Ready and checked
 ```
@@ -581,9 +581,9 @@ Studio ports are the defaults 54321/54322/54323; this machine runs on 55321/2/3
 through the same uncommitted patch, and lane 2 on 56321/2/3 with its own
 `project_id`.
 
-**The rehearsal.** Applying these thirty-three migrations onto a database
+**The rehearsal.** Applying these thirty-six migrations onto a database
 holding exactly the owner's nineteen — which is what `db push` will do — was
-run end to end on a second local stack on 2026-09-14. The database was first
+run end to end on a second local stack on 2026-09-14 and again, with the final set, on 2026-09-15. The database was first
 rebuilt from `origin/main`'s nineteen migration files alone, and only then were
 this branch's files dropped in and applied forward. It needed no manual step,
 no edit and no reordering.
@@ -598,16 +598,16 @@ npx supabase db reset --local
 npx supabase migration list --local        # 19 rows, local == remote on every one
 
 # 2. this branch's migrations applied forward, which is what db push does
-cp -a <branch>/supabase/migrations supabase/migrations         # 52 files
+cp -a <branch>/supabase/migrations supabase/migrations         # 55 files
 npx supabase migration up --local --include-all
 # -> Applying migration 20260914100000_m5_foundation.sql
-# -> ... 33 files ...
-# -> Applying migration 20260914170100_m5_public_totals_retire.sql
-# -> {"applied":[ ...33 paths... ],"message":"Migrations applied"}
-npx supabase migration list --local        # 52 rows, local == remote on every one
+# -> ... 36 files ...
+# -> Applying migration 20260915010100_m5_usable_admin_google.sql
+# -> {"applied":[ ...36 paths... ],"message":"Migrations applied"}
+npx supabase migration list --local        # 55 rows, local == remote on every one
 
 # 3. the suites, against that database
-npx vitest run --config vitest.db.config.mts    # 427 of 428 — see below
+npx vitest run --config vitest.db.config.mts    # 442 tests, 33 files, all passing
 npx vitest run --config vitest.auth.config.mts  # 53 tests, 7 files, all passing
 ```
 
