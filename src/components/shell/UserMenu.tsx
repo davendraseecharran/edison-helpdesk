@@ -1,33 +1,25 @@
-"use client";
+'use client';
 
-import { useCallback, useState } from "react";
-import Link from "next/link";
-import { CircleUserRound, Monitor, Moon, Settings, Sun } from "lucide-react";
-import { useRuntime } from "@/components/AppRuntime";
-import { rolesLabel } from "@/lib/auth/roles";
-import { Avatar } from "@/components/Primitives";
-import { SignOutButton } from "@/components/auth/SignOutButton";
-import { Icon } from "@/components/ui/Icon";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { Sheet } from "@/components/ui/Sheet";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/shadcn/popover";
-import { usePhone } from "@/components/ui/media";
-import { useThemeChoice } from "./ThemeProvider";
-import type { ThemePreference } from "./theme-script";
+import { useCallback, useState } from 'react';
+import Link from 'next/link';
+import { CircleUserRound, Monitor, Moon, Settings, Sun } from 'lucide-react';
+import { useRuntime } from '@/components/AppRuntime';
+import { rolesLabel } from '@/lib/auth/roles';
+import { Avatar } from '@/components/Primitives';
+import { SignOutButton } from '@/components/auth/SignOutButton';
+import { Icon } from '@/components/ui/Icon';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { Sheet } from '@/components/ui/Sheet';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
+import { usePhone } from '@/components/ui/media';
+import { useThemeChoice } from './ThemeProvider';
+import type { ThemePreference } from './theme-script';
 
 /** Dark first: it is what the application ships with. */
-const THEME_OPTIONS: {
-  value: ThemePreference;
-  label: string;
-  icon: typeof Sun;
-}[] = [
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "light", label: "Light", icon: Sun },
-  { value: "system", label: "System", icon: Monitor },
+const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'system', label: 'System', icon: Monitor },
 ];
 
 function AccountPanel({ onNavigate }: { onNavigate: () => void }) {
@@ -96,13 +88,7 @@ export function UserMenu() {
     return (
       <>
         {trigger}
-        <Sheet
-          side="bottom"
-          title="Account"
-          open={open}
-          onClose={close}
-          hideTitle
-        >
+        <Sheet side="bottom" title="Account" open={open} onClose={close} hideTitle>
           <AccountPanel onNavigate={close} />
         </Sheet>
       </>

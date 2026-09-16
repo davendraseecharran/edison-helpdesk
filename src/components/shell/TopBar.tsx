@@ -113,7 +113,7 @@ function NewTicketButton({ shortcut }: { shortcut: boolean }) {
         )
       }
     >
-      <ButtonLink href="/tickets/new" variant="primary" icon={Plus} collapseOnPhone>
+      <ButtonLink href="/tickets/new" variant="primary" size="sm" icon={Plus} collapseOnPhone>
         New ticket
       </ButtonLink>
     </Tooltip>

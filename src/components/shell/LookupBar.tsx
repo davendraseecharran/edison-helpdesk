@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 /**
  * The command palette: the one bold element of the interface.
@@ -28,44 +28,27 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
-} from "react";
-import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
-import { Command } from "cmdk";
-import { ThinkingOrb } from "thinking-orbs";
-import {
-  Hand,
-  MessageCircle,
-  Plus,
-  QrCode,
-  Search,
-  Settings,
-  SunMoon,
-  X,
-} from "lucide-react";
-import { useRuntime } from "@/components/AppRuntime";
-import { Button } from "@/components/ui/Button";
-import { Icon } from "@/components/ui/Icon";
-import { OpenBeam } from "@/components/ui/OpenBeam";
-import {
-  useBodyScrollLock,
-  useEscape,
-  useFocusTrap,
-} from "@/components/ui/focus";
-import { useApplePlatform, usePhone } from "@/components/ui/media";
-import { AnimatePresence, SpringSurface } from "@/components/ui/Motion";
-import { claimTicketAction } from "@/lib/data/actions";
-import { lookupDeviceCodeAction } from "@/lib/data/device-actions";
-import {
-  matchesQuery,
-  type RecentItem,
-  type SearchHit,
-} from "@/lib/data/search";
-import { targetKind } from "@/lib/lookup/recognise";
-import { asksFirst, readAsk } from "@/lib/lookup/ask";
-import { routeScannedCode } from "@/lib/scan/route";
-import type { QueueCounts } from "@/lib/data/tickets";
-import type { ThemePreference } from "./theme-script";
+} from 'react';
+import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
+import { Command } from 'cmdk';
+import { ThinkingOrb } from 'thinking-orbs';
+import { Hand, MessageCircle, Plus, QrCode, Search, Settings, SunMoon, X } from 'lucide-react';
+import { useRuntime } from '@/components/AppRuntime';
+import { Button } from '@/components/ui/Button';
+import { Icon } from '@/components/ui/Icon';
+import { OpenBeam } from '@/components/ui/OpenBeam';
+import { useBodyScrollLock, useEscape, useFocusTrap } from '@/components/ui/focus';
+import { useApplePlatform, usePhone } from '@/components/ui/media';
+import { AnimatePresence, SpringSurface } from '@/components/ui/Motion';
+import { claimTicketAction } from '@/lib/data/actions';
+import { lookupDeviceCodeAction } from '@/lib/data/device-actions';
+import { matchesQuery, type RecentItem, type SearchHit } from '@/lib/data/search';
+import { targetKind } from '@/lib/lookup/recognise';
+import { asksFirst, readAsk } from '@/lib/lookup/ask';
+import { routeScannedCode } from '@/lib/scan/route';
+import type { QueueCounts } from '@/lib/data/tickets';
+import type { ThemePreference } from './theme-script';
 import {
   ActionItem,
   actionValue,
@@ -73,16 +56,16 @@ import {
   hitValue,
   RecentRow,
   type LookupAction,
-} from "./LookupResults";
-import { canWorkTickets } from "@/lib/auth/roles";
-import { navItems } from "./RailNav";
-import { ScanButton } from "./ScanButton";
-import { useTheme, useThemeChoice } from "./ThemeProvider";
-import { openAssistant } from "./TopBar";
-import { useLookup } from "./useLookup";
+} from './LookupResults';
+import { canWorkTickets } from '@/lib/auth/roles';
+import { navItems } from './RailNav';
+import { ScanButton } from './ScanButton';
+import { useTheme, useThemeChoice } from './ThemeProvider';
+import { openAssistant } from './TopBar';
+import { useLookup } from './useLookup';
 
 /** Dispatched on `window` to open the phone-scanner pairing dialog. `detail.target` names who wants the code. */
-export const OPEN_SCANNER_EVENT = "edison:open-scanner";
+export const OPEN_SCANNER_EVENT = 'edison:open-scanner';
 
 /**
  * Open the phone-scanner pairing dialog the shell owns.
@@ -93,17 +76,15 @@ export const OPEN_SCANNER_EVENT = "edison:open-scanner";
  * mounts its own dialog, because only that field knows where the code goes.
  */
 export function openScanner(): void {
-  window.dispatchEvent(
-    new CustomEvent(OPEN_SCANNER_EVENT, { detail: { target: "lookup" } }),
-  );
+  window.dispatchEvent(new CustomEvent(OPEN_SCANNER_EVENT, { detail: { target: 'lookup' } }));
 }
 
 /** Who the scanner event says wants the code, or null when it did not say. */
 export function readScanTarget(event: Event): string | null {
   const detail = (event as CustomEvent<unknown>).detail;
-  if (detail === null || typeof detail !== "object") return null;
+  if (detail === null || typeof detail !== 'object') return null;
   const target = (detail as Record<string, unknown>).target;
-  return typeof target === "string" ? target : null;
+  return typeof target === 'string' ? target : null;
 }
 
 /**
@@ -118,21 +99,19 @@ export function readScanTarget(event: Event): string | null {
  * the text, because the palette's state is discarded on every close. Both fire
  * in the same dispatch, so the palette mounts with the code already in it.
  */
-export const OPEN_LOOKUP_EVENT = "edison:open-lookup";
+export const OPEN_LOOKUP_EVENT = 'edison:open-lookup';
 
 /** The text an `edison:open-lookup` event carries, or null if it carried none. */
 function readLookupQuery(event: Event): string | null {
   const detail = (event as CustomEvent<unknown>).detail;
-  if (detail === null || typeof detail !== "object") return null;
+  if (detail === null || typeof detail !== 'object') return null;
   const query = (detail as Record<string, unknown>).query;
-  return typeof query === "string" && query.trim() !== "" ? query : null;
+  return typeof query === 'string' && query.trim() !== '' ? query : null;
 }
 
 /** Open the palette with `query` already in the field. */
 export function openLookup(query: string): void {
-  window.dispatchEvent(
-    new CustomEvent(OPEN_LOOKUP_EVENT, { detail: { query } }),
-  );
+  window.dispatchEvent(new CustomEvent(OPEN_LOOKUP_EVENT, { detail: { query } }));
 }
 
 /** One request to seed the palette. The counter makes a repeat a new request. */
@@ -143,7 +122,7 @@ interface LookupSeed {
 
 /** The palette's actions do not show counts, so the navigation needs none. */
 /** The heading every navigation row sits under, instead of in every label. */
-const GO_TO = "Go to";
+const GO_TO = 'Go to';
 
 const NO_COUNTS: QueueCounts = {
   openQueue: 0,
@@ -154,15 +133,15 @@ const NO_COUNTS: QueueCounts = {
 };
 
 const NEXT_THEME: Record<ThemePreference, ThemePreference> = {
-  dark: "light",
-  light: "system",
-  system: "dark",
+  dark: 'light',
+  light: 'system',
+  system: 'dark',
 };
 
 const THEME_LABEL: Record<ThemePreference, string> = {
-  dark: "Dark",
-  light: "Light",
-  system: "System",
+  dark: 'Dark',
+  light: 'Light',
+  system: 'System',
 };
 
 function subscribeToNothing(): () => void {
@@ -184,11 +163,9 @@ export function LookupTrigger({ onOpen }: { onOpen: () => void }) {
       onClick={onOpen}
     >
       <Icon icon={Search} size={18} />
-      <span className="lookup-trigger-text">
-        Search tickets, people, devices
-      </span>
+      <span className="lookup-trigger-text">Search tickets, people, devices</span>
       <kbd className="kbd" aria-hidden="true">
-        {mac ? "⌘K" : "Ctrl K"}
+        {mac ? '⌘K' : 'Ctrl K'}
       </kbd>
     </button>
   );
@@ -325,11 +302,8 @@ function Palette({
   const onScan = useCallback(
     (code: string) => {
       void (async () => {
-        const route = routeScannedCode(
-          code,
-          await lookupDeviceCodeAction(code),
-        );
-        if (route.kind === "device") {
+        const route = routeScannedCode(code, await lookupDeviceCodeAction(code));
+        if (route.kind === 'device') {
           onClose();
           router.push(route.href);
         } else {
@@ -350,15 +324,10 @@ function Palette({
       onClose();
       const hit = await findTicket(number);
       if (!hit) {
-        notify(
-          "error",
-          `Ticket ${number} was not found. Check the number and try again.`,
-        );
+        notify('error', `Ticket ${number} was not found. Check the number and try again.`);
         return;
       }
-      const result = await run(`claim:${hit.id}`, () =>
-        claimTicketAction(hit.id, number),
-      );
+      const result = await run(`claim:${hit.id}`, () => claimTicketAction(hit.id, number));
       if (result.ok) router.push(hit.href);
     },
     [onClose, findTicket, notify, run, router],
@@ -375,11 +344,7 @@ function Palette({
    * not move under a finger already on the way to the key.
    */
   const ask = useMemo(
-    () =>
-      readAsk(
-        lookup.query,
-        !searchable || lookup.loading || lookup.hits.length > 0,
-      ),
+    () => readAsk(lookup.query, !searchable || lookup.loading || lookup.hits.length > 0),
     [lookup.query, searchable, lookup.loading, lookup.hits.length],
   );
 
@@ -392,11 +357,11 @@ function Palette({
 
     if (ticketNumber && canWorkTickets(actor.roles)) {
       list.push({
-        id: "claim",
+        id: 'claim',
         label: `Claim ${ticketNumber}`,
         icon: Hand,
         keywords: [],
-        subtitle: "Take ownership and open the ticket",
+        subtitle: 'Take ownership and open the ticket',
         always: true,
         run: () => claim(ticketNumber),
       });
@@ -406,11 +371,11 @@ function Palette({
     // offering either would be an action that ends in a refusal.
     if (canWorkTickets(actor.roles)) {
       list.push({
-        id: "new-ticket",
-        label: "New ticket",
+        id: 'new-ticket',
+        label: 'New ticket',
         icon: Plus,
-        keywords: ["create", "intake", "log"],
-        run: go("/tickets/new"),
+        keywords: ['create', 'intake', 'log'],
+        run: go('/tickets/new'),
       });
     }
 
@@ -423,25 +388,25 @@ function Palette({
         label: item.label,
         icon: item.icon,
         group: GO_TO,
-        keywords: ["page", "open", "go to", item.label],
+        keywords: ['page', 'open', 'go to', item.label],
         run: go(item.href),
       });
     }
     list.push({
-      id: "go:/settings",
-      label: "Settings",
+      id: 'go:/settings',
+      label: 'Settings',
       icon: Settings,
       group: GO_TO,
-      keywords: ["page", "open", "go to", "preferences", "account"],
-      run: go("/settings"),
+      keywords: ['page', 'open', 'go to', 'preferences', 'account'],
+      run: go('/settings'),
     });
 
     const next = NEXT_THEME[theme];
     list.push({
-      id: "theme",
-      label: "Toggle theme",
+      id: 'theme',
+      label: 'Toggle theme',
       icon: SunMoon,
-      keywords: ["dark", "light", "system", "appearance", "mode"],
+      keywords: ['dark', 'light', 'system', 'appearance', 'mode'],
       meta: `${THEME_LABEL[next]} next`,
       run: () => {
         onClose();
@@ -460,15 +425,15 @@ function Palette({
      */
     const asked = ask.prompt;
     list.push({
-      id: "ask",
-      label: asked === "" ? "Ask the assistant" : `Ask the assistant: ${asked}`,
+      id: 'ask',
+      label: asked === '' ? 'Ask the assistant' : `Ask the assistant: ${asked}`,
       icon: MessageCircle,
-      keywords: ["ai", "help", "question", "assistant"],
+      keywords: ['ai', 'help', 'question', 'assistant'],
       subtitle:
-        ask.rank === "forced"
+        ask.rank === 'forced'
           ? undefined
-          : ask.rank === "likely"
-            ? "This reads like a question"
+          : ask.rank === 'likely'
+            ? 'This reads like a question'
             : undefined,
       always: true,
       run: () => {
@@ -478,12 +443,12 @@ function Palette({
     });
 
     list.push({
-      id: "scan-phone",
-      label: "Scan with your phone",
+      id: 'scan-phone',
+      label: 'Scan with your phone',
       // The same glyph the top bar and the More sheet use. One action drawn
       // two ways is two actions as far as anybody looking is concerned.
       icon: QrCode,
-      keywords: ["barcode", "camera", "qr", "pair", "scanner"],
+      keywords: ['barcode', 'camera', 'qr', 'pair', 'scanner'],
       run: () => {
         onClose();
         openScanner();
@@ -496,8 +461,7 @@ function Palette({
   const visibleActions = useMemo(
     () =>
       actions.filter(
-        (action) =>
-          action.always || matchesQuery(action.label, action.keywords, term),
+        (action) => action.always || matchesQuery(action.label, action.keywords, term),
       ),
     [actions, term],
   );
@@ -507,8 +471,7 @@ function Palette({
   const commands = useMemo(
     () =>
       visibleActions.filter(
-        (action) =>
-          action.group !== GO_TO && !(asksFirst(ask) && action.id === "ask"),
+        (action) => action.group !== GO_TO && !(asksFirst(ask) && action.id === 'ask'),
       ),
     [visibleActions, ask],
   );
@@ -528,7 +491,7 @@ function Palette({
    * where it has always been. It is never in both places.
    */
   const askAction = useMemo(
-    () => visibleActions.find((action) => action.id === "ask") ?? null,
+    () => visibleActions.find((action) => action.id === 'ask') ?? null,
     [visibleActions],
   );
   const askLeads = asksFirst(ask) && askAction !== null;
@@ -554,17 +517,11 @@ function Palette({
      */
     const named = targetKind(lookup.recognition.kind);
     const preferred =
-      named === "device"
-        ? devices[0]
-        : named === "person"
-          ? people[0]
-          : named === "ticket"
-            ? tickets[0]
-            : undefined;
+      named === 'device' ? devices[0] : named === 'person' ? people[0] : named === 'ticket' ? tickets[0] : undefined;
     const hit = preferred ?? tickets[0] ?? people[0] ?? devices[0];
     if (searchable && hit) return hitValue(hit);
     const head = commands[0] ?? destinations[0];
-    return head ? actionValue(head) : "";
+    return head ? actionValue(head) : '';
   }, [
     askLeads,
     askAction,
@@ -591,152 +548,141 @@ function Palette({
   useEffect(() => {
     const input = inputRef.current;
     if (!input) return;
-    const active = panelRef.current?.querySelector(
-      '[cmdk-item][data-selected="true"]',
-    );
-    if (active?.id) input.setAttribute("aria-activedescendant", active.id);
-    else input.removeAttribute("aria-activedescendant");
+    const active = panelRef.current?.querySelector('[cmdk-item][data-selected="true"]');
+    if (active?.id) input.setAttribute('aria-activedescendant', active.id);
+    else input.removeAttribute('aria-activedescendant');
   });
 
   // "Nothing matches" is about records. It stays quiet while a typed command
   // matched, since that is exactly what the person wanted.
-  const nothingMatches =
-    lookup.empty && visibleActions.every((action) => action.always);
+  const nothingMatches = lookup.empty && visibleActions.every((action) => action.always);
 
   return (
     <SpringSurface
-      kind={phone ? "sheet" : "dialog"}
+      kind={phone ? 'sheet' : 'dialog'}
       side="bottom"
       panelRef={panelRef}
       panelClassName={
         phone
-          ? "overlay-panel sheet sheet-bottom palette palette-sheet"
-          : "overlay-panel dialog palette"
+          ? 'overlay-panel sheet sheet-bottom palette palette-sheet'
+          : 'overlay-panel dialog palette'
       }
       panelProps={{
-        role: "dialog",
-        "aria-modal": true,
-        "aria-labelledby": titleId,
+        role: 'dialog',
+        'aria-modal': true,
+        'aria-labelledby': titleId,
         tabIndex: -1,
       }}
       instant
       onBackdropPress={onClose}
     >
       <OpenBeam className="palette-beam" once="palette">
-        <div className="palette-frame">
-          <h2 id={titleId} className="visually-hidden">
-            Lookup
-          </h2>
-          <Command
-            label="Lookup"
-            className="palette-command"
-            shouldFilter={false}
-            loop
-            vimBindings={false}
-            value={selected}
-            onValueChange={setSelected}
-          >
-            <div className="palette-input-row">
-              <Icon icon={Search} size={18} className="palette-input-icon" />
-              <Command.Input
-                ref={inputRef}
-                className="palette-input"
-                value={lookup.query}
-                onValueChange={setQuery}
-                placeholder="Search tickets, people, devices"
-                enterKeyHint="go"
-                data-autofocus=""
+      <div className="palette-frame">
+        <h2 id={titleId} className="visually-hidden">
+          Lookup
+        </h2>
+        <Command
+          label="Lookup"
+          className="palette-command"
+          shouldFilter={false}
+          loop
+          vimBindings={false}
+          value={selected}
+          onValueChange={setSelected}
+        >
+          <div className="palette-input-row">
+            <Icon icon={Search} size={18} className="palette-input-icon" />
+            <Command.Input
+              ref={inputRef}
+              className="palette-input"
+              value={lookup.query}
+              onValueChange={setQuery}
+              placeholder="Search tickets, people, devices"
+              enterKeyHint="go"
+              data-autofocus=""
+            />
+            <div className="palette-input-end">
+              <span className="palette-orb">
+                {lookup.loading ? (
+                  <ThinkingOrb
+                    state="searching"
+                    size={20}
+                    theme={resolved}
+                    aria-label="Searching"
+                  />
+                ) : null}
+              </span>
+              <ScanButton onDetect={onScan} onOpenChange={setScanOpen} />
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={X}
+                className="palette-close"
+                aria-label="Close"
+                onClick={onClose}
               />
-              <div className="palette-input-end">
-                <span className="palette-orb">
-                  {lookup.loading ? (
-                    <ThinkingOrb
-                      state="searching"
-                      size={20}
-                      theme={resolved}
-                      aria-label="Searching"
-                    />
-                  ) : null}
-                </span>
-                <ScanButton onDetect={onScan} onOpenChange={setScanOpen} />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={X}
-                  className="palette-close"
-                  aria-label="Close"
-                  onClick={onClose}
-                />
-              </div>
             </div>
+          </div>
 
-            <Command.List className="palette-list" label="Results">
-              {askLeads && askAction ? (
-                <Command.Group heading="Assistant">
-                  <ActionItem action={askAction} />
-                </Command.Group>
-              ) : null}
+          <Command.List className="palette-list" label="Results">
+            {askLeads && askAction ? (
+              <Command.Group heading="Assistant">
+                <ActionItem action={askAction} />
+              </Command.Group>
+            ) : null}
 
-              {showRecent ? (
-                <Command.Group heading="Recent">
-                  {lookup.recent.map((item) => (
-                    <RecentRow
-                      key={`${item.kind}:${item.id}`}
-                      item={item}
-                      onSelect={openRecent}
-                    />
-                  ))}
-                </Command.Group>
-              ) : null}
+            {showRecent ? (
+              <Command.Group heading="Recent">
+                {lookup.recent.map((item) => (
+                  <RecentRow key={`${item.kind}:${item.id}`} item={item} onSelect={openRecent} />
+                ))}
+              </Command.Group>
+            ) : null}
 
-              {searchable ? (
-                <HitGroups
-                  groups={lookup.groups}
-                  recognition={lookup.recognition}
-                  onSelect={openHit}
-                />
-              ) : null}
+            {searchable ? (
+              <HitGroups groups={lookup.groups} recognition={lookup.recognition} onSelect={openHit} />
+            ) : null}
 
-              {nothingMatches ? (
-                <p className="palette-empty" role="status">
-                  Nothing matches. Try an asset tag, OSIS or ticket number.
-                </p>
-              ) : null}
+            {nothingMatches ? (
+              <p className="palette-empty" role="status">
+                Nothing matches. Try an asset tag, OSIS or ticket number.
+              </p>
+            ) : null}
 
-              {commands.length > 0 ? (
-                <Command.Group heading="Actions">
-                  {commands.map((action) => (
-                    <ActionItem key={action.id} action={action} />
-                  ))}
-                </Command.Group>
-              ) : null}
+            {commands.length > 0 ? (
+              <Command.Group heading="Actions">
+                {commands.map((action) => (
+                  <ActionItem key={action.id} action={action} />
+                ))}
+              </Command.Group>
+            ) : null}
 
-              {destinations.length > 0 ? (
-                <Command.Group heading={GO_TO}>
-                  {destinations.map((action) => (
-                    <ActionItem key={action.id} action={action} />
-                  ))}
-                </Command.Group>
-              ) : null}
-            </Command.List>
+            {destinations.length > 0 ? (
+              <Command.Group heading={GO_TO}>
+                {destinations.map((action) => (
+                  <ActionItem key={action.id} action={action} />
+                ))}
+              </Command.Group>
+            ) : null}
+          </Command.List>
 
-            <footer className="palette-foot" aria-hidden="true">
-              <span className="palette-hint">
-                <kbd className="kbd">↑</kbd>
-                <kbd className="kbd">↓</kbd>
-                move
-              </span>
-              <span className="palette-hint">
-                <kbd className="kbd">↵</kbd>
-                open
-              </span>
-              <span className="palette-hint">
-                <kbd className="kbd">esc</kbd>
-                close
-              </span>
-            </footer>
-          </Command>
-        </div>
+          <footer className="palette-foot" aria-hidden="true">
+            <span className="palette-hint">
+              <kbd className="kbd">↑</kbd>
+              <kbd className="kbd">↓</kbd>
+              move
+            </span>
+            <span className="palette-hint">
+              <kbd className="kbd">↵</kbd>
+              open
+            </span>
+            <span className="palette-hint">
+              <kbd className="kbd">esc</kbd>
+              close
+            </span>
+          </footer>
+        </Command>
+      </div>
       </OpenBeam>
     </SpringSurface>
   );
