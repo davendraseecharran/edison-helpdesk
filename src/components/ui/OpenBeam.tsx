@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   useEffect,
@@ -7,9 +7,9 @@ import {
   useSyncExternalStore,
   type CSSProperties,
   type ReactNode,
-} from 'react';
-import { BorderBeam } from 'border-beam';
-import { useReducedMotion } from './media';
+} from "react";
+import { BorderBeam } from "border-beam";
+import { useReducedMotion } from "./media";
 
 /**
  * Seconds for the single pass. One slow lap reads as the surface coming to
@@ -25,17 +25,18 @@ export const BEAM_CYCLE_S = 3;
  * lifted a little because the `mono` preset is tuned for a card, not a dialog.
  */
 const LAYER_STYLE = {
-  position: 'absolute',
-  inset: '-1px',
+  position: "absolute",
+  inset: "-1px",
   zIndex: 2,
-  pointerEvents: 'none',
-  '--beam-bloom-opacity': 1.6,
-  '--beam-inner-opacity': 1,
+  pointerEvents: "none",
+  "--beam-bloom-opacity": 1.6,
+  "--beam-inner-opacity": 1,
 } as CSSProperties;
 
 /** The stroke: a 2px ring on the surface's border, lit where the beam's head is. */
 function strokeRule(id: string): string {
-  const ring = 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)';
+  const ring =
+    "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)";
   return `[data-beam="${id}"][data-active]::after, [data-beam="${id}"][data-fading]::after {
   padding: 2px;
   background: conic-gradient(
@@ -52,19 +53,46 @@ function strokeRule(id: string): string {
 }`;
 }
 
+/**
+ * Whether this surface has already come to life in this tab. Session-scoped:
+ * the lap is the surface's entrance for a visit, not a one-time unboxing, and
+ * a new tab is a new visit. Storage can be missing or refused (a private
+ * window, a strict browser); then the beam simply plays.
+ */
+function wasSeen(key: string): boolean {
+  try {
+    return sessionStorage.getItem(`beam:${key}`) !== null;
+  } catch {
+    return false;
+  }
+}
+
+function markSeen(key: string): void {
+  try {
+    sessionStorage.setItem(`beam:${key}`, "1");
+  } catch {
+    // Nothing to do: the beam plays again next time, which is the fallback.
+  }
+}
+
 function subscribeToThemeAttribute(onChange: () => void): () => void {
   const observer = new MutationObserver(onChange);
-  observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-theme"],
+  });
   return () => observer.disconnect();
 }
 
-function readTheme(): 'dark' | 'light' {
-  return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+function readTheme(): "dark" | "light" {
+  return document.documentElement.getAttribute("data-theme") === "light"
+    ? "light"
+    : "dark";
 }
 
 /** The painted theme, read from the root attribute the ThemeProvider stamps. Dark on the server, as the boot script is. */
-function readThemeOnServer(): 'dark' | 'light' {
-  return 'dark';
+function readThemeOnServer(): "dark" | "light" {
+  return "dark";
 }
 
 /**
@@ -76,29 +104,49 @@ function readThemeOnServer(): 'dark' | 'light' {
  * input would lose its focus and its text otherwise), and it ignores the
  * pointer.
  *
- * It goes around an input — the assistant's composer — and nothing else. Around
- * a whole panel it was a frame drawing attention to itself; around the box you
+ * It goes around the two surfaces that open to take typing — the assistant's
+ * composer and the command palette — and nothing else. Around the box you
  * are about to type in, it says where to start. Nothing runs while the
  * assistant is streaming: the orb carries that. Under
  * `prefers-reduced-motion` the layer is never rendered.
+ *
+ * With `once`, the lap plays the first time that surface opens in a tab and
+ * not again: an entrance is only an entrance once, and the same light on
+ * every open is a spinner with extra steps.
  */
 export function OpenBeam({
   children,
   cycles = 1,
   className,
+  once,
 }: {
   children: ReactNode;
   cycles?: number;
   className?: string;
+  /** A name for the surface; the lap plays once per tab session for each name. */
+  once?: string;
 }) {
   const reduced = useReducedMotion();
-  const theme = useSyncExternalStore(subscribeToThemeAttribute, readTheme, readThemeOnServer);
-  const [phase, setPhase] = useState<'on' | 'off' | 'gone'>('on');
+  const theme = useSyncExternalStore(
+    subscribeToThemeAttribute,
+    readTheme,
+    readThemeOnServer,
+  );
+  const [phase, setPhase] = useState<"on" | "off" | "gone">(() =>
+    once !== undefined && wasSeen(once) ? "gone" : "on",
+  );
   const ghostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (once !== undefined) markSeen(once);
+  }, [once]);
+
+  useEffect(() => {
     if (reduced) return;
-    const timer = window.setTimeout(() => setPhase('off'), cycles * BEAM_CYCLE_S * 1000);
+    const timer = window.setTimeout(
+      () => setPhase((current) => (current === "on" ? "off" : current)),
+      cycles * BEAM_CYCLE_S * 1000,
+    );
     return () => window.clearTimeout(timer);
   }, [cycles, reduced]);
 
@@ -112,18 +160,18 @@ export function OpenBeam({
   // and sits after the library's own stylesheet, which is what lets it win.
   useEffect(() => {
     const ghost = ghostRef.current;
-    const id = ghost?.parentElement?.getAttribute('data-beam');
+    const id = ghost?.parentElement?.getAttribute("data-beam");
     if (!ghost || !id) return;
-    const style = document.createElement('style');
+    const style = document.createElement("style");
     style.textContent = strokeRule(id);
     ghost.appendChild(style);
     return () => style.remove();
   }, [reduced]);
 
   return (
-    <div className={className ? `open-beam ${className}` : 'open-beam'}>
+    <div className={className ? `open-beam ${className}` : "open-beam"}>
       {children}
-      {!reduced && phase !== 'gone' ? (
+      {!reduced && phase !== "gone" ? (
         <BorderBeam
           className="open-beam-layer"
           // Inline, because the library injects its own `[data-beam]` rules
@@ -135,8 +183,8 @@ export function OpenBeam({
           strength={0.35}
           duration={BEAM_CYCLE_S}
           staticColors
-          active={phase === 'on'}
-          onDeactivate={() => setPhase('gone')}
+          active={phase === "on"}
+          onDeactivate={() => setPhase("gone")}
           aria-hidden="true"
         >
           <div ref={ghostRef} className="open-beam-ghost" />

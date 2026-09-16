@@ -10,22 +10,21 @@
  * generated product reaches for and which says nothing about what is behind
  * the button.
  *
- * At every size the mark is made of dots. At rest the cloud is paused on the
- * mark's own shape, face on: the same dots the assistant thinks with, holding
- * still. When something is actually happening the same mark comes apart and
- * thinks — `thinking-logos` over a point cloud baked at build time, so
- * nothing rasterises at run time. The canvas begins on the assembled mark
- * (`startAtMark`), which is the frame the rest state shows, so the change
- * between them reads as one object changing state.
+ * At rest it is the drawn mark: one path, crisp at 20px, `--ink-2` from the
+ * button around it. That is what it is nearly all of the time, and a knot of
+ * thin ribbons has to be drawn, not sampled, to survive at that size: the
+ * same knot paused as dots was a disc.
  *
- * Two clouds are baked. The fine one (412 dots) is the mark whenever it is
- * still, at any size, because a knot of thin ribbons needs that many points
- * to be a knot and not a disc. The coarse one (118 dots) is only for a
- * moving mark under 32px, where the dots need about two pixels of pitch to
- * resolve while they travel.
+ * When something is actually happening the same mark comes apart into the dots
+ * it is made of and thinks — `thinking-logos` over a point cloud baked at
+ * build time, so nothing rasterises at run time. The canvas begins on the
+ * assembled mark (`startAtMark`), which is the frame the drawn path is already
+ * showing, so the crossfade between them reads as one object changing state
+ * rather than two images swapping.
  *
- * The drawn single-path glyph is what the server renders and what reduced
- * motion keeps: the same silhouette, no canvas.
+ * Two clouds are baked, one per rendered size, because dots need about two
+ * pixels of pitch to resolve: the 20px chrome glyph and the 44px connect card
+ * are separate designs, not a scale factor.
  *
  * The orb stays inside the panel. It is the assistant's face while it is
  * working — streaming, calling a tool, listening — and those are conversation
@@ -76,7 +75,7 @@ const OPENAI_PATH =
 const CLOUD_SCALE = 2.2;
 
 /**
- * Tuning for a moving 20px glyph, over the library's presets.
+ * Tuning for the 20px chrome glyph, over the library's presets.
  *
  * Three things go wrong at this size and each number fixes one. `headInk`
  * lifts the unlit part of the knot from 0.4 to 0.8, because at twenty pixels
@@ -96,23 +95,6 @@ const SMALL_TUNE = {
   rMin: 0.45,
   dwell: 6.6,
   morph: 1.3,
-};
-
-/**
- * Tuning for the still mark under 32px: the fine cloud in a 44px canvas.
- *
- * Smaller dots than the preset, because 412 of them at the preset radius
- * merge into a solid blob at this pitch and the ribbons stop reading as
- * ribbons. Brighter ink across the board, since a still mark has no motion
- * to carry it and lives on a dim ghost button.
- */
-const SMALL_REST_TUNE = {
-  rBase: 0.42,
-  rDepth: 0.55,
-  rMin: 0.3,
-  inkFar: 0.95,
-  inkSpan: 0.3,
-  inkRim: 0.1,
 };
 
 const QUERY = "(prefers-reduced-motion: reduce)";
@@ -150,11 +132,9 @@ export function AiMark({
   className?: string;
 }) {
   const reduced = useReducedMotion();
-  // The dotted cloud is the mark at every size: at rest it is paused on the
-  // logo's own shape, and it moves only while the assistant is doing
-  // something. Reduced motion keeps the drawn glyph instead.
-  const cloud = reduced ? null : state === "still" ? "waiting" : state;
-  const paused = state === "still";
+  // At rest the mark is the drawn glyph; the dotted cloud appears only while
+  // the assistant is doing something (or, in the panel's welcome, as `waiting`).
+  const cloud = state === "still" || reduced ? null : state;
 
   return (
     <span
@@ -177,11 +157,10 @@ export function AiMark({
       {cloud ? (
         <ThinkingLogo
           className="ai-mark-cloud"
-          logo={paused || size >= 32 ? MARK_LARGE : MARK_SMALL}
+          logo={size >= 32 ? MARK_LARGE : MARK_SMALL}
           state={cloud}
-          paused={paused}
           size={Math.round(size * CLOUD_SCALE)}
-          tune={size >= 32 ? undefined : paused ? SMALL_REST_TUNE : SMALL_TUNE}
+          tune={size >= 32 ? undefined : SMALL_TUNE}
           startAtMark
         />
       ) : null}

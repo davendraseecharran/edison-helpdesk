@@ -362,7 +362,7 @@
  * decides who holds it. No transition: the selection moves on every arrow key,
  * and at that frequency anything but an instant change is a lag.
  */
-.palette-list [cmdk-item][data-selected='true'] {
+.palette-list [cmdk-item][data-selected="true"] {
   background: var(--surface-3);
 }
 
@@ -381,7 +381,7 @@
   color: var(--ink-2);
 }
 
-.palette-list [cmdk-item][data-selected='true'] .palette-item-icon {
+.palette-list [cmdk-item][data-selected="true"] .palette-item-icon {
   color: var(--ink);
 }
 
@@ -464,6 +464,16 @@
  */
 .open-beam {
   position: relative;
+}
+/* The palette's lap runs on the dialog's own corners; on the phone sheet the
+   bottom corners are off the screen. */
+.palette-beam,
+.palette-beam .open-beam-ghost {
+  border-radius: var(--radius-4);
+}
+.palette-sheet .palette-beam,
+.palette-sheet .palette-beam .open-beam-ghost {
+  border-radius: var(--radius-4) var(--radius-4) 0 0;
 }
 
 /* Positioned inline by `OpenBeam`; the library's own rules would win here. */
@@ -569,19 +579,11 @@
   text-align: center;
 }
 
+/* One of the top bar's icon buttons; the account is a person, not a monogram. */
 .user-trigger {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  cursor: pointer;
+  color: var(--ink-2);
 }
-
-.user-trigger[aria-expanded='true'] {
+.user-trigger[aria-expanded="true"] {
   background: var(--surface-3);
 }
 
@@ -736,12 +738,12 @@
  * The surface step is unconditional; the light is lit in lamp.css, which takes
  * it away again while the palette or an approval card is nearer the keyboard.
  */
-.rail-link[aria-current='page'] {
+.rail-link[aria-current="page"] {
   background: var(--surface-3);
   color: var(--ink);
 }
 
-.rail-link[aria-current='page'] .icon {
+.rail-link[aria-current="page"] .icon {
   color: var(--ink);
 }
 
@@ -785,7 +787,7 @@
   color: var(--ink-3);
 }
 
-.rail-link[aria-current='page'] .count-pill-quiet {
+.rail-link[aria-current="page"] .count-pill-quiet {
   background: var(--surface);
 }
 
@@ -830,7 +832,7 @@
   }
 }
 
-.bottom-tab[aria-current='page'] {
+.bottom-tab[aria-current="page"] {
   color: var(--ink);
 }
 
@@ -839,8 +841,8 @@
  * own top edge — the same hairline with the same bloom under it, turned to
  * face into the screen.
  */
-.bottom-tab[aria-current='page']::before {
-  content: '';
+.bottom-tab[aria-current="page"]::before {
+  content: "";
   position: absolute;
   top: 0;
   right: 22%;
@@ -979,7 +981,7 @@
   }
 }
 
-.fab[data-open='false'] .fab-satellite {
+.fab[data-open="false"] .fab-satellite {
   opacity: 0;
   pointer-events: none;
 }
@@ -1012,7 +1014,7 @@
   transition-timing-function: ease-out;
 }
 
-.fab[data-open='true'] .fab-label {
+.fab[data-open="true"] .fab-label {
   opacity: 1;
   /* Not a motion token: this is a delay, not a duration, and it is measured
      against where the satellites are — 40ms of stagger plus their travel —
