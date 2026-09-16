@@ -3,7 +3,7 @@
  * and changing them.
  *
  * Pure on purpose. The database owns these settings — `app_my_preferences()`
- * creates the row, `app_update_preferences()` accepts five keys and refuses a
+ * creates the row, `app_update_preferences()` accepts six keys and refuses a
  * value outside its vocabulary — and this module is the same knowledge in
  * TypeScript, so the settings screen can label a control, fall back sensibly
  * when a row holds something this build does not know about, and refuse an
@@ -57,11 +57,23 @@ export const REASONING_LABELS: Record<ReasoningEffort, string> = {
   max: 'Max',
 };
 
+/**
+ * The length both note boxes take, and both writers in the database cut at.
+ *
+ * A note is pasted into every conversation this account ever has, so its cost
+ * is paid on every turn rather than once. Past a short paragraph it stops being
+ * context and becomes documentation, which belongs on a page somebody chose to
+ * open.
+ */
+export const ASSISTANT_NOTES_MAX = 600;
+
 export interface Preferences {
   theme: ThemeChoice;
   /** Filter sets this account named. Newest first. */
   savedViews: SavedView[];
   aiReasoning: ReasoningEffort;
+  /** What this account wants its own assistant to know. Nobody else sees it. */
+  assistantNotes: string;
   /** Whether the assistant stops to ask before it applies a change. */
   aiConfirmChanges: boolean;
   aiSpeakReplies: boolean;
@@ -77,6 +89,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   theme: 'dark',
   savedViews: [],
   aiReasoning: 'high',
+  assistantNotes: '',
   aiConfirmChanges: false,
   aiSpeakReplies: false,
   notifyInApp: true,
@@ -106,6 +119,10 @@ export function preferencesFromRow(row: unknown): Preferences {
     aiReasoning: isReasoningEffort(source.ai_reasoning)
       ? source.ai_reasoning
       : DEFAULT_PREFERENCES.aiReasoning,
+    assistantNotes:
+      typeof source.assistant_notes === 'string'
+        ? source.assistant_notes
+        : DEFAULT_PREFERENCES.assistantNotes,
     aiConfirmChanges:
       typeof source.ai_confirm_changes === 'boolean'
         ? source.ai_confirm_changes
@@ -125,6 +142,7 @@ export function preferencesFromRow(row: unknown): Preferences {
 export interface PreferencePatch {
   theme?: ThemeChoice;
   aiReasoning?: ReasoningEffort;
+  assistantNotes?: string;
   aiConfirmChanges?: boolean;
   aiSpeakReplies?: boolean;
   notifyInApp?: boolean;
@@ -137,8 +155,8 @@ export type PatchResult =
 /**
  * Turns a patch into the JSON the RPC takes, in its column names.
  *
- * Only the five keys the database whitelists are carried across, so a form that
- * posts its whole state back cannot smuggle a sixth; a key that is absent keeps
+ * Only the six keys the database whitelists are carried across, so a form that
+ * posts its whole state back cannot smuggle a seventh; a key that is absent keeps
  * the value it had. The messages match the ones the RPC raises, so the reader
  * sees the same sentence whichever side refuses.
  */
@@ -161,6 +179,15 @@ export function preferencePatch(patch: PreferencePatch): PatchResult {
       return { ok: false, error: 'Choose High, Extra high or Max.' };
     }
     out.ai_reasoning = patch.aiReasoning;
+  }
+
+  if (patch.assistantNotes !== undefined) {
+    if (typeof patch.assistantNotes !== 'string') {
+      return { ok: false, error: 'Send your notes for the assistant as text.' };
+    }
+    // Trimmed and cut here as well as in the RPC, so what the screen shows
+    // after a save is what was stored rather than what was typed.
+    out.assistant_notes = patch.assistantNotes.trim().slice(0, ASSISTANT_NOTES_MAX);
   }
 
   const flags: [keyof PreferencePatch, string][] = [

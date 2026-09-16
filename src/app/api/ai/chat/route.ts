@@ -263,6 +263,18 @@ export async function POST(request: NextRequest): Promise<Response> {
   const prefs = Array.isArray(preferences.data) ? preferences.data[0] : preferences.data;
   const reasoning: Reasoning = isReasoning(prefs?.ai_reasoning) ? prefs.ai_reasoning : 'high';
   const confirmChanges = preferencesFailed || prefs?.ai_confirm_changes === true;
+  const personalNotes = typeof prefs?.assistant_notes === 'string' ? prefs.assistant_notes : '';
+
+  // The school's own notes. Read in this session, so the database decides
+  // whether this caller may see them at all. A failure is not fatal and is not
+  // reported: the turn simply runs without the standing context, which is the
+  // state every turn before this feature ran in.
+  const sharedRead = await supabase.rpc('app_assistant_notes_shared');
+  if (sharedRead.error) {
+    console.error('[ai] shared notes read failed', { message: sharedRead.error.message });
+  }
+  const sharedRow = Array.isArray(sharedRead.data) ? sharedRead.data[0] : sharedRead.data;
+  const sharedNotes = typeof sharedRow?.body === 'string' ? sharedRow.body : '';
 
   // The tool client. Same cookies, same JWT, same row-level security — the two
   // headers only tell the database HOW the change was made, and
@@ -313,6 +325,8 @@ export async function POST(request: NextRequest): Promise<Response> {
     roles: account.roles,
     today: schoolToday(),
     page: body.page,
+    sharedNotes,
+    personalNotes,
   });
 
   const stream = new ReadableStream<Uint8Array>({

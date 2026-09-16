@@ -197,6 +197,39 @@
   opacity: 0.6;
 }
 
+/* --- A setting that is typed rather than chosen ------------------------- */
+
+/*
+ * The notes boxes. A textarea cannot sit in the right-hand column of a
+ * `.setting-row` — at 720px there is nothing left of the row to type into — so
+ * this setting stacks: what it is, the box, and the button that commits it.
+ * The row's own label and hint classes are reused, because it is the same
+ * setting, laid out differently.
+ */
+.setting-note {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+}
+
+.setting-note textarea {
+  min-height: 84px;
+}
+
+.setting-note-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+/* Who last edited the shared note, and how much room is left. Both are asides. */
+.setting-note-aside {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
 /* --- Phones ------------------------------------------------------------- */
 
 @media (max-width: 559.98px) {

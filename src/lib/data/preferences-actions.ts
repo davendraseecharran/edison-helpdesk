@@ -7,18 +7,25 @@
  * re-derives the actor from auth.uid() through `app_require_actor()` and refuses
  * a session that is inactive, mid-recovery or superseded. Nothing here trusts an
  * account id from the browser: there is no account parameter to trust. The patch
- * is narrowed to the five keys the RPC whitelists before it is sent, which saves
+ * is narrowed to the six keys the RPC whitelists before it is sent, which saves
  * a round trip on an obvious mistake without being the thing that enforces it.
  *
- * Only the settings that belong to one person live here. Role, status and
- * everything an administrator decides about an account stay in
- * `account-actions.ts` behind their own admin checks.
+ * Almost everything here belongs to one person. The exception is the school's
+ * shared notes for the assistant, which every active account may edit; it is
+ * still not an administrator's setting, so it is still not in
+ * `account-actions.ts`. Role, status and everything an administrator decides
+ * about an account stay there behind their own admin checks.
  */
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { loadActor } from '@/lib/auth/session';
-import { displayNameError, preferencePatch, type PreferencePatch } from '@/lib/domain/preferences';
+import {
+  ASSISTANT_NOTES_MAX,
+  displayNameError,
+  preferencePatch,
+  type PreferencePatch,
+} from '@/lib/domain/preferences';
 import type { ActionResult } from '@/lib/data/actions';
 
 /** Fast fail for a session that plainly cannot write. The database decides for real. */
@@ -48,6 +55,34 @@ export async function updatePreferencesAction(patch: PreferencePatch): Promise<A
 
   const supabase = await createClient();
   const { error } = await supabase.rpc('app_update_preferences', { p_patch: narrowed.patch });
+  if (error) return { ok: false, error: error.message };
+
+  revalidateEverything();
+  return { ok: true };
+}
+
+/**
+ * The school's shared notes for the assistant.
+ *
+ * The one thing on this screen that is not private to the caller: every active
+ * account reads it and every active account may change it, which is the whole
+ * design — the rules of the house are written by whoever is at the desk when
+ * they change. The database still decides: `app_set_assistant_notes_shared`
+ * re-derives the actor, refuses a session that cannot write, cuts at 600 and
+ * records who changed it.
+ */
+export async function updateSharedAssistantNotesAction(body: string): Promise<ActionResult> {
+  if (typeof body !== 'string') {
+    return { ok: false, error: 'Send the shared notes as text.' };
+  }
+
+  const rejected = await requireActiveSession();
+  if (rejected) return rejected;
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('app_set_assistant_notes_shared', {
+    p_body: body.trim().slice(0, ASSISTANT_NOTES_MAX),
+  });
   if (error) return { ok: false, error: error.message };
 
   revalidateEverything();

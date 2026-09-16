@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ASSISTANT_NOTES_MAX,
   DEFAULT_PREFERENCES,
   displayNameChanged,
   displayNameError,
@@ -22,6 +23,7 @@ describe('defaults', () => {
     expect(DEFAULT_PREFERENCES).toEqual({
       theme: 'dark',
       aiReasoning: 'high',
+      assistantNotes: '',
       aiConfirmChanges: false,
       aiSpeakReplies: false,
       notifyInApp: true,
@@ -65,6 +67,7 @@ describe('preferencesFromRow', () => {
         account_id: 'ignored',
         theme: 'light',
         ai_reasoning: 'low',
+        assistant_notes: 'I work Tuesdays and Thursdays.',
         ai_confirm_changes: true,
         ai_speak_replies: true,
         notify_in_app: false,
@@ -73,6 +76,7 @@ describe('preferencesFromRow', () => {
     ).toEqual({
       theme: 'light',
       aiReasoning: 'low',
+      assistantNotes: 'I work Tuesdays and Thursdays.',
       aiConfirmChanges: true,
       aiSpeakReplies: true,
       notifyInApp: false,
@@ -107,10 +111,11 @@ describe('preferencePatch', () => {
     expect(result).toEqual({ ok: true, patch: { theme: 'system', ai_confirm_changes: true } });
   });
 
-  it('carries every one of the five settings', () => {
+  it('carries every one of the six settings', () => {
     const result = preferencePatch({
       theme: 'light',
       aiReasoning: 'medium',
+      assistantNotes: 'I work Tuesdays and Thursdays.',
       aiConfirmChanges: false,
       aiSpeakReplies: true,
       notifyInApp: false,
@@ -121,9 +126,27 @@ describe('preferencePatch', () => {
       'ai_confirm_changes',
       'ai_reasoning',
       'ai_speak_replies',
+      'assistant_notes',
       'notify_in_app',
       'theme',
     ]);
+  });
+
+  it('trims a note and cuts it at the length the database keeps', () => {
+    const padded = preferencePatch({ assistantNotes: '  Tuesdays and Thursdays.  ' });
+    expect(padded).toEqual({ ok: true, patch: { assistant_notes: 'Tuesdays and Thursdays.' } });
+
+    const long = preferencePatch({ assistantNotes: 'x'.repeat(900) });
+    expect(long.ok).toBe(true);
+    if (!long.ok) return;
+    expect(long.patch.assistant_notes).toHaveLength(ASSISTANT_NOTES_MAX);
+  });
+
+  it('carries an emptied note, because clearing one is a change', () => {
+    expect(preferencePatch({ assistantNotes: '   ' })).toEqual({
+      ok: true,
+      patch: { assistant_notes: '' },
+    });
   });
 
   it('ignores a key it does not own rather than refusing the save', () => {
