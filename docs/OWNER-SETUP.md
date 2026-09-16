@@ -79,7 +79,7 @@ Do this first, and do it now: it ends the half-state described above.
 
 The changes are **additive**. No table the district's data lives in is dropped,
 renamed or rewritten, and no existing policy or grant is changed. There are
-thirty-eight new migration files, all numbered above the nineteen the hosted
+forty-one new migration files, all numbered above the nineteen the hosted
 project already carries, so they apply in order after them.
 
 **1.1 Take a backup.** Supabase dashboard → Database → Backups, and confirm a
@@ -95,8 +95,8 @@ npx supabase migration list --linked
 ```
 
 You should see the nineteen migrations you already have listed on both sides,
-followed by **thirty-eight** rows that are present locally and blank on the
-remote side. If you see fewer than thirty-eight, your checkout is old: run
+followed by **forty-one** rows that are present locally and blank on the
+remote side. If you see fewer than forty-one, your checkout is old: run
 `git pull origin main` and look again. If you see rows the other way round
 (remote has something local does not), stop and ask before pushing.
 
@@ -106,9 +106,9 @@ remote side. If you see fewer than thirty-eight, your checkout is old: run
 npx supabase db push
 ```
 
-It lists the thirty-eight files, asks you to confirm, and applies them in
+It lists the forty-one files, asks you to confirm, and applies them in
 order. It takes about a minute. The last file it names is
-`20260915020000_m5_join_ticket.sql`, followed by "Finished supabase db push."
+`20260916100200_m5_import_resolved.sql`, followed by "Finished supabase db push."
 
 **1.4 Verify.** Reload the live site.
 
@@ -305,6 +305,31 @@ disconnect at any time from the panel's menu. What the assistant is sent is
 the person's own question plus the ticket or record on screen; students' and
 staff members' details go only where the person has already looked.
 
+### Four things the desk asked for on day one
+
+All four are in this version and need no setup.
+
+- **Notes for the assistant.** Settings → Assistant has two boxes. "Notes for
+  the assistant" is personal (how you like to work). "Shared notes" is one
+  short text the whole team can read and edit: what the desk is, room names,
+  the rules of the house. Both are read by the assistant on every message.
+  Six hundred characters each; keep them short.
+- **Resolved analytics**, administrators only: Resolved → Analytics, or the
+  palette. Who resolved how many, by priority, median time to resolve, top
+  category, for this week, month, term or all time.
+- **Importing the old spreadsheet.** Paste the rows into the assistant panel
+  and ask it to import them. It maps the columns (date called, who and where,
+  the problem, who fixed it, date resolved), asks once if a column is
+  ambiguous, and files each row as a resolved ticket dated when it actually
+  happened, owned by whoever fixed it. Up to fifty rows per message; a row
+  that is already in is returned rather than duplicated, so pasting a sheet
+  twice is safe. Naming a colleague as the fixer is administrator-only; a
+  NetRider's import is owned by them.
+- **Looking up thirty people at once.** Paste a list of OSIS numbers, staff
+  ids, emails or names into the assistant and ask who they are. One call
+  answers up to two hundred: name, class or department, devices held, and,
+  for ticket workers, open tickets. Skills officers have it too.
+
 ## 7. What the first sign-in looks like
 
 - The sign-in page offers **Sign in with Google**, and a quieter "Use a
@@ -343,7 +368,7 @@ deployed files.
 
 **The "database is behind" notice is still there after `db push`.** First a
 hard refresh. Then check `npx supabase migration list --linked`: if the
-thirty-eight are on both sides, the site is simply serving a cached page; wait
+forty-one are on both sides, the site is simply serving a cached page; wait
 a minute and reload. If some are missing on the remote side, `db push` did not
 finish; run it again, it continues where it stopped.
 

@@ -213,6 +213,11 @@
   padding: 14px 16px;
 }
 
+/* In a column, the row text's flex basis would be a height: keep it to its content. */
+.setting-note .setting-row-text {
+  flex: 0 0 auto;
+}
+
 .setting-note textarea {
   min-height: 84px;
 }

@@ -1,9 +1,8 @@
-import { ChartColumn } from 'lucide-react';
 import { loadQueue } from '@/lib/data/tickets';
 import { loadActor, requireTicketWorker } from '@/lib/auth/session';
 import { requestTime } from '@/lib/format';
 import { PageHeader } from '@/components/Primitives';
-import { ButtonLink } from '@/components/ui/Button';
+import { ResolvedAnalyticsLink } from '@/components/ticket/ResolvedAnalyticsLink';
 import { TicketListView } from '@/components/TicketListView';
 import type { QueueSearchParams } from '../search-params';
 import { toFilters } from '../search-params';
@@ -37,13 +36,7 @@ export default async function ResolvedPage({
           term, and a permanent item for an occasional read costs every other
           item on the rail a little of its place.
         */
-        actions={
-          admin ? (
-            <ButtonLink href="/resolved/analytics" size="sm" icon={ChartColumn}>
-              Analytics
-            </ButtonLink>
-          ) : null
-        }
+        actions={admin ? <ResolvedAnalyticsLink /> : null}
       />
       <TicketListView
         page={page}
