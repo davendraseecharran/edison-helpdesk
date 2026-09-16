@@ -162,7 +162,24 @@ top deployment → the three-dot menu → Redeploy. Wait for it to say Ready.
 
 ## 3. Supabase dashboard settings, in order
 
-The order of 3.1 and 3.2 is the one that matters for safety. With sign-ups
+**The one-command way.** The repository's `supabase/config.toml` describes
+the hosted auth settings this version expects: the sign-up hook enabled,
+sign-ups allowed, Google enabled, manual identity linking on (so one person
+can hold both Google and a password), the site URL and the redirect list,
+and a twelve-character password minimum. The CLI can apply all of it at once:
+
+```bash
+export SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID="<the client id from section 4>"
+export SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET="<the client secret from section 4>"
+npx supabase config diff     # shows exactly what would change; read it
+npx supabase config push     # applies it, asking before each changed resource
+```
+
+Do the two `export` lines first even if Google is not set up yet, with
+placeholder values, or the push refuses because the file reads them. Then
+walk 3.1 to 3.3 below anyway, as a check: each should already read as
+described. If you would rather click than push, the steps below do the same
+thing by hand, and 3.1 before 3.2 is the order that matters for safety. With sign-ups
 allowed and no hook, anybody who knows the project URL and the public anon key
 could create an account. With the hook in place first, that door is shut before
 it opens.
@@ -223,7 +240,9 @@ account with a password: public password sign-up is refused by the hook in 3.1.
    your Supabase project URL.
 3. Copy the client ID and the client secret.
 
-**In the Supabase dashboard:**
+**In the Supabase dashboard** (or, if you ran `npx supabase config push` in
+section 3 with the two `export` lines set to the real values, both of these
+are already done; check them):
 
 4. Authentication → Sign In / Providers → Google. Paste the client ID and the
    client secret, and enable it.
