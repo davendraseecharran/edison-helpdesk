@@ -130,9 +130,11 @@ export function AiMark({
   className?: string;
 }) {
   const reduced = useReducedMotion();
-  // At rest the mark is the drawn glyph; the dotted cloud appears only while
-  // the assistant is doing something (or, in the panel's welcome, as `waiting`).
-  const cloud = state === 'still' || reduced ? null : state;
+  // The dotted cloud is the mark at every size: at rest it is paused on the
+  // logo's own shape, and it moves only while the assistant is doing
+  // something. Reduced motion keeps the drawn glyph instead.
+  const cloud = reduced ? null : state === 'still' ? 'waiting' : state;
+  const paused = state === 'still';
 
   return (
     <span
@@ -157,6 +159,7 @@ export function AiMark({
           className="ai-mark-cloud"
           logo={size >= 32 ? MARK_LARGE : MARK_SMALL}
           state={cloud}
+          paused={paused}
           size={Math.round(size * CLOUD_SCALE)}
           tune={size >= 32 ? undefined : SMALL_TUNE}
           startAtMark
