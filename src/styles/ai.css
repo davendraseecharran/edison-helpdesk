@@ -19,7 +19,7 @@
 }
 
 /* Docked: below the top bar, above the rail, and the page stays clickable. */
-.ai-root[data-layout="docked"] {
+.ai-root[data-layout='docked'] {
   top: var(--topbar-h);
   z-index: 35;
 }
@@ -49,11 +49,11 @@
   box-shadow: var(--shadow-2);
 }
 
-.ai-root[data-layout="scrim"] .ai-panel {
+.ai-root[data-layout='scrim'] .ai-panel {
   border-radius: var(--radius-3) 0 0 var(--radius-3);
 }
 
-.ai-root[data-layout="phone"] .ai-panel {
+.ai-root[data-layout='phone'] .ai-panel {
   width: 100%;
   height: var(--ai-vh, 100dvh);
   margin: auto 0 0;
@@ -197,12 +197,12 @@
     background-color var(--dur-press) ease-out;
 }
 
-.ai-menu-switch[aria-checked="true"] .ai-switch {
+.ai-menu-switch[aria-checked='true'] .ai-switch {
   border-color: var(--accent-hover);
   background: var(--accent);
 }
 
-.ai-menu-switch[aria-checked="true"] .ai-switch::after {
+.ai-menu-switch[aria-checked='true'] .ai-switch::after {
   background: var(--accent-ink);
   transform: translateX(14px);
 }
@@ -526,20 +526,20 @@
   overflow-wrap: anywhere;
 }
 
-.ai-chip[data-status="ok"] {
+.ai-chip[data-status='ok'] {
   color: var(--ink);
 }
 
-.ai-chip[data-status="ok"] .icon {
+.ai-chip[data-status='ok'] .icon {
   color: var(--ok);
 }
 
-.ai-chip[data-status="failed"] {
+.ai-chip[data-status='failed'] {
   background: var(--bad-soft);
   color: var(--bad);
 }
 
-.ai-chip[data-status="rejected"] {
+.ai-chip[data-status='rejected'] {
   color: var(--slate);
 }
 
@@ -731,6 +731,112 @@
   }
 }
 
+/*
+ * The reasoning menu holds one control, so it is exactly as wide as that.
+ */
+.ai-reasoning-menu {
+  min-width: 0;
+  padding: 6px;
+}
+
+/*
+ * The slider. Three stops over one pill. The pill is placed by both edges,
+ * `left` and `right`, and the two move on different clocks — the leading
+ * edge at once, the trailing edge a beat behind — so between stops it
+ * stretches and then snaps shut rather than sliding as a rigid block. The
+ * goo filter keeps the stretched shape rounded. The variables are written by
+ * the component from the checked stop's own box.
+ */
+.goo-slider {
+  position: relative;
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-2);
+  isolation: isolate;
+}
+
+.goo-blobs {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  filter: url('#ai-goo');
+}
+
+.goo-slider[data-ready] .goo-blobs {
+  opacity: 1;
+}
+
+.goo-blob {
+  position: absolute;
+  top: 3px;
+  right: calc(100% - var(--goo-x, 0px) - var(--goo-w, 0px));
+  bottom: 3px;
+  left: var(--goo-x, 0px);
+  border-radius: 999px;
+  background: var(--ink);
+}
+
+.goo-slider[data-ready][data-dir='right'] .goo-blob {
+  transition:
+    right 240ms var(--ease-out),
+    left 420ms var(--ease-out) 70ms;
+}
+
+.goo-slider[data-ready][data-dir='left'] .goo-blob {
+  transition:
+    left 240ms var(--ease-out),
+    right 420ms var(--ease-out) 70ms;
+}
+
+.goo-slider[data-reduced] .goo-blobs {
+  filter: none;
+}
+
+.goo-slider[data-reduced] .goo-blob {
+  transition: none;
+}
+
+.goo-stop {
+  position: relative;
+  z-index: 1;
+  height: 28px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--fs-1);
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--dur-hover) ease;
+}
+
+.goo-stop:hover {
+  color: var(--ink-2);
+}
+
+.goo-stop[aria-checked='true'] {
+  color: var(--accent-ink);
+}
+
+.goo-stop:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.goo-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
 .ai-send-round {
   width: 36px;
   height: 36px;
@@ -771,7 +877,7 @@
   }
 }
 
-.ai-mic[aria-pressed="true"] {
+.ai-mic[aria-pressed='true'] {
   border-color: var(--accent);
   background: var(--accent-soft);
   color: var(--ink);
@@ -937,7 +1043,7 @@
   border-bottom: 1px solid var(--line);
 }
 
-.ai-conversation-row[aria-current="true"] .ai-conversation-open {
+.ai-conversation-row[aria-current='true'] .ai-conversation-open {
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
@@ -1067,8 +1173,8 @@
     transition: none;
   }
 
-  .ai-mark[data-state="working"] .ai-mark-drawn,
-  .ai-mark[data-state="waiting"] .ai-mark-drawn {
+  .ai-mark[data-state='working'] .ai-mark-drawn,
+  .ai-mark[data-state='waiting'] .ai-mark-drawn {
     opacity: 0.7;
   }
 }
@@ -1140,7 +1246,7 @@
   border-radius: 50%;
 }
 
-.ai-orb[data-size="20"] {
+.ai-orb[data-size='20'] {
   width: 20px;
   height: 20px;
 }
@@ -1156,7 +1262,7 @@
   --ai-glow-mid: 12%;
 }
 
-:root[data-theme="dark"] .ai-orb {
+:root[data-theme='dark'] .ai-orb {
   --ai-glow-core: 20%;
   --ai-glow-mid: 7%;
 }
@@ -1183,7 +1289,7 @@
   pointer-events: none;
 }
 
-.ai-orb[data-size="20"]::before {
+.ai-orb[data-size='20']::before {
   display: none;
 }
 
@@ -1195,8 +1301,8 @@
 }
 
 /* Listening and speaking: the glow follows the level rather than a clock. */
-.ai-orb[data-moment="listening"]::before,
-.ai-orb[data-moment="speaking"]::before {
+.ai-orb[data-moment='listening']::before,
+.ai-orb[data-moment='speaking']::before {
   opacity: calc(0.55 + var(--ai-level, 0) * 0.6);
   scale: calc(1 + var(--ai-level, 0) * 0.4);
   animation: none;
@@ -1213,11 +1319,11 @@
 }
 
 /* An error: frozen, and tinted towards the bad colour. */
-.ai-orb[data-tone="bad"] .ai-orb-canvas {
+.ai-orb[data-tone='bad'] .ai-orb-canvas {
   filter: sepia(1) saturate(4) hue-rotate(-52deg);
 }
 
-.ai-orb[data-tone="bad"]::before {
+.ai-orb[data-tone='bad']::before {
   background: radial-gradient(
     circle,
     color-mix(in srgb, var(--bad) 28%, transparent) 0%,
@@ -1246,7 +1352,7 @@
   display: inline-flex;
 }
 
-.ai-toggle[aria-pressed="true"] {
+.ai-toggle[aria-pressed='true'] {
   background: var(--surface-3);
   color: var(--ink);
 }

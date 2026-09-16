@@ -33,11 +33,10 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from 'react';
-import { ArrowUp, Check, ChevronDown, FileText, Mic, Plus, Square, X } from 'lucide-react';
+import { ArrowUp, ChevronDown, FileText, Mic, Plus, Square, X } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/shadcn/dropdown-menu';
 import { Button } from '@/components/ui/Button';
@@ -46,6 +45,7 @@ import { OpenBeam } from '@/components/ui/OpenBeam';
 import { IMAGE_TYPES, MAX_IMAGES } from '@/lib/ai/images';
 import type { PageContext } from './page-context';
 import { imageFilesFrom, type Attachment } from './useAttachments';
+import { ReasoningSlider } from './ReasoningSlider';
 import type { SpeechRecognitionHandle } from './useSpeech';
 
 /** Six lines of 14px body text, plus the field's own padding. */
@@ -110,6 +110,7 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
   // crossed the Send button.
   const dragDepth = useRef(0);
   const [dragging, setDragging] = useState(false);
+  const [reasoningOpen, setReasoningOpen] = useState(false);
   const canAttach = onAttach !== undefined;
   const full = images.length >= MAX_IMAGES;
 
@@ -297,7 +298,7 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
           </div>
           <div className="ai-composer-actions">
             {reasoning && reasoningOptions && onReasoning ? (
-              <DropdownMenu>
+              <DropdownMenu open={reasoningOpen} onOpenChange={setReasoningOpen}>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
@@ -308,13 +309,27 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
                     <Icon icon={ChevronDown} size={14} />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {reasoningOptions.map((option) => (
-                    <DropdownMenuItem key={option.value} onSelect={() => onReasoning(option.value)}>
-                      {option.label}
-                      {option.value === reasoning ? <Icon icon={Check} size={14} /> : null}
-                    </DropdownMenuItem>
-                  ))}
+                {/* Inside the panel rather than at the end of the document:
+                    the phone sheet sits above a portaled menu, and the panel's
+                    focus trap would not reach one anyway. Radix focuses the
+                    menu on open; the slider moves it on to the checked stop
+                    a frame later. */}
+                <DropdownMenuContent
+                  portal={false}
+                  align="end"
+                  side="top"
+                  className="ai-reasoning-menu"
+                  onCloseAutoFocus={(event) => {
+                    event.preventDefault();
+                    textarea.current?.focus();
+                  }}
+                >
+                  <ReasoningSlider
+                    value={reasoning}
+                    options={reasoningOptions}
+                    onChange={onReasoning}
+                    onSettled={() => setReasoningOpen(false)}
+                  />
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}

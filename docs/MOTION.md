@@ -55,6 +55,7 @@ Two rules hold everywhere and are not repeated per row:
 | Every other list | navigation | **none** | 0 | — | — |
 | Skeleton → content | the stream lands | content replaces the skeleton in place, no layout shift | 120 ms | `easeOut` | same |
 | Switch | pressed | `transform` on the thumb, `background-color` on the track | 120 ms | `ease` | colour only |
+| Reasoning slider | a level is picked | the pill's two edges, `left` and `right`, on different clocks under an SVG goo filter, so the shape stretches between stops and snaps shut; the menu closes once it lands | 240 ms leading edge, 420 ms trailing edge after 70 ms | `--ease-out` | the pill jumps, no filter |
 | Theme switch | the preference changes | **none** — every transition is muted, a reflow is forced, the mute is lifted | 0 | — | same |
 
 ## Notes on the choices
