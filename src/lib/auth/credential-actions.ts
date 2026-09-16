@@ -29,7 +29,7 @@ export interface CredentialCompletionResult {
   purpose?: 'setup' | 'recovery';
 }
 
-const MIN_PASSWORD_LENGTH = 12;
+const MIN_PASSWORD_LENGTH = 8;
 
 export async function completeCredentialAction(
   password: string,

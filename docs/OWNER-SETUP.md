@@ -43,6 +43,22 @@ None of this has changed anything in the database. The old functions are
 being called with new arguments and refusing, that is all. Section 1 ends it.
 Nothing else is needed for that.
 
+## Where things stand, and what to do from now on
+
+1. **Now:** section 1, the database push. That is the whole of what the live
+   site is waiting on.
+2. **Sign-in for now:** Google is not set up yet, and that is fine. Until it
+   is, everyone signs in with a password. You create their account under
+   Administration → Password accounts, hand them the single-use setup link
+   it gives you, and they choose a password on it (at least eight
+   characters). Anyone can change theirs later under Settings → Sign-in
+   methods.
+3. **Google, when you get to it:** section 4, then the one-command push in
+   section 3. Nobody has to re-register: the same person adds Google to their
+   existing account from Settings → Sign-in methods, and keeps their history.
+4. **Email (Resend):** optional and skippable. Invites still work without it;
+   the screen hands you the message to send yourself.
+
 ## Contents
 
 - [What you need on hand](#what-you-need-on-hand)
@@ -79,7 +95,7 @@ Do this first, and do it now: it ends the half-state described above.
 
 The changes are **additive**. No table the district's data lives in is dropped,
 renamed or rewritten, and no existing policy or grant is changed. There are
-forty-two new migration files, all numbered above the nineteen the hosted
+forty-three new migration files, all numbered above the nineteen the hosted
 project already carries, so they apply in order after them.
 
 **1.1 Take a backup.** Supabase dashboard → Database → Backups, and confirm a
@@ -95,8 +111,8 @@ npx supabase migration list --linked
 ```
 
 You should see the nineteen migrations you already have listed on both sides,
-followed by **forty-two** rows that are present locally and blank on the
-remote side. If you see fewer than forty-two, your checkout is old: run
+followed by **forty-three** rows that are present locally and blank on the
+remote side. If you see fewer than forty-three, your checkout is old: run
 `git pull origin main` and look again. If you see rows the other way round
 (remote has something local does not), stop and ask before pushing.
 
@@ -106,9 +122,9 @@ remote side. If you see fewer than forty-two, your checkout is old: run
 npx supabase db push
 ```
 
-It lists the forty-two files, asks you to confirm, and applies them in
+It lists the forty-three files, asks you to confirm, and applies them in
 order. It takes about a minute. The last file it names is
-`20260916110000_m5_sign_in_methods.sql`, followed by "Finished supabase db push."
+`20260916120000_m5_password_minimum.sql`, followed by "Finished supabase db push."
 
 **1.4 Verify.** Reload the live site.
 
@@ -166,7 +182,7 @@ top deployment → the three-dot menu → Redeploy. Wait for it to say Ready.
 the hosted auth settings this version expects: the sign-up hook enabled,
 sign-ups allowed, Google enabled, manual identity linking on (so one person
 can hold both Google and a password), the site URL and the redirect list,
-and a twelve-character password minimum. The CLI can apply all of it at once:
+and an eight-character password minimum. The CLI can apply all of it at once:
 
 ```bash
 export SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID="<the client id from section 4>"
@@ -269,7 +285,7 @@ One person, one account, two doors: Google and a password. Settings →
 **Sign-in methods** is where each person adds whichever one they do not have —
 "Add Google" hands the browser to Google and attaches that identity to the
 account they are already signed in to; "Set" gives the account a password of at
-least twelve characters, which does not sign anybody out.
+least eight characters, which does not sign anybody out.
 
 **The dashboard switch this needs.** Authentication → Settings → **"Allow
 manual linking"** → on. Without it the auth server refuses to attach a second
@@ -412,7 +428,7 @@ deployed files.
 
 **The "database is behind" notice is still there after `db push`.** First a
 hard refresh. Then check `npx supabase migration list --linked`: if the
-forty-two are on both sides, the site is simply serving a cached page; wait
+forty-three are on both sides, the site is simply serving a cached page; wait
 a minute and reload. If some are missing on the remote side, `db push` did not
 finish; run it again, it continues where it stopped.
 

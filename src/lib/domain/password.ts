@@ -15,7 +15,7 @@
  * own typing rather than a rule about passwords.
  */
 
-export const PASSWORD_MIN = 12;
+export const PASSWORD_MIN = 8;
 
 export interface PasswordCheck {
   label: string;

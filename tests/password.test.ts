@@ -11,12 +11,12 @@ describe('the length a server enforces', () => {
   // what app_trusted_approve_own_credential's caller checks before it asks. A
   // drift here is a form that accepts what the database will not.
   it('is twelve', () => {
-    expect(PASSWORD_MIN).toBe(12);
+    expect(PASSWORD_MIN).toBe(8);
   });
 
   it('refuses anything shorter and says how much is needed', () => {
-    expect(passwordProblem('')).toBe('Use at least 12 characters.');
-    expect(passwordProblem('a'.repeat(PASSWORD_MIN - 1))).toBe('Use at least 12 characters.');
+    expect(passwordProblem('')).toBe('Use at least 8 characters.');
+    expect(passwordProblem('a'.repeat(PASSWORD_MIN - 1))).toBe('Use at least 8 characters.');
   });
 
   it('accepts a password of exactly the minimum, and longer', () => {
@@ -34,7 +34,7 @@ describe('the length a server enforces', () => {
 describe('the checks shown under the boxes', () => {
   it('reads in the order it is shown, and is empty of ticks at the start', () => {
     expect(passwordChecks('', '').map((check) => [check.label, check.passed])).toEqual([
-      ['At least 12 characters', false],
+      ['At least 8 characters', false],
       ['Mixes letters and numbers', false],
       ['Both entries match', false],
     ]);
