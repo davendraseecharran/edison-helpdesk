@@ -78,6 +78,11 @@ export async function todayLineAction(): Promise<TodayLineResult> {
     // is read, so a server without AI_TOKEN_KEY does no work at all here.
     if (!aiEnabled()) return SILENT;
 
+    // Most readers have not connected an account, and for them the answer is
+    // known before any of the briefing is read.
+    const connection = await loadConnection(account.id);
+    if (connection === null) return SILENT;
+
     const briefing = await loadTodayBriefing();
     // A briefing that could not be read has no facts to write from, and an empty
     // queue already has its own line in the interface's voice — one this is not
@@ -93,18 +98,27 @@ export async function todayLineAction(): Promise<TodayLineResult> {
     if (!stored.error) {
       const row = Array.isArray(stored.data) ? stored.data[0] : stored.data;
       const cached = readCachedTodayLine(isRecord(row) ? row.today_line : null);
-      if (todayLineIsFresh(cached, hash, Date.now())) return { line: cached?.line ?? null };
+      // A fresh empty line is an ask that came back with nothing, minutes ago:
+      // the answer is the library line, without asking again.
+      if (todayLineIsFresh(cached, hash, Date.now())) {
+        return { line: cached !== null && cached.line !== '' ? cached.line : null };
+      }
     }
-
-    const connection = await loadConnection(account.id);
-    if (connection === null) return SILENT;
 
     const prompt = todayLinePrompt(facts);
     const controller = new AbortController();
-    const deadline = setTimeout(() => controller.abort(), DEADLINE_MS);
+    let timedOut = false;
+    const deadline = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, DEADLINE_MS);
 
     let answer = '';
     let refused = false;
+    // The stream ends quietly when it is aborted or when the server closes it
+    // early; only `done` says the sentence is whole. Half a sentence passes
+    // every check the validator makes, so it is never handed to it.
+    let finished = false;
     try {
       for await (const event of streamResponses({
         tokens: connection.tokens,
@@ -126,6 +140,7 @@ export async function todayLineAction(): Promise<TodayLineResult> {
       })) {
         if (event.type === 'text_delta') answer += event.text;
         else if (event.type === 'error') refused = true;
+        else if (event.type === 'done') finished = true;
         // A sentence this long cannot be legitimate; stop reading rather than
         // buffer a model that has decided to write an essay.
         if (answer.length > 2_000) break;
@@ -135,13 +150,14 @@ export async function todayLineAction(): Promise<TodayLineResult> {
       controller.abort();
     }
 
-    if (refused) return SILENT;
-    const line = acceptTodayLine(answer);
-    if (line === null) return SILENT;
+    const line = refused || timedOut || !finished ? null : acceptTodayLine(answer);
 
-    // Storing is best effort. A line that was written and could not be saved is
-    // still the right line to show; it only costs the next reader a rewrite.
-    const saved = await supabase.rpc('app_set_today_line', { p_line: line, p_hash: hash });
+    // Stored either way: the sentence, to reuse for ten minutes, or an empty
+    // line under the same fingerprint, which says this queue was asked about
+    // and nothing usable came back, so the next visit in the next two minutes
+    // does not pay for the same failure. Storing is best effort: a line that
+    // was written and could not be saved is still the right line to show.
+    const saved = await supabase.rpc('app_set_today_line', { p_line: line ?? '', p_hash: hash });
     if (saved.error) {
       console.error('[today] line cache write failed', { message: saved.error.message });
     }

@@ -30,6 +30,7 @@
  *      changed is worse than no sentence at all.
  */
 
+import { MAX_LINE_LENGTH } from '@/lib/voice/moments';
 import { createHash } from 'node:crypto';
 import { isRecord, textOf } from '@/lib/guards';
 import { needsYou, type Briefing, type BriefingCounts } from '@/lib/domain/today';
@@ -44,16 +45,16 @@ import { needsYou, type Briefing, type BriefingCounts } from '@/lib/domain/today
  */
 export const TODAY_LINE_TTL_MS = 10 * 60 * 1000;
 
+/** How long an ask that came back with nothing is remembered before trying again. */
+export const TODAY_LINE_RETRY_MS = 2 * 60_000;
+
 /**
- * The longest the line may be.
- *
- * The voice's own limit is seventy characters (`MAX_LINE_LENGTH` in
- * `voice/moments.ts`), which is written for a line the library composes from
- * parts. This one is a whole observation — "look like one fault" costs words —
- * so it is allowed ninety, and not one more: past that it wraps to three lines
- * on a phone and stops being the first thing read.
+ * The voice's limit, and the same one every library line is held to
+ * (`MAX_LINE_LENGTH` in `voice/moments.ts`): docs/VOICE.md says never longer
+ * than seventy characters, and a sentence in this slot is in that voice
+ * whoever wrote it. "Look like one fault" fits in seventy; an essay does not.
  */
-export const TODAY_LINE_MAX_CHARS = 90;
+export const TODAY_LINE_MAX_CHARS = MAX_LINE_LENGTH;
 
 /** The most rows named in the prompt. `needsYou` already caps at seven. */
 const ROW_LIMIT = 7;
@@ -150,7 +151,7 @@ export function todayLineInstructions(): string {
     'It sits under the greeting and is the first thing a NetRider reads. It tells them what the day actually looks like.',
     '',
     'How to write it:',
-    '- One sentence, at most 90 characters including spaces and the full stop.',
+    `- One sentence, at most ${TODAY_LINE_MAX_CHARS} characters including spaces and the full stop.`,
     '- Plain and calm, the way a senior colleague who has seen this before would say it. Sentence case.',
     '- Name the real situation rather than restating the counts. If several unclaimed tickets read like one fault, say that. If the queue is otherwise clear, say that.',
     '- Use only the facts you are given. Never invent a number, a room, a name, a ticket or a cause you were not told.',
@@ -217,7 +218,7 @@ export function todayLinePrompt(facts: TodayFacts): TodayLinePrompt {
 const ALLOWED = /^[\p{L}\p{N} .,;:'’()/%&+#–—-]+$/u;
 
 /** Wrappers a model adds when it is being helpful. */
-const FENCE = /^```[a-z]*\n?|\n?```$/gi;
+const FENCE = /^\s*```[a-z]*\s*|\s*```\s*$/gi;
 
 /** The label a model writes in front of an answer when it is being tidy. */
 const LABEL = /^(line|answer|output|sentence|result|briefing)\s*:\s*/i;
@@ -232,7 +233,7 @@ const LABEL = /^(line|answer|output|sentence|result|briefing)\s*:\s*/i;
  * a wrapping quote and a missing full stop.
  */
 export function acceptTodayLine(raw: string): string | null {
-  let text = raw.replace(FENCE, '').replace(/\s+/g, ' ').trim();
+  let text = raw.trim().replace(FENCE, '').replace(/\s+/g, ' ').trim();
   if (text === '') return null;
 
   // "Line: ..." is a model being tidy, not a model failing. The label comes off
@@ -259,11 +260,26 @@ export function acceptTodayLine(raw: string): string | null {
   if (!/^[\p{Lu}\p{N}]/u.test(text)) return null;
   if (!text.includes(' ')) return null;
 
+  // A shout. Letters only, so "3 tickets" and an acronym inside a title do
+  // not count; the whole sentence has to be one.
+  const letters = text.replace(/[^\p{L}]/gu, '');
+  if (letters.length > 3 && letters === letters.toUpperCase()) return null;
+  // Title Case. A name or a room label earns a capital or two; a headline
+  // gives one to most of its words.
+  const words = text.split(' ').filter((word) => /\p{L}/u.test(word));
+  const capitalised = words.slice(1).filter((word) => /^\p{Lu}/u.test(word));
+  if (capitalised.length > 2 && capitalised.length * 2 > words.length) return null;
+
   return text;
 }
 
 /** What `account_preferences.today_line` holds. */
 export interface CachedTodayLine {
+  /**
+   * The sentence, or '' when the last ask about this queue came back with
+   * nothing usable: that is remembered too, so a model that keeps failing
+   * costs one call and not one per visit.
+   */
   line: string;
   /** The fingerprint of the facts it was written from. */
   hash: string;
@@ -275,14 +291,16 @@ export interface CachedTodayLine {
  * The stored value, checked rather than cast.
  *
  * A row written by an older build, a hand-edited column or an empty default all
- * come back as null, which the caller reads as "there is nothing to reuse".
+ * come back as null, which the caller reads as "there is nothing to reuse". An
+ * empty line with a fingerprint is not that: it is the mark of an ask that
+ * produced nothing, and it is kept.
  */
 export function readCachedTodayLine(value: unknown): CachedTodayLine | null {
   if (!isRecord(value)) return null;
   const line = textOf(value.line).trim();
   const hash = textOf(value.hash).trim();
   const generatedAt = textOf(value.generated_at).trim();
-  if (line === '' || hash === '' || generatedAt === '') return null;
+  if (hash === '' || generatedAt === '') return null;
   return { line, hash, generatedAt };
 }
 
@@ -296,6 +314,10 @@ export function readCachedTodayLine(value: unknown): CachedTodayLine | null {
  * A timestamp in the future is treated as stale rather than as infinitely
  * fresh. Clock skew between a database and a serverless region is real, and the
  * failure it must not cause is a line that never refreshes again.
+ *
+ * A stored failure is fresh for a shorter while: long enough that a hundred
+ * visits cost one call, short enough that a model having a bad minute is asked
+ * again soon.
  */
 export function todayLineIsFresh(
   cached: CachedTodayLine | null,
@@ -307,5 +329,5 @@ export function todayLineIsFresh(
   const at = Date.parse(cached.generatedAt);
   if (!Number.isFinite(at)) return false;
   const age = nowMs - at;
-  return age >= 0 && age < TODAY_LINE_TTL_MS;
+  return age >= 0 && age < (cached.line === '' ? TODAY_LINE_RETRY_MS : TODAY_LINE_TTL_MS);
 }

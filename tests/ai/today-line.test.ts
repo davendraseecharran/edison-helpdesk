@@ -162,6 +162,16 @@ describe('whether a stored line may be shown again', () => {
     expect(todayLineIsFresh({ ...cached, generatedAt: 'whenever' }, 'abc123', now)).toBe(false);
   });
 
+  it('remembers an empty answer for two minutes, not ten', () => {
+    const at = Date.parse('2026-09-15T09:00:00Z');
+    const empty = { line: '', hash: 'abc123', generatedAt: '2026-09-15T08:59:00Z' };
+    expect(todayLineIsFresh(empty, 'abc123', at)).toBe(true);
+    expect(todayLineIsFresh({ ...empty, generatedAt: '2026-09-15T08:57:00Z' }, 'abc123', at)).toBe(
+      false,
+    );
+    expect(todayLineIsFresh(empty, 'other', at)).toBe(false);
+  });
+
   it('does not let a clock ahead of this one pin the line forever', () => {
     const ahead = { ...cached, generatedAt: '2026-09-15T10:00:00Z' };
     expect(todayLineIsFresh(ahead, 'abc123', now)).toBe(false);
@@ -184,17 +194,25 @@ describe('whether a stored line may be shown again', () => {
     expect(readCachedTodayLine(null)).toBeNull();
     expect(readCachedTodayLine('a line')).toBeNull();
     expect(readCachedTodayLine({ line: 'No hash.', generated_at: '2026-09-15T08:55:00Z' })).toBeNull();
-    expect(readCachedTodayLine({ line: '   ', hash: 'abc', generated_at: 'x' })).toBeNull();
+    // An empty line under a fingerprint is kept: it is the mark of an ask that
+    // came back with nothing, and it stops the next visit asking again.
+    expect(readCachedTodayLine({ line: '   ', hash: 'abc', generated_at: 'x' })).toEqual({
+      line: '',
+      hash: 'abc',
+      generatedAt: 'x',
+    });
   });
 });
 
 describe('falling back rather than showing a bad line', () => {
   it('takes the sentence the brief asked for', () => {
-    expect(
-      acceptTodayLine(
-        'Two projector tickets in room 118 look like one fault; the queue is otherwise clear.',
-      ),
-    ).toBe('Two projector tickets in room 118 look like one fault; the queue is otherwise clear.');
+    expect(acceptTodayLine('Two projector tickets in room 118 look like one fault.')).toBe(
+      'Two projector tickets in room 118 look like one fault.',
+    );
+    // Names and room labels keep their capitals.
+    expect(acceptTodayLine('Mr Lopez in Room 204 has the Chromebook cart.')).toBe(
+      'Mr Lopez in Room 204 has the Chromebook cart.',
+    );
   });
 
   it('tidies whitespace, a wrapping quote, a label and a missing full stop', () => {
@@ -206,6 +224,13 @@ describe('falling back rather than showing a bad line', () => {
     expect(acceptTodayLine('```\nThree tickets are waiting.\n```')).toBe(
       'Three tickets are waiting.',
     );
+    // The common shape of a fence: a newline after it, sometimes one before.
+    expect(acceptTodayLine('```\nThree tickets are waiting.\n```\n')).toBe(
+      'Three tickets are waiting.',
+    );
+    expect(acceptTodayLine('\n```text\nThree tickets are waiting.\n```')).toBe(
+      'Three tickets are waiting.',
+    );
   });
 
   it('refuses an exclamation mark, an emoji and a shout', () => {
@@ -213,6 +238,9 @@ describe('falling back rather than showing a bad line', () => {
     expect(acceptTodayLine('Three tickets are waiting 🎉.')).toBeNull();
     expect(acceptTodayLine('**Three tickets** are waiting.')).toBeNull();
     expect(acceptTodayLine('Three tickets | two projectors.')).toBeNull();
+    expect(acceptTodayLine('THREE TICKETS ARE WAITING.')).toBeNull();
+    expect(acceptTodayLine('Three Tickets Are Waiting On A Reply.')).toBeNull();
+    expect(acceptTodayLine('Answer: THE QUEUE IS ON FIRE.')).toBeNull();
   });
 
   it('refuses a second sentence, however good the first one is', () => {

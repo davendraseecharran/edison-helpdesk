@@ -117,6 +117,13 @@
   font-size: var(--fs-3);
   line-height: 1.45;
 }
+/* Two lines on a phone, reserved: the assistant's sentence may wrap where the
+   library's does not, and it arrives after the page has painted. */
+@media (max-width: 719.98px) {
+  .today-brief {
+    min-height: calc(2 * 1.45em);
+  }
+}
 
 /* The Friday remark, and anything else the voice adds after the briefing. */
 .today-aside-line {

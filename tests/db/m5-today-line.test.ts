@@ -100,15 +100,19 @@ describe('app_set_today_line', () => {
     expect(long.startsWith(row.today_line?.line ?? '')).toBe(true);
   });
 
-  it('refuses a line or a fingerprint that says nothing', async () => {
-    const empty = await rpcFails(worker, 'app_set_today_line', { p_line: '   ', p_hash: 'abc' });
-    expect(empty.message).toContain('Send the line and the hash');
+  it('keeps a fingerprint with no line: the mark of an ask that came back empty', async () => {
+    const row = await setLine(worker, '   ', 'abc');
+    expect(row.today_line?.line).toBe('');
+    expect(row.today_line?.hash).toBe('abc');
+    expect(Number.isFinite(Date.parse(row.today_line?.generated_at ?? ''))).toBe(true);
+  });
 
+  it('refuses a fingerprint that says nothing', async () => {
     const unkeyed = await rpcFails(worker, 'app_set_today_line', {
       p_line: 'The queue is clear.',
       p_hash: '',
     });
-    expect(unkeyed.message).toContain('Send the line and the hash');
+    expect(unkeyed.message).toContain('Send the hash');
   });
 
   it('does not make the settings row look changed', async () => {
