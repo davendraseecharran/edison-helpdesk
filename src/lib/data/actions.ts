@@ -195,6 +195,11 @@ export async function addCollaboratorAction(
   );
 }
 
+/** Put yourself on a colleague's ticket, by number. The id comes back for the redirect. */
+export async function joinTicketAction(number: string): Promise<ActionResult> {
+  return runRpc('app_join_ticket', { p_number: number }, 'You are on the ticket.');
+}
+
 export async function removeCollaboratorAction(
   ticketId: string,
   accountId: string,

@@ -28,7 +28,7 @@ Two pieces of vocabulary, because the screens use them:
 
 The database changes are **additive**. No table the district's data lives in is
 dropped, renamed or rewritten, and no existing policy or grant is changed. The
-thirty-seven new migrations are all numbered above the nineteen the hosted
+thirty-eight new migrations are all numbered above the nineteen the hosted
 project already carries, so they apply in order after them.
 
 Do this from a terminal in a copy of the repository that is linked to the
@@ -65,13 +65,13 @@ hosted project (`npx supabase link` has already been run there).
    npx supabase migration list --linked
    ```
 
-   Thirty-seven files should be listed as present locally and missing remotely,
+   Thirty-eight files should be listed as present locally and missing remotely,
    and nothing should be the other way round.
 
 **The release.**
 
 ```bash
-npx supabase db push        # applies the thirty-seven migrations, in order
+npx supabase db push        # applies the thirty-eight migrations, in order
 vercel --prod --skip-domain # build and deploy
 # promote the alias once the deployment is Ready and you have looked at it
 ```

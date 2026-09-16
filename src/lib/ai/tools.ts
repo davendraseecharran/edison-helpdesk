@@ -1123,6 +1123,21 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  join_ticket: {
+    group: 'write',
+    description:
+      "Put yourself on a colleague's ticket as a collaborator when they ask for a hand. Works by ticket number even when the ticket is not in your lists yet. The owner is told, and the log records that you added yourself.",
+    fields: {
+      ticket: { type: 'string', required: true, description: 'Ticket number, such as EDT-1042.' },
+    },
+    run: async (args, ctx) => {
+      const number = normaliseTicketNumber(String(args.ticket));
+      if (number === null) throw new ToolError('Give a ticket number, such as EDT-1042.');
+      const id = await rpc(ctx, 'app_join_ticket', { p_number: number });
+      return outcome({ id: String(id) }, `Joined ${number}`);
+    },
+  },
+
   remove_collaborator: {
     group: 'write',
     description: 'Take a colleague off a ticket.',

@@ -33,7 +33,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { ThinkingOrb } from 'thinking-orbs';
-import { Hand, MessageCircle, Plus, QrCode, Search, Settings, SunMoon, X } from 'lucide-react';
+import { Hand, MessageCircle, Plus, QrCode, Search, Settings, SunMoon, UserPlus, X } from 'lucide-react';
 import { useRuntime } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
@@ -41,7 +41,7 @@ import { OpenBeam } from '@/components/ui/OpenBeam';
 import { useBodyScrollLock, useEscape, useFocusTrap } from '@/components/ui/focus';
 import { useApplePlatform, usePhone } from '@/components/ui/media';
 import { AnimatePresence, SpringSurface } from '@/components/ui/Motion';
-import { claimTicketAction } from '@/lib/data/actions';
+import { claimTicketAction, joinTicketAction } from '@/lib/data/actions';
 import { lookupDeviceCodeAction } from '@/lib/data/device-actions';
 import { matchesQuery, type RecentItem, type SearchHit } from '@/lib/data/search';
 import { targetKind } from '@/lib/lookup/recognise';
@@ -333,6 +333,20 @@ function Palette({
     [onClose, findTicket, notify, run, router],
   );
 
+  /*
+   * Joining needs no lookup first: the ticket a colleague asked for help with
+   * is usually one this account cannot see yet, which is the whole reason the
+   * action exists. The number goes to the database, and the id comes back.
+   */
+  const join = useCallback(
+    async (number: string) => {
+      onClose();
+      const result = await run(`join:${number}`, () => joinTicketAction(number));
+      if (result.ok && result.id) router.push(`/tickets/${result.id}`);
+    },
+    [onClose, run, router],
+  );
+
   const { term, searchable, ticketNumber } = lookup;
 
   /*
@@ -370,6 +384,17 @@ function Palette({
     // Claiming and intake are ticket work. A skills officer has no queue, so
     // offering either would be an action that ends in a refusal.
     if (canWorkTickets(actor.roles)) {
+      if (ticketNumber) {
+        list.push({
+          id: 'join',
+          label: `Join ${ticketNumber}`,
+          icon: UserPlus,
+          keywords: [],
+          subtitle: "Help on a colleague's ticket. They will know you joined.",
+          always: true,
+          run: () => join(ticketNumber),
+        });
+      }
       list.push({
         id: 'new-ticket',
         label: 'New ticket',
@@ -456,7 +481,7 @@ function Palette({
     });
 
     return list;
-  }, [ticketNumber, actor.roles, theme, ask, onClose, router, claim, choose]);
+  }, [ticketNumber, actor.roles, theme, ask, onClose, router, claim, join, choose]);
 
   const visibleActions = useMemo(
     () =>

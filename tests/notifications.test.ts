@@ -39,6 +39,7 @@ describe('kinds', () => {
       'access_denied',
       'access_requested',
       'collaborator_added',
+      'collaborator_joined',
       'ticket_assigned',
       'ticket_claimed',
       'ticket_reopened',

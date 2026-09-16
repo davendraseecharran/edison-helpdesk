@@ -59,6 +59,19 @@ export function canViewTicket(ticket: Ticket, actor: Account | null): boolean {
   return isClaimable(ticket) || isParticipant(ticket, actor.id);
 }
 
+/**
+ * Putting yourself on a colleague's live ticket. Unowned work is claimed, not
+ * joined, and somebody already on the ticket has nothing to join. Whether the
+ * account works tickets at all is the runtime's roles question, asked beside
+ * this one.
+ */
+export function canJoinTicket(ticket: Ticket, actor: Account | null): boolean {
+  if (!isUsableAccount(actor)) return false;
+  if (ticket.status === 'resolved' || ticket.status === 'cancelled') return false;
+  if (ticket.ownerId === null) return false;
+  return !isParticipant(ticket, actor.id);
+}
+
 export function canClaimTicket(ticket: Ticket, actor: Account | null): boolean {
   if (!isUsableAccount(actor)) return false;
   return isClaimable(ticket);

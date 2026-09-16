@@ -4,15 +4,18 @@ import { useMemo, useState } from 'react';
 import type { TicketDetail } from '@/lib/domain/selectors';
 import {
   addCollaboratorAction,
+  joinTicketAction,
   claimTicketAction,
   removeCollaboratorAction,
 } from '@/lib/data/actions';
 import {
   canClaimTicket,
   canReturnToQueue,
+  canJoinTicket,
   canManageCollaborators,
 } from '@/lib/domain/permissions';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
+import { canWorkTickets } from '@/lib/auth/roles';
 import { Avatar, Field, TimeAgo } from '@/components/Primitives';
 import { RoleBadge } from '@/components/Badges';
 import { Button } from '@/components/ui/Button';
@@ -29,7 +32,7 @@ import { Select } from '@/components/ui/Select';
  * tooltip.
  */
 export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
-  const { directory, pendingKey, run } = useRuntime();
+  const { actor: runtimeActor, directory, pendingKey, run } = useRuntime();
   const actor = useActorAccount();
   const [collaboratorId, setCollaboratorId] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +40,7 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
   const ticket = detail.ticket;
   const mayManage = canManageCollaborators(ticket, actor);
   const mayClaim = canClaimTicket(ticket, actor);
+  const mayJoin = canWorkTickets(runtimeActor.roles) && canJoinTicket(ticket, actor);
   const busy = pendingKey !== null;
 
   const candidates = useMemo(
@@ -77,6 +81,10 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
     } else {
       setError(result.error ?? 'That change could not be saved.');
     }
+  }
+
+  async function onJoin() {
+    await run(`join:${ticket.id}`, () => joinTicketAction(ticket.number));
   }
 
   async function onRemove(accountId: string) {
@@ -158,6 +166,23 @@ export function OwnershipPanel({ detail }: { detail: TicketDetail }) {
             ))
           )}
         </div>
+
+        {/* The other direction from "Add a collaborator": the person asked
+            for help puts themselves on. The owner is told, and the log says
+            they added themselves. */}
+        {mayJoin ? (
+          <div className="form-actions">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => void onJoin()}
+              disabled={busy}
+              loading={pendingKey === `join:${ticket.id}`}
+            >
+              Join this ticket
+            </Button>
+          </div>
+        ) : null}
 
         {mayManage && candidates.length > 0 ? (
           <form onSubmit={onAdd} className="form">

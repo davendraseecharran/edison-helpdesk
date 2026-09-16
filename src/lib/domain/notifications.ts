@@ -36,6 +36,7 @@ import { toDateKey } from '@/lib/format';
  *   - `ticket_returned`    app_return_ticket_to_queue → active administrators
  *   - `ticket_reopened`    app_reopen_ticket          → the owner
  *   - `collaborator_added` app_add_collaborator       → the new collaborator
+ *   - `collaborator_joined` app_join_ticket           → the owner
  *   - `access_requested`   app_trusted_link_identity  → active administrators
  *   - `access_approved`/`access_denied`
  *     app_admin_review_access_request → the requester
@@ -46,6 +47,7 @@ export const NOTIFICATION_KINDS = [
   'ticket_returned',
   'ticket_reopened',
   'collaborator_added',
+  'collaborator_joined',
   'access_requested',
   'access_approved',
   'access_denied',
@@ -83,6 +85,7 @@ const KIND_LABELS: Record<NotificationKind, string> = {
   ticket_returned: 'Returned to the Open Queue',
   ticket_reopened: 'Reopened',
   collaborator_added: 'Added as a collaborator',
+  collaborator_joined: 'Joined your ticket',
   access_requested: 'Access requested',
   access_approved: 'Access approved',
   access_denied: 'Access declined',
@@ -94,6 +97,7 @@ const KIND_ICONS: Record<NotificationKind, LucideIcon> = {
   ticket_returned: Undo2,
   ticket_reopened: KeyRound,
   collaborator_added: UserPlus,
+  collaborator_joined: UserPlus,
   access_requested: Bell,
   access_approved: ShieldCheck,
   access_denied: ShieldX,
