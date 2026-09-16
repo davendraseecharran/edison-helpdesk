@@ -244,12 +244,15 @@ describe('what the account can sign in with', () => {
     const admin = await createAdmin();
     const person = await googleOnlyAccount(admin.session, 'Priya Raman');
 
-    // The administrator was created with a password through the admin API, and
-    // the initial-credential trigger approved that digest, so their answer is
-    // the mirror image of the Google-only account's.
+    // The harness administrator was created with a password through the admin
+    // API, which is not one of the helpdesk's two password paths (a link, or
+    // Settings), so the helpdesk does not count it: the provider stores a hash
+    // for every user, usable or not, and only its own paths stamp
+    // password_set_at. A real first administrator arrives through the setup
+    // link and is counted.
     expect(await signInMethods(admin.session.client)).toEqual({
       google_email: null,
-      has_password: true,
+      has_password: false,
     });
     expect(await signInMethods(person.client)).toEqual({
       google_email: person.email,

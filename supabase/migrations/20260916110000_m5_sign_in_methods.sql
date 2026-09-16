@@ -62,15 +62,27 @@ alter table public.account_events add constraint account_events_kind_valid check
 --                  such identity. An identity carries its OWN address, which is
 --                  not necessarily auth.users.email, so it is read from the
 --                  identity rather than from the user.
---   has_password — the caller holds a password THE HELPDESK KNOWS ABOUT: the
---                  provider's hash is non-empty AND it is still the one
---                  `account_credential_state` approved. A password changed
---                  directly at the provider fails that test, which is the same
---                  fail-closed rule `app_token_is_current` applies, so this
---                  answer never claims a way in that would not actually work.
+--   has_password — the caller holds a password THE HELPDESK KNOWS ABOUT: one
+--                  was set through a helpdesk path (`password_set_at`) AND the
+--                  provider's hash is still the one `account_credential_state`
+--                  approved. A password changed directly at the provider fails
+--                  that test, which is the same fail-closed rule
+--                  `app_token_is_current` applies, so this answer never claims
+--                  a way in that would not actually work.
 -- ---------------------------------------------------------------------------
 
-create function public.app_my_sign_in_methods()
+-- The provider stores an unusable bcrypt hash even for a user created with no
+-- password at all, and gives every user an `email` identity, so neither can
+-- say whether a person HAS a password. The helpdesk knows, because a password
+-- only ever arrives through one of its own two paths: the setup or recovery
+-- link, and Settings. Both stamp this column; nothing else does.
+alter table public.account_credential_state
+  add column if not exists password_set_at timestamptz;
+
+comment on column public.account_credential_state.password_set_at is
+  'When the account holder last set a password through the helpdesk (a setup or recovery link, or Settings). Null for an account that has only ever signed in with Google.';
+
+create or replace function public.app_my_sign_in_methods()
 returns table (google_email text, has_password boolean)
 language sql
 stable
@@ -92,6 +104,7 @@ as $$
         select 1
         from public.account_credential_state c
         where c.account_id = u.id
+          and c.password_set_at is not null
           and c.approved_digest
               = pg_catalog.encode(
                   extensions.digest(coalesce(u.encrypted_password, ''), 'sha256'), 'hex'
@@ -152,7 +165,7 @@ grant execute on function public.app_my_sign_in_methods() to authenticated;
 -- exactly as unable to sign in as it already was.
 -- ---------------------------------------------------------------------------
 
-create function public.app_trusted_approve_own_credential(p_user uuid)
+create or replace function public.app_trusted_approve_own_credential(p_user uuid)
 returns void
 language plpgsql
 security definer
@@ -190,7 +203,8 @@ begin
   end if;
 
   update public.account_credential_state
-     set approved_digest = pg_catalog.encode(extensions.digest(v_hash, 'sha256'), 'hex')
+     set approved_digest = pg_catalog.encode(extensions.digest(v_hash, 'sha256'), 'hex'),
+         password_set_at = pg_catalog.clock_timestamp()
    where account_credential_state.account_id = p_user;
 
   -- No actor: the account holder did this themselves, in their own session.
@@ -209,3 +223,53 @@ comment on function public.app_trusted_approve_own_credential(uuid) is
 revoke execute on function public.app_trusted_approve_own_credential(uuid)
 from public, anon, authenticated;
 grant execute on function public.app_trusted_approve_own_credential(uuid) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- The link path stamps password_set_at as well. Restated from
+-- 20260910210300_m3_credential_binding.sql with one change: the credential
+-- state update also records when the password was set. Everything else is the
+-- original, character for character.
+-- ---------------------------------------------------------------------------
+create or replace function public.app_trusted_complete_credential_action(
+  p_account uuid, p_grant uuid, p_session uuid, p_password text
+)
+returns table(account_id uuid, purpose text, status text, sessions_valid_from timestamptz)
+language plpgsql security definer set search_path = '' as $$
+declare v_account public.app_accounts; v_grant public.account_credential_grants; v_hash text;
+begin
+  perform pg_advisory_xact_lock(1162103123, 1);
+  select * into v_account from public.app_accounts a where a.id = p_account for update;
+  select g.* into v_grant from public.account_credential_grants g
+  join public.account_credential_bindings b on b.grant_id = g.id
+  where g.id = p_grant and g.account_id = p_account and b.verified_session = p_session
+    and b.completion_started_at is not null and b.completion_started_at > now() - interval '2 minutes'
+    and g.consumed_at is null and g.superseded_at is null and g.expires_at > now()
+  for update of g, b;
+  if not found or v_account.id is null then
+    raise exception 'This link is no longer valid.' using errcode = 'insufficient_privilege';
+  end if;
+  -- Lock provider state while approving its fingerprint. The provider generated
+  -- this bcrypt hash; crypt only verifies the transient RPC password and never
+  -- creates or persists an independent password store.
+  select u.encrypted_password into v_hash from auth.users u where u.id = p_account for update;
+  if p_password is null or length(p_password) < 12 or v_hash is null
+    or extensions.crypt(p_password, v_hash) is distinct from v_hash then
+    raise exception 'The password change could not be verified. Request a new link.' using errcode = 'insufficient_privilege';
+  end if;
+  if v_grant.purpose = 'setup' and v_account.status <> 'setup_pending' then
+    raise exception 'That account is not awaiting setup.' using errcode = 'check_violation';
+  end if;
+  update public.account_credential_state set approved_digest = encode(extensions.digest(v_hash, 'sha256'), 'hex'),
+    password_set_at = clock_timestamp()
+  where account_credential_state.account_id = p_account;
+  update public.app_accounts set
+    status = case when v_grant.purpose = 'setup' then 'active' else app_accounts.status end,
+    credential_action_pending = false, sessions_valid_from = clock_timestamp()
+  where id = p_account;
+  update public.account_credential_grants set consumed_at = now() where id = v_grant.id;
+  insert into public.account_events(account_id, kind, detail) values
+    (p_account, v_grant.purpose || '_completed', 'Password verified through the trusted flow; earlier sessions invalidated.'),
+    (p_account, 'sessions_invalidated', 'Earlier sessions remain invalid after refresh.');
+  return query select a.id, v_grant.purpose, a.status, a.sessions_valid_from from public.app_accounts a where a.id = p_account;
+end;
+$$;
