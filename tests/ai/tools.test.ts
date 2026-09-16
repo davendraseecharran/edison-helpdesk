@@ -59,6 +59,7 @@ describe('tool classification', () => {
       'archive_person',
       'create_person',
       'delete_view',
+      'find_people',
       'get_device',
       'get_person',
       'list_attachments',
@@ -80,6 +81,7 @@ describe('tool classification', () => {
       'log_work',
       'get_ticket',
       'list_queue',
+      'import_resolved_tickets',
     ]) {
       expect(names).not.toContain(name);
     }
@@ -110,6 +112,8 @@ describe('tool classification', () => {
       // something exhaustive rather than from a name that starts with `get_`.
       'get_today_briefing',
       'draft_ticket_from_text',
+      // A whole class list in one call, for the officer who has one.
+      'find_people',
     ]) {
       expect(READ_TOOLS).toContain(name);
     }
@@ -146,6 +150,8 @@ describe('tool classification', () => {
       'save_view',
       'delete_view',
       'archive_person',
+      // The desk's old spreadsheet, as tickets.
+      'import_resolved_tickets',
     ]) {
       expect(WRITE_TOOLS).toContain(name);
     }
@@ -204,7 +210,13 @@ describe('tool classification', () => {
     for (const name of ['set_preference', 'save_view', 'delete_view', 'mark_notifications_read']) {
       expect(names).toContain(name);
     }
-    for (const name of ['attach_to_ticket', 'remove_attachment', 'unlink_device_from_ticket']) {
+    for (const name of [
+      'attach_to_ticket',
+      'remove_attachment',
+      'unlink_device_from_ticket',
+      // A batch of tickets is still ticket work, however it arrives.
+      'import_resolved_tickets',
+    ]) {
       expect(names).not.toContain(name);
     }
   });
@@ -373,6 +385,7 @@ describe('requiresApproval', () => {
       'save_view',
       'delete_view',
       'archive_person',
+      'import_resolved_tickets',
     ]) {
       expect(requiresApproval(name, {}, true)).toBe(true);
       expect(requiresApproval(name, {}, false)).toBe(false);

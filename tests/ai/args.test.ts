@@ -1,5 +1,46 @@
 import { describe, expect, it } from 'vitest';
-import { ADMIN_TOOLS, READ_TOOLS, toolsFor, validateArgs, WRITE_TOOLS } from '../../src/lib/ai/tools';
+import {
+  ADMIN_TOOLS,
+  READ_TOOLS,
+  toolsFor,
+  validateArgs,
+  WRITE_TOOLS,
+  type JsonSchemaProperty,
+} from '../../src/lib/ai/tools';
+
+/**
+ * One value a field would accept, read from the schema the MODEL is given.
+ *
+ * Nullable is skipped: the question is whether the REQUIRED set is satisfiable.
+ * A field whose description names the date format gets a date, and a list of
+ * rows gets one row filled the same way, because a batch tool's schema is
+ * satisfiable only if a whole row is.
+ */
+function sampleValue(schema: JsonSchemaProperty): unknown {
+  const types = Array.isArray(schema.type) ? schema.type : [schema.type];
+  if (types.includes('null')) return undefined;
+  if (schema.enum) return schema.enum[0];
+  if (types.includes('string')) {
+    return (schema.description ?? '').includes('YYYY-MM-DD') ? '2026-09-13' : 'x';
+  }
+  if (types.includes('integer') || types.includes('number')) return 1;
+  if (types.includes('boolean')) return true;
+  if (types.includes('array')) {
+    const items = schema.items;
+    if (items !== undefined && items.type === 'object') {
+      const row: Record<string, unknown> = {};
+      for (const [name, property] of Object.entries(items.properties) as Array<
+        [string, JsonSchemaProperty]
+      >) {
+        const value = sampleValue(property);
+        if (value !== undefined) row[name] = value;
+      }
+      return [row];
+    }
+    return ['x'];
+  }
+  return undefined;
+}
 
 describe('validateArgs', () => {
   it('refuses a tool it does not know', () => {
@@ -113,13 +154,8 @@ describe('validateArgs', () => {
     for (const tool of toolsFor(['admin'])) {
       const args: Record<string, unknown> = {};
       for (const [name, schema] of Object.entries(tool.parameters.properties)) {
-        const types = Array.isArray(schema.type) ? schema.type : [schema.type];
-        if (types.includes('null')) continue;
-        if (schema.enum) args[name] = schema.enum[0];
-        else if (types.includes('string')) args[name] = 'x';
-        else if (types.includes('integer') || types.includes('number')) args[name] = 1;
-        else if (types.includes('boolean')) args[name] = true;
-        else if (types.includes('array')) args[name] = ['x'];
+        const value = sampleValue(schema);
+        if (value !== undefined) args[name] = value;
       }
       const result = validateArgs(tool.name, args);
       expect(result.ok, `${tool.name}: ${result.error ?? ''}`).toBe(true);

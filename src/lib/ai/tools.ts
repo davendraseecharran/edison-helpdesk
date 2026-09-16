@@ -72,7 +72,12 @@ export interface JsonSchemaProperty {
   type: string | string[];
   description?: string;
   enum?: (string | null)[];
-  items?: { type: string };
+  /**
+   * What a list holds. A list of text says so in one word; a list of ROWS
+   * carries a whole object schema, which strict mode requires to be closed and
+   * fully required exactly like the top level.
+   */
+  items?: { type: 'string' } | JsonSchema;
 }
 
 export interface JsonSchema {
@@ -90,7 +95,7 @@ export interface ToolDef {
   strict: true;
 }
 
-type FieldType = 'string' | 'integer' | 'number' | 'boolean' | 'string[]';
+type FieldType = 'string' | 'integer' | 'number' | 'boolean' | 'string[]' | 'object[]';
 
 interface Field {
   type: FieldType;
@@ -100,8 +105,23 @@ interface Field {
   choices?: readonly string[];
   /** A plain calendar date, `YYYY-MM-DD`. */
   date?: boolean;
+  /**
+   * A moment in history: `YYYY-MM-DD`, or a full ISO instant. Checked and
+   * normalised by `historicInstant`, so what reaches an RPC is always one
+   * spelling of one instant.
+   */
+  instant?: boolean;
   /** Longest text accepted. Defaults to MAX_TEXT; only pasted files need more. */
   maxLength?: number;
+  /** Most entries a list accepts. Absent means the tool sets no ceiling of its own. */
+  maxItems?: number;
+  /**
+   * For `object[]`: the fields ONE row takes, checked by the same checker that
+   * checks a tool's own arguments. A batch is a list of small calls, and a row
+   * that is wrong should be named by its number and its field rather than
+   * arriving at the database as a whole bad batch.
+   */
+  items?: Record<string, Field>;
 }
 
 /**
@@ -263,6 +283,56 @@ export function normaliseTicketNumber(value: string): string | null {
   return match === null ? null : `EDT-${match[1]}`;
 }
 
+/** A date with no time, and a time with no zone: the two shapes a sheet holds. */
+const PLAIN_DATE = /^(\d{4}-\d{2}-\d{2})$/;
+const NAIVE_DATE_TIME = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?$/;
+const ZONED_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:?\d{2})$/;
+
+/**
+ * One moment, from what a spreadsheet actually says.
+ *
+ * The desk's sheet holds dates, not instants: "3 Oct". A column like that is
+ * read here as the SCHOOL day it names, taken at its start, because the one
+ * thing that must not happen is a row landing on the wrong day — and that is
+ * exactly what `2025-10-03` sent as a timestamp would do, since the database
+ * session is UTC and midnight UTC is still the second of October in New York.
+ *
+ * A full instant carrying a zone is respected as written. A time with no zone
+ * is read as school-local: the day's own offset, taken from the start of that
+ * day, plus the wall clock. Anything else is null, and the checker says so.
+ */
+export function historicInstant(value: string): string | null {
+  const text = value.trim().replace(/\s+/g, ' ');
+
+  const plain = PLAIN_DATE.exec(text);
+  if (plain !== null) return schoolDayStart(plain[1]);
+
+  const naive = NAIVE_DATE_TIME.exec(text);
+  if (naive !== null) {
+    const midnight = schoolDayStart(naive[1]);
+    if (midnight === null) return null;
+    const hours = Number(naive[2]);
+    const minutes = Number(naive[3]);
+    const seconds = Number(naive[4] ?? '0');
+    if (hours > 23 || minutes > 59 || seconds > 59) return null;
+    const offset = ((hours * 60 + minutes) * 60 + seconds) * 1000;
+    return new Date(Date.parse(midnight) + offset).toISOString();
+  }
+
+  if (!ZONED_DATE_TIME.test(text)) return null;
+  const parsed = Date.parse(text);
+  return Number.isNaN(parsed) ? null : new Date(parsed).toISOString();
+}
+
+/**
+ * How many rows one import carries, and how many names one lookup takes.
+ *
+ * Both are the database's own ceilings, said here as well so an oversized call
+ * costs one sentence rather than fifty round trips or a refusal from Postgres.
+ */
+const IMPORT_ROW_LIMIT = 50;
+const FIND_PEOPLE_LIMIT = 200;
+
 function rows(data: unknown): Record<string, unknown>[] {
   return Array.isArray(data) ? data.filter(isRecord) : [];
 }
@@ -359,6 +429,23 @@ async function resolveTicket(ctx: ToolContext, value: string): Promise<TicketRef
     number: space === -1 ? combined : combined.slice(0, space),
     title: space === -1 ? '' : combined.slice(space + 1),
   };
+}
+
+/**
+ * The readable number of a ticket that already exists, or an empty string.
+ *
+ * Only ever used to make a sentence nicer, so a failure here is not a failure:
+ * the caller has already written something, and "Imported 12 resolved tickets"
+ * with no range is a better answer than an error about a ticket that landed.
+ */
+async function ticketNumberOf(ctx: ToolContext, id: string): Promise<string> {
+  try {
+    const detail = await rpc(ctx, 'app_ticket_detail', { p_ticket: id });
+    const ticket = isRecord(detail) && isRecord(detail.ticket) ? detail.ticket : {};
+    return textOf(ticket.number);
+  } catch {
+    return '';
+  }
 }
 
 interface DeviceRef {
@@ -882,6 +969,52 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  find_people: {
+    group: 'read',
+    description:
+      'Look up a whole list of people at once — a class list, a roster, a column pasted out of a spreadsheet — and get one answer per entry, in the order they were given. Each entry is an OSIS number, a staff id, a school email address or a full name as the directory spells it; an identifier is matched exactly and a name is matched whole, ignoring capitals. Each answer is either the person (id, name, student or staff, their class or department, how many machines they hold and how many open tickets they have), "no match", or "ambiguous (n)" when the same name belongs to more than one record — in which case ask which one, or use the OSIS or staff id instead. Up to 200 at a time, in one call: do not call this once per person.',
+    fields: {
+      people: {
+        type: 'string[]',
+        required: true,
+        maxItems: FIND_PEOPLE_LIMIT,
+        description:
+          'The people to look up, one per entry: OSIS number, staff id, school email address or full name.',
+      },
+    },
+    run: async (args, ctx) => {
+      const keys = args.people as string[];
+      const found = rows(await rpc(ctx, 'app_find_people', { p_keys: keys }));
+
+      const answers = found.map((row) => {
+        const key = textOf(row.key);
+        const matches = Number(row.matches ?? 0);
+        if (textOf(row.found) !== 'match') {
+          return { key, match: matches > 1 ? `ambiguous (${matches})` : 'no match' };
+        }
+        return {
+          key,
+          id: textOf(row.id),
+          name: textOf(row.display_name),
+          kind: textOf(row.kind),
+          // A student's official class and a member of staff's department are
+          // the same question asked of two records: "where in the school?".
+          group: textOf(row.group_label),
+          devices: Number(row.device_count ?? 0),
+          openTickets: Number(row.open_ticket_count ?? 0),
+        };
+      });
+
+      const matched = answers.filter((answer) => answer.match === undefined).length;
+      const ambiguous = answers.filter((answer) => (answer.match ?? '').startsWith('ambiguous')).length;
+      const missing = answers.length - matched - ambiguous;
+      const parts = [`${matched} matched`];
+      if (missing > 0) parts.push(`${missing} not found`);
+      if (ambiguous > 0) parts.push(`${ambiguous} ambiguous`);
+      return outcome(answers, `Looked up ${answers.length} people: ${parts.join(', ')}.`);
+    },
+  },
+
   list_devices: {
     group: 'read',
     description:
@@ -1002,6 +1135,147 @@ const TOOLS: Record<string, ToolSpec> = {
       const ticket = isRecord(detail) && isRecord(detail.ticket) ? detail.ticket : {};
       const number = textOf(ticket.number) || 'the ticket';
       return outcome({ id, number }, `Opened ${number}: ${String(args.title)}`);
+    },
+  },
+
+  import_resolved_tickets: {
+    group: 'write',
+    description:
+      "Put the desk's old spreadsheet of already-finished jobs into the helpdesk, as many rows at a time as you were given (up to 50). Use it when somebody pastes a sheet or a table of past work — typically one row per call, with the date it came in, who rang and from where, what was wrong, who fixed it and the date it was closed. " +
+      'Read the pasted rows yourself and map the columns onto these fields: the problem becomes title (short) and issue (the rest), the two dates become called_at and resolved_at, the room or area becomes location, and the person who reported it becomes requester. Convert every date to ISO before sending: a plain day is YYYY-MM-DD, which is read as that school day. If a column is ambiguous — two date columns with no headings, a name that could be the caller or the technician — ask ONCE, in one message, listing what you think each column is; otherwise do not ask, just send every row in one call. ' +
+      'Leave requester out when the sheet names nobody the directory knows, and leave resolved_by out when the work was your own: naming a colleague is administrator-only. Each ticket lands resolved, owned by whoever fixed it, dated when it actually happened. The rows are written in order and the first one that fails stops the rest, so the answer says how many landed and which row stopped it.',
+    fields: {
+      rows: {
+        type: 'object[]',
+        required: true,
+        maxItems: IMPORT_ROW_LIMIT,
+        description: `The rows of the sheet, in the order they were given. At most ${IMPORT_ROW_LIMIT} in one call; send a longer sheet in batches of ${IMPORT_ROW_LIMIT}.`,
+        items: {
+          title: {
+            type: 'string',
+            required: true,
+            description: 'A short summary of the problem, 3 to 120 characters. Write one from the sheet if the sheet has no title column.',
+          },
+          issue: {
+            type: 'string',
+            description: 'What the sheet recorded about the problem, in full. Leave it out when the title is all there is.',
+          },
+          called_at: {
+            type: 'string',
+            required: true,
+            instant: true,
+            description: 'The day it came in, as YYYY-MM-DD, or a full ISO instant. Never later than resolved_at.',
+          },
+          resolved_at: {
+            type: 'string',
+            required: true,
+            instant: true,
+            description: 'The day it was closed, as YYYY-MM-DD, or a full ISO instant. Never in the future, and nothing older than three years.',
+          },
+          resolved_by: {
+            type: 'string',
+            description: "Who fixed it, by name or account id. Leave it out when it was the person you are working for; naming anybody else is administrator-only.",
+          },
+          requester: {
+            type: 'string',
+            description: 'Who reported it: name, OSIS, staff id or email, as the directory holds it. Leave it out when the sheet names nobody the directory knows — the ticket then records the requester as unknown.',
+          },
+          location: { type: 'string', description: 'Room or area the problem was in.' },
+          category: { type: 'string', description: 'Default other.', choices: CATEGORIES },
+          priority: { type: 'string', description: 'Default normal.', choices: PRIORITIES },
+        },
+      },
+    },
+    run: async (args, ctx) => {
+      const sheet = args.rows as Record<string, unknown>[];
+
+      /*
+       * Everything that can be settled without the database is settled for
+       * EVERY row first, and the whole call is refused if any of it is wrong.
+       * A batch that stops halfway leaves tickets behind, so the checks that
+       * cost nothing happen while nothing has happened yet.
+       */
+      for (const [index, row] of sheet.entries()) {
+        const called = Date.parse(String(row.called_at));
+        const resolved = Date.parse(String(row.resolved_at));
+        if (resolved < called) {
+          throw new ToolError(
+            `Row ${index + 1} is resolved before it was called in. Check which date column is which.`,
+          );
+        }
+      }
+
+      /*
+       * A sheet repeats names — the same teacher rings four times, one
+       * technician fixed the lot — and each lookup is a round trip through the
+       * directory. Resolving once per distinct name rather than once per row is
+       * the difference between three calls and a hundred.
+       */
+      const people = new Map<string, PersonRef>();
+      const colleagues = new Map<string, AccountRef>();
+
+      const landed: string[] = [];
+      for (const [index, row] of sheet.entries()) {
+        try {
+          const requester = row.requester === undefined ? null : String(row.requester);
+          if (requester !== null && !people.has(requester)) {
+            people.set(requester, await resolvePerson(ctx, requester));
+          }
+          const resolver = row.resolved_by === undefined ? null : String(row.resolved_by);
+          if (resolver !== null && !colleagues.has(resolver)) {
+            colleagues.set(resolver, await resolveAccount(ctx, resolver));
+          }
+
+          const id = await rpc(ctx, 'app_import_resolved_ticket', {
+            p_title: row.title,
+            p_issue: row.issue ?? null,
+            p_called_at: row.called_at,
+            p_resolved_at: row.resolved_at,
+            p_resolved_by: resolver === null ? null : colleagues.get(resolver)?.id ?? null,
+            p_requester_id: requester === null ? null : people.get(requester)?.id ?? null,
+            p_location: row.location ?? null,
+            p_category: row.category ?? null,
+            p_priority: row.priority ?? null,
+          });
+          landed.push(String(id));
+        } catch (error) {
+          // The rows before this one are REAL tickets now. Saying so, with the
+          // row that stopped it, is the only answer that lets somebody fix the
+          // sheet and send the rest without importing anything twice.
+          const message =
+            error instanceof ToolError && error.message.trim() !== ''
+              ? error.message
+              : 'That row did not go through.';
+          const done = landed.length;
+          return {
+            ok: false,
+            result: {
+              imported: done,
+              rows_landed: landed.map((_, at) => at + 1),
+              ticket_ids: landed,
+              failed_row: index + 1,
+              error: message,
+              remaining: sheet.length - done,
+            },
+            summary:
+              done === 0
+                ? `Row 1 failed and nothing was imported: ${message}`
+                : `Imported ${done} of ${sheet.length} rows, then row ${index + 1} failed: ${message}`,
+          };
+        }
+      }
+
+      // The numbers, for the sentence a person reads. Two reads rather than
+      // fifty: the first and the last are what "EDT-1101 to EDT-1112" needs,
+      // and a ticket that landed stays landed even if this read does not work.
+      const first = await ticketNumberOf(ctx, landed[0]);
+      const last = landed.length === 1 ? first : await ticketNumberOf(ctx, landed[landed.length - 1]);
+      const range =
+        first === '' ? '' : landed.length === 1 ? ` (${first})` : last === '' ? ` (from ${first})` : ` (${first} to ${last})`;
+      return outcome(
+        { imported: landed.length, ticket_ids: landed },
+        `Imported ${landed.length} resolved ${landed.length === 1 ? 'ticket' : 'tickets'}${range}`,
+      );
     },
   },
 
@@ -2031,7 +2305,11 @@ export function isWriteCall(name: string, args: Record<string, unknown>): boolea
 
 function schemaFor(field: Field): JsonSchemaProperty {
   const base: string =
-    field.type === 'string[]' ? 'array' : field.type === 'integer' ? 'integer' : field.type;
+    field.type === 'string[]' || field.type === 'object[]'
+      ? 'array'
+      : field.type === 'integer'
+        ? 'integer'
+        : field.type;
 
   // Strict function tools require every property in `required`, so "optional"
   // is expressed by allowing null. That is the documented shape, and it is also
@@ -2041,27 +2319,34 @@ function schemaFor(field: Field): JsonSchemaProperty {
     description: field.description,
   };
   if (field.type === 'string[]') property.items = { type: 'string' };
+  // A row schema is the same shape as a tool's own: closed, and every property
+  // listed as required, with an optional one expressed as nullable instead.
+  if (field.type === 'object[]') property.items = objectSchemaFor(field.items ?? {});
   if (field.choices !== undefined) {
     property.enum = field.required === true ? [...field.choices] : [...field.choices, null];
   }
   return property;
 }
 
-function defFor(name: string, spec: ToolSpec): ToolDef {
+function objectSchemaFor(fields: Record<string, Field>): JsonSchema {
   const properties: Record<string, JsonSchemaProperty> = {};
-  for (const [field, definition] of Object.entries(spec.fields)) {
-    properties[field] = schemaFor(definition);
+  for (const [name, definition] of Object.entries(fields)) {
+    properties[name] = schemaFor(definition);
   }
+  return {
+    type: 'object',
+    properties,
+    required: Object.keys(properties),
+    additionalProperties: false,
+  };
+}
+
+function defFor(name: string, spec: ToolSpec): ToolDef {
   return {
     type: 'function',
     name,
     description: spec.description,
-    parameters: {
-      type: 'object',
-      properties,
-      required: Object.keys(properties),
-      additionalProperties: false,
-    },
+    parameters: objectSchemaFor(spec.fields),
     strict: true,
   };
 }
@@ -2083,6 +2368,7 @@ const DIRECTORY_TOOLS = [
   'search_records',
   'list_people',
   'get_person',
+  'find_people',
   'list_devices',
   'get_device',
   'list_attachments',
@@ -2135,6 +2421,20 @@ function checkField(name: string, field: Field, value: unknown): { value?: unkno
       if (field.date === true && Number.isNaN(Date.parse(`${trimmed}T00:00:00Z`))) {
         return { error: fieldError(name, 'is not a real date.') };
       }
+      if (field.instant === true) {
+        // Normalised here rather than in the tool: what reaches an RPC is then
+        // one spelling of one instant, whatever the sheet said.
+        const instant = historicInstant(trimmed);
+        if (instant === null) {
+          return {
+            error: fieldError(
+              name,
+              'has to be a date written as YYYY-MM-DD, or a full ISO date and time.',
+            ),
+          };
+        }
+        return { value: instant };
+      }
       const limit = field.maxLength ?? MAX_TEXT;
       if (trimmed.length > limit) {
         return {
@@ -2161,6 +2461,9 @@ function checkField(name: string, field: Field, value: unknown): { value?: unkno
     }
     case 'string[]': {
       if (!Array.isArray(value)) return { error: fieldError(name, 'has to be a list.') };
+      if (field.maxItems !== undefined && value.length > field.maxItems) {
+        return { error: fieldError(name, `takes at most ${field.maxItems} entries in one call.`) };
+      }
       const cleaned: string[] = [];
       for (const entry of value) {
         if (typeof entry !== 'string' || entry.trim() === '') {
@@ -2169,6 +2472,45 @@ function checkField(name: string, field: Field, value: unknown): { value?: unkno
         cleaned.push(entry.trim());
       }
       if (cleaned.length === 0) return { error: fieldError(name, 'needs at least one entry.') };
+      return { value: cleaned };
+    }
+    case 'object[]': {
+      if (!Array.isArray(value)) return { error: fieldError(name, 'has to be a list of rows.') };
+      if (value.length === 0) return { error: fieldError(name, 'needs at least one row.') };
+      if (field.maxItems !== undefined && value.length > field.maxItems) {
+        return {
+          error: fieldError(
+            name,
+            `takes at most ${field.maxItems} rows in one call. Send the rest in another call.`,
+          ),
+        };
+      }
+
+      const known = field.items ?? {};
+      const cleaned: Record<string, unknown>[] = [];
+      for (const [at, entry] of value.entries()) {
+        // Numbered from one, because the person reading the refusal is looking
+        // at a spreadsheet and spreadsheets start at one.
+        const where = `${name} row ${at + 1}`;
+        if (!isRecord(entry)) return { error: `${where} has to be an object of fields.` };
+
+        const unknown = Object.keys(entry).filter((key) => !Object.hasOwn(known, key));
+        if (unknown.length > 0) return { error: `${where} does not take ${unknown.join(', ')}.` };
+
+        const row: Record<string, unknown> = {};
+        for (const [itemName, itemField] of Object.entries(known)) {
+          const raw = entry[itemName];
+          if (raw === undefined || raw === null) {
+            if (itemField.required === true) return { error: `${where} needs ${itemName}.` };
+            continue;
+          }
+          const checked = checkField(itemName, itemField, raw);
+          if (checked.error !== undefined) return { error: `${where}: ${checked.error}` };
+          if (checked.value !== undefined) row[itemName] = checked.value;
+          else if (itemField.required === true) return { error: `${where} needs ${itemName}.` };
+        }
+        cleaned.push(row);
+      }
       return { value: cleaned };
     }
   }
@@ -2288,6 +2630,15 @@ const DESCRIBE_LIMIT = 120;
  */
 function describeValue(key: string, value: unknown): string {
   if (Array.isArray(value)) {
+    // A list of ROWS is never readable spelled out — fifty objects on a card is
+    // a card nobody reads — so it is counted, and named by the first title so
+    // the person can see which sheet they are about to import.
+    if (value.some(isRecord)) {
+      const count = `${value.length} ${value.length === 1 ? 'row' : 'rows'}`;
+      const first = value.find(isRecord);
+      const title = first === undefined ? '' : textOf(first.title);
+      return title === '' ? count : `${count}, starting "${title}"`;
+    }
     const shown = value.slice(0, 5).map(String).join(', ');
     return value.length > 5 ? `${shown} and ${value.length - 5} more` : shown;
   }
