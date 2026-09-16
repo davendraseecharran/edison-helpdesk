@@ -79,7 +79,7 @@ Do this first, and do it now: it ends the half-state described above.
 
 The changes are **additive**. No table the district's data lives in is dropped,
 renamed or rewritten, and no existing policy or grant is changed. There are
-forty-one new migration files, all numbered above the nineteen the hosted
+forty-two new migration files, all numbered above the nineteen the hosted
 project already carries, so they apply in order after them.
 
 **1.1 Take a backup.** Supabase dashboard → Database → Backups, and confirm a
@@ -95,8 +95,8 @@ npx supabase migration list --linked
 ```
 
 You should see the nineteen migrations you already have listed on both sides,
-followed by **forty-one** rows that are present locally and blank on the
-remote side. If you see fewer than forty-one, your checkout is old: run
+followed by **forty-two** rows that are present locally and blank on the
+remote side. If you see fewer than forty-two, your checkout is old: run
 `git pull origin main` and look again. If you see rows the other way round
 (remote has something local does not), stop and ask before pushing.
 
@@ -106,9 +106,9 @@ remote side. If you see fewer than forty-one, your checkout is old: run
 npx supabase db push
 ```
 
-It lists the forty-one files, asks you to confirm, and applies them in
+It lists the forty-two files, asks you to confirm, and applies them in
 order. It takes about a minute. The last file it names is
-`20260916100200_m5_import_resolved.sql`, followed by "Finished supabase db push."
+`20260916110000_m5_sign_in_methods.sql`, followed by "Finished supabase db push."
 
 **1.4 Verify.** Reload the live site.
 
@@ -393,7 +393,7 @@ deployed files.
 
 **The "database is behind" notice is still there after `db push`.** First a
 hard refresh. Then check `npx supabase migration list --linked`: if the
-forty-one are on both sides, the site is simply serving a cached page; wait
+forty-two are on both sides, the site is simply serving a cached page; wait
 a minute and reload. If some are missing on the remote side, `db push` did not
 finish; run it again, it continues where it stopped.
 
