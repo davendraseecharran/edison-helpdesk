@@ -17,10 +17,11 @@
 import { useApplePlatform } from '@/components/ui/media';
 import { Tooltip } from '@/components/ui/Tooltip';
 import { AiMark } from '@/components/ai/AiMark';
+import { Orb } from '@/components/ai/Orb';
 import { toggleAssistant, useAssistant } from '@/components/ai/assistant-store';
 
 export function AiToggle() {
-  const { open, busy, unread } = useAssistant();
+  const { open, busy, unread, moment } = useAssistant();
   const apple = useApplePlatform();
   const waiting = !open && busy;
   const shortcut = apple ? '⌘J' : 'Ctrl+J';
@@ -55,7 +56,9 @@ export function AiToggle() {
           data-ai-toggle
           onClick={toggleAssistant}
         >
-          <AiMark size={20} state={waiting ? 'working' : 'still'} />
+          {/* At rest the drawn mark; while the assistant works with the panel
+              closed, the same orb the panel shows, at 20 px, in its real state. */}
+          {waiting ? <Orb moment={moment} size={20} /> : <AiMark size={20} state="still" />}
         </button>
       </Tooltip>
       {unread && !open ? <span className="ai-toggle-dot" aria-hidden="true" /> : null}
