@@ -51,6 +51,7 @@ import { AiMessage } from './AiMessage';
 import { OPEN_ASSISTANT_EVENT, readOpenDetail, setAssistant } from './assistant-store';
 import { clearDraft, readDraft, writeDraft } from './draft-store';
 import { ConversationList } from './ConversationList';
+import { AiMark } from './AiMark';
 import { Orb } from './Orb';
 import type { Moment } from './orb-state';
 import { readPageContext, usePageContext } from './page-context';
@@ -823,7 +824,11 @@ export function AiPanel({
                 ) : showWelcome ? (
                   <div className="ai-welcome">
                     <div className="ai-welcome-orb">
-                      <Orb moment={moment} size={64} level={level} />
+                      {moment === 'idle' ? (
+                        <AiMark size={64} state="waiting" className="ai-welcome-mark" />
+                      ) : (
+                        <Orb moment={moment} size={64} level={level} />
+                      )}
                     </div>
                     <p className="ai-welcome-text">{welcomeLine}</p>
                     {status ? (

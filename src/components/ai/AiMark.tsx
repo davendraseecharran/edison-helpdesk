@@ -130,9 +130,9 @@ export function AiMark({
   className?: string;
 }) {
   const reduced = useReducedMotion();
-  // The dotted cloud IS the mark: at rest it holds the `waiting` shape, and
-  // only reduced motion falls back to the drawn glyph.
-  const cloud = reduced ? null : state === 'still' ? 'waiting' : state;
+  // At rest the mark is the drawn glyph; the dotted cloud appears only while
+  // the assistant is doing something (or, in the panel's welcome, as `waiting`).
+  const cloud = state === 'still' || reduced ? null : state;
 
   return (
     <span
