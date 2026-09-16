@@ -13,6 +13,12 @@
  * here (`src/lib/lists/keys.ts`). This file is the arrangement: what is on the
  * page, in what order, and what a press does.
  *
+ * One line on the page has two authors. The sentence under the greeting is the
+ * library's, rendered on the server and correct on its own; when the reader has
+ * connected their own ChatGPT, `useAssistantLine` asks it for the same fact in
+ * better words once the page is already readable, and swaps the line in if an
+ * answer comes back. Nothing waits for it and nothing reports its absence.
+ *
  * Two pieces of state it keeps for itself. It watches the count of things
  * needing you and marks the moment it reaches zero, because a queue you
  * emptied while you were looking at it is the one win this application gets to
@@ -55,6 +61,7 @@ import {
 } from '@/lib/domain/today';
 import { AVAILABLE_STATUS, PRIORITY_LABELS } from '@/lib/domain/types';
 import { greetingMoment, isFridayAfternoon, say, voiceLine } from '@/lib/voice/moments';
+import { useAssistantLine } from './useAssistantLine';
 import '@/styles/lists.css';
 import '@/styles/today.css';
 import '@/styles/voice.css';
@@ -279,7 +286,18 @@ export function TodayScreen({
   const keys = useRowKeys<TodayRow>({ rows, keyOf: (row) => row.key, onAction, can });
 
   const greeting = voiceLine(greetingMoment(hour), { name: firstName, hour, weekday }).text;
-  const sentence = briefingSentence(briefing.counts);
+  const library = briefingSentence(briefing.counts);
+  /*
+   * The same fact, said by the reader's own assistant instead.
+   *
+   * It is asked for after the page is painted and it is allowed to fail
+   * silently, so `library` is what the server renders, what a reader with no
+   * ChatGPT connection ever sees, and what is on screen for the second or two
+   * before an answer arrives. The library sentence counts; the assistant's
+   * names what the counts are made of.
+   */
+  const assistant = useAssistantLine(briefing.counts, briefing.ok !== false && total > 0);
+  const sentence = assistant ?? library;
   const dueSentence = devicesDueSentence(briefing.counts);
   const friday = isFridayAfternoon({ weekday, hour })
     ? say('friday.afternoon', { hour, weekday })
