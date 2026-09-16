@@ -607,7 +607,7 @@ npx supabase migration up --local --include-all
 npx supabase migration list --local        # 60 rows, local == remote on every one
 
 # 3. the suites, against that database
-npx vitest run --config vitest.db.config.mts    # 447 tests, 34 files, all passing
+npx vitest run --config vitest.db.config.mts    # 492 tests, 37 files, all passing
 npx vitest run --config vitest.auth.config.mts  # 53 tests, 7 files, all passing
 ```
 
