@@ -1,14 +1,23 @@
 # Setting up the hosted helpdesk
 
-A checklist for the person who owns the Supabase project and the Vercel
-deployment. It assumes the directory and the inventory are already live on the
-hosted database — they are — and that this branch has been merged into `main`.
+This is the checklist for the person who owns the Supabase project and the
+Vercel deployment. It is written to be followed top to bottom, once, and it
+says at each step what you should see, so you know the step worked before you
+move to the next one. Budget about thirty minutes.
 
-Nothing here needs the repository open in an editor. Everything is either one
-command in a terminal or a setting in a dashboard. Where an order is marked, it
-matters.
+It assumes three things, all true today:
 
-Two pieces of vocabulary, because the screens use them:
+- the students' and staff directory and the device inventory are already live
+  on the hosted database (they are; nothing here touches them);
+- this version of the application has been merged into `main` (it has);
+- you have a copy of the repository on your computer that is linked to the
+  hosted project, which is the copy you ran `npx supabase link` in.
+
+Nothing here needs the code open in an editor. Everything is one command in a
+terminal or one setting in a dashboard. **Where an order is given, the order
+matters, and the reason is stated.**
+
+Two words the screens use:
 
 - **NetRider** is what this school calls the students who run the helpdesk.
   Inside the database the old spelling `technician` survives as a derived
@@ -16,145 +25,226 @@ Two pieces of vocabulary, because the screens use them:
 - **Skills officer** is somebody who works the student and staff directory.
   They see People and read the inventory. They see no tickets at all.
 
+## Read this first: the site is already live, and it is waiting on you
+
+Vercel builds `main` on every push. So the new code went live the moment the
+branch landed on `main`, against the database exactly as it was. Until you
+apply the database changes in section 1, the live site is in a known, harmless
+half-state. This is what it looks like, so you recognise it and do not go
+looking for a different fault:
+
+- a notice at the top of every screen saying the database is behind the code;
+- your own account is shown as a NetRider rather than an administrator, and
+  Administration is missing from the rail;
+- Queue, Collaborating and Resolved cannot load, and their counts read 0;
+- Today says "The briefing could not be read just now."
+
+None of this has changed anything in the database. The old functions are
+being called with new arguments and refusing, that is all. Section 1 ends it.
+Nothing else is needed for that.
+
 ## Contents
 
-- [1. Release the new version](#1-release-the-new-version)
-- [2. Turn on Google sign-in](#2-turn-on-google-sign-in)
-- [3. Let the first people in](#3-let-the-first-people-in)
-- [4. What the first sign-in looks like](#4-what-the-first-sign-in-looks-like)
+- [What you need on hand](#what-you-need-on-hand)
+- [1. Apply the database changes](#1-apply-the-database-changes)
+- [2. Environment variables on Vercel](#2-environment-variables-on-vercel)
+- [3. Supabase dashboard settings, in order](#3-supabase-dashboard-settings-in-order)
+- [4. Turn on Google sign-in](#4-turn-on-google-sign-in)
+- [5. Let the first people in](#5-let-the-first-people-in)
+- [6. The assistant: what it is and what each person does](#6-the-assistant-what-it-is-and-what-each-person-does)
+- [7. What the first sign-in looks like](#7-what-the-first-sign-in-looks-like)
+- [8. Done when](#8-done-when)
 - [If something goes wrong](#if-something-goes-wrong)
 
-## 1. Release the new version
+## What you need on hand
 
-**Read this first.** Vercel builds `main` on every push, so the new code went
-live the moment this branch landed on `main`, against the database as it was.
-Until the migrations below are applied, the live site is in a known half-state:
-every account shows as a NetRider, the queue pages cannot load, and Today says
-the briefing could not be read. A notice at the top of every screen says so.
-Running `npx supabase db push` (step "The release") ends it; nothing else is
-needed, and nothing in the half-state writes anything wrong.
+- A terminal, in the linked copy of the repository, on the latest `main`
+  (`git pull origin main` first if it has been a while).
+- The Supabase dashboard for the hosted project, signed in as its owner.
+- The Vercel dashboard for the `edison-helpdesk` project.
+- Nothing from OpenAI. Read the next paragraph twice.
 
-The database changes are **additive**. No table the district's data lives in is
-dropped, renamed or rewritten, and no existing policy or grant is changed. The
-thirty-eight new migrations are all numbered above the nineteen the hosted
+**There is no API key.** The assistant does not use an OpenAI API key, and you
+will not be asked to buy, create or paste one anywhere. The one variable with
+"token" and "key" in its name, `AI_TOKEN_KEY`, is a random secret **you
+generate yourself** with `openssl rand -base64 32`. It is used to encrypt each
+person's own ChatGPT sign-in at rest, the way a password manager encrypts its
+vault. Each person connects their own ChatGPT account from inside the app, with
+the same device-code sign-in that Codex uses, and their usage is their own
+plan's. The school pays nothing for the assistant. Section 6 has the detail.
+
+## 1. Apply the database changes
+
+Do this first, and do it now: it ends the half-state described above.
+
+The changes are **additive**. No table the district's data lives in is dropped,
+renamed or rewritten, and no existing policy or grant is changed. There are
+thirty-eight new migration files, all numbered above the nineteen the hosted
 project already carries, so they apply in order after them.
 
-Do this from a terminal in a copy of the repository that is linked to the
-hosted project (`npx supabase link` has already been run there).
+**1.1 Take a backup.** Supabase dashboard → Database → Backups, and confirm a
+recent one exists (daily backups are on by default). If you would rather make
+one yourself, Administration → Backups inside the app also works, but the
+dashboard's is enough. A restore is the only answer to a data mistake, and
+there is deliberately no undo migration.
 
-**Before you push.**
-
-1. Take a backup. The provider's own snapshot is fine; so is
-   Administration → Backups inside the app. A restore is the only answer to a
-   data mistake, and there is no undo migration.
-2. Set the Vercel environment variables for **Production**. Three are already
-   there from the first deployment (`NEXT_PUBLIC_SUPABASE_URL`,
-   `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) and stay as
-   they are. Add:
-
-   | Variable | Value | Needed for |
-   | --- | --- | --- |
-   | `NEXT_PUBLIC_APP_ORIGIN` | `https://edison-helpdesk.vercel.app` | Setup and recovery links. Required. |
-   | `AI_TOKEN_KEY` | the output of `openssl rand -base64 32` | The assistant. Optional. A random secret, **not an API key**: it encrypts each person's own ChatGPT sign-in at rest. |
-   | `RESEND_API_KEY` | a Resend API key | Emailed invites. Optional. |
-   | `MAIL_FROM` | an address on a domain verified with Resend | Emailed invites. Optional. |
-
-   `AI_TOKEN_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are server-only. Never give
-   either a `NEXT_PUBLIC_` prefix and never paste them into a browser. Rotating
-   `AI_TOKEN_KEY` makes every saved assistant connection unreadable, and
-   everybody reconnects.
-
-   Without `RESEND_API_KEY` and `MAIL_FROM`, invites still work: the
-   Administration screen hands you the message to send yourself.
-
-3. Check what is pending:
-
-   ```bash
-   npx supabase migration list --linked
-   ```
-
-   Thirty-eight files should be listed as present locally and missing remotely,
-   and nothing should be the other way round.
-
-**The release.**
+**1.2 Check what is pending.**
 
 ```bash
-npx supabase db push        # applies the thirty-eight migrations, in order
-vercel --prod --skip-domain # build and deploy
-# promote the alias once the deployment is Ready and you have looked at it
+npx supabase migration list --linked
 ```
 
-**Then, in the Supabase dashboard, in this order.** The order of the first two
-is the one that matters for safety: with sign-ups allowed and no hook, anybody
-who knows the project URL and the public anon key can create an account.
+You should see the nineteen migrations you already have listed on both sides,
+followed by **thirty-eight** rows that are present locally and blank on the
+remote side. If you see fewer than thirty-eight, your checkout is old: run
+`git pull origin main` and look again. If you see rows the other way round
+(remote has something local does not), stop and ask before pushing.
 
-1. **Authentication → Hooks → Before User Created.** Choose *Postgres function*,
-   pick `public.hook_before_user_created`, and enable it. Confirm it reads as
-   enabled before you continue. It refuses email-and-password sign-up with a
-   403 and lets Google through.
-2. **Authentication → Sign In / Providers → Allow new users to sign up.** Turn
-   it on.
-3. **Storage.** There should be a bucket named `attachments`: **not public**,
-   8 MiB file size limit, accepting `image/jpeg`, `image/png`, `image/webp`,
-   `image/gif` and `application/pdf`. The release creates it. The app checks
-   for it at startup and says so if it is missing.
-4. **Database → Replication (Realtime).** Turn Realtime on for the
-   `scan_events` table. This is optional: with it off, a phone used as a
-   scanner still works, it just polls instead of pushing.
-5. **A daily job for the scan sweeper**, when you get to it.
-   `public.app_sweep_scan_sessions()` clears pairing sessions that ended more
-   than a day ago. It needs an external scheduler calling it with the service
-   key; it cannot be driven by `pg_cron` as written.
+**1.3 Apply them.**
+
+```bash
+npx supabase db push
+```
+
+It lists the thirty-eight files, asks you to confirm, and applies them in
+order. It takes about a minute. The last file it names is
+`20260915020000_m5_join_ticket.sql`, followed by "Finished supabase db push."
+
+**1.4 Verify.** Reload the live site.
+
+- The notice at the top is gone.
+- Your account is an administrator again: Administration is in the rail.
+- Queue, Collaborating and Resolved load, and Today shows its real sentence.
+- `npx supabase migration list --linked` now shows every row on both sides.
+
+If the notice is still there after a reload, hard-refresh once (Ctrl or Cmd +
+Shift + R). If it is still there after that, see
+[If something goes wrong](#if-something-goes-wrong).
+
+## 2. Environment variables on Vercel
+
+Vercel → the project → Settings → Environment Variables. Three are already
+there from the first deployment and stay exactly as they are:
+`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`.
+
+Add these, each for the **Production** environment:
+
+| Variable | Value | What it is for | Required? |
+| --- | --- | --- | --- |
+| `NEXT_PUBLIC_APP_ORIGIN` | `https://edison-helpdesk.vercel.app` (no trailing slash) | The address the app uses when it writes a link to itself: setup and recovery links, the Google sign-in return. | **Yes.** |
+| `AI_TOKEN_KEY` | the output of `openssl rand -base64 32`, pasted whole | Encrypts each person's ChatGPT sign-in at rest. **A random secret you generate; not an API key.** Without it the assistant is simply absent from the app. | Optional, but wanted. |
+| `RESEND_API_KEY` | an API key from resend.com | Emailed invites. | Optional. |
+| `MAIL_FROM` | an address on a domain you have verified with Resend | The From address on those emails. | Optional. |
+
+To generate `AI_TOKEN_KEY` on a Mac or Linux terminal:
+
+```bash
+openssl rand -base64 32
+```
+
+Copy the whole line it prints, including any trailing `=`, and paste it as the
+value. Do not shorten it, do not add quotes.
+
+Three rules:
+
+- `AI_TOKEN_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are server-only. Never give
+  either a `NEXT_PUBLIC_` prefix and never paste them into a browser.
+- If you ever change `AI_TOKEN_KEY`, every saved assistant connection becomes
+  unreadable and everybody reconnects (thirty seconds each, see section 6).
+  Nothing else is lost.
+- Without `RESEND_API_KEY` and `MAIL_FROM`, invites still work: the
+  Administration screen hands you the message to send yourself.
+
+**Then redeploy.** Environment variables are read when the site is built, so
+adding one changes nothing until the next build. Vercel → Deployments → the
+top deployment → the three-dot menu → Redeploy. Wait for it to say Ready.
+
+## 3. Supabase dashboard settings, in order
+
+The order of 3.1 and 3.2 is the one that matters for safety. With sign-ups
+allowed and no hook, anybody who knows the project URL and the public anon key
+could create an account. With the hook in place first, that door is shut before
+it opens.
+
+**3.1 The hook that guards sign-up.** Authentication → Hooks → "Before User
+Created". Choose *Postgres function*, pick `public.hook_before_user_created`
+(the release created it; it appears in the list once section 1 is done), and
+enable it. Confirm it reads as **enabled** before you continue. What it does:
+it refuses email-and-password sign-up with a 403, and lets Google through.
+
+**3.2 Allow sign-ups.** Authentication → Sign In / Providers → "Allow new users
+to sign up" → **on**. Only now.
+
+**3.3 The attachments bucket.** Storage. There should be a bucket named
+`attachments`: **not public**, 8 MiB file size limit, accepting `image/jpeg`,
+`image/png`, `image/webp`, `image/gif` and `application/pdf`. The release
+created it. If it is missing, the app says so on the ticket screen and photos
+cannot be added; create it by hand with those exact settings.
+
+**3.4 Realtime for the phone scanner (optional).** Database → Replication →
+turn Realtime on for the `scan_events` table. With it off, a phone paired as a
+scanner still works; it polls instead of being pushed to.
+
+**3.5 A daily job for the scan sweeper (optional, later).**
+`public.app_sweep_scan_sessions()` clears pairing sessions that ended more than
+a day ago. It needs an external scheduler calling it with the service key; it
+cannot be driven by `pg_cron` as written. Nothing breaks without it; the table
+just grows slowly.
 
 **Do not import anything.** The directory and the inventory are already live.
 This version adds no import path of its own, and the old preparation scripts
 refuse to run once a requester carries an external id.
 
-## 2. Turn on Google sign-in
+## 4. Turn on Google sign-in
 
 Everyone signs in with Google. Password sign-in exists only as a break-glass
 path for an administrator (see [If something goes wrong](#if-something-goes-wrong)).
 
 **In Google Cloud**, in the project you want to own this:
 
-1. **APIs & Services → OAuth consent screen.** User type *External*. Fill in
-   the app name, a support email and a developer contact email. **Publish** it
-   — while it is in testing only the accounts you list by hand can sign in.
-2. **APIs & Services → Credentials → Create credentials → OAuth client ID.**
-   Application type *Web application*. Set:
+1. APIs & Services → OAuth consent screen. User type *External*. Fill in the
+   app name, a support email and a developer contact email. **Publish** it.
+   While it is in "Testing", only the accounts you list by hand can sign in,
+   which is the most common reason a colleague's sign-in fails.
+2. APIs & Services → Credentials → Create credentials → OAuth client ID.
+   Application type *Web application*. Set exactly:
 
    - **Authorised JavaScript origin**: `https://edison-helpdesk.vercel.app`
    - **Authorised redirect URI**: `https://<project-ref>.supabase.co/auth/v1/callback`
 
    The redirect URI is **Supabase's** callback, not the application's own
    `/auth/callback`. Supabase is what Google talks to; Supabase then sends the
-   browser on to the app. `<project-ref>` is the subdomain in your Supabase
-   project URL.
-3. Copy the client id and the client secret.
+   browser on to the app. `<project-ref>` is the twenty-character subdomain in
+   your Supabase project URL.
+3. Copy the client ID and the client secret.
 
 **In the Supabase dashboard:**
 
-4. **Authentication → Sign In / Providers → Google.** Paste the client id and
-   the client secret, and enable it.
-5. **Authentication → URL Configuration.** Site URL
+4. Authentication → Sign In / Providers → Google. Paste the client ID and the
+   client secret, and enable it.
+5. Authentication → URL Configuration. Site URL
    `https://edison-helpdesk.vercel.app`, and add
    `https://edison-helpdesk.vercel.app/auth/callback` to the redirect allow
-   list.
+   list. Save.
 
 **On Vercel:**
 
 6. Confirm `NEXT_PUBLIC_APP_ORIGIN` is `https://edison-helpdesk.vercel.app`
-   with no trailing slash, then **redeploy** so the running build picks up any
-   variable you added after the last deployment. Environment variables are read
-   at build time; adding one without redeploying changes nothing.
+   with no trailing slash (section 2), and that a deployment has been made
+   since you added it.
 
-Then sign in yourself, in a private window, to check the whole loop.
+**Test it** in a private browser window: open the site, press "Sign in with
+Google", sign in as yourself. You should land on Today as an administrator.
+If Google shows `redirect_uri_mismatch`, the redirect URI in step 2 does not
+match Supabase's callback exactly; if the app says the provider is not
+enabled, step 4 was not saved.
 
-## 3. Let the first people in
+## 5. Let the first people in
 
 Any Google account with a verified email address may *reach* the sign-in page,
-including a personal one. The gate is not the email domain — it is the invite
-or your approval.
+including a personal one. The gate is not the email domain; it is the invite or
+your approval.
 
 **Inviting somebody** (the normal way):
 
@@ -173,7 +263,7 @@ or your approval.
 2. You see them under Administration, and either approve them with a set of
    roles or decline.
 3. Fifty requests may be outstanding at once. Past that, a new uninvited
-   sign-in is turned away and told to come back, and nothing is recorded —
+   sign-in is turned away and told to come back, and nothing is recorded;
    answering any waiting request frees a slot at once. Invites are never
    affected by this.
 
@@ -186,32 +276,82 @@ A reasonable first set: yourself as administrator, the students who run the
 helpdesk as NetRiders, and whoever maintains the student and staff lists as a
 skills officer.
 
-## 4. What the first sign-in looks like
+## 6. The assistant: what it is and what each person does
+
+The assistant is the OpenAI mark in the top bar, and it also answers from the
+command palette. It can do anything the signed-in person can do, and nothing
+more: a NetRider's assistant works tickets, a skills officer's works the
+directory, and an administrator's asks before it changes a setting.
+
+**What you, the owner, do:** set `AI_TOKEN_KEY` (section 2) and redeploy. That
+is all. There is no key to buy and no account to create. If `AI_TOKEN_KEY` is
+not set, the assistant button is simply not there and nothing else is affected.
+
+**What each person does, once:**
+
+1. Press the OpenAI mark in the top bar. The panel opens with a **Connect
+   ChatGPT** button.
+2. Press it. A short code appears, with a button to copy it and a button that
+   opens `chatgpt.com/codex/device` in a new tab.
+3. On that page, sign in to **their own ChatGPT account** and enter the code.
+   This is the same device sign-in that OpenAI's Codex uses. They need a
+   ChatGPT account that can use Codex; a school Google account with ChatGPT
+   Edu, or a personal Plus or Pro plan, both work.
+4. Back in the helpdesk the panel notices within a few seconds and is ready.
+
+Their sign-in tokens are stored encrypted with `AI_TOKEN_KEY`. Nobody else can
+use their connection, the app never sees their ChatGPT password, and they can
+disconnect at any time from the panel's menu. What the assistant is sent is
+the person's own question plus the ticket or record on screen; students' and
+staff members' details go only where the person has already looked.
+
+## 7. What the first sign-in looks like
 
 - The sign-in page offers **Sign in with Google**, and a quieter "Use a
   password" for the break-glass account.
-- An invited person lands on **Today**: the four things that might need them
-  right now — the unclaimed queue, their own tickets waiting on a reply, their
-  live work, and, for an administrator, the people waiting for access. When
-  nothing needs them it says so rather than showing an empty table.
+- An invited person lands on **Today**: the things that might need them right
+  now, the unclaimed queue, their own tickets waiting on a reply, their live
+  work, and, for an administrator, the people waiting for access. When nothing
+  needs them it says so rather than showing an empty table.
 - A skills officer lands on **People** instead, because they work the directory
   and see no tickets.
 - An uninvited person lands on the waiting screen and stays there until you
   answer.
 - The rail is Today, the queue, People, Devices, and Administration for
-  administrators. The command palette opens with the keyboard and also talks to
-  the assistant.
-- The assistant is only there if `AI_TOKEN_KEY` is set, and each person
-  connects their own ChatGPT account to it once, the same device-code sign-in
-  Codex uses. There is no OpenAI API key anywhere in this deployment, and
-  nothing for you to buy or paste: the school pays nothing for the assistant,
-  and each person's usage is their own ChatGPT plan's.
+  administrators. The command palette opens with Ctrl K (⌘K on a Mac) and also
+  talks to the assistant.
 
 Nothing in the app can be reached without signing in. Every screen that needs a
 session is rendered per request; nothing about the school is baked into the
 deployed files.
 
+## 8. Done when
+
+- [ ] `npx supabase migration list --linked` shows every migration on both sides.
+- [ ] The live site shows no notice at the top, and you are an administrator.
+- [ ] `NEXT_PUBLIC_APP_ORIGIN` and `AI_TOKEN_KEY` are set for Production and a
+      deployment has been made since.
+- [ ] The "Before User Created" hook is enabled, and only then are sign-ups
+      allowed.
+- [ ] The `attachments` bucket exists, private, 8 MiB.
+- [ ] Google sign-in works for you in a private window.
+- [ ] You have connected your own ChatGPT to the assistant and asked it
+      something.
+- [ ] The first NetRiders are invited.
+
 ## If something goes wrong
+
+**The "database is behind" notice is still there after `db push`.** First a
+hard refresh. Then check `npx supabase migration list --linked`: if the
+thirty-eight are on both sides, the site is simply serving a cached page; wait
+a minute and reload. If some are missing on the remote side, `db push` did not
+finish; run it again, it continues where it stopped.
+
+**Somebody's Google sign-in fails.** In order: the consent screen is still in
+Testing (publish it, section 4 step 1); the redirect URI is not Supabase's
+callback exactly (step 2); the provider is not enabled or not saved in
+Supabase (step 4); the person is uninvited and sitting on the waiting screen,
+which is not a failure (section 5).
 
 **Rolling back a deployment.** The migrations are additive, so the previous
 version of the application keeps working against the new schema. Re-promote the
@@ -230,6 +370,11 @@ and treats a change it did not make as a sign that the credential was changed
 out from under it. Every request then answers "This session has been signed
 out". Use the app's own recovery link, which re-approves the fingerprint in the
 same transaction as the password change.
+
+**The assistant says it is not enabled.** `AI_TOKEN_KEY` is not set for
+Production, or it was set after the last deployment. Set it, redeploy, reload.
+It has to decode to exactly 32 bytes, which is what `openssl rand -base64 32`
+produces; a shortened or hand-typed value is refused with a message saying so.
 
 **Attachments after a deletion.** Deleting a ticket or a device removes its
 attachment rows but not the uploaded bytes, which stay in the private bucket.

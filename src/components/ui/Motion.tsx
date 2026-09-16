@@ -62,6 +62,15 @@ export const EASE_OUT: Transition = { duration: DURATION.base, ease: 'easeOut' }
  */
 export const EASE_OUT_FAST: Transition = { duration: DURATION.fast, ease: 'easeOut' };
 
+/**
+ * A surface dropping into place from just above, with a little give at the
+ * end: a spring with some bounce, so the last few pixels overshoot and settle
+ * rather than decelerate to a stop. The one place in the application with a
+ * bounce, because the palette is summoned by hand a hundred times a day and
+ * should feel caught rather than delivered.
+ */
+export const DROP: Transition = { type: 'spring', visualDuration: 0.28, bounce: 0.42 };
+
 /** No transition at all, for reduced motion. */
 export const INSTANT: Transition = { duration: 0 };
 
@@ -195,8 +204,12 @@ export function IconSwap({ token, children }: { token: string; children: ReactNo
 }
 
 export interface SpringSurfaceProps {
-  /** `sheet` arrives from an edge on a spring; `dialog` scales up from 0.98 in the centre. */
-  kind: 'sheet' | 'dialog';
+  /**
+   * `sheet` arrives from an edge on a spring; `dialog` scales up from 0.98 in
+   * the centre; `drop` is a dialog that falls in from just above with a bounce
+   * and lifts away.
+   */
+  kind: 'sheet' | 'dialog' | 'drop';
   side?: 'right' | 'bottom';
   panelRef?: Ref<HTMLDivElement>;
   panelClassName?: string;
@@ -244,13 +257,30 @@ export function SpringSurface({
   const hidden =
     kind === 'dialog'
       ? { opacity: 0, scale: 0.98 }
-      : side === 'bottom'
-        ? { y: '100%' }
-        : { x: '100%' };
-  const shown = kind === 'dialog' ? { opacity: 1, scale: 1 } : side === 'bottom' ? { y: 0 } : { x: 0 };
+      : kind === 'drop'
+        ? { opacity: 0, y: -16 }
+        : side === 'bottom'
+          ? { y: '100%' }
+          : { x: '100%' };
+  const shown =
+    kind === 'dialog'
+      ? { opacity: 1, scale: 1 }
+      : kind === 'drop'
+        ? { opacity: 1, y: 0 }
+        : side === 'bottom'
+          ? { y: 0 }
+          : { x: 0 };
+  // Leaving is a slight lift, shorter than the arrival: the drop is the
+  // moment, the lift is just the surface getting out of the way.
+  const gone = kind === 'drop' ? { opacity: 0, y: -8 } : hidden;
+  const arrive = kind === 'dialog' ? EASE_OUT : kind === 'drop' ? DROP : SPRING;
 
   return (
-    <div className="overlay" data-kind={kind} data-exiting={present ? undefined : 'true'}>
+    <div
+      className="overlay"
+      data-kind={kind === 'drop' ? 'dialog' : kind}
+      data-exiting={present ? undefined : 'true'}
+    >
       <motion.div
         className="overlay-backdrop"
         aria-hidden="true"
@@ -266,8 +296,8 @@ export function SpringSurface({
         {...panelProps}
         initial={reduced ? false : hidden}
         animate={shown}
-        exit={reduced ? undefined : { ...hidden, transition: EASE_OUT_FAST }}
-        transition={reduced ? INSTANT : kind === 'dialog' ? EASE_OUT : SPRING}
+        exit={reduced ? undefined : { ...gone, transition: EASE_OUT_FAST }}
+        transition={reduced ? INSTANT : arrive}
       >
         {children}
       </motion.div>

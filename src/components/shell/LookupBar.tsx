@@ -584,7 +584,7 @@ function Palette({
 
   return (
     <SpringSurface
-      kind={phone ? 'sheet' : 'dialog'}
+      kind={phone ? 'sheet' : 'drop'}
       side="bottom"
       panelRef={panelRef}
       panelClassName={
@@ -598,7 +598,6 @@ function Palette({
         'aria-labelledby': titleId,
         tabIndex: -1,
       }}
-      instant
       onBackdropPress={onClose}
     >
       <OpenBeam className="palette-beam" once="palette">

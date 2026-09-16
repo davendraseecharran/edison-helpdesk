@@ -12,8 +12,9 @@
  *
  * It lives inside the composer's dropdown, so the keys it owns are stopped
  * before Radix can read them as menu navigation, and it takes focus itself
- * when the menu opens. A pick lets the blob arrive, then tells the menu to
- * close: the point of the motion is to be seen. Under reduced motion the
+ * when the menu opens. A pick moves the pill and nothing else: the menu stays
+ * until Escape, a press outside or the trigger, so a person can slide along
+ * the scale and watch it settle before leaving. Under reduced motion the
  * filter is off and the pill jumps.
  */
 
@@ -28,22 +29,16 @@ import {
 import { useReducedMotion } from '@/components/ui/media';
 import { stepOption, type SliderOption } from './reasoning-step';
 
-/** How long the blob is given to land before the menu closes. Just past the trailing edge's transition. */
-const SETTLE_MS = 540;
-
 export interface ReasoningSliderProps {
   value: string;
   options: readonly SliderOption[];
   onChange: (value: string) => void;
-  /** After a pick has landed, so the surface around this can close. */
-  onSettled?: () => void;
 }
 
-export function ReasoningSlider({ value, options, onChange, onSettled }: ReasoningSliderProps) {
+export function ReasoningSlider({ value, options, onChange }: ReasoningSliderProps) {
   const reduced = useReducedMotion();
   const track = useRef<HTMLDivElement>(null);
   const stops = useRef<(HTMLButtonElement | null)[]>([]);
-  const settle = useRef<number | null>(null);
   const [blob, setBlob] = useState<{ x: number; w: number } | null>(null);
   // Which edge leads depends on which way the pill is going.
   const lastAt = useRef<number | null>(null);
@@ -84,18 +79,8 @@ export function ReasoningSlider({ value, options, onChange, onSettled }: Reasoni
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(
-    () => () => {
-      if (settle.current !== null) window.clearTimeout(settle.current);
-    },
-    [],
-  );
-
-  function pick(next: string, close: boolean) {
+  function pick(next: string) {
     if (next !== value) onChange(next);
-    if (!close || !onSettled) return;
-    if (settle.current !== null) window.clearTimeout(settle.current);
-    settle.current = window.setTimeout(onSettled, reduced ? 0 : SETTLE_MS);
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -103,14 +88,15 @@ export function ReasoningSlider({ value, options, onChange, onSettled }: Reasoni
     if (next !== null) {
       event.preventDefault();
       event.stopPropagation();
-      pick(next, false);
+      pick(next);
       stops.current[options.findIndex((option) => option.value === next)]?.focus();
       return;
     }
     if (event.key === 'Enter' || event.key === ' ') {
+      // Already the checked stop; the keys are swallowed so the menu does not
+      // read them as "activate an item" and close.
       event.preventDefault();
       event.stopPropagation();
-      pick(value, true);
     }
   }
 
@@ -144,7 +130,7 @@ export function ReasoningSlider({ value, options, onChange, onSettled }: Reasoni
           aria-checked={option.value === value}
           tabIndex={option.value === value ? 0 : -1}
           className="goo-stop"
-          onClick={() => pick(option.value, true)}
+          onClick={() => pick(option.value)}
         >
           {option.label}
         </button>

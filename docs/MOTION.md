@@ -32,6 +32,8 @@ Two rules hold everywhere and are not repeated per row:
 | Tooltips | a pointer rests on an icon-only control | `opacity`, `scale` 0.97 → 1 from the trigger | 150 ms, after a 400 ms wait that the next tooltip within 300 ms skips | `--ease-out` | opacity only |
 | Tooltips | the pointer leaves | `opacity`, `scale` | 120 ms, no delay | `--ease-out` | opacity only |
 | Dialogs | open | `opacity`, `scale` 0.98 → 1, centred | 200 ms (`--dur-surface`) | `--ease-out` | none |
+| Command palette (desktop) | open | `opacity` 0 → 1, `translateY` −16px → 0, overshooting by a couple of pixels and settling: the surface is caught, not delivered | ~280 ms spring, bounce 0.42 (`DROP`) | spring | none |
+| Command palette (desktop) | close | `opacity` 1 → 0, `translateY` 0 → −8px: a slight lift | 120 ms (`--dur-press`) | `easeOut` | none |
 | Dialogs | close | `opacity`, `scale` | 120 ms (`--dur-press`) | `--ease-out` | none |
 | Scrim behind any modal surface | open | `opacity`; the ground is `--scrim` with `backdrop-filter: blur(12px) saturate(120%)` | 200 ms | `--ease-out` | opacity only |
 | Drawers (phone bottom sheets) | open | `translateY(100% → 0)`, then the finger | vaul's own | vaul's own | none |
@@ -55,7 +57,7 @@ Two rules hold everywhere and are not repeated per row:
 | Every other list | navigation | **none** | 0 | — | — |
 | Skeleton → content | the stream lands | content replaces the skeleton in place, no layout shift | 120 ms | `easeOut` | same |
 | Switch | pressed | `transform` on the thumb, `background-color` on the track | 120 ms | `ease` | colour only |
-| Reasoning slider | a level is picked | the pill's two edges, `left` and `right`, on different clocks under an SVG goo filter, so the shape stretches between stops and snaps shut; the menu closes once it lands | 240 ms leading edge, 420 ms trailing edge after 70 ms | `--ease-out` | the pill jumps, no filter |
+| Reasoning slider | a level is picked | the pill's two edges, `left` and `right`, on different clocks under an SVG goo filter, so the shape stretches between stops and snaps shut; the menu stays open | 240 ms leading edge, 420 ms trailing edge after 70 ms | `--ease-out` | the pill jumps, no filter |
 | Theme switch | the preference changes | **none** — every transition is muted, a reflow is forced, the mute is lifted | 0 | — | same |
 
 ## Notes on the choices
@@ -123,7 +125,7 @@ is where this product's ideas are.
 | Account panel, notifications list | shadcn Popover, on Radix | Two surfaces that each hand-wired a focus trap, an Escape listener, an outside press and an `aria-modal` the shortcut guard had to be told about. One contract instead — `modal` by default, because Radix's popover traps nothing unless it is asked and each of these is a panel somebody opened to work in — and `data-keyboard-owner` tells the guard the truth about a surface that is not a dialog. |
 | Settings switch | shadcn Switch, on Radix | Ours was the right element (`role="switch"`) missing what a control collects in a form: the hidden input, the form association, and a `disabled` that is real. The in-flight state is not one of those: a focused element that becomes `disabled` loses focus to `<body>`, so a save in progress is `aria-disabled` and `aria-busy` with the press refused in the handler, and the keyboard stays where it was. |
 | Toasts | Sonner | It stacks, lifts and expands under the pointer, stops every clock while the tab is hidden and resumes with the time that was left, takes a swipe with a velocity threshold, and survives a toast replaced mid-flight. The announcement is Sonner's too — every toast sits in its own `role="status" aria-live="polite"` list item, so ours carries no role of its own to be announced twice. Four rules stay ours in `ui/toast.ts`: five seconds for a success and never for an error, no clock while a message is being read (Sonner gives the pointer, `duration: Infinity` gives the keyboard), the same message twice is one message because the id is the message, and three at once. Every toast goes through `toast.custom`, so what is on screen is still our `.toast`. |
-| Command palette | cmdk | Unchanged, and staying: the layout, the groups and the instant open are the product's own. |
+| Command palette | cmdk | Unchanged, and staying: the layout and the groups are the product's own; the drop on open is described above. |
 | `Tabs` | ours | shadcn's are a tablist over panels; ours are links, so they work with the URL, the back button and middle-click. Radix here would cost the routing and buy nothing. |
 | `Skeleton` | ours | shadcn's is a pulsing div. Ours carries the route-level parity the loading tests assert. |
 | `Badge` | ours | A status chip with its own tone tokens, not a styled span. |

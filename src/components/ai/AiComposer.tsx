@@ -110,7 +110,6 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
   // crossed the Send button.
   const dragDepth = useRef(0);
   const [dragging, setDragging] = useState(false);
-  const [reasoningOpen, setReasoningOpen] = useState(false);
   const canAttach = onAttach !== undefined;
   const full = images.length >= MAX_IMAGES;
 
@@ -298,7 +297,7 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
           </div>
           <div className="ai-composer-actions">
             {reasoning && reasoningOptions && onReasoning ? (
-              <DropdownMenu open={reasoningOpen} onOpenChange={setReasoningOpen}>
+              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
@@ -313,7 +312,8 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
                     the phone sheet sits above a portaled menu, and the panel's
                     focus trap would not reach one anyway. Radix focuses the
                     menu on open; the slider moves it on to the checked stop
-                    a frame later. */}
+                    a frame later. The menu stays open across picks and closes
+                    the ordinary ways: Escape, a press outside, the trigger. */}
                 <DropdownMenuContent
                   portal={false}
                   align="end"
@@ -324,12 +324,7 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
                     textarea.current?.focus();
                   }}
                 >
-                  <ReasoningSlider
-                    value={reasoning}
-                    options={reasoningOptions}
-                    onChange={onReasoning}
-                    onSettled={() => setReasoningOpen(false)}
-                  />
+                  <ReasoningSlider value={reasoning} options={reasoningOptions} onChange={onReasoning} />
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
