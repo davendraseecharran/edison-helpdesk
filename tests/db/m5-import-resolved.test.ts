@@ -293,7 +293,8 @@ describe('app_find_people', () => {
     expect(found[0].kind).toBe('student');
     expect(found[0].group_label).toBe('9A');
     expect(found[0].device_count).toBe(0);
-    expect(found[0].open_ticket_count).toBe(0);
+    // A skills officer works no tickets, so the count is withheld from them.
+    expect(found[0].open_ticket_count).toBeNull();
   });
 
   it('answers an unknown key with no match rather than with nothing', async () => {

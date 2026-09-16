@@ -156,7 +156,7 @@ describe('directory and inventory lookups', () => {
     const staffRows = await rpcOk<Array<Record<string, unknown>>>(
       owner,
       'app_search_requesters',
-      { p_kind: 'staff', p_query: 'Synthetic Staff' },
+      { p_kind: 'staff', p_query: staff.display_name },
     );
     expect(staffRows).toEqual([
       expect.objectContaining({

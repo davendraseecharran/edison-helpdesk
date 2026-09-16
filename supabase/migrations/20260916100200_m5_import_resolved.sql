@@ -209,14 +209,18 @@ begin
 
   -- The same row sent twice is the same ticket. A sheet pasted again, or a
   -- batch resumed after one row stopped it, must not double the history:
-  -- a resolved ticket with this title and these two dates is returned as
-  -- the one that was already imported.
+  -- a resolved ticket with this title, these two moments, this resolver
+  -- and this requester is returned as the one already imported. All five,
+  -- because two calls about the same fault on the same day from different
+  -- rooms are two tickets.
   select t.id into v_ticket_id
   from public.tickets t
   where t.title = v_title
     and t.created_at = p_called_at
     and t.resolved_at = p_resolved_at
     and t.status = 'resolved'
+    and t.resolved_by = v_resolver
+    and t.requester_id is not distinct from p_requester_id
   limit 1;
   if v_ticket_id is not null then
     return v_ticket_id;
