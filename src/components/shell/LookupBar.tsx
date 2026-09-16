@@ -33,7 +33,18 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { ThinkingOrb } from 'thinking-orbs';
-import { Hand, MessageCircle, Plus, QrCode, Search, Settings, SunMoon, UserPlus, X } from 'lucide-react';
+import {
+  ChartColumn,
+  Hand,
+  MessageCircle,
+  Plus,
+  QrCode,
+  Search,
+  Settings,
+  SunMoon,
+  UserPlus,
+  X,
+} from 'lucide-react';
 import { useRuntime } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
@@ -57,7 +68,7 @@ import {
   RecentRow,
   type LookupAction,
 } from './LookupResults';
-import { canWorkTickets } from '@/lib/auth/roles';
+import { canWorkTickets, isAdmin } from '@/lib/auth/roles';
 import { navItems } from './RailNav';
 import { ScanButton } from './ScanButton';
 import { useTheme, useThemeChoice } from './ThemeProvider';
@@ -417,6 +428,20 @@ function Palette({
         run: go(item.href),
       });
     }
+    // Not a rail item, so it is not in `navItems` and has to be named here:
+    // the Resolved list carries the link for an administrator, and this is the
+    // other way to reach a page nobody visits often enough to look for.
+    if (isAdmin(actor.roles)) {
+      list.push({
+        id: 'go:/resolved/analytics',
+        label: 'Resolved analytics',
+        icon: ChartColumn,
+        group: GO_TO,
+        keywords: ['page', 'open', 'go to', 'stats', 'statistics', 'report', 'who resolved'],
+        run: go('/resolved/analytics'),
+      });
+    }
+
     list.push({
       id: 'go:/settings',
       label: 'Settings',

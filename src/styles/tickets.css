@@ -1542,3 +1542,100 @@
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
+
+/* --- Resolved analytics ------------------------------------------------- */
+
+/*
+ * The period control: four links wearing the segmented control's clothes.
+ *
+ * Links rather than buttons because each period is a page with its own
+ * address — an administrator comparing two terms wants two tabs, and a
+ * `?period=` that can be pasted into a message is worth more than a
+ * client-side toggle. The current one is marked with `aria-current`, which is
+ * the attribute a link may carry; `aria-checked` belongs to the radio group
+ * the real control is.
+ */
+.period-links {
+  margin-bottom: 16px;
+}
+
+.period-links .segmented-option {
+  text-decoration: none;
+}
+
+.period-links .segmented-option[aria-current='page'] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+/* The one line above the table. */
+.stats-lead {
+  margin-bottom: 16px;
+  color: var(--ink-2);
+}
+
+.stat-who {
+  font-weight: 600;
+}
+
+.stat-sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+/*
+ * The bar beside a count.
+ *
+ * Two divs and no library. One length against one maximum is the whole of what
+ * it says, and a chart package would arrive with an axis, a tooltip and a
+ * colour scale for a comparison the eye makes in a glance. It is set in
+ * `--ink-3` on `--surface-3`, so it is a mark on the gray ladder rather than a
+ * second accent: the palette is monochrome and a bar is not a status.
+ */
+.stat-count {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.stat-bar {
+  flex: 1 1 auto;
+  min-width: 24px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+
+.stat-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ink-3);
+}
+
+.stat-number {
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * The totals row, which is a footer drawn as a row.
+ *
+ * A real `<tfoot>` would have needed a second rendering path for the phone
+ * cards, where a footer is simply the last card; the row is last in both
+ * layouts already, so the rule above it is all that has to be said. The rule
+ * is `--line-strong`, a step up from the row dividers, because it separates a
+ * different kind of number rather than another person.
+ */
+.table tbody tr[data-total] td {
+  border-top: 1px solid var(--line-strong);
+  font-weight: 600;
+}
+
+.row-cards li[data-total] .row-card {
+  border-top: 1px solid var(--line-strong);
+  font-weight: 600;
+}

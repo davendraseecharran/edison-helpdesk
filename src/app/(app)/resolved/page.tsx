@@ -1,7 +1,9 @@
+import { ChartColumn } from 'lucide-react';
 import { loadQueue } from '@/lib/data/tickets';
 import { loadActor, requireTicketWorker } from '@/lib/auth/session';
 import { requestTime } from '@/lib/format';
 import { PageHeader } from '@/components/Primitives';
+import { ButtonLink } from '@/components/ui/Button';
 import { TicketListView } from '@/components/TicketListView';
 import type { QueueSearchParams } from '../search-params';
 import { toFilters } from '../search-params';
@@ -28,6 +30,19 @@ export default async function ResolvedPage({
           admin
             ? 'Every resolved and cancelled ticket, with the solution, the resolver and the original owner kept apart. Cancellations never count as resolutions.'
             : 'Resolved and cancelled tickets you owned or helped with. Work belonging to other NetRiders is not listed here.'
+        }
+        /*
+          The counting lives one press from the list it counts, and nowhere
+          else. It is not on the rail: an administrator reads it a few times a
+          term, and a permanent item for an occasional read costs every other
+          item on the rail a little of its place.
+        */
+        actions={
+          admin ? (
+            <ButtonLink href="/resolved/analytics" size="sm" icon={ChartColumn}>
+              Analytics
+            </ButtonLink>
+          ) : null
         }
       />
       <TicketListView
