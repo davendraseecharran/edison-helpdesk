@@ -57,6 +57,20 @@ export function modalOpen(): boolean {
   return document.querySelector(KEYBOARD_OWNERS) !== null;
 }
 
+/*
+ * The docked assistant is a keyboard owner for bare keys (`n` in its
+ * composer is a letter, not a shortcut) but it is not a modal: it sits
+ * beside the page. Cmd K is asked for from inside it all day, so for that
+ * one chord the docked panel does not count. Its own menus still do.
+ */
+const CHORD_OWNERS =
+  '[role="dialog"][aria-modal="true"], [data-keyboard-owner]:not(.ai-root[data-layout="docked"])';
+
+/** Whether something that should swallow a modifier chord is on screen. */
+export function chordOwnerOpen(): boolean {
+  return document.querySelector(CHORD_OWNERS) !== null;
+}
+
 /** A plain press of `key`: no modifier, no repeat, not mid-composition. */
 function isBarePress(event: KeyboardEvent, key: string): boolean {
   if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return false;

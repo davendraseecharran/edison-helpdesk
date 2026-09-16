@@ -446,6 +446,24 @@ input[type='date']::-webkit-datetime-edit-day-field:focus {
 }
 
 /*
+ * Inventory status tones, at the owner's request: green is out with somebody,
+ * red came back, yellow is nowhere. The words are the district's own free
+ * text, slugged; a word this application has never seen stays on the neutral
+ * tone rather than guessing.
+ */
+.device-deployed {
+  --badge-tone: var(--good);
+}
+
+.device-relinquished {
+  --badge-tone: var(--bad);
+}
+
+.device-missing {
+  --badge-tone: var(--warn);
+}
+
+/*
  * Status, and the one place a third colour is spent.
  *
  * It used to walk the gray ladder — brightest for the one nobody had picked
@@ -1561,9 +1579,8 @@ p.flash {
  * label, not an announcement.
  */
 .table thead th {
-  position: sticky;
-  top: var(--topbar-h);
-  z-index: 1;
+  /* Not sticky. It was, and a header that stays while its rows slide under
+     it read as a fault to the people using it. */
   height: 36px;
   background: var(--bg);
   color: var(--ink-2);

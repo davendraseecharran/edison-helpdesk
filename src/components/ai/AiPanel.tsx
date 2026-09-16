@@ -636,7 +636,9 @@ export function AiPanel({
 
   // --- Render ---------------------------------------------------------------
 
-  const showWelcome = view === 'chat' && chat.turns.length === 0;
+  // Not while the ChatGPT code card is up: that card has its own mark, and
+  // two orbs on one screen read as two assistants.
+  const showWelcome = view === 'chat' && chat.turns.length === 0 && !showConnectInline;
   const headerOrb = !showWelcome && view !== 'connect';
   // The header names the conversation, not the product: the first thing the
   // person asked, on one line. Empty until there is one, so the strip is

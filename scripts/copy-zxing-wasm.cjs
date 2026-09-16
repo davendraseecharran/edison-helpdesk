@@ -4,8 +4,9 @@
  * `zxing-wasm` would otherwise fetch its module from a CDN at run time. The
  * scanner is used on a school network from a phone in a corridor, so the file
  * is served from this deployment instead: copied from the installed package
- * into `public/` before every build, and checked in as well so a build that
- * skips scripts still has it. Re-run after upgrading `barcode-detector`.
+ * into `public/` and checked in. Run `npm run wasm` after upgrading
+ * `barcode-detector` and commit the result. Not a build hook: the deployment
+ * upload excludes `scripts/`, so a hook here fails on the host.
  */
 const fs = require('node:fs');
 const path = require('node:path');

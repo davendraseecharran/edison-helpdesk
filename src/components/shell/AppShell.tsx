@@ -16,7 +16,7 @@ import { AiPanel } from '@/components/ai/AiPanel';
 import { ScanPairingDialog } from '@/components/scan/ScanPairingDialog';
 import { TooltipProvider } from '@/components/ui/Tooltip';
 import { announceScannedDevice, ScannedDeviceCard } from '@/components/scan/ScannedDeviceCard';
-import { isEditable, modalOpen, useShortcut } from '@/components/ui/shortcuts';
+import { isEditable, chordOwnerOpen, modalOpen, useShortcut } from '@/components/ui/shortcuts';
 import { lookupDeviceCodeAction } from '@/lib/data/device-actions';
 import { routeScannedCode } from '@/lib/scan/route';
 import type { QueueCounts } from '@/lib/data/tickets';
@@ -148,7 +148,7 @@ export function AppShell({
           setLookupOpen(false);
           return;
         }
-        if (modalOpen()) return;
+        if (chordOwnerOpen()) return;
         event.preventDefault();
         setLookupOpen(true);
         return;
