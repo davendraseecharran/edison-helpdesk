@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 /**
  * The assistant panel.
@@ -23,15 +23,26 @@
  * not cancelled by closing; the toggle shows it instead.
  */
 
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { usePathname } from 'next/navigation';
-import { Ellipsis, MessagesSquare, SquarePen, Unplug, X } from 'lucide-react';
-import { motion } from 'motion/react';
-import { useRuntime } from '@/components/AppRuntime';
-import { Button } from '@/components/ui/Button';
-import { Icon } from '@/components/ui/Icon';
-import { useBodyScrollLock, useEscape, useFocusTrap } from '@/components/ui/focus';
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { usePathname } from "next/navigation";
+import {
+  Ellipsis,
+  MessagesSquare,
+  PanelRightClose,
+  SquarePen,
+  Unplug,
+  X,
+} from "lucide-react";
+import { motion } from "motion/react";
+import { useRuntime } from "@/components/AppRuntime";
+import { Button } from "@/components/ui/Button";
+import { Icon } from "@/components/ui/Icon";
+import {
+  useBodyScrollLock,
+  useEscape,
+  useFocusTrap,
+} from "@/components/ui/focus";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -39,29 +50,47 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/shadcn/dropdown-menu';
-import { useMediaQuery, usePhone, useReducedMotion } from '@/components/ui/media';
-import { AnimatePresence, DURATION, EASE_OUT_FAST, INSTANT, SPRING } from '@/components/ui/Motion';
-import { SegmentedControl } from '@/components/ui/SegmentedControl';
-import type { ConversationSummary } from '@/lib/ai/conversations';
-import type { Reasoning } from '@/lib/ai/responses-client';
-import { AiComposer, type AiComposerHandle } from './AiComposer';
-import { AiConnectCard } from './AiConnectCard';
-import { AiMessage } from './AiMessage';
-import { OPEN_ASSISTANT_EVENT, readOpenDetail, setAssistant } from './assistant-store';
-import { clearDraft, readDraft, writeDraft } from './draft-store';
-import { ConversationList } from './ConversationList';
-import { AiMark } from './AiMark';
-import { Orb } from './Orb';
-import type { Moment } from './orb-state';
-import { readPageContext, usePageContext } from './page-context';
-import { serverServices, type AiServices, type AiStatus } from './services';
-import { say } from '@/lib/voice/moments';
-import { turnsFromTranscript, useAiChat, type ChatBlock, type Turn } from './useAiChat';
-import { useAttachments } from './useAttachments';
-import { useSpeaker, useSpeechRecognition } from './useSpeech';
-import '@/styles/ai.css';
-import '@/styles/ai-connect.css';
+} from "@/components/ui/shadcn/dropdown-menu";
+import {
+  useMediaQuery,
+  usePhone,
+  useReducedMotion,
+} from "@/components/ui/media";
+import {
+  AnimatePresence,
+  DURATION,
+  EASE_OUT_FAST,
+  INSTANT,
+  SPRING,
+} from "@/components/ui/Motion";
+import type { ConversationSummary } from "@/lib/ai/conversations";
+import type { Reasoning } from "@/lib/ai/responses-client";
+import { AiComposer, type AiComposerHandle } from "./AiComposer";
+import { AiConnectCard } from "./AiConnectCard";
+import { AiMessage } from "./AiMessage";
+import {
+  OPEN_ASSISTANT_EVENT,
+  readOpenDetail,
+  setAssistant,
+} from "./assistant-store";
+import { clearDraft, readDraft, writeDraft } from "./draft-store";
+import { ConversationList } from "./ConversationList";
+import { AiMark } from "./AiMark";
+import { Orb } from "./Orb";
+import type { Moment } from "./orb-state";
+import { readPageContext, usePageContext } from "./page-context";
+import { serverServices, type AiServices, type AiStatus } from "./services";
+import { say } from "@/lib/voice/moments";
+import {
+  turnsFromTranscript,
+  useAiChat,
+  type ChatBlock,
+  type Turn,
+} from "./useAiChat";
+import { useAttachments } from "./useAttachments";
+import { useSpeaker, useSpeechRecognition } from "./useSpeech";
+import "@/styles/ai.css";
+import "@/styles/ai-connect.css";
 
 /*
  * Three levels, and High is the default.
@@ -72,15 +101,15 @@ import '@/styles/ai-connect.css';
  * the old values so rows written before this keep working.
  */
 const REASONING_OPTIONS: { value: Reasoning; label: string }[] = [
-  { value: 'high', label: 'High' },
-  { value: 'xhigh', label: 'Extra high' },
-  { value: 'max', label: 'Max' },
+  { value: "high", label: "High" },
+  { value: "xhigh", label: "Extra high" },
+  { value: "max", label: "Max" },
 ];
 
 const EXAMPLES = [
-  'What is waiting in the queue?',
-  'Summarise my open tickets',
-  'Which devices are out for repair?',
+  "What is waiting in the queue?",
+  "Summarise my open tickets",
+  "Which devices are out for repair?",
 ];
 
 /**
@@ -92,22 +121,22 @@ const EXAMPLES = [
  * open — the page renders one attribute and knows nothing about the panel.
  */
 const TODAY_EXAMPLES = [
-  'What should I do first?',
-  'Summarise what is waiting in the queue',
-  'Draft a reply for the oldest one',
+  "What should I do first?",
+  "Summarise what is waiting in the queue",
+  "Draft a reply for the oldest one",
 ];
 
 /** Today's briefing line, if that is the page underneath. */
 function readTodayBriefing(): string | null {
-  if (typeof document === 'undefined') return null;
-  const root = document.querySelector<HTMLElement>('[data-today-briefing]');
-  const line = root?.dataset.todayBriefing?.trim() ?? '';
-  return line === '' ? null : line;
+  if (typeof document === "undefined") return null;
+  const root = document.querySelector<HTMLElement>("[data-today-briefing]");
+  const line = root?.dataset.todayBriefing?.trim() ?? "";
+  return line === "" ? null : line;
 }
 
-const ALWAYS_ASKS = 'This change always asks first, whatever the setting.';
+const ALWAYS_ASKS = "This change always asks first, whatever the setting.";
 
-type View = 'chat' | 'connect' | 'conversations';
+type View = "chat" | "connect" | "conversations";
 
 export interface AiPanelProps {
   services?: AiServices;
@@ -125,16 +154,20 @@ export function AiPanel({
   services = serverServices,
   queueCount,
   initialOpen = false,
-  initialView = 'chat',
+  initialView = "chat",
   initialTurns,
 }: AiPanelProps) {
   const { actor, notify } = useRuntime();
   const pathname = usePathname();
   const phone = usePhone();
-  const wide = useMediaQuery('(min-width: 1024px)');
+  const wide = useMediaQuery("(min-width: 1024px)");
   const reduced = useReducedMotion();
-  const layout: 'phone' | 'scrim' | 'docked' = phone ? 'phone' : wide ? 'docked' : 'scrim';
-  const modal = layout !== 'docked';
+  const layout: "phone" | "scrim" | "docked" = phone
+    ? "phone"
+    : wide
+      ? "docked"
+      : "scrim";
+  const modal = layout !== "docked";
 
   const [open, setOpen] = useState(initialOpen);
   const [exiting, setExiting] = useState(false);
@@ -156,7 +189,9 @@ export function AiPanel({
   const [menuOpen, setMenuOpen] = useState(false);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
-  const [conversationsError, setConversationsError] = useState<string | null>(null);
+  const [conversationsError, setConversationsError] = useState<string | null>(
+    null,
+  );
   const [unread, setUnread] = useState(false);
 
   const titleId = useId();
@@ -165,7 +200,7 @@ export function AiPanel({
   const composerRef = useRef<AiComposerHandle>(null);
   const queuedPrompt = useRef<string | null>(null);
   const stickToBottom = useRef(true);
-  const dictationBase = useRef('');
+  const dictationBase = useRef("");
 
   // Mirrors for handlers that must see the latest value without re-binding.
   const openRef = useRef(open);
@@ -188,13 +223,17 @@ export function AiPanel({
   // The chat route knows before the panel does when a connection is gone.
   const onBlocked = useCallback(
     (block: ChatBlock, message: string) => {
-      if (block === 'not_connected') {
-        setStatus((current) => (current ? { ...current, connected: false } : current));
-        setRequestedView('connect');
-      } else if (block === 'disabled') {
-        setStatus((current) => (current ? { ...current, enabled: false } : current));
+      if (block === "not_connected") {
+        setStatus((current) =>
+          current ? { ...current, connected: false } : current,
+        );
+        setRequestedView("connect");
+      } else if (block === "disabled") {
+        setStatus((current) =>
+          current ? { ...current, enabled: false } : current,
+        );
       } else {
-        notify('error', message);
+        notify("error", message);
       }
     },
     [notify],
@@ -205,14 +244,19 @@ export function AiPanel({
     page: readPageContext,
     onReply,
     onBlocked,
-    initial: initialTurns ? { conversationId: 'demo', turns: initialTurns } : undefined,
+    initial: initialTurns
+      ? { conversationId: "demo", turns: initialTurns }
+      : undefined,
   });
   const pageContext = usePageContext();
 
   const speech = useSpeechRecognition({
-    onInterim: (text) => setDraft(`${dictationBase.current}${dictationBase.current ? ' ' : ''}${text}`),
+    onInterim: (text) =>
+      setDraft(
+        `${dictationBase.current}${dictationBase.current ? " " : ""}${text}`,
+      ),
     onFinal: (text) => {
-      dictationBase.current = `${dictationBase.current}${dictationBase.current ? ' ' : ''}${text}`;
+      dictationBase.current = `${dictationBase.current}${dictationBase.current ? " " : ""}${text}`;
       setDraft(dictationBase.current);
     },
   });
@@ -249,7 +293,7 @@ export function AiPanel({
    * because that is a deliberate visit to a settings screen.
    */
   const view: View = requestedView;
-  const showConnectInline = needsConnection && connectInline && view === 'chat';
+  const showConnectInline = needsConnection && connectInline && view === "chat";
 
   /**
    * One setter, so nothing can change the draft without keeping it — and so the
@@ -265,12 +309,17 @@ export function AiPanel({
     (value: string) => {
       setDraftState(value);
       writeDraft(actor.id, value);
-      if (value.trim() !== '' && needsConnection && !connectDismissed) setConnectInline(true);
+      if (value.trim() !== "" && needsConnection && !connectDismissed)
+        setConnectInline(true);
     },
     [actor.id, needsConnection, connectDismissed],
   );
 
-  const moment: Moment = speech.listening ? 'listening' : speaker.speaking ? 'speaking' : chat.moment;
+  const moment: Moment = speech.listening
+    ? "listening"
+    : speaker.speaking
+      ? "speaking"
+      : chat.moment;
 
   /*
    * The welcome, which is the assistant's one chance to say what it is for.
@@ -283,12 +332,15 @@ export function AiPanel({
   const [todayBriefing, setTodayBriefing] = useState<string | null>(null);
   useEffect(() => {
     if (!open) return;
-    const frame = window.requestAnimationFrame(() => setTodayBriefing(readTodayBriefing()));
+    const frame = window.requestAnimationFrame(() =>
+      setTodayBriefing(readTodayBriefing()),
+    );
     return () => window.cancelAnimationFrame(frame);
   }, [open, pathname]);
 
   const welcomeLine =
-    todayBriefing ?? say('assistant.idle', { count: queueCount, seed: queueCount ?? 0 });
+    todayBriefing ??
+    say("assistant.idle", { count: queueCount, seed: queueCount ?? 0 });
   const examples = todayBriefing ? TODAY_EXAMPLES : EXAMPLES;
 
   // --- Sending --------------------------------------------------------------
@@ -307,7 +359,7 @@ export function AiPanel({
     (text: string) => {
       stopSpeaking();
       stickToBottom.current = true;
-      setRequestedView('chat');
+      setRequestedView("chat");
       sendToChat(text, attached);
       clearAttachments();
     },
@@ -327,18 +379,18 @@ export function AiPanel({
       const trimmed = text.trim();
       // A photograph on its own is a question; only a turn with neither words
       // nor pictures is nothing to send.
-      if (trimmed === '' && attached.length === 0) return;
+      if (trimmed === "" && attached.length === 0) return;
       if (status?.enabled === false) return;
       if (!ready) {
         setDraft(trimmed);
-        setRequestedView('chat');
+        setRequestedView("chat");
         setConnectInline(true);
         setConnectDismissed(false);
         return;
       }
       sendText(trimmed);
-      setDraft('');
-      dictationBase.current = '';
+      setDraft("");
+      dictationBase.current = "";
     },
     [attached.length, ready, status?.enabled, sendText, setDraft],
   );
@@ -395,12 +447,12 @@ export function AiPanel({
     setConnectAtOnce(false);
     setConnectInline(false);
     void refreshStatus().then((next) => {
-      setRequestedView('chat');
+      setRequestedView("chat");
       if (!next.enabled || !next.connected) return;
       const waiting = readDraft(actor.id).trim();
-      if (waiting === '') return;
+      if (waiting === "") return;
       clearDraft(actor.id);
-      setDraftState('');
+      setDraftState("");
       sendText(waiting);
     });
   }, [refreshStatus, actor.id, sendText]);
@@ -438,7 +490,7 @@ export function AiPanel({
     // nothing carries on reading the last reply out to the room.
     stopSpeaking();
     window.requestAnimationFrame(() => {
-      document.querySelector<HTMLElement>('[data-ai-toggle]')?.focus();
+      document.querySelector<HTMLElement>("[data-ai-toggle]")?.focus();
     });
   }, [speech.listening, stopListening, stopSpeaking]);
 
@@ -450,8 +502,8 @@ export function AiPanel({
         else openPanel();
         return;
       }
-      if (detail.section === 'connect') {
-        setRequestedView('connect');
+      if (detail.section === "connect") {
+        setRequestedView("connect");
         setConnectAtOnce(true);
       }
       if (detail.prompt) {
@@ -462,17 +514,18 @@ export function AiPanel({
       openPanel();
     }
     function onKeyDown(event: KeyboardEvent) {
-      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
-      if (event.key.toLowerCase() !== 'j' || event.isComposing) return;
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey)
+        return;
+      if (event.key.toLowerCase() !== "j" || event.isComposing) return;
       event.preventDefault();
       if (openRef.current) close();
       else openPanel();
     }
     window.addEventListener(OPEN_ASSISTANT_EVENT, onOpenEvent);
-    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener(OPEN_ASSISTANT_EVENT, onOpenEvent);
-      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener("keydown", onKeyDown);
     };
   }, [close, openPanel, deliver]);
 
@@ -493,13 +546,13 @@ export function AiPanel({
   useEffect(() => {
     if (!open || modal) return;
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== 'Escape' || menuOpen) return;
+      if (event.key !== "Escape" || menuOpen) return;
       if (!panelRef.current?.contains(document.activeElement)) return;
       event.preventDefault();
       close();
     }
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, [open, modal, menuOpen, close]);
 
   // Focus lands inside the panel when it opens: the composer when there is
@@ -507,28 +560,30 @@ export function AiPanel({
   useEffect(() => {
     if (!open) return;
     const frame = window.requestAnimationFrame(() => {
-      if (view === 'chat' && ready) {
+      if (view === "chat" && ready) {
         composerRef.current?.focus();
         return;
       }
       const panel = panelRef.current;
-      if (panel && !panel.contains(document.activeElement)) panel.focus({ preventScroll: true });
+      if (panel && !panel.contains(document.activeElement))
+        panel.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
   }, [open, view, ready]);
 
   // The phone keyboard: size the sheet to what is still visible.
   useEffect(() => {
-    if (!open || layout !== 'phone') return;
+    if (!open || layout !== "phone") return;
     const viewport = window.visualViewport;
     const panel = panelRef.current;
     if (!viewport || !panel) return;
-    const apply = () => panel.style.setProperty('--ai-vh', `${Math.round(viewport.height)}px`);
+    const apply = () =>
+      panel.style.setProperty("--ai-vh", `${Math.round(viewport.height)}px`);
     apply();
-    viewport.addEventListener('resize', apply);
+    viewport.addEventListener("resize", apply);
     return () => {
-      viewport.removeEventListener('resize', apply);
-      panel.style.removeProperty('--ai-vh');
+      viewport.removeEventListener("resize", apply);
+      panel.style.removeProperty("--ai-vh");
     };
   }, [open, layout]);
 
@@ -549,10 +604,10 @@ export function AiPanel({
     // dropping the attribute on the press would snap the page 420px sideways
     // under a panel still sliding out — the reflow racing the animation it is
     // supposed to accompany.
-    if (!present || layout !== 'docked') return;
+    if (!present || layout !== "docked") return;
     const root = document.documentElement;
-    root.setAttribute('data-ai-dock', '');
-    return () => root.removeAttribute('data-ai-dock');
+    root.setAttribute("data-ai-dock", "");
+    return () => root.removeAttribute("data-ai-dock");
   }, [present, layout]);
 
   useEffect(() => {
@@ -562,7 +617,9 @@ export function AiPanel({
   // --- Menu -----------------------------------------------------------------
 
   async function savePreference(
-    patch: Partial<Pick<AiStatus, 'reasoning' | 'confirmChanges' | 'speakReplies'>>,
+    patch: Partial<
+      Pick<AiStatus, "reasoning" | "confirmChanges" | "speakReplies">
+    >,
     failure: string,
   ) {
     const before = status;
@@ -571,36 +628,37 @@ export function AiPanel({
     const result = await services.updatePreferences(patch);
     if (!result.ok) {
       setStatus(before);
-      notify('error', result.error ?? failure);
+      notify("error", result.error ?? failure);
     }
   }
 
   async function showConversations() {
     setMenuOpen(false);
-    setRequestedView('conversations');
+    setRequestedView("conversations");
     setConversationsLoading(true);
     setConversationsError(null);
     const result = await services.listConversations();
     setConversationsLoading(false);
-    if (!result.ok) setConversationsError(result.error ?? 'Could not load conversations.');
+    if (!result.ok)
+      setConversationsError(result.error ?? "Could not load conversations.");
     setConversations(result.conversations);
   }
 
   async function openConversation(id: string) {
     const result = await services.loadConversation(id);
     if (!result.ok) {
-      notify('error', result.error ?? 'Could not open that conversation.');
+      notify("error", result.error ?? "Could not open that conversation.");
       return;
     }
     speaker.cancel();
     chat.resume(id, turnsFromTranscript(result.items, result.pending));
-    setRequestedView('chat');
+    setRequestedView("chat");
   }
 
   async function deleteConversation(id: string) {
     const result = await services.deleteConversation(id);
     if (!result.ok) {
-      notify('error', result.error ?? 'Could not delete that conversation.');
+      notify("error", result.error ?? "Could not delete that conversation.");
       return;
     }
     setConversations((current) => current.filter((entry) => entry.id !== id));
@@ -611,9 +669,9 @@ export function AiPanel({
     setMenuOpen(false);
     speaker.cancel();
     chat.newConversation();
-    setDraft('');
+    setDraft("");
     setConnectInline(false);
-    setRequestedView('chat');
+    setRequestedView("chat");
   }
 
   function send() {
@@ -632,23 +690,33 @@ export function AiPanel({
   function onBodyScroll() {
     const body = bodyRef.current;
     if (!body) return;
-    stickToBottom.current = body.scrollHeight - body.scrollTop - body.clientHeight < 48;
+    stickToBottom.current =
+      body.scrollHeight - body.scrollTop - body.clientHeight < 48;
   }
 
   // --- Render ---------------------------------------------------------------
 
-  const showWelcome = view === 'chat' && chat.turns.length === 0;
-  const headerOrb = !showWelcome && view !== 'connect';
-  const level = speech.listening ? speech.level : speaker.speaking ? 0.35 : undefined;
-  const hidden = layout === 'phone' ? { y: '100%' } : { x: '100%' };
-  const shown = layout === 'phone' ? { y: 0 } : { x: 0 };
+  const showWelcome = view === "chat" && chat.turns.length === 0;
+  const headerOrb = !showWelcome && view !== "connect";
+  const level = speech.listening
+    ? speech.level
+    : speaker.speaking
+      ? 0.35
+      : undefined;
+  const hidden = layout === "phone" ? { y: "100%" } : { x: "100%" };
+  const shown = layout === "phone" ? { y: 0 } : { x: 0 };
 
-  if (typeof document === 'undefined') return null;
+  if (typeof document === "undefined") return null;
 
   return createPortal(
     <AnimatePresence onExitComplete={() => setExiting(false)}>
       {open ? (
-        <div key="assistant" className="ai-root" data-layout={layout} data-keyboard-owner="true">
+        <div
+          key="assistant"
+          className="ai-root"
+          data-layout={layout}
+          data-keyboard-owner="true"
+        >
           {modal ? (
             <motion.div
               className="ai-scrim"
@@ -669,31 +737,66 @@ export function AiPanel({
             tabIndex={-1}
             initial={reduced ? false : hidden}
             animate={shown}
-            exit={reduced ? undefined : { ...hidden, transition: EASE_OUT_FAST }}
+            exit={
+              reduced ? undefined : { ...hidden, transition: EASE_OUT_FAST }
+            }
             transition={reduced ? INSTANT : SPRING}
           >
             <div className="ai-frame">
               <header className="ai-head">
                 <div className="ai-head-row">
-                  {headerOrb ? (
-                    <motion.div
-                      className="ai-head-orb"
-                      initial={reduced ? false : { opacity: 0, scale: 0.7 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={reduced ? INSTANT : SPRING}
-                    >
-                      <Orb moment={moment} size={64} level={level} />
-                    </motion.div>
-                  ) : null}
-                  <div className="ai-head-text">
+                  <div className="ai-head-lead">
+                    {headerOrb ? (
+                      <motion.div
+                        className="ai-head-orb"
+                        initial={reduced ? false : { opacity: 0, scale: 0.7 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={reduced ? INSTANT : SPRING}
+                      >
+                        <Orb moment={moment} size={20} level={level} />
+                      </motion.div>
+                    ) : (
+                      <AiMark
+                        size={18}
+                        state="still"
+                        className="ai-head-mark"
+                      />
+                    )}
                     <h2 id={titleId} className="ai-title">
                       Assistant
                     </h2>
                   </div>
                   <div className="ai-head-actions">
-                    <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={SquarePen}
+                      aria-label="New conversation"
+                      title="New conversation"
+                      disabled={!ready}
+                      onClick={startNewConversation}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={MessagesSquare}
+                      aria-label="Conversations"
+                      title="Conversations"
+                      disabled={!ready}
+                      onClick={() => void showConversations()}
+                    />
+                    <DropdownMenu
+                      open={menuOpen}
+                      onOpenChange={setMenuOpen}
+                      modal={false}
+                    >
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" icon={Ellipsis} aria-label="Assistant menu" />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={Ellipsis}
+                          aria-label="Assistant menu"
+                        />
                       </DropdownMenuTrigger>
                       {/* Not portaled: the panel runs its own focus trap over
                           its own descendants, and a menu at the end of the
@@ -704,34 +807,11 @@ export function AiPanel({
                         aria-label="Assistant settings"
                         className="ai-menu"
                       >
-                        {/* Settings live in the menu, not in the header: the
-                            picker is touched once a month and a permanent row
-                            costs a line of the conversation on every screen,
-                            which at 390 is the whole point of the panel. The
-                            keys stay inside it, because the arrows belong to
-                            the segmented control while it has focus and to the
-                            menu everywhere else. */}
-                        <div
-                          className="ai-menu-reasoning"
-                          onKeyDown={(event) => event.stopPropagation()}
-                        >
-                          <span className="ai-reasoning-label">Reasoning</span>
-                          <SegmentedControl
-                            label="Reasoning effort"
-                            size="sm"
-                            value={status?.reasoning ?? 'high'}
-                            options={REASONING_OPTIONS}
-                            onChange={(next) =>
-                              void savePreference(
-                                { reasoning: next },
-                                'Could not save the reasoning level.',
-                              )
-                            }
-                          />
-                        </div>
-                        <DropdownMenuSeparator />
-                        {/* A switch is a setting rather than a command, so the
-                            menu stays open when one is flipped. */}
+                        {/* Settings only. Reasoning sits in the composer, next
+                            to the message it applies to; the conversation
+                            commands are the header's own buttons. A switch is
+                            a setting rather than a command, so the menu stays
+                            open when one is flipped. */}
                         <DropdownMenuCheckboxItem
                           mark={false}
                           className="ai-menu-switch"
@@ -740,8 +820,12 @@ export function AiPanel({
                           onSelect={(event) => event.preventDefault()}
                           onCheckedChange={() =>
                             void savePreference(
-                              { confirmChanges: !(status?.confirmChanges === true) },
-                              'Could not save that setting.',
+                              {
+                                confirmChanges: !(
+                                  status?.confirmChanges === true
+                                ),
+                              },
+                              "Could not save that setting.",
                             )
                           }
                         >
@@ -757,8 +841,10 @@ export function AiPanel({
                           onCheckedChange={() => {
                             if (status?.speakReplies) speaker.cancel();
                             void savePreference(
-                              { speakReplies: !(status?.speakReplies === true) },
-                              'Could not save that setting.',
+                              {
+                                speakReplies: !(status?.speakReplies === true),
+                              },
+                              "Could not save that setting.",
                             );
                           }}
                         >
@@ -766,21 +852,12 @@ export function AiPanel({
                           <span className="ai-switch" aria-hidden="true" />
                         </DropdownMenuCheckboxItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem disabled={!ready} onSelect={() => void showConversations()}>
-                          <Icon icon={MessagesSquare} size={16} />
-                          <span>Conversations</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem disabled={!ready} onSelect={startNewConversation}>
-                          <Icon icon={SquarePen} size={16} />
-                          <span>New conversation</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
                         <DropdownMenuItem
                           variant="destructive"
                           disabled={!status?.connected}
                           onSelect={() => {
                             setConnectAtOnce(false);
-                            setRequestedView('connect');
+                            setRequestedView("connect");
                           }}
                         >
                           <Icon icon={Unplug} size={16} />
@@ -788,7 +865,14 @@ export function AiPanel({
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    <Button variant="ghost" icon={X} aria-label="Close" title="Close" onClick={close} />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={layout === "phone" ? X : PanelRightClose}
+                      aria-label="Close"
+                      title="Close"
+                      onClick={close}
+                    />
                   </div>
                 </div>
               </header>
@@ -798,20 +882,24 @@ export function AiPanel({
                   <div className="ai-note">
                     <Orb moment="error" size={64} className="ai-note-orb" />
                     <p>The assistant is not enabled on this deployment.</p>
-                    <p className="subtle">An administrator has to set AI_TOKEN_KEY on the server.</p>
+                    <p className="subtle">
+                      An administrator has to set AI_TOKEN_KEY on the server.
+                    </p>
                   </div>
-                ) : view === 'connect' ? (
+                ) : view === "connect" ? (
                   <AiConnectCard
                     services={services}
                     connection={
-                      status?.connected ? { email: status.email, planType: status.planType } : null
+                      status?.connected
+                        ? { email: status.email, planType: status.planType }
+                        : null
                     }
                     notify={notify}
                     autoStart={connectAtOnce}
                     onConnected={onConnected}
                     onDisconnected={onDisconnected}
                   />
-                ) : view === 'conversations' ? (
+                ) : view === "conversations" ? (
                   <ConversationList
                     conversations={conversations}
                     loading={conversationsLoading}
@@ -819,13 +907,17 @@ export function AiPanel({
                     currentId={chat.conversationId}
                     onOpen={(id) => void openConversation(id)}
                     onDelete={(id) => void deleteConversation(id)}
-                    onBack={() => setRequestedView('chat')}
+                    onBack={() => setRequestedView("chat")}
                   />
                 ) : showWelcome ? (
                   <div className="ai-welcome">
                     <div className="ai-welcome-orb">
-                      {moment === 'idle' ? (
-                        <AiMark size={64} state="waiting" className="ai-welcome-mark" />
+                      {moment === "idle" ? (
+                        <AiMark
+                          size={64}
+                          state="waiting"
+                          className="ai-welcome-mark"
+                        />
                       ) : (
                         <Orb moment={moment} size={64} level={level} />
                       )}
@@ -855,7 +947,9 @@ export function AiPanel({
                         last={index === chat.turns.length - 1}
                         moment={chat.moment}
                         busy={chat.busy}
-                        approvalNote={status?.confirmChanges ? undefined : ALWAYS_ASKS}
+                        approvalNote={
+                          status?.confirmChanges ? undefined : ALWAYS_ASKS
+                        }
                         onApprove={chat.approve}
                         onReject={chat.reject}
                         onRetry={chat.retry}
@@ -865,7 +959,7 @@ export function AiPanel({
                 )}
               </div>
 
-              {view === 'chat' && status?.enabled !== false ? (
+              {view === "chat" && status?.enabled !== false ? (
                 <div className="ai-foot">
                   {/*
                    * The connection card, inline, above the composer and below
@@ -877,7 +971,10 @@ export function AiPanel({
                    */}
                   {showConnectInline ? (
                     <div className="ai-connect-inline">
-                      <div className="ai-connect-inline-head" style={{ justifyContent: 'flex-end' }}>
+                      <div
+                        className="ai-connect-inline-head"
+                        style={{ justifyContent: "flex-end" }}
+                      >
                         <Button
                           variant="ghost"
                           size="sm"
@@ -925,12 +1022,12 @@ export function AiPanel({
                     onSend={send}
                     onStop={chat.stop}
                     busy={chat.busy}
-                    reasoning={status?.reasoning ?? 'high'}
+                    reasoning={status?.reasoning ?? "high"}
                     reasoningOptions={REASONING_OPTIONS}
                     onReasoning={(next) =>
                       void savePreference(
                         { reasoning: next as Reasoning },
-                        'Could not save the reasoning level.',
+                        "Could not save the reasoning level.",
                       )
                     }
                     /* Typing is never disabled. Only a deployment with no key
@@ -939,7 +1036,7 @@ export function AiPanel({
                     disabled={false}
                     speech={speech.supported ? speech : null}
                     page={pageContext}
-                    placeholder={status ? undefined : 'Getting ready'}
+                    placeholder={status ? undefined : "Getting ready"}
                   />
                 </div>
               ) : null}
