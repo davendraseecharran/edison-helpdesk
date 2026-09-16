@@ -46,7 +46,8 @@ const LABELS: Record<Moment, string> = {
  * touch quicker so the panel feels busy while it is.
  */
 const SPEED: Partial<Record<Moment, number>> = {
-  idle: 0.85,
+  idle: 0.55,
+  pairing: 0.3,
   approval: 0.85,
   sending: 1.1,
   reasoning: 1.15,

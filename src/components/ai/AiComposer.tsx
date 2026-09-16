@@ -33,7 +33,13 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from 'react';
-import { ArrowUp, FileText, ImagePlus, Mic, Square, X } from 'lucide-react';
+import { ArrowUp, Check, ChevronDown, FileText, Mic, Plus, Square, X } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/shadcn/dropdown-menu';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { OpenBeam } from '@/components/ui/OpenBeam';
@@ -69,6 +75,10 @@ export interface AiComposerProps {
   onRemoveImage?: (id: string) => void;
   /** What went wrong with the last picture offered. */
   imageNotice?: string | null;
+  /** The reasoning level shown in the bar; absent when the panel owns no setting. */
+  reasoning?: string;
+  reasoningOptions?: readonly { value: string; label: string }[];
+  onReasoning?: (value: string) => void;
 }
 
 export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function AiComposer(
@@ -86,6 +96,9 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
     onAttach,
     onRemoveImage,
     imageNotice = null,
+    reasoning,
+    reasoningOptions,
+    onReasoning,
   },
   ref,
 ) {
@@ -255,63 +268,96 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
           onPaste={onPaste}
           data-autofocus
         />
-        <div className="ai-composer-actions">
-          {canAttach ? (
-            <>
-              <input
-                ref={picker}
-                type="file"
-                className="visually-hidden"
-                accept={IMAGE_TYPES.join(',')}
-                multiple
-                tabIndex={-1}
-                aria-hidden="true"
-                onChange={onPicked}
+        <div className="ai-composer-bar">
+          <div className="ai-composer-actions ai-composer-actions-left">
+            {canAttach ? (
+              <>
+                <input
+                  ref={picker}
+                  type="file"
+                  className="visually-hidden"
+                  accept={IMAGE_TYPES.join(',')}
+                  multiple
+                  tabIndex={-1}
+                  aria-hidden="true"
+                  onChange={onPicked}
+                />
+                <button
+                  type="button"
+                  className="ai-attach pressable"
+                  aria-label="Add a picture"
+                  title={full ? `Up to ${MAX_IMAGES} pictures in one message` : 'Add a picture'}
+                  disabled={disabled || full}
+                  onClick={() => picker.current?.click()}
+                >
+                  <Icon icon={Plus} size={18} />
+                </button>
+              </>
+            ) : null}
+          </div>
+          <div className="ai-composer-actions">
+            {reasoning && reasoningOptions && onReasoning ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="ai-reasoning-pick pressable"
+                    aria-label="Reasoning level"
+                  >
+                    {reasoningOptions.find((option) => option.value === reasoning)?.label ?? reasoning}
+                    <Icon icon={ChevronDown} size={14} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {reasoningOptions.map((option) => (
+                    <DropdownMenuItem key={option.value} onSelect={() => onReasoning(option.value)}>
+                      {option.label}
+                      {option.value === reasoning ? <Icon icon={Check} size={14} /> : null}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+            {busy ? (
+              <Button variant="secondary" icon={Square} aria-label="Stop" title="Stop" onClick={onStop} />
+            ) : canSend ? (
+              <Button
+                variant="primary"
+                icon={ArrowUp}
+                className="ai-send-round"
+                aria-label="Send"
+                title="Send"
+                onClick={onSend}
               />
+            ) : speech ? (
               <button
                 type="button"
-                className="ai-attach pressable"
-                aria-label="Attach a picture"
-                title={full ? `Up to ${MAX_IMAGES} pictures in one message` : 'Attach a picture'}
-                disabled={disabled || full}
-                onClick={() => picker.current?.click()}
+                className="ai-mic pressable"
+                aria-label={speech.listening ? 'Stop listening' : 'Start listening'}
+                aria-pressed={speech.listening}
+                title="Press to talk. On a touch screen, hold."
+                disabled={disabled}
+                onPointerDown={onMicPointerDown}
+                onPointerUp={onMicPointerUp}
+                onPointerCancel={onMicPointerUp}
+                onClick={onMicClick}
               >
-                <Icon icon={ImagePlus} size={18} />
+                <Icon icon={Mic} size={18} />
               </button>
-            </>
-          ) : null}
-          {speech ? (
-            <button
-              type="button"
-              className="ai-mic pressable"
-              aria-label={speech.listening ? 'Stop listening' : 'Start listening'}
-              aria-pressed={speech.listening}
-              title="Press to talk. On a touch screen, hold."
-              disabled={disabled}
-              onPointerDown={onMicPointerDown}
-              onPointerUp={onMicPointerUp}
-              onPointerCancel={onMicPointerUp}
-              onClick={onMicClick}
-            >
-              <Icon icon={Mic} size={18} />
-            </button>
-          ) : null}
-          {busy ? (
-            <Button variant="secondary" icon={Square} aria-label="Stop" title="Stop" onClick={onStop} />
-          ) : (
-            <Button
-              variant="primary"
-              icon={ArrowUp}
-              aria-label="Send"
-              title="Send"
-              disabled={!canSend}
-              onClick={onSend}
-            />
-          )}
+            ) : (
+              <Button
+                variant="primary"
+                icon={ArrowUp}
+                className="ai-send-round"
+                aria-label="Send"
+                title="Send"
+                disabled
+              />
+            )}
           </div>
         </div>
+        </div>
       </OpenBeam>
-      <p className="ai-composer-hint subtle">Enter to send, Shift+Enter for a new line</p>
     </div>
   );
 });

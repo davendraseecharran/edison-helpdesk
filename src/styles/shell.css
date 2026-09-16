@@ -769,8 +769,8 @@
   height: 20px;
   padding: 0 6px;
   border-radius: 999px;
-  border: 1px solid var(--line);
-  background: var(--surface-3);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--ink-2);
   font-size: var(--fs-0);
   font-weight: 500;

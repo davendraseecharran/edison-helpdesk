@@ -32,6 +32,10 @@
   font-weight: 600;
 }
 
+.auth-wordmark:hover {
+  text-decoration: none;
+}
+
 .auth-wordmark:focus-visible {
   outline: 2px solid var(--accent, var(--accent));
   outline-offset: 4px;

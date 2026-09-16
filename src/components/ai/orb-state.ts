@@ -57,7 +57,7 @@ export const MOMENTS: readonly Moment[] = [
 ];
 
 const STATE_FOR: Record<Moment, OrbState> = {
-  idle: 'weaving',
+  idle: 'breathing',
   sending: 'breathing',
   reasoning: 'solving',
   writing: 'composing',

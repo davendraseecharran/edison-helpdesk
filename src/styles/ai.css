@@ -148,6 +148,15 @@
   padding: 6px 10px 8px;
 }
 
+.ai-menu-reasoning .segmented {
+  display: flex;
+  width: 100%;
+}
+
+.ai-menu-reasoning .segmented-option {
+  flex: 1 1 0;
+}
+
 /*
  * A switch on a menu row: `.menu-item` with everything a menu row already has,
  * and its state shown as a pill at the end of the line rather than as a tick
@@ -637,9 +646,10 @@
 
 .ai-composer-row {
   display: flex;
-  align-items: flex-end;
-  gap: 6px;
-  padding: 4px 4px 4px 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  padding: 6px 8px 6px 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius-3);
   background: var(--surface);
@@ -683,11 +693,49 @@
   opacity: 0.6;
 }
 
+.ai-composer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
 .ai-composer-actions {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
   gap: 2px;
+}
+
+.ai-composer-actions-left {
+  margin-left: -4px;
+}
+
+.ai-reasoning-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-1);
+  background: transparent;
+  color: var(--ink-2);
+  font: 500 var(--fs-1) / 1 var(--font-sans);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ai-reasoning-pick:hover {
+    background: var(--surface-3);
+    color: var(--ink);
+  }
+}
+
+.ai-send-round {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
 }
 
 /*
@@ -736,6 +784,7 @@
 }
 
 .ai-composer-hint {
+  display: none;
   margin-top: 6px;
   font-size: var(--fs-0);
 }

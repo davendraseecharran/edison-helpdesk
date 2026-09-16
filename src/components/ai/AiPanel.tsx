@@ -872,8 +872,7 @@ export function AiPanel({
                    */}
                   {showConnectInline ? (
                     <div className="ai-connect-inline">
-                      <div className="ai-connect-inline-head">
-                        <p>Connect ChatGPT to send this. Your message is kept.</p>
+                      <div className="ai-connect-inline-head" style={{ justifyContent: 'flex-end' }}>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -898,7 +897,6 @@ export function AiPanel({
                   ) : null}
                   {needsConnection && connectDismissed && !connectInline ? (
                     <p className="ai-connect-hint subtle">
-                      Not connected yet. Your message is kept until you are.{' '}
                       <button
                         type="button"
                         className="link-button"
@@ -922,6 +920,14 @@ export function AiPanel({
                     onSend={send}
                     onStop={chat.stop}
                     busy={chat.busy}
+                    reasoning={status?.reasoning ?? 'high'}
+                    reasoningOptions={REASONING_OPTIONS}
+                    onReasoning={(next) =>
+                      void savePreference(
+                        { reasoning: next as Reasoning },
+                        'Could not save the reasoning level.',
+                      )
+                    }
                     /* Typing is never disabled. Only a deployment with no key
                        at all takes the composer away, and that is checked
                        above. */

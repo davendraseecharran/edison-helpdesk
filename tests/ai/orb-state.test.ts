@@ -14,7 +14,7 @@ import {
 } from '../../src/components/ai/orb-state';
 
 const EXPECTED: Record<Moment, string> = {
-  idle: 'weaving',
+  idle: 'breathing',
   sending: 'breathing',
   reasoning: 'solving',
   writing: 'composing',
