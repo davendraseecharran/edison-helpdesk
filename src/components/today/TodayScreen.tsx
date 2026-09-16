@@ -530,10 +530,13 @@ function ClearState({
   weekday: number;
 }) {
   const next = nextBestAction(briefing.counts);
-  const line = say(cleared ? 'queue.cleared' : 'today.empty', { hour, weekday });
+  const line = voiceLine(cleared ? 'queue.cleared' : 'today.empty', { hour, weekday });
   return (
     <div className={cleared && !reduced ? 'today-clear voice-mark' : 'today-clear'}>
-      <p className="today-clear-lead">{line}</p>
+      <p className="today-clear-lead">{line.text}</p>
+      {/* The lighter second line an empty queue carries: the desk being idle
+          with you, which it is allowed to be only here. */}
+      {line.follow ? <p className="today-clear-aside">{line.follow}</p> : null}
       <ButtonLink variant="accent" href={next.href}>
         {next.label}
       </ButtonLink>

@@ -36,7 +36,7 @@ marks something real:
 | Moment | When | Why it earns a line |
 | --- | --- | --- |
 | `today.morning` / `today.afternoon` / `today.evening` | The Today screen, every visit | It is the first thing read; a greeting by name is what makes it *your* desk |
-| `today.empty` | Nothing needs you | The most valuable state the application can report, and the easiest to under-sell |
+| `today.empty` | Nothing needs you | The most valuable state the application can report, and the easiest to under-sell. The one moment with a lighter second line: with nothing to do next, the desk may suggest a coffee |
 | `queue.cleared` | The queue reaches zero while you are looking at it | A handful of times a term. Real work, finished |
 | `ticket.resolved` | A ticket closes | Names what the close was worth rather than confirming a database write |
 | `ticket.claimed` | A ticket is claimed | Deliberately flat. This happens all day; the line is one clause and never more |

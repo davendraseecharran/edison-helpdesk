@@ -82,6 +82,8 @@ describe('voiceLine', () => {
 
   it('carries a second line only where the moment has one', () => {
     expect(voiceLine('signin.first', { name: 'Ada', key: '⌘K' }).follow).toContain('⌘K');
+    // An empty queue is the one moment allowed to be idle with the reader.
+    expect(voiceLine('today.empty', { hour: 9, weekday: 1 }).follow).not.toBeNull();
     expect(voiceLine('ticket.claimed', { subject: 'EDT-7' }).follow).toBeNull();
   });
 

@@ -342,6 +342,13 @@
   border-radius: var(--radius-3);
   background: var(--surface);
 }
+/* Closer to its first line than the button is: the two are one remark. */
+.today-clear-aside {
+  margin: -6px 0 2px;
+  color: var(--ink-3);
+  font-size: var(--fs-2);
+  line-height: 1.45;
+}
 
 .today-clear p {
   margin: 0;

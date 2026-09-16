@@ -100,12 +100,25 @@ const COPY: Record<MomentId, MomentCopy> = {
   'today.evening': {
     lines: ['Good evening, {name}.', 'Evening, {name}.', 'Still here, {name}.'],
   },
+  /*
+   * The second line is the one place the desk is allowed to be idle with you.
+   * An empty queue is the rarest state and the only one with nothing to do
+   * next, so a remark about coffee costs nobody anything; the same remark on a
+   * screen with work on it would be in the way. Paired with its first line,
+   * so the two always read as one thought.
+   */
   'today.empty': {
     lines: [
       'Nothing needs you. The queue is clear.',
       'All clear. Nothing is waiting on you.',
       'Nothing needs you. Good time to walk the carts.',
       'Queue is clear. The next thing to break will find you.',
+    ],
+    follow: [
+      'A coffee is a reasonable next step.',
+      'Whatever you were putting off is now the most urgent thing.',
+      'Or sit down for a minute. Both count as work.',
+      'Until it does, the kettle is yours.',
     ],
   },
   'queue.cleared': {
