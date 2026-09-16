@@ -4,7 +4,7 @@ import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Liquid } from 'liquid-gooey';
-import { Ellipsis, MessageCircle, Plus, QrCode, Search, Settings, X } from 'lucide-react';
+import { Ellipsis, MessageCircle, Plus, Search, Settings, X } from 'lucide-react';
 import { SignOutButton } from '@/components/auth/SignOutButton';
 import { AiMark } from '@/components/ai/AiMark';
 import { Icon, type LucideIcon } from '@/components/ui/Icon';
@@ -12,7 +12,6 @@ import { IconSwap } from '@/components/ui/Motion';
 import { Sheet } from '@/components/ui/Sheet';
 import { useEscape, useOutsidePress } from '@/components/ui/focus';
 import { useReducedMotion, useTokenValue } from '@/components/ui/media';
-import { openScanner } from './LookupBar';
 import { CountPill, isCurrentPath, type NavItem } from './RailNav';
 import { openAssistant } from './TopBar';
 
@@ -274,14 +273,11 @@ export function BottomTabs({
   items,
   onOpenLookup,
   canCreateTickets = true,
-  canScan = true,
 }: {
   items: NavItem[];
   onOpenLookup: () => void;
   /** False for an account that does not work tickets, which hides intake. */
   canCreateTickets?: boolean;
-  /** False for a skills officer, who has no machines to point a camera at. */
-  canScan?: boolean;
 }) {
   const pathname = usePathname();
   const reduced = useReducedMotion();
@@ -384,24 +380,8 @@ export function BottomTabs({
               </Link>
             </li>
           ))}
-          {/* The bar has no room for it, and a tooltip is not a thing a
-              finger can ask for, so the action arrives here with its name
-              written out instead. */}
-          {canScan ? (
-            <li>
-              <button
-                type="button"
-                className="menu-item"
-                onClick={() => {
-                  setMoreOpen(false);
-                  openScanner();
-                }}
-              >
-                <Icon icon={QrCode} size={18} weight="medium" />
-                <span>Scan with your phone</span>
-              </button>
-            </li>
-          ) : null}
+          {/* No "Scan with your phone" here: that action pairs a phone to a
+              desktop, and this IS the phone. Its camera scans from Lookup. */}
           <li>
             <Link href="/settings" className="menu-item" onClick={() => setMoreOpen(false)}>
               <Icon icon={Settings} size={18} weight="medium" />

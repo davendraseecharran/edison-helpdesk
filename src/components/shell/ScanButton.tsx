@@ -19,19 +19,35 @@ interface BarcodeDetectorLike {
 
 type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => BarcodeDetectorLike;
 
-function detectorConstructor(): BarcodeDetectorConstructor | undefined {
-  return (window as unknown as { BarcodeDetector?: BarcodeDetectorConstructor }).BarcodeDetector;
+/** Where `copy-zxing-wasm.cjs` puts the decoder, served by this deployment. */
+const WASM_PATH = '/zxing_reader.wasm';
+
+/**
+ * The reader: the browser's own where it has one (Chrome on Android and
+ * ChromeOS), otherwise a WebAssembly decoder fetched the first time the
+ * camera opens — which is what puts the button on an iPhone. The two answer
+ * the same interface, so nothing past this line knows which it got.
+ */
+async function loadDetector(): Promise<BarcodeDetectorConstructor> {
+  const native = (window as unknown as { BarcodeDetector?: BarcodeDetectorConstructor })
+    .BarcodeDetector;
+  if (native) return native;
+  const { BarcodeDetector, setZXingModuleOverrides } = await import('barcode-detector/ponyfill');
+  setZXingModuleOverrides({
+    locateFile: (file: string, prefix: string) => (file.endsWith('.wasm') ? WASM_PATH : prefix + file),
+  });
+  return BarcodeDetector as unknown as BarcodeDetectorConstructor;
 }
 
 function subscribeToNothing(): () => void {
   return () => {};
 }
 
-/** Whether this browser can read barcodes from the camera. False on the server. */
-function useBarcodeSupport(): boolean {
+/** Whether this browser can open a camera at all. False on the server. */
+function useCameraSupport(): boolean {
   return useSyncExternalStore(
     subscribeToNothing,
-    () => 'BarcodeDetector' in window,
+    () => typeof navigator !== 'undefined' && Boolean(navigator.mediaDevices?.getUserMedia),
     () => false,
   );
 }
@@ -42,9 +58,11 @@ const SCAN_INTERVAL_MS = 250;
 /**
  * The camera scan inside the palette input.
  *
- * Rendered only where `BarcodeDetector` exists (Chrome on Android and
- * ChromeOS, which is what the helpdesk's phones and Chromebooks run), so a
- * browser that cannot scan shows no button rather than a button that fails.
+ * Rendered wherever the browser can open a camera. The reading is done by the
+ * browser's own `BarcodeDetector` where it has one (Chrome on Android and
+ * ChromeOS) and by a WebAssembly decoder everywhere else, iPhones included,
+ * loaded the first time the camera opens and never before. A browser with no
+ * camera shows no button rather than a button that fails.
  * The dialog holds the rear camera's preview; the first code read is handed to
  * `onDetect` and the dialog closes. What becomes of that code is the caller's
  * to decide — `src/lib/scan/route.ts` asks the inventory about it before the
@@ -61,10 +79,19 @@ export function ScanButton({
   /** Reports the dialog opening and closing, so the palette can yield Escape to it. */
   onOpenChange?: (open: boolean) => void;
 }) {
-  const supported = useBarcodeSupport();
+  const supported = useCameraSupport();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // The dialog mounts its content a frame after `open` flips, so an effect
+  // keyed on `open` alone ran before the <video> existed and gave up. The
+  // callback ref notes the element and flips a flag the effect is keyed on,
+  // so it runs once there is something to play into.
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoMounted, setVideoMounted] = useState(false);
+  const attachVideo = useCallback((node: HTMLVideoElement | null) => {
+    videoRef.current = node;
+    setVideoMounted(node !== null);
+  }, []);
 
   const close = useCallback(() => {
     setOpen(false);
@@ -78,13 +105,11 @@ export function ScanButton({
   }
 
   useEffect(() => {
-    if (!open) return;
-    const video = videoRef.current;
-    const Detector = detectorConstructor();
-    if (!video || !Detector || !navigator.mediaDevices?.getUserMedia) {
-      setError('This browser cannot scan. Type the tag instead.');
-      return;
-    }
+    if (!open || !videoMounted) return;
+    const mounted = videoRef.current;
+    if (mounted === null) return;
+    // Typed non-null once, for the closures below, which cannot see the guard.
+    const target: HTMLVideoElement = mounted;
 
     let stream: MediaStream | null = null;
     let timer = 0;
@@ -92,30 +117,41 @@ export function ScanButton({
     let detecting = false;
 
     async function run() {
+      // The decoder and the camera permission are asked for together; on a
+      // first use the person is reading the permission prompt while the
+      // decoder downloads.
+      let Detector: BarcodeDetectorConstructor;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
-        });
+        const [loaded, opened] = await Promise.all([
+          loadDetector(),
+          navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }),
+        ]);
+        Detector = loaded;
+        stream = opened;
       } catch {
-        if (!stopped) setError('The camera could not be started. Allow camera access and try again.');
+        if (!stopped) {
+          setError(
+            'The camera could not be started. Allow camera access, check the connection, and try again.',
+          );
+        }
         return;
       }
-      if (stopped || !video) {
+      if (stopped) {
         stream.getTracks().forEach((track) => track.stop());
         return;
       }
-      video.srcObject = stream;
+      target.srcObject = stream;
       try {
-        await video.play();
+        await target.play();
       } catch {
         // Autoplay refused: the frame still paints once the stream is live.
       }
-      const detector = new Detector!({ formats: FORMATS });
+      const detector = new Detector({ formats: FORMATS });
       timer = window.setInterval(async () => {
-        if (stopped || detecting || !video || video.readyState < 2) return;
+        if (stopped || detecting || target.readyState < 2) return;
         detecting = true;
         try {
-          const codes = await detector.detect(video);
+          const codes = await detector.detect(target);
           const code = codes.find((entry) => entry.rawValue.trim() !== '');
           if (code && !stopped) {
             stopped = true;
@@ -136,9 +172,9 @@ export function ScanButton({
       stopped = true;
       window.clearInterval(timer);
       stream?.getTracks().forEach((track) => track.stop());
-      if (video) video.srcObject = null;
+      target.srcObject = null;
     };
-  }, [open, onDetect, close]);
+  }, [open, videoMounted, onDetect, close]);
 
   if (!supported) return null;
 
@@ -162,7 +198,7 @@ export function ScanButton({
         footer={<Button onClick={close}>Cancel</Button>}
       >
         <div className="scan-frame">
-          <video ref={videoRef} className="scan-video" autoPlay playsInline muted />
+          <video ref={attachVideo} className="scan-video" autoPlay playsInline muted />
         </div>
         {error ? (
           <p className="scan-error" role="alert">

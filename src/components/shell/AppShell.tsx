@@ -210,12 +210,7 @@ export function AppShell({
           <Flash />
           {children}
         </main>
-        <BottomTabs
-          items={items}
-          onOpenLookup={showLookup}
-          canCreateTickets={ticketWorker}
-          canScan={ticketWorker}
-        />
+        <BottomTabs items={items} onOpenLookup={showLookup} canCreateTickets={ticketWorker} />
         <LookupBar open={lookupOpen} onClose={closeLookup} />
         {/* The phone as a barcode scanner, for the palette. The first code
           closes it and goes to its machine, or to the search when no single

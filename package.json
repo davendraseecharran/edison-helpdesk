@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/copy-zxing-wasm.cjs",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -31,6 +32,7 @@
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.116.0",
     "@tailwindcss/postcss": "4.3.3",
+    "barcode-detector": "^3.2.2",
     "border-beam": "1.3.0",
     "clsx": "2.1.1",
     "cmdk": "1.1.1",

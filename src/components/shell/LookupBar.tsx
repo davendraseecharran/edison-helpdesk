@@ -467,21 +467,25 @@ function Palette({
       },
     });
 
-    list.push({
-      id: 'scan-phone',
-      label: 'Scan with your phone',
-      // The same glyph the top bar and the More sheet use. One action drawn
-      // two ways is two actions as far as anybody looking is concerned.
-      icon: QrCode,
-      keywords: ['barcode', 'camera', 'qr', 'pair', 'scanner'],
-      run: () => {
-        onClose();
-        openScanner();
-      },
-    });
+    // Pairing a phone is a desktop's action: on a phone, the camera button in
+    // this same field is the scanner.
+    if (!phone) {
+      list.push({
+        id: 'scan-phone',
+        label: 'Scan with your phone',
+        // The same glyph the top bar uses. One action drawn two ways is two
+        // actions as far as anybody looking is concerned.
+        icon: QrCode,
+        keywords: ['barcode', 'camera', 'qr', 'pair', 'scanner'],
+        run: () => {
+          onClose();
+          openScanner();
+        },
+      });
+    }
 
     return list;
-  }, [ticketNumber, actor.roles, theme, ask, onClose, router, claim, join, choose]);
+  }, [ticketNumber, actor.roles, theme, ask, onClose, router, claim, join, choose, phone]);
 
   const visibleActions = useMemo(
     () =>
