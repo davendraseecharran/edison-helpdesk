@@ -26,6 +26,14 @@ Two pieces of vocabulary, because the screens use them:
 
 ## 1. Release the new version
 
+**Read this first.** Vercel builds `main` on every push, so the new code went
+live the moment this branch landed on `main`, against the database as it was.
+Until the migrations below are applied, the live site is in a known half-state:
+every account shows as a NetRider, the queue pages cannot load, and Today says
+the briefing could not be read. A notice at the top of every screen says so.
+Running `npx supabase db push` (step "The release") ends it; nothing else is
+needed, and nothing in the half-state writes anything wrong.
+
 The database changes are **additive**. No table the district's data lives in is
 dropped, renamed or rewritten, and no existing policy or grant is changed. The
 thirty-eight new migrations are all numbered above the nineteen the hosted
@@ -47,7 +55,7 @@ hosted project (`npx supabase link` has already been run there).
    | Variable | Value | Needed for |
    | --- | --- | --- |
    | `NEXT_PUBLIC_APP_ORIGIN` | `https://edison-helpdesk.vercel.app` | Setup and recovery links. Required. |
-   | `AI_TOKEN_KEY` | the output of `openssl rand -base64 32` | The assistant. Optional. |
+   | `AI_TOKEN_KEY` | the output of `openssl rand -base64 32` | The assistant. Optional. A random secret, **not an API key**: it encrypts each person's own ChatGPT sign-in at rest. |
    | `RESEND_API_KEY` | a Resend API key | Emailed invites. Optional. |
    | `MAIL_FROM` | an address on a domain verified with Resend | Emailed invites. Optional. |
 
@@ -194,7 +202,10 @@ skills officer.
   administrators. The command palette opens with the keyboard and also talks to
   the assistant.
 - The assistant is only there if `AI_TOKEN_KEY` is set, and each person
-  connects their own ChatGPT account to it once.
+  connects their own ChatGPT account to it once, the same device-code sign-in
+  Codex uses. There is no OpenAI API key anywhere in this deployment, and
+  nothing for you to buy or paste: the school pays nothing for the assistant,
+  and each person's usage is their own ChatGPT plan's.
 
 Nothing in the app can be reached without signing in. Every screen that needs a
 session is rendered per request; nothing about the school is baked into the

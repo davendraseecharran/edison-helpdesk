@@ -18,6 +18,7 @@ import {
   isAdmin,
   landingPath,
   normalizeRoles,
+  rolesOfRow,
   roleLabel,
   rolesLabel,
   sameRoles,
@@ -34,6 +35,12 @@ describe('normalizeRoles', () => {
       'admin',
       'skills_officer',
     ]);
+  });
+
+  it('reads an old row, which has only the single role, as what that role said', () => {
+    expect(rolesOfRow(undefined, 'admin')).toEqual(['admin']);
+    expect(rolesOfRow(null, 'technician')).toEqual(['netrider']);
+    expect(rolesOfRow(['skills_officer'], 'technician')).toEqual(['skills_officer']);
   });
 
   it('falls back to netrider rather than inventing a role-less account', () => {

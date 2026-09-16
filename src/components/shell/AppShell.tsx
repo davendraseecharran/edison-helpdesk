@@ -199,6 +199,14 @@ export function AppShell({
         />
         <RailNav items={items} />
         <main className="main" id="main-content" tabIndex={-1}>
+          {actor.schemaBehind ? (
+            <p className="shell-notice" role="status">
+              This site&rsquo;s database is behind its code: the migrations have not been applied
+              yet. Most screens cannot load until an administrator runs{' '}
+              <code>npx supabase db push</code> from the linked repository. See
+              docs/OWNER-SETUP.md.
+            </p>
+          ) : null}
           <Flash />
           {children}
         </main>

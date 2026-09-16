@@ -18,7 +18,7 @@ import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
-import { canWorkTickets, normalizeRoles } from '@/lib/auth/roles';
+import { canWorkTickets, rolesOfRow } from '@/lib/auth/roles';
 import type { AccountRole, DerivedRole } from '@/lib/auth/roles';
 
 export type { AccountRole, DerivedRole };
@@ -44,6 +44,12 @@ export interface ActorAccount {
   role: DerivedRole;
   /** What this account may do. Never empty. */
   roles: AccountRole[];
+  /**
+   * The database answered in a shape from before this code: the migrations
+   * have not been applied to it yet. Most screens cannot load until they are,
+   * and the shell says so rather than failing one page at a time.
+   */
+  schemaBehind: boolean;
   status: AccountStatus;
   credentialActionPending: boolean;
   sessionIsCurrent: boolean;
@@ -106,7 +112,8 @@ export const loadActor = cache(async (): Promise<ActorState> => {
     displayName: row.display_name,
     email: row.email,
     role: row.role,
-    roles: normalizeRoles(row.roles),
+    roles: rolesOfRow(row.roles, row.role),
+    schemaBehind: row.roles === null || row.roles === undefined,
     status: row.status,
     credentialActionPending: row.credential_action_pending,
     sessionIsCurrent: row.session_is_current,

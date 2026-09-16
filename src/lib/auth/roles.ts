@@ -80,6 +80,18 @@ export function normalizeRoles(input: unknown): AccountRole[] {
   return unique.length > 0 ? unique : ['netrider'];
 }
 
+/**
+ * The set as an account row carries it, with one allowance: a row from a
+ * database that predates the set has no `roles` column at all, only the
+ * single `role`. Reading nothing as "NetRider" turned every administrator
+ * into a technician for exactly as long as the migrations were pending, which
+ * is the moment an administrator most needs to be one.
+ */
+export function rolesOfRow(roles: unknown, role: unknown): AccountRole[] {
+  if (roles === null || roles === undefined) return role === 'admin' ? ['admin'] : ['netrider'];
+  return normalizeRoles(roles);
+}
+
 /** Canonical form for a set a person just chose: deduplicated and in chip order. */
 export function canonicalRoles(roles: readonly AccountRole[]): AccountRole[] {
   return sortRoles(roles);

@@ -39,6 +39,7 @@ const ACTOR: ActorAccount = {
   status: 'active',
   credentialActionPending: false,
   sessionIsCurrent: true,
+  schemaBehind: false,
 };
 
 const STATUS: AiStatus = {

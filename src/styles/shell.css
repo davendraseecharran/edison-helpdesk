@@ -1172,3 +1172,24 @@
     display: grid;
   }
 }
+
+/*
+ * The one notice that outranks every page: the database has not been brought
+ * up to the code. Plain, at the top of the main column, gone the moment the
+ * migrations are applied.
+ */
+.shell-notice {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid var(--line-strong);
+  border-left: 3px solid var(--warn);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  line-height: 1.5;
+}
+
+.shell-notice code {
+  color: var(--ink);
+}
