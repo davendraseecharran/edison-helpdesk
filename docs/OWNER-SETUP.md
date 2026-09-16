@@ -198,8 +198,12 @@ refuse to run once a requester carries an external id.
 
 ## 4. Turn on Google sign-in
 
-Everyone signs in with Google. Password sign-in exists only as a break-glass
-path for an administrator (see [If something goes wrong](#if-something-goes-wrong)).
+Everyone signs in with Google. A password is the second way in, set by each
+person from Settings once they are inside (see
+[One account, both ways in](#one-account-both-ways-in)), and it is still the
+break-glass path when every administrator is locked out (see
+[If something goes wrong](#if-something-goes-wrong)). Nobody can create an
+account with a password: public password sign-up is refused by the hook in 3.1.
 
 **In Google Cloud**, in the project you want to own this:
 
@@ -239,6 +243,27 @@ Google", sign in as yourself. You should land on Today as an administrator.
 If Google shows `redirect_uri_mismatch`, the redirect URI in step 2 does not
 match Supabase's callback exactly; if the app says the provider is not
 enabled, step 4 was not saved.
+
+### One account, both ways in
+
+One person, one account, two doors: Google and a password. Settings →
+**Sign-in methods** is where each person adds whichever one they do not have —
+"Add Google" hands the browser to Google and attaches that identity to the
+account they are already signed in to; "Set" gives the account a password of at
+least twelve characters, which does not sign anybody out.
+
+**The dashboard switch this needs.** Authentication → Settings → **"Allow
+manual linking"** → on. Without it the auth server refuses to attach a second
+identity, and the Settings row says so rather than failing quietly. Nothing
+else on this page changes.
+
+**The rule, and it is worth saying out loud to the team:** *sign in with the
+method you have, then add the other one from Settings.* Somebody who signs in
+with Google FIRST, under an address their invite was not for, does not get a
+second way into their account — they get a second ACCOUNT, waiting on the
+approval screen, which an administrator should decline. The first sign-in is
+what decides which account an address belongs to; everything after it is added
+from the inside.
 
 ## 5. Let the first people in
 
@@ -333,7 +358,7 @@ All four are in this version and need no setup.
 ## 7. What the first sign-in looks like
 
 - The sign-in page offers **Sign in with Google**, and a quieter "Use a
-  password" for the break-glass account.
+  password" for anybody who has set one under Settings → Sign-in methods.
 - An invited person lands on **Today**: the things that might need them right
   now, the unclaimed queue, their own tickets waiting on a reply, their live
   work, and, for an administrator, the people waiting for access. When nothing

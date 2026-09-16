@@ -60,6 +60,10 @@ export default async function PendingPage() {
           administrator invited.
         </p>
         <p>
+          Already have an account under another address? Sign out, sign in with it, and add Google
+          from Settings instead.
+        </p>
+        <p>
           <Link href="/restricted">What the different account states mean</Link>
         </p>
       </div>

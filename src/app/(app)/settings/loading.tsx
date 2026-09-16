@@ -2,14 +2,14 @@ import { LoadingRegion, Skeleton, SkeletonPageHeader } from '@/components/ui/Ske
 import '@/styles/settings.css';
 
 /**
- * Settings: the page header, then the four sections in the order the screen
- * has them — profile, appearance, assistant, notifications — each a heading,
- * a line of description and a card of that many rows.
+ * Settings: the page header, then the five sections in the order the screen
+ * has them — profile, sign-in methods, appearance, assistant, notifications —
+ * each a heading, a line of description and a card of that many rows.
  *
  * It borrows the real classes, so the placeholder occupies the space the
  * content will and nothing moves when the page streams in.
  */
-const SECTION_ROWS = [2, 1, 4, 1];
+const SECTION_ROWS = [2, 2, 1, 4, 1];
 
 export default function Loading() {
   return (
