@@ -25,6 +25,7 @@ const PARTICIPLE: Record<string, string> = {
   cancel: 'Cancelling',
   claim: 'Claiming',
   create: 'Opening',
+  find: 'Finding',
   get: 'Reading',
   import: 'Importing',
   link: 'Linking',

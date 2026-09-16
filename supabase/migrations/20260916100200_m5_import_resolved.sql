@@ -207,6 +207,21 @@ begin
     'Imported from the desk''s sheet: ' || v_resolver_name || ' resolved this on '
     || v_resolved_on::text || '. The sheet did not record how.';
 
+  -- The same row sent twice is the same ticket. A sheet pasted again, or a
+  -- batch resumed after one row stopped it, must not double the history:
+  -- a resolved ticket with this title and these two dates is returned as
+  -- the one that was already imported.
+  select t.id into v_ticket_id
+  from public.tickets t
+  where t.title = v_title
+    and t.created_at = p_called_at
+    and t.resolved_at = p_resolved_at
+    and t.status = 'resolved'
+  limit 1;
+  if v_ticket_id is not null then
+    return v_ticket_id;
+  end if;
+
   insert into public.tickets (
     title, issue, requester_id, requester_unknown, location, is_remote,
     channel, priority, status, submitted_on, created_at, created_by,
@@ -385,7 +400,9 @@ begin
       from public.inventory_devices d
       where d.assigned_requester_id = r.id
     ) end as device_count,
-    case when c.matches = 1 then (
+    -- Ticket work is not a skills officer's to see, counts included: for a
+    -- caller who works no tickets this is null, never a number.
+    case when c.matches = 1 and public.app_can_work_tickets() then (
       select pg_catalog.count(*)::integer
       from public.tickets t
       where t.requester_id = r.id

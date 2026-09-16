@@ -266,6 +266,15 @@ describe('app_import_resolved_ticket', () => {
     const refused = await rpcFails(officer, 'app_import_resolved_ticket', importArgs());
     expect(refused.message).toContain('Only a NetRider or an administrator');
   });
+
+  it('returns the ticket already imported when the same row is sent again', async () => {
+    const title = `Cart 3 charger missing ${Date.now()}`;
+    const first = await rpcOk<string>(netrider, 'app_import_resolved_ticket', importArgs({ p_title: title }));
+    const second = await rpcOk<string>(netrider, 'app_import_resolved_ticket', importArgs({ p_title: title }));
+    expect(second).toBe(first);
+    // Still one history, not two.
+    expect((await rawEvents(first)).filter((event) => event.kind === 'created')).toHaveLength(1);
+  });
 });
 
 describe('app_find_people', () => {
@@ -329,5 +338,19 @@ describe('app_find_people', () => {
 
     const none = await rpcFails(officer, 'app_find_people', { p_keys: [] });
     expect(none.message).toContain('at least one');
+  });
+
+  it('counts open tickets for a ticket worker only; a skills officer gets no number', async () => {
+    const person = await seedRequester('student');
+    const asOfficer = await rpcOk<FoundPerson[]>(officer, 'app_find_people', {
+      p_keys: [person.externalId],
+    });
+    expect(asOfficer[0].found).toBe('match');
+    expect(asOfficer[0].open_ticket_count).toBeNull();
+
+    const asWorker = await rpcOk<FoundPerson[]>(netrider, 'app_find_people', {
+      p_keys: [person.externalId],
+    });
+    expect(asWorker[0].open_ticket_count).toBe(0);
   });
 });
