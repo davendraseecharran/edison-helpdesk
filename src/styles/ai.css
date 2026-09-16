@@ -1179,11 +1179,6 @@
   }
 }
 
-.ai-connect-mark {
-  margin-bottom: 4px;
-  color: var(--ink-2);
-}
-
 .ai-connect-title {
   font-size: var(--fs-4);
   font-weight: 600;

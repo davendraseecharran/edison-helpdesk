@@ -471,6 +471,17 @@
 .palette-beam .open-beam-ghost {
   border-radius: var(--radius-4);
 }
+
+/* The panel has a maximum height and the list scrolls inside it. That only
+   works if every box between the two hands the height down: a plain block
+   in the chain grows to its content and the rows run off the bottom. */
+.palette-beam,
+.palette-frame {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
 .palette-sheet .palette-beam,
 .palette-sheet .palette-beam .open-beam-ghost {
   border-radius: var(--radius-4) var(--radius-4) 0 0;

@@ -20,7 +20,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Copy, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
-import { AiMark } from './AiMark';
 import type { AiServices } from './services';
 
 const VERIFY_URL = 'https://chatgpt.com/codex/device';
@@ -169,7 +168,6 @@ export function AiConnectCard({
     const plan = planLabel(connection.planType);
     return (
       <section className="ai-connect" aria-labelledby="ai-connect-title">
-        <AiMark size={44} className="ai-connect-mark" />
         <h3 id="ai-connect-title" className="ai-connect-title">
           Connected to ChatGPT
         </h3>
@@ -195,7 +193,6 @@ export function AiConnectCard({
   if (step.kind === 'pairing') {
     return (
       <section className="ai-connect ai-connect-pairing" aria-labelledby="ai-connect-title">
-        <AiMark size={44} state="waiting" className="ai-connect-mark" />
         <h3 id="ai-connect-title" className="ai-connect-title">
           Enter this code in ChatGPT
         </h3>
@@ -229,7 +226,6 @@ export function AiConnectCard({
 
   return (
     <section className="ai-connect" aria-labelledby="ai-connect-title">
-      <AiMark size={44} state="waiting" className="ai-connect-mark" />
       <h3 id="ai-connect-title" className="ai-connect-title">
         Connect ChatGPT
       </h3>
