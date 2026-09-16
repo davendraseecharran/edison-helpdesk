@@ -32,7 +32,7 @@ Two rules hold everywhere and are not repeated per row:
 | Tooltips | a pointer rests on an icon-only control | `opacity`, `scale` 0.97 → 1 from the trigger | 150 ms, after a 400 ms wait that the next tooltip within 300 ms skips | `--ease-out` | opacity only |
 | Tooltips | the pointer leaves | `opacity`, `scale` | 120 ms, no delay | `--ease-out` | opacity only |
 | Dialogs | open | `opacity`, `scale` 0.98 → 1, centred | 200 ms (`--dur-surface`) | `--ease-out` | none |
-| Command palette (desktop) | open | `opacity` 0 → 1, `translateY` −16px → 0, overshooting by a couple of pixels and settling: the surface is caught, not delivered | ~280 ms spring, bounce 0.42 (`DROP`) | spring | none |
+| Command palette (desktop) | open | `opacity` 0 → 1, `translateY` −48px → 0, overshooting by about twelve pixels, back by three, and settling: the surface is caught, not delivered | ~340 ms spring, bounce 0.6 (`DROP`) | spring | none |
 | Command palette (desktop) | close | `opacity` 1 → 0, `translateY` 0 → −8px: a slight lift | 120 ms (`--dur-press`) | `easeOut` | none |
 | Dialogs | close | `opacity`, `scale` | 120 ms (`--dur-press`) | `--ease-out` | none |
 | Scrim behind any modal surface | open | `opacity`; the ground is `--scrim` with `backdrop-filter: blur(12px) saturate(120%)` | 200 ms | `--ease-out` | opacity only |

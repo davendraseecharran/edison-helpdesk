@@ -63,13 +63,14 @@ export const EASE_OUT: Transition = { duration: DURATION.base, ease: 'easeOut' }
 export const EASE_OUT_FAST: Transition = { duration: DURATION.fast, ease: 'easeOut' };
 
 /**
- * A surface dropping into place from just above, with a little give at the
- * end: a spring with some bounce, so the last few pixels overshoot and settle
- * rather than decelerate to a stop. The one place in the application with a
- * bounce, because the palette is summoned by hand a hundred times a day and
- * should feel caught rather than delivered.
+ * A surface dropping into place from above and bouncing once: a spring with
+ * real give, so it overshoots by about a quarter of the drop, comes back, and
+ * settles. From 48px up that is a twelve-pixel bounce, which is meant to be
+ * seen. The one place in the application with a bounce, because the palette
+ * is summoned by hand a hundred times a day and should feel caught rather
+ * than delivered.
  */
-export const DROP: Transition = { type: 'spring', visualDuration: 0.28, bounce: 0.42 };
+export const DROP: Transition = { type: 'spring', visualDuration: 0.34, bounce: 0.6 };
 
 /** No transition at all, for reduced motion. */
 export const INSTANT: Transition = { duration: 0 };
@@ -258,7 +259,7 @@ export function SpringSurface({
     kind === 'dialog'
       ? { opacity: 0, scale: 0.98 }
       : kind === 'drop'
-        ? { opacity: 0, y: -16 }
+        ? { opacity: 0, y: -48 }
         : side === 'bottom'
           ? { y: '100%' }
           : { x: '100%' };
@@ -273,7 +274,10 @@ export function SpringSurface({
   // Leaving is a slight lift, shorter than the arrival: the drop is the
   // moment, the lift is just the surface getting out of the way.
   const gone = kind === 'drop' ? { opacity: 0, y: -8 } : hidden;
-  const arrive = kind === 'dialog' ? EASE_OUT : kind === 'drop' ? DROP : SPRING;
+  // The drop's spring is for position only: opacity on the same spring dips
+  // below one on the return bounce, so it fades in on its own short curve.
+  const arrive =
+    kind === 'dialog' ? EASE_OUT : kind === 'drop' ? { ...DROP, opacity: EASE_OUT_FAST } : SPRING;
 
   return (
     <div
