@@ -45,6 +45,7 @@ Two rules hold everywhere and are not repeated per row:
 | Assistant composer | panel opens | one border-beam lap | 3 s, once | linear | not rendered |
 | Assistant mark (top bar, connect card) | a reply is on its way | `transform: rotate`, `opacity` 1 → 0.55 → 1 | 6 s turn, 2.4 s breath | `linear`, `ease-in-out` | static, held dim |
 | Assistant orb (in panel) | conversation state | canvas, per `orb-state.ts` | per state | per state | one still frame |
+| Assistant welcome mark | the panel opens, or a new conversation starts | the dotted mark, drawn on its own clock (`MarkCloud`): opens on the assembled logo, holds there with every dot in place, then plays one of the account's welcome effects from that frame; a different one each time when more than one is ticked | 1 s hold, then the effect's own cycle | the effect's own | the assembled mark, still |
 | Selection bar (devices) | the first row of a selection is ticked | `opacity` 0 → 1, `translateY` 8px → 0 | 200 ms (`--dur-surface`) | `--ease-out` | none |
 | Toasts | arrive | `opacity`, `transform` from beyond the edge the stack sits on | 400 ms, Sonner's | `cubic-bezier(.21,1.02,.73,1)`, Sonner's | none: Sonner drops every transition under reduced motion |
 | Toasts | leave | `opacity`, `transform` back past the edge | 200 ms, Sonner's | `cubic-bezier(.06,.71,.55,1)`, Sonner's | none |

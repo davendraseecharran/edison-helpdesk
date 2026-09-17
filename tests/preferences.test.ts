@@ -376,6 +376,15 @@ describe('pickWelcomeState', () => {
   it('uses Math.random when no source is given', () => {
     expect(list).toContain(pickWelcomeState(list));
   });
+  it('never shows the same effect twice running when there is a choice', () => {
+    const list = ['generating', 'listening'] as const;
+    expect(pickWelcomeState(list, () => 0, 'generating')).toBe('listening');
+    expect(pickWelcomeState(list, () => 0.99, 'listening')).toBe('generating');
+    // One ticked is always that one.
+    expect(pickWelcomeState(['waiting'], () => 0.5, 'waiting')).toBe('waiting');
+    // A last pick that is no longer ticked changes nothing.
+    expect(pickWelcomeState(list, () => 0, 'waiting')).toBe('generating');
+  });
 });
 
 describe('welcomeStateFromLabel', () => {

@@ -125,8 +125,15 @@ const WELCOME_HOLD_MS = 1000;
  * from the account's own list rather than a default that is replaced a
  * moment later.
  */
+/** The effect shown last, for this page session, so the next draw is a different one. */
+let lastWelcome: WelcomeState | null = null;
+
 function WelcomeMark({ states }: { states: WelcomeState[] }) {
-  const [effect] = useState(() => pickWelcomeState(states));
+  const [effect] = useState(() => {
+    const pick = pickWelcomeState(states, Math.random, lastWelcome);
+    lastWelcome = pick;
+    return pick;
+  });
   return (
     <AiMark size={64} state={effect} delayMs={WELCOME_HOLD_MS} className="ai-welcome-mark" />
   );
@@ -162,6 +169,9 @@ export function AiPanel({
   const modal = layout !== 'docked';
 
   const [open, setOpen] = useState(initialOpen);
+  // Counts fresh starts while the panel stays open, so a new conversation
+  // remounts the welcome and draws again; closing the panel unmounts it anyway.
+  const [welcomeRun, setWelcomeRun] = useState(0);
   const [exiting, setExiting] = useState(false);
   const [requestedView, setRequestedView] = useState<View>(initialView);
   const [status, setStatus] = useState<AiStatus | null>(null);
@@ -636,6 +646,7 @@ export function AiPanel({
     setMenuOpen(false);
     speaker.cancel();
     chat.newConversation();
+    setWelcomeRun((run) => run + 1);
     setDraft('');
     setConnectInline(false);
     setRequestedView('chat');
@@ -860,7 +871,7 @@ export function AiPanel({
                       {moment !== 'idle' ? (
                         <Orb moment={moment} size={64} level={level} />
                       ) : status ? (
-                        <WelcomeMark states={status.welcomeStates} />
+                        <WelcomeMark key={`${chat.conversationId ?? 'new'}:${welcomeRun}`} states={status.welcomeStates} />
                       ) : (
                         /* The drawn mark until the account's list is known:
                            the same frame the effect starts on, so nothing

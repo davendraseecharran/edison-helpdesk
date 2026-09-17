@@ -35,8 +35,10 @@
  * as "something is happening" without a single pixel moving.
  */
 
-import { ThinkingLogo, type LogoState } from 'thinking-logos';
-import { type CSSProperties, useEffect, useState, useSyncExternalStore } from 'react';
+import type { LogoState } from 'thinking-logos';
+import { type CSSProperties, useSyncExternalStore } from 'react';
+import { useTheme } from '@/components/shell/ThemeProvider';
+import { MarkCloud } from './MarkCloud';
 
 import { MARK_LARGE, MARK_SMALL } from './openai-mark.baked';
 
@@ -160,32 +162,14 @@ export function AiMark({
   className?: string;
 }) {
   const reduced = useReducedMotion();
-
-  /*
-   * The hold before the first movement.
-   *
-   * The welcome wants about a second on the assembled mark before it comes
-   * apart, so the first thing the reader sees is the logo rather than a shape
-   * mid-change. The hold is the drawn path, and the canvas is mounted only
-   * when the timer runs out — not mounted at once and paused, though the
-   * library allows that. Its clock is shared by every instance on the page
-   * and never rewinds, so `startAtMark` lands on the mark only until the first
-   * one has run; a canvas paused on its opening frame would, for every
-   * welcome after the first, hold on whatever the shared clock happened to be
-   * showing. The drawn path is always the mark. Cleared if the mark is taken
-   * down first.
-   */
-  const [released, setReleased] = useState(delayMs <= 0);
-  useEffect(() => {
-    if (delayMs <= 0) return;
-    const timer = window.setTimeout(() => setReleased(true), delayMs);
-    return () => window.clearTimeout(timer);
-  }, [delayMs]);
+  const { resolved } = useTheme();
 
   // At rest the mark is the drawn glyph; the dotted cloud appears only while
   // the assistant is doing something (or, in the panel's welcome, as the
-  // effect the account chose).
-  const cloud = state === 'still' || reduced || !released ? null : state;
+  // effect the account chose). The cloud runs on its own clock (`MarkCloud`),
+  // so it opens on the assembled logo, holds there for `delayMs` with every
+  // dot in place, and moves on from that frame. Reduced motion never mounts it.
+  const cloud = state === 'still' || reduced ? null : state;
 
   return (
     <span
@@ -206,13 +190,14 @@ export function AiMark({
         <path d={OPENAI_PATH} />
       </svg>
       {cloud ? (
-        <ThinkingLogo
+        <MarkCloud
           className="ai-mark-cloud"
           logo={size >= 32 ? MARK_LARGE : MARK_SMALL}
           state={cloud}
           size={Math.round(size * CLOUD_SCALE)}
+          dark={resolved === 'dark'}
           tune={size >= 32 ? LARGE_TUNE : SMALL_TUNE}
-          startAtMark
+          holdMs={delayMs}
         />
       ) : null}
     </span>

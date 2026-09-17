@@ -204,8 +204,17 @@ export function parseWelcomeStates(value: unknown): WelcomeState[] {
 export function pickWelcomeState(
   states: readonly WelcomeState[],
   random: () => number = Math.random,
+  /**
+   * The one shown last time, left out of the draw when there is a choice.
+   * Two effects ticked and a fair coin repeats half the time, and a repeat
+   * reads as "it is not random" rather than as chance; with more than one to
+   * choose from, the next is always a different one. One ticked is always
+   * that one, whatever this says.
+   */
+  avoid: WelcomeState | null = null,
 ): WelcomeState {
-  const pool = states.length > 0 ? states : DEFAULT_WELCOME_STATES;
+  const chosen = states.length > 0 ? states : DEFAULT_WELCOME_STATES;
+  const pool = chosen.length > 1 && avoid !== null ? chosen.filter((state) => state !== avoid) : chosen;
   const index = Math.floor(random() * pool.length);
   return pool[Math.min(pool.length - 1, Math.max(0, index))];
 }
