@@ -24,19 +24,21 @@ export type ThemeChoice = ThemePreference;
 export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 /**
- * Whether a Gmail link puts its addresses in CC or in BCC.
+ * Where a Gmail link puts its addresses: To, CC or BCC.
  *
- * A chapter mailing is a CC — everybody on it should see who else is — and a
- * mailing to guardians is a BCC, because one family's address is not another
- * family's business. Whichever somebody picks is nearly always the one they
- * want next time, so it is a setting rather than a question.
+ * Writing to people is direct, so To is the default. A chapter mailing may be
+ * a CC — everybody on it should see who else is — and a mailing to guardians
+ * a BCC, because one family's address is not another family's business.
+ * Whichever somebody picks is nearly always the one they want next time, so
+ * it is a setting rather than a question.
  */
-export type GmailMode = 'cc' | 'bcc';
+export type GmailMode = 'to' | 'cc' | 'bcc';
 
-export const GMAIL_MODES: readonly GmailMode[] = ['cc', 'bcc'];
+export const GMAIL_MODES: readonly GmailMode[] = ['to', 'cc', 'bcc'];
 
-/** What the two choices are called where they are offered. */
+/** What the three choices are called where they are offered. */
 export const GMAIL_MODE_LABELS: Record<GmailMode, string> = {
+  to: '…directly',
   cc: '…as CC',
   bcc: '…as BCC',
 };
@@ -96,7 +98,7 @@ export interface Preferences {
   aiConfirmChanges: boolean;
   aiSpeakReplies: boolean;
   notifyInApp: boolean;
-  /** Whether this account's Gmail links address people in CC or in BCC. */
+  /** Where this account's Gmail links put their addresses: To, CC or BCC. */
   gmailMode: GmailMode;
 }
 
@@ -113,7 +115,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   aiConfirmChanges: false,
   aiSpeakReplies: false,
   notifyInApp: true,
-  gmailMode: 'cc',
+  gmailMode: 'to',
 };
 
 export function isThemeChoice(value: unknown): value is ThemeChoice {
@@ -219,7 +221,7 @@ export function preferencePatch(patch: PreferencePatch): PatchResult {
 
   if (patch.gmailMode !== undefined) {
     if (!isGmailMode(patch.gmailMode)) {
-      return { ok: false, error: 'Choose cc or bcc for a Gmail link.' };
+      return { ok: false, error: 'Choose to, cc or bcc for a Gmail link.' };
     }
     out.gmail_mode = patch.gmailMode;
   }

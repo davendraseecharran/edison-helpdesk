@@ -94,6 +94,12 @@ describe('gmailLink', () => {
     expect(parsed.searchParams.get('cc')).toBe('nia@edison.example,omar@edison.example');
     expect(parsed.searchParams.get('bcc')).toBeNull();
 
+    const direct = gmailLink(list, 'to');
+    expect(new URL(direct.url as string).searchParams.get('to')).toBe(
+      'nia@edison.example,omar@edison.example',
+    );
+    expect(gmailTitle(direct, 'to')).toBe('Compose to 2 addresses.');
+
     const bcc = gmailLink(list, 'bcc');
     expect(new URL(bcc.url as string).searchParams.get('bcc')).toBe(
       'nia@edison.example,omar@edison.example',

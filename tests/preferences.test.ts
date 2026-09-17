@@ -30,7 +30,7 @@ describe('defaults', () => {
       aiConfirmChanges: false,
       aiSpeakReplies: false,
       notifyInApp: true,
-      gmailMode: 'cc',
+      gmailMode: 'to',
       savedViews: [],
     });
   });
@@ -51,9 +51,10 @@ describe('defaults', () => {
     expect(DEFAULT_PREFERENCES.aiReasoning).toBe('high');
   });
 
-  it('offers CC first, because a chapter mailing is the common one', () => {
-    expect(GMAIL_MODES).toEqual(['cc', 'bcc']);
-    expect(DEFAULT_PREFERENCES.gmailMode).toBe('cc');
+  it('offers To first, because writing to people is direct', () => {
+    expect(GMAIL_MODES).toEqual(['to', 'cc', 'bcc']);
+    expect(GMAIL_MODE_LABELS.to).toBe('…directly');
+    expect(DEFAULT_PREFERENCES.gmailMode).toBe('to');
     // Sentence case, an ellipsis rather than three full stops, and the two
     // words a mail client uses.
     expect(GMAIL_MODE_LABELS.cc).toBe('…as CC');
@@ -73,7 +74,7 @@ describe('vocabulary guards', () => {
     expect(isGmailMode('cc')).toBe(true);
     expect(isGmailMode('bcc')).toBe(true);
     expect(isGmailMode('BCC')).toBe(false);
-    expect(isGmailMode('to')).toBe(false);
+    expect(isGmailMode('to')).toBe(true);
     expect(isGmailMode(null)).toBe(false);
   });
 });
@@ -105,10 +106,10 @@ describe('preferencesFromRow', () => {
   });
 
   it('falls back to the default for a value this build does not know', () => {
-    const row = preferencesFromRow({ theme: 'sepia', ai_reasoning: 'extreme', gmail_mode: 'to' });
+    const row = preferencesFromRow({ theme: 'sepia', ai_reasoning: 'extreme', gmail_mode: 'reply' });
     expect(row.theme).toBe('dark');
     expect(row.aiReasoning).toBe('high');
-    expect(row.gmailMode).toBe('cc');
+    expect(row.gmailMode).toBe('to');
   });
 
   it('treats a missing or unusable row as the defaults', () => {
@@ -197,9 +198,9 @@ describe('preferencePatch', () => {
     });
     // The same sentence app_update_preferences raises, in the database's own
     // two words rather than the menu's "…as CC".
-    expect(preferencePatch({ gmailMode: 'to' as never })).toEqual({
+    expect(preferencePatch({ gmailMode: 'reply' as never })).toEqual({
       ok: false,
-      error: 'Choose cc or bcc for a Gmail link.',
+      error: 'Choose to, cc or bcc for a Gmail link.',
     });
   });
 

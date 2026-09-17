@@ -58,6 +58,7 @@ describe('tool classification', () => {
     expect(names).toEqual([
       'add_to_group',
       'archive_person',
+      'contact_list',
       'create_group',
       'create_person',
       'delete_view',

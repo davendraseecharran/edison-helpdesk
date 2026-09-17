@@ -130,7 +130,7 @@ beforeAll(async () => {
 describe('the Gmail mode preference', () => {
   it('starts as CC, which is what a chapter mailing is', async () => {
     const mine = await preferences(officer);
-    expect(mine.gmail_mode).toBe('cc');
+    expect(mine.gmail_mode).toBe('to');
   });
 
   it('round-trips, and takes the word however it was capitalised', async () => {
@@ -153,7 +153,7 @@ describe('the Gmail mode preference', () => {
       const refused = await rpcFails(officer, 'app_update_preferences', {
         p_patch: { gmail_mode: wrong },
       });
-      expect(refused.message).toContain('Choose cc or bcc for a Gmail link.');
+      expect(refused.message).toContain('Choose to, cc or bcc for a Gmail link.');
     }
 
     expect((await preferences(officer)).gmail_mode).toBe('bcc');

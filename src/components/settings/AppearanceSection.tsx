@@ -13,7 +13,8 @@ import { Monitor, Moon, Sun } from 'lucide-react';
 import { useThemeChoice } from '@/components/shell/ThemeProvider';
 import type { ThemePreference } from '@/components/shell/theme-script';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
-import { SettingRow, SettingsSection } from './parts';
+import { GMAIL_MODES, type GmailMode } from '@/lib/domain/preferences';
+import { SettingRow, SettingsSection, useSavePreference } from './parts';
 
 /** Dark first: it is what the application ships with. */
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
@@ -22,8 +23,15 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }
   { value: 'system', label: 'System', icon: Monitor },
 ];
 
-export function AppearanceSection() {
+const GMAIL_OPTIONS: { value: GmailMode; label: string }[] = [
+  { value: 'to', label: 'To' },
+  { value: 'cc', label: 'CC' },
+  { value: 'bcc', label: 'BCC' },
+];
+
+export function AppearanceSection({ gmailMode = 'to' }: { gmailMode?: GmailMode }) {
   const { theme, choose } = useThemeChoice();
+  const { save } = useSavePreference();
 
   return (
     <SettingsSection
@@ -35,6 +43,17 @@ export function AppearanceSection() {
         hint="System follows the setting on this computer."
       >
         <SegmentedControl label="Theme" value={theme} options={THEME_OPTIONS} onChange={choose} />
+      </SettingRow>
+      <SettingRow
+        label="Gmail links"
+        hint="Where a list of people lands when you open it in Gmail. To writes to them; CC and BCC copy them."
+      >
+        <SegmentedControl
+          label="Gmail links"
+          value={GMAIL_MODES.includes(gmailMode) ? gmailMode : 'to'}
+          options={GMAIL_OPTIONS}
+          onChange={(next) => void save('gmail-mode', { gmailMode: next }, 'Gmail links saved.')}
+        />
       </SettingRow>
     </SettingsSection>
   );

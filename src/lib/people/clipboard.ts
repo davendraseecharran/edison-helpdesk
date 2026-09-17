@@ -156,7 +156,7 @@ export function gmailLink(people: readonly PersonAddressee[], mode: GmailMode): 
 export function gmailTitle(link: GmailLink, mode: GmailMode): string {
   if (link.reason) return link.reason;
   const who = countWord(link.addressCount, 'address', 'addresses');
-  const line = `Compose to ${who} in ${mode.toUpperCase()}.`;
+  const line = mode === 'to' ? `Compose to ${who}.` : `Compose to ${who} in ${mode.toUpperCase()}.`;
   if (link.skipped === 0) return line;
   return `${line} ${countWord(link.skipped, 'person', 'people')} with no address left out.`;
 }

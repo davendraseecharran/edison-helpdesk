@@ -95,7 +95,7 @@ Do this first, and do it now: it ends the half-state described above.
 
 The changes are **additive**. No table the district's data lives in is dropped,
 renamed or rewritten, and no existing policy or grant is changed. There are
-forty-seven new migration files, all numbered above the nineteen the hosted
+forty-eight new migration files, all numbered above the nineteen the hosted
 project already carries, so they apply in order after them.
 
 **1.1 Take a backup.** Supabase dashboard → Database → Backups, and confirm a
@@ -111,8 +111,8 @@ npx supabase migration list --linked
 ```
 
 You should see the nineteen migrations you already have listed on both sides,
-followed by **forty-seven** rows that are present locally and blank on the
-remote side. If you see fewer than forty-seven, your checkout is old: run
+followed by **forty-eight** rows that are present locally and blank on the
+remote side. If you see fewer than forty-eight, your checkout is old: run
 `git pull origin main` and look again. If you see rows the other way round
 (remote has something local does not), stop and ask before pushing.
 
@@ -122,9 +122,9 @@ remote side. If you see fewer than forty-seven, your checkout is old: run
 npx supabase db push
 ```
 
-It lists the forty-seven files, asks you to confirm, and applies them in
+It lists the forty-eight files, asks you to confirm, and applies them in
 order. It takes about a minute. The last file it names is
-`20260916130300_m5_group_events.sql`, followed by "Finished supabase db push."
+`20260916140000_m5_gmail_direct.sql`, followed by "Finished supabase db push."
 
 **1.4 Verify.** Reload the live site.
 
@@ -383,8 +383,11 @@ The chapter's tools:
   permission slip in, shirt size collected), ticked on the group page,
   filterable by what is missing, in the CSV.
 - **Copy and Gmail anywhere people are listed**: on People, on a selection, on
-  a group. "Open in Gmail" opens a compose window with everyone in CC, or BCC
-  if the person prefers, remembered per account. Export CSV is administrators
+  a group. "Open in Gmail" opens a compose window addressed to everyone
+  directly; the chevron beside it switches to CC or BCC, and the choice is
+  remembered per account (also under Settings → Appearance). The assistant
+  hands over the same lists and links: "emails for 9A", "guardian phones for
+  Officers". Export CSV is administrators
   and skills officers only, and every export is written to the audit log.
 - **Quick tickets**: the calls that repeat all day as presets the desk edits
   under Settings → Quick tickets. The top bar's New ticket button has a menu
@@ -451,7 +454,7 @@ deployed files.
 
 **The "database is behind" notice is still there after `db push`.** First a
 hard refresh. Then check `npx supabase migration list --linked`: if the
-forty-seven are on both sides, the site is simply serving a cached page; wait
+forty-eight are on both sides, the site is simply serving a cached page; wait
 a minute and reload. If some are missing on the remote side, `db push` did not
 finish; run it again, it continues where it stopped.
 

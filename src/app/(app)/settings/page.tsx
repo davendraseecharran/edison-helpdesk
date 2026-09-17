@@ -99,7 +99,7 @@ export default async function SettingsPage({
         {ticketWorker ? (
           <QuickTicketsSection presets={presets} categoryLabels={categoryLabels} />
         ) : null}
-        <AppearanceSection />
+        <AppearanceSection gmailMode={preferences.gmailMode} />
         <AiSection
           connection={connection}
           reasoning={preferences.aiReasoning}

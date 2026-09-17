@@ -63,6 +63,8 @@ import {
   rolesLabel,
   type AccountRole,
 } from '@/lib/auth/roles';
+import { clipboardFor, gmailLink, type CopyKind, type PersonAddressee } from '@/lib/people/clipboard';
+import { isGmailMode, type GmailMode } from '@/lib/domain/preferences';
 
 // ---------------------------------------------------------------------------
 // Schema and validation vocabulary
@@ -558,6 +560,28 @@ interface GroupRef {
  * is the same contract `resolveAccount` holds, for the same reason: adding
  * thirty people to the wrong roster is not a mistake anybody notices quickly.
  */
+/** The addressee rows a directory read returns, in the shape the clipboard formats. */
+function addresseesFrom(answer: unknown): PersonAddressee[] {
+  if (!isRecord(answer) || !Array.isArray(answer.rows)) return [];
+  return answer.rows.filter(isRecord).map((row) => ({
+    id: textOf(row.id),
+    displayName: textOf(row.displayName),
+    email: typeof row.email === 'string' && row.email !== '' ? row.email : null,
+    externalId: typeof row.externalId === 'string' && row.externalId !== '' ? row.externalId : null,
+    kind: textOf(row.kind) === 'staff' ? 'staff' : 'student',
+    guardianName: typeof row.guardianName === 'string' && row.guardianName !== '' ? row.guardianName : null,
+    guardianPhone: typeof row.guardianPhone === 'string' && row.guardianPhone !== '' ? row.guardianPhone : null,
+  }));
+}
+
+/** This person's own Gmail setting, so a link the assistant hands over addresses people the way their button would. */
+async function gmailModeFor(ctx: ToolContext): Promise<GmailMode> {
+  const stored = await rpc(ctx, 'app_my_preferences', {});
+  const row = Array.isArray(stored) ? stored[0] : stored;
+  const mode = isRecord(row) ? row.gmail_mode : undefined;
+  return isGmailMode(mode) ? mode : 'to';
+}
+
 async function resolveGroup(ctx: ToolContext, value: string): Promise<GroupRef> {
   const query = value.trim();
   if (query === '') throw new ToolError('Name the group.');
@@ -868,6 +892,7 @@ const PERSON_JSON_KEYS: Record<string, string> = {
 const PREFERENCE_KEYS = {
   theme: 'theme',
   ai_reasoning: 'aiReasoning',
+  gmail_mode: 'gmailMode',
   ai_confirm_changes: 'aiConfirmChanges',
   ai_speak_replies: 'aiSpeakReplies',
   notify_in_app: 'notifyInApp',
@@ -1146,6 +1171,93 @@ const TOOLS: Record<string, ToolSpec> = {
       if (missing > 0) parts.push(`${missing} not found`);
       if (ambiguous > 0) parts.push(`${ambiguous} ambiguous`);
       return outcome(answers, `Looked up ${answers.length} people: ${parts.join(', ')}.`);
+    },
+  },
+
+  contact_list: {
+    group: 'read',
+    description:
+      "A copy-ready contact list, and a Gmail link, for a set of people: a group, a pasted list of OSIS numbers, staff ids, emails or names, or a directory filter (students or staff, optionally narrowed by a search such as a class). `format` is what to hand over: addresses (comma-separated emails), names, names_and_addresses (Name <email>, one per line), identifiers (OSIS or staff ids), or guardian_phones (Name: phone, students only). The answer carries the text to show the person in a code block so they can copy it, how many were included and how many had nothing on file, and, when `gmail` is true, a link that opens a Gmail compose window addressed to everyone the way this person prefers (their gmail_mode setting: to, cc or bcc). Give exactly one of group, people or kind.",
+    fields: {
+      format: {
+        type: 'string',
+        required: true,
+        description: 'What to hand over.',
+        choices: ['addresses', 'names', 'names_and_addresses', 'identifiers', 'guardian_phones'],
+      },
+      group: { type: 'string', description: 'A group, by name or id.' },
+      people: {
+        type: 'string[]',
+        description: 'OSIS numbers, staff ids, emails or full names, one per entry. Up to 200.',
+      },
+      kind: { type: 'string', description: 'A directory filter: students or staff.', choices: ['student', 'staff'] },
+      query: { type: 'string', description: 'Narrows the directory filter: a class, a department, a name.' },
+      gmail: { type: 'boolean', description: 'Also return a Gmail compose link. Default false.' },
+    },
+    run: async (args, ctx) => {
+      const format = String(args.format) as 'addresses' | 'names' | 'names_and_addresses' | 'identifiers' | 'guardian_phones';
+      const kindByFormat: Record<typeof format, CopyKind> = {
+        addresses: 'addresses',
+        names: 'names',
+        names_and_addresses: 'names-and-addresses',
+        identifiers: 'identifiers',
+        guardian_phones: 'guardian-phones',
+      };
+      const sources = [args.group, args.people, args.kind].filter((value) => value !== undefined && value !== null && value !== '').length;
+      if (sources !== 1) throw new ToolError('Give exactly one of group, people or kind.');
+
+      let people: PersonAddressee[] = [];
+      let label = '';
+      if (args.group !== undefined && args.group !== '') {
+        const ref = await resolveGroup(ctx, String(args.group));
+        const members = rows(await rpc(ctx, 'app_group_members', { p_group: ref.id }));
+        people = members.map((row) => ({
+          id: textOf(row.requester_id),
+          displayName: textOf(row.display_name),
+          email: row.email === null || row.email === undefined ? null : textOf(row.email),
+          externalId: row.external_id === null || row.external_id === undefined ? null : textOf(row.external_id),
+          kind: textOf(row.kind) === 'staff' ? 'staff' : 'student',
+          guardianName: row.guardian_name === null || row.guardian_name === undefined ? null : textOf(row.guardian_name),
+          guardianPhone: row.guardian_phone === null || row.guardian_phone === undefined ? null : textOf(row.guardian_phone),
+        }));
+        label = ref.name;
+      } else if (Array.isArray(args.people)) {
+        const keys = (args.people as unknown[]).map((entry) => String(entry).trim()).filter((entry) => entry !== '');
+        if (keys.length === 0) throw new ToolError('Give at least one person.');
+        if (keys.length > 200) throw new ToolError('Up to 200 people at a time.');
+        const found = rows(await rpc(ctx, 'app_find_people', { p_keys: keys }));
+        const ids = found.filter((row) => textOf(row.found) === 'match').map((row) => textOf(row.id));
+        const byKind: PersonAddressee[] = [];
+        for (const kind of ['student', 'staff'] as const) {
+          const chosen = found.filter((row) => textOf(row.found) === 'match' && textOf(row.kind) === kind).map((row) => textOf(row.id));
+          if (chosen.length === 0) continue;
+          const answer = await rpc(ctx, 'app_people_addressees', { p_kind: kind, p_query: '', p_ids: chosen });
+          byKind.push(...addresseesFrom(answer));
+        }
+        people = byKind;
+        label = `${ids.length} of ${keys.length} listed`;
+      } else {
+        const kind = String(args.kind);
+        const answer = await rpc(ctx, 'app_people_addressees', { p_kind: kind, p_query: String(args.query ?? ''), p_ids: null });
+        people = addresseesFrom(answer);
+        const capped = isRecord(answer) && answer.capped === true;
+        label = `${people.length} ${kind === 'staff' ? 'staff' : 'students'}${capped ? ' (the first 500)' : ''}`;
+      }
+
+      const clip = clipboardFor(kindByFormat[format], people);
+      const result: Record<string, unknown> = {
+        who: label,
+        count: clip.count,
+        of: people.length,
+        text: clip.text,
+        note: clip.message,
+      };
+      if (args.gmail === true) {
+        const mode = await gmailModeFor(ctx);
+        const link = gmailLink(people, mode);
+        result.gmail = link.url ? { url: link.url, mode, addresses: link.addressCount } : { url: null, reason: link.reason };
+      }
+      return outcome(result, `${clip.message} for ${label}`);
     },
   },
 
@@ -1885,7 +1997,7 @@ const TOOLS: Record<string, ToolSpec> = {
       value: {
         type: 'string',
         required: true,
-        description: `The new value. theme: ${THEME_CHOICES.join(', ')}. ai_reasoning: ${REASONING_CHOICES.join(', ')}. Everything else: true or false.`,
+        description: `The new value. theme: ${THEME_CHOICES.join(', ')}. ai_reasoning: ${REASONING_CHOICES.join(', ')}. gmail_mode: to, cc or bcc (where a Gmail link puts the addresses; to is direct). Everything else: true or false.`,
       },
     },
     run: async (args, ctx) => {
@@ -1908,6 +2020,8 @@ const TOOLS: Record<string, ToolSpec> = {
           throw new ToolError(`ai_reasoning is one of: ${REASONING_CHOICES.join(', ')}.`);
         }
         patch.aiReasoning = value as PreferencePatch['aiReasoning'];
+      } else if (key === 'gmail_mode') {
+        patch.gmailMode = value.trim().toLowerCase() as PreferencePatch['gmailMode'];
       } else {
         patch.theme = value as PreferencePatch['theme'];
       }
@@ -2814,6 +2928,7 @@ const DIRECTORY_TOOLS = [
   'list_people',
   'get_person',
   'find_people',
+  'contact_list',
   'list_devices',
   'get_device',
   'list_attachments',
