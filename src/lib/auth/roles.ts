@@ -136,6 +136,23 @@ export function canEditInventory(roles: readonly AccountRole[]): boolean {
 }
 
 /**
+ * Taking the directory out of the building as a file.
+ *
+ * Narrower than reading it. Every role reads the roster because every role
+ * needs a name and a room to do the job; a CSV of 3,448 students with their
+ * OSIS numbers, their guardians and their guardians' phone numbers is a
+ * different object, and it belongs to the two roles whose work is the roster
+ * itself. A NetRider opens the record of the person whose laptop is broken.
+ *
+ * The database refuses the same people independently — `app_log_people_export`
+ * checks the role before it will record an export, and an export that cannot be
+ * recorded does not happen — so this only decides whether the item is offered.
+ */
+export function canExportDirectory(roles: readonly AccountRole[]): boolean {
+  return hasRole(roles, 'admin') || hasRole(roles, 'skills_officer');
+}
+
+/**
  * Where signing in lands, and where a screen someone may not see sends them.
  *
  * Today rather than the queue: the queue is a list of everything, and the

@@ -18,7 +18,10 @@
 import { createClient } from '@/lib/supabase/server';
 import { loadActor } from '@/lib/auth/session';
 import type { ActionResult } from '@/lib/data/actions';
+import type { PeopleFilters } from '@/lib/data/people';
+import { loadPeopleAddressees } from '@/lib/data/people-addressees';
 import { callRpc } from '@/lib/data/rpc';
+import type { PersonAddressee } from '@/lib/people/clipboard';
 import type { PersonInput, PersonKind } from '@/lib/domain/types';
 
 export interface PersonSearchResult {
@@ -74,6 +77,55 @@ export async function searchPeopleAction(
   );
 
   return answers.flat();
+}
+
+export interface PeopleAddresseesResult {
+  people: PersonAddressee[];
+  /** How many the filter matches, which can be more than came back. */
+  total: number;
+  /** True when the filter matched more people than one answer carries. */
+  capped: boolean;
+}
+
+/**
+ * Everybody the list is currently showing, as people to write to.
+ *
+ * The list is filtered and paged by the database, so "the current result set"
+ * is a question only the database can answer — the fifty rows on screen are not
+ * it. This asks for the whole filter, up to five hundred, and it is a POST-only
+ * server action rather than a route for the same reason `searchPeopleAction` is:
+ * there is no URL that hands somebody the roster for asking.
+ *
+ * Called when one of the menus is first opened rather than with the page, so a
+ * directory nobody is mailing today costs nothing.
+ */
+export async function peopleAddresseesAction(
+  filters: PeopleFilters & { ids?: string[] | null },
+): Promise<PeopleAddresseesResult> {
+  const actor = await loadActor();
+  if (actor.kind !== 'active') return { people: [], total: 0, capped: false };
+
+  const page = await loadPeopleAddressees({
+    kind: filters.kind,
+    query: filters.query,
+    ids: filters.ids ?? null,
+  });
+
+  // Narrowed on the way out: the class and department the CSV needs are not
+  // any of a menu's business, and this crosses the wire five hundred at a time.
+  return {
+    people: page.people.map((person) => ({
+      id: person.id,
+      displayName: person.displayName,
+      email: person.email,
+      externalId: person.externalId,
+      kind: person.kind,
+      guardianName: person.guardianName ?? null,
+      guardianPhone: person.guardianPhone ?? null,
+    })),
+    total: page.total,
+    capped: page.capped,
+  };
 }
 
 /**

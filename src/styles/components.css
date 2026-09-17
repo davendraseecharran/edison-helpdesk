@@ -216,6 +216,83 @@
   gap: 8px;
 }
 
+/* --- Split button ------------------------------------------------------- */
+
+/*
+ * Two buttons that read as one control: the thing it does, and the one
+ * decision about how it does it. "Open in Gmail" is pressed twenty times for
+ * every time somebody changes CC to BCC, so the decision is not a second
+ * button competing for the same glance — it is a chevron on the end of the
+ * first one, and the setting behind it is remembered.
+ *
+ * Both halves are ordinary `.btn`s, so they are 36px tall, they hover and they
+ * focus like everything else. Three things make them one control: the radius
+ * is on the outer corners only, the halves share a single hairline (the second
+ * is pulled back a pixel over the first), and the press gives on the GROUP
+ * rather than on the half under the finger, because a control that came apart
+ * while it was being pressed would read as two again.
+ */
+.btn-split {
+  display: inline-flex;
+  align-items: stretch;
+  transition: scale var(--dur-press) ease-out;
+}
+
+.btn-split > .btn-split-main {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+}
+
+.btn-split > .btn-split-more {
+  width: 28px;
+  padding: 0;
+  /* The two hairlines become one. */
+  margin-inline-start: -1px;
+  border-start-start-radius: 0;
+  border-end-start-radius: 0;
+}
+
+.btn-split > .btn-split-more.btn-sm {
+  width: 26px;
+}
+
+/* A small split button is 32px, like the `.btn-sm`s it stands among. */
+.btn-split:has(> .btn-sm) {
+  height: 32px;
+}
+
+/*
+ * The halves never stretch independently.
+ *
+ * A bar that lays its buttons out two to a row on a phone (`.bulk-bar-actions`)
+ * would otherwise give the chevron half of the width, and the control would
+ * come apart into two buttons of equal weight. Written to out-specify that
+ * rule rather than to sit after it: `components.css` is imported before
+ * `directory.css`, so source order is not on this side.
+ */
+.btn-split > .btn.btn-split-main,
+.btn-split > .btn.btn-split-more {
+  flex: 0 0 auto;
+}
+
+/*
+ * Whichever half is under the pointer or holds the keyboard draws its own
+ * border and its focus ring over the shared edge rather than under it.
+ */
+.btn-split > .btn:hover,
+.btn-split > .btn:focus-visible,
+.btn-split > .btn[data-state='open'] {
+  z-index: 1;
+}
+
+.btn-split > .btn:active:not(:disabled):not([aria-disabled='true']) {
+  scale: 1;
+}
+
+.btn-split:has(> .btn:active:not(:disabled):not([aria-disabled='true'])) {
+  scale: 0.98;
+}
+
 .icon-spin {
   /* Not a motion token: a spinner's revolution is a rate, and the tokens are
      the lengths of things that start and finish. */

@@ -3,7 +3,7 @@
  * and changing them.
  *
  * Pure on purpose. The database owns these settings — `app_my_preferences()`
- * creates the row, `app_update_preferences()` accepts six keys and refuses a
+ * creates the row, `app_update_preferences()` accepts seven keys and refuses a
  * value outside its vocabulary — and this module is the same knowledge in
  * TypeScript, so the settings screen can label a control, fall back sensibly
  * when a row holds something this build does not know about, and refuse an
@@ -22,6 +22,24 @@ export type ThemeChoice = ThemePreference;
 
 /** How hard the assistant thinks before it answers. */
 export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+/**
+ * Whether a Gmail link puts its addresses in CC or in BCC.
+ *
+ * A chapter mailing is a CC — everybody on it should see who else is — and a
+ * mailing to guardians is a BCC, because one family's address is not another
+ * family's business. Whichever somebody picks is nearly always the one they
+ * want next time, so it is a setting rather than a question.
+ */
+export type GmailMode = 'cc' | 'bcc';
+
+export const GMAIL_MODES: readonly GmailMode[] = ['cc', 'bcc'];
+
+/** What the two choices are called where they are offered. */
+export const GMAIL_MODE_LABELS: Record<GmailMode, string> = {
+  cc: '…as CC',
+  bcc: '…as BCC',
+};
 
 export const THEME_CHOICES: readonly ThemeChoice[] = ['dark', 'light', 'system'];
 /**
@@ -78,6 +96,8 @@ export interface Preferences {
   aiConfirmChanges: boolean;
   aiSpeakReplies: boolean;
   notifyInApp: boolean;
+  /** Whether this account's Gmail links address people in CC or in BCC. */
+  gmailMode: GmailMode;
 }
 
 /**
@@ -93,6 +113,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   aiConfirmChanges: false,
   aiSpeakReplies: false,
   notifyInApp: true,
+  gmailMode: 'cc',
 };
 
 export function isThemeChoice(value: unknown): value is ThemeChoice {
@@ -101,6 +122,10 @@ export function isThemeChoice(value: unknown): value is ThemeChoice {
 
 export function isReasoningEffort(value: unknown): value is ReasoningEffort {
   return REASONING_EFFORTS.includes(value as ReasoningEffort);
+}
+
+export function isGmailMode(value: unknown): value is GmailMode {
+  return GMAIL_MODES.includes(value as GmailMode);
 }
 
 /**
@@ -135,6 +160,7 @@ export function preferencesFromRow(row: unknown): Preferences {
       typeof source.notify_in_app === 'boolean'
         ? source.notify_in_app
         : DEFAULT_PREFERENCES.notifyInApp,
+    gmailMode: isGmailMode(source.gmail_mode) ? source.gmail_mode : DEFAULT_PREFERENCES.gmailMode,
   };
 }
 
@@ -146,6 +172,7 @@ export interface PreferencePatch {
   aiConfirmChanges?: boolean;
   aiSpeakReplies?: boolean;
   notifyInApp?: boolean;
+  gmailMode?: GmailMode;
 }
 
 export type PatchResult =
@@ -155,10 +182,10 @@ export type PatchResult =
 /**
  * Turns a patch into the JSON the RPC takes, in its column names.
  *
- * Only the six keys the database whitelists are carried across, so a form that
- * posts its whole state back cannot smuggle a seventh; a key that is absent keeps
- * the value it had. The messages match the ones the RPC raises, so the reader
- * sees the same sentence whichever side refuses.
+ * Only the seven keys the database whitelists are carried across, so a form
+ * that posts its whole state back cannot smuggle an eighth; a key that is
+ * absent keeps the value it had. The messages match the ones the RPC raises, so
+ * the reader sees the same sentence whichever side refuses.
  */
 export function preferencePatch(patch: PreferencePatch): PatchResult {
   const out: Record<string, string | boolean> = {};
@@ -188,6 +215,13 @@ export function preferencePatch(patch: PreferencePatch): PatchResult {
     // Trimmed and cut here as well as in the RPC, so what the screen shows
     // after a save is what was stored rather than what was typed.
     out.assistant_notes = patch.assistantNotes.trim().slice(0, ASSISTANT_NOTES_MAX);
+  }
+
+  if (patch.gmailMode !== undefined) {
+    if (!isGmailMode(patch.gmailMode)) {
+      return { ok: false, error: 'Choose cc or bcc for a Gmail link.' };
+    }
+    out.gmail_mode = patch.gmailMode;
   }
 
   const flags: [keyof PreferencePatch, string][] = [

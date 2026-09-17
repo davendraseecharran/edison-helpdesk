@@ -21,6 +21,7 @@ import { Mail, Pencil } from 'lucide-react';
 import type { ActionResult } from '@/lib/data/actions';
 import { returnDeviceAction } from '@/lib/data/device-actions';
 import { formatDateTime } from '@/lib/format';
+import type { GmailMode } from '@/lib/domain/preferences';
 import {
   deviceLabel,
   STUDENT_STATUS_LABELS,
@@ -37,6 +38,7 @@ import { RecordTicketList } from '@/components/directory/RecordTicketList';
 import { ReturnDeviceDialog, type ReturnDeviceValues } from '@/components/devices/ReturnDeviceDialog';
 import { Button } from '@/components/ui/Button';
 import { Sheet } from '@/components/ui/Sheet';
+import { PeopleActions } from './PeopleActions';
 import { PersonForm, PersonFormSubmit } from './PersonForm';
 
 function Fact({ label, value, href }: { label: string; value: string | null; href?: string }) {
@@ -63,11 +65,13 @@ export function PersonDetail({
   departments,
   roles,
   statuses,
+  gmailMode = 'cc',
 }: {
   detail: PersonDetailData;
   departments: string[];
   roles: string[];
   statuses: string[];
+  gmailMode?: GmailMode;
 }) {
   const { pendingKey, run } = useRuntime();
   const actor = useActorAccount();
@@ -118,6 +122,29 @@ export function PersonDetail({
           </div>
         </div>
         <div className="btn-row record-actions">
+          {/* The same component the list header and the selection bar use, with
+              a list of one. Offered only when there is an address to use: a
+              disabled Email button on a record with no address is a control
+              that exists to say no. */}
+          {person.email ? (
+            <PeopleActions
+              people={[
+                {
+                  id: person.id,
+                  displayName: person.displayName,
+                  email: person.email,
+                  externalId: person.externalId || null,
+                  kind: person.kind,
+                  guardianName: person.guardianName || null,
+                  guardianPhone: person.guardianPhone || null,
+                },
+              ]}
+              label={person.displayName}
+              kind={person.kind}
+              gmailMode={gmailMode}
+              single
+            />
+          ) : null}
           <Button icon={Pencil} onClick={() => setEditing(true)} disabled={busy}>
             Edit
           </Button>

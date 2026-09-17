@@ -4,6 +4,9 @@ import {
   DEFAULT_PREFERENCES,
   displayNameChanged,
   displayNameError,
+  GMAIL_MODE_LABELS,
+  GMAIL_MODES,
+  isGmailMode,
   isReasoningEffort,
   isThemeChoice,
   nextThemeAfterSave,
@@ -27,6 +30,7 @@ describe('defaults', () => {
       aiConfirmChanges: false,
       aiSpeakReplies: false,
       notifyInApp: true,
+      gmailMode: 'cc',
       savedViews: [],
     });
   });
@@ -46,6 +50,15 @@ describe('defaults', () => {
     expect(REASONING_CHOICES).toEqual(['high', 'xhigh', 'max']);
     expect(DEFAULT_PREFERENCES.aiReasoning).toBe('high');
   });
+
+  it('offers CC first, because a chapter mailing is the common one', () => {
+    expect(GMAIL_MODES).toEqual(['cc', 'bcc']);
+    expect(DEFAULT_PREFERENCES.gmailMode).toBe('cc');
+    // Sentence case, an ellipsis rather than three full stops, and the two
+    // words a mail client uses.
+    expect(GMAIL_MODE_LABELS.cc).toBe('…as CC');
+    expect(GMAIL_MODE_LABELS.bcc).toBe('…as BCC');
+  });
 });
 
 describe('vocabulary guards', () => {
@@ -57,6 +70,11 @@ describe('vocabulary guards', () => {
     expect(isReasoningEffort('xhigh')).toBe(true);
     expect(isReasoningEffort('extreme')).toBe(false);
     expect(isReasoningEffort(undefined)).toBe(false);
+    expect(isGmailMode('cc')).toBe(true);
+    expect(isGmailMode('bcc')).toBe(true);
+    expect(isGmailMode('BCC')).toBe(false);
+    expect(isGmailMode('to')).toBe(false);
+    expect(isGmailMode(null)).toBe(false);
   });
 });
 
@@ -71,6 +89,7 @@ describe('preferencesFromRow', () => {
         ai_confirm_changes: true,
         ai_speak_replies: true,
         notify_in_app: false,
+        gmail_mode: 'bcc',
         updated_at: '2026-09-13T00:00:00Z',
       }),
     ).toEqual({
@@ -80,14 +99,16 @@ describe('preferencesFromRow', () => {
       aiConfirmChanges: true,
       aiSpeakReplies: true,
       notifyInApp: false,
+      gmailMode: 'bcc',
       savedViews: [],
     });
   });
 
   it('falls back to the default for a value this build does not know', () => {
-    const row = preferencesFromRow({ theme: 'sepia', ai_reasoning: 'extreme' });
+    const row = preferencesFromRow({ theme: 'sepia', ai_reasoning: 'extreme', gmail_mode: 'to' });
     expect(row.theme).toBe('dark');
     expect(row.aiReasoning).toBe('high');
+    expect(row.gmailMode).toBe('cc');
   });
 
   it('treats a missing or unusable row as the defaults', () => {
@@ -111,7 +132,7 @@ describe('preferencePatch', () => {
     expect(result).toEqual({ ok: true, patch: { theme: 'system', ai_confirm_changes: true } });
   });
 
-  it('carries every one of the six settings', () => {
+  it('carries every one of the seven settings', () => {
     const result = preferencePatch({
       theme: 'light',
       aiReasoning: 'medium',
@@ -119,6 +140,7 @@ describe('preferencePatch', () => {
       aiConfirmChanges: false,
       aiSpeakReplies: true,
       notifyInApp: false,
+      gmailMode: 'bcc',
     });
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -127,6 +149,7 @@ describe('preferencePatch', () => {
       'ai_reasoning',
       'ai_speak_replies',
       'assistant_notes',
+      'gmail_mode',
       'notify_in_app',
       'theme',
     ]);
@@ -171,6 +194,12 @@ describe('preferencePatch', () => {
     expect(preferencePatch({ aiReasoning: 'extreme' as never })).toEqual({
       ok: false,
       error: 'Choose High, Extra high or Max.',
+    });
+    // The same sentence app_update_preferences raises, in the database's own
+    // two words rather than the menu's "…as CC".
+    expect(preferencePatch({ gmailMode: 'to' as never })).toEqual({
+      ok: false,
+      error: 'Choose cc or bcc for a Gmail link.',
     });
   });
 

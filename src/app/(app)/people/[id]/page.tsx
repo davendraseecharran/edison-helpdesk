@@ -1,5 +1,6 @@
 import { loadPerson, loadStaffDirectoryOptions } from '@/lib/data/people';
 import { loadDeviceStatuses } from '@/lib/data/devices';
+import { loadPreferences } from '@/lib/data/preferences';
 import { EmptyState } from '@/components/Primitives';
 import { ButtonLink } from '@/components/ui/Button';
 import { PersonDetail } from '@/components/people/PersonDetail';
@@ -8,10 +9,11 @@ export const metadata = { title: 'Person — Edison Helpdesk' };
 
 export default async function PersonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [detail, options, statuses] = await Promise.all([
+  const [detail, options, statuses, preferences] = await Promise.all([
     loadPerson(id),
     loadStaffDirectoryOptions(),
     loadDeviceStatuses(),
+    loadPreferences(),
   ]);
 
   if (!detail) {
@@ -35,6 +37,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
       departments={options.departments}
       roles={options.roles}
       statuses={statuses}
+      gmailMode={preferences.gmailMode}
     />
   );
 }

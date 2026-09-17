@@ -10,22 +10,74 @@
  * nothing is filtered client-side for security. The search runs as you type,
  * after a short pause, because a directory is something you narrow rather than
  * query.
+ *
+ * Rows can be ticked, the same way the inventory's can, and a bar for the
+ * selection carries the things somebody does with a handful of people: write to
+ * them, copy their addresses, take them as a file. The selection is the rows on
+ * THIS page only — a page change or a new search cannot leave somebody acting
+ * on a row they can no longer see — and the people in it are already on screen,
+ * so nothing is fetched for it. The header's version of the same controls acts
+ * on the whole filter instead, which is a different question and a different
+ * read.
  */
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import type { PeoplePage } from '@/lib/data/people';
+import type { GmailMode } from '@/lib/domain/preferences';
 import { personPlacement, personSubtitle } from '@/lib/domain/records';
 import { type PersonKind, type PersonSummary } from '@/lib/domain/types';
+import type { PersonAddressee } from '@/lib/people/clipboard';
 import { ArchivedBadge } from '@/components/Badges';
 import { EmptyState, Field } from '@/components/Primitives';
-import { ButtonLink } from '@/components/ui/Button';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { Pagination } from '@/components/ui/Pagination';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { PeopleActions } from './PeopleActions';
+
+/**
+ * One row's checkbox. Declared here, not inside the list, so React keeps the
+ * same element across renders: a component declared in the parent's body is a
+ * new type every render, which remounts the box and drops keyboard focus on
+ * every tick.
+ */
+function RowCheck({
+  person,
+  checked,
+  onToggle,
+}: {
+  person: PersonSummary;
+  checked: boolean;
+  onToggle: (id: string, on: boolean) => void;
+}) {
+  return (
+    <label className="row-check">
+      <input
+        type="checkbox"
+        checked={checked}
+        aria-label={`Select ${person.displayName}`}
+        onChange={(event) => onToggle(person.id, event.target.checked)}
+      />
+    </label>
+  );
+}
+
+/** A directory row, as much of it as writing to somebody or listing them needs. */
+function addresseeOf(person: PersonSummary): PersonAddressee {
+  return {
+    id: person.id,
+    displayName: person.displayName,
+    email: person.email || null,
+    externalId: person.externalId || null,
+    kind: person.kind,
+    guardianName: person.guardianName || null,
+    guardianPhone: person.guardianPhone || null,
+  };
+}
 
 const KIND_OPTIONS: { value: PersonKind; label: string }[] = [
   { value: 'student', label: 'Students' },
@@ -35,7 +87,15 @@ const KIND_OPTIONS: { value: PersonKind; label: string }[] = [
 /** After the last keystroke, before the URL (and so the database) is asked. */
 const SEARCH_DEBOUNCE_MS = 250;
 
-export function PeopleList({ page }: { page: PeoplePage }) {
+export function PeopleList({
+  page,
+  gmailMode = 'cc',
+  canExport = false,
+}: {
+  page: PeoplePage;
+  gmailMode?: GmailMode;
+  canExport?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -94,7 +154,67 @@ export function PeopleList({ page }: { page: PeoplePage }) {
   const busy = navigating;
   const isStudent = current.kind === 'student';
 
+  // Ticked ids. Only the ones on the current page count: a filter or a page
+  // change cannot leave a hidden row in the selection, and the ids fall out of
+  // the set the next time it is rebuilt.
+  const [ticked, setTicked] = useState<Set<string>>(() => new Set());
+  const selected = useMemo(() => {
+    const onPage = new Set(people.map((person) => person.id));
+    return new Set([...ticked].filter((id) => onPage.has(id)));
+  }, [ticked, people]);
+
+  const chosen = useMemo(
+    () => people.filter((person) => selected.has(person.id)).map(addresseeOf),
+    [people, selected],
+  );
+
+  const allOnPage = people.length > 0 && people.every((person) => selected.has(person.id));
+  const someOnPage = people.some((person) => selected.has(person.id));
+  const selectAllRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (selectAllRef.current) selectAllRef.current.indeterminate = someOnPage && !allOnPage;
+  }, [someOnPage, allOnPage]);
+
+  function toggle(id: string, on: boolean) {
+    setTicked((prev) => {
+      const next = new Set(prev);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function toggleAll(on: boolean) {
+    setTicked(on ? new Set(people.map((person) => person.id)) : new Set());
+  }
+
+  const selectionExportHref = canExport
+    ? `/people/export?${new URLSearchParams({
+        ...(current.kind === 'staff' ? { kind: 'staff' } : {}),
+        ids: [...selected].join(','),
+      }).toString()}`
+    : null;
+
   const columns: Column<PersonSummary>[] = [
+    {
+      key: 'select',
+      header: (
+        <label className="row-check">
+          <input
+            ref={selectAllRef}
+            type="checkbox"
+            checked={allOnPage}
+            aria-label="Select everybody on this page"
+            onChange={(event) => toggleAll(event.target.checked)}
+          />
+        </label>
+      ),
+      hideOnPhone: true,
+      width: 40,
+      cell: (person) => (
+        <RowCheck person={person} checked={selected.has(person.id)} onToggle={toggle} />
+      ),
+    },
     {
       key: 'name',
       header: 'Name',
@@ -227,15 +347,45 @@ export function PeopleList({ page }: { page: PeoplePage }) {
             caption={isStudent ? 'Students in the directory' : 'Staff in the directory'}
             settle
             cardTitle={(person) => (
-              <span className="dir-name-row">
-                <Link href={`/people/${person.id}`} className="row-link">
-                  {person.displayName}
-                </Link>
-                {person.archivedAt ? <ArchivedBadge /> : null}
+              <span className="dir-card-title">
+                <RowCheck person={person} checked={selected.has(person.id)} onToggle={toggle} />
+                <span className="dir-name-row">
+                  <Link href={`/people/${person.id}`} className="row-link">
+                    {person.displayName}
+                  </Link>
+                  {person.archivedAt ? <ArchivedBadge /> : null}
+                </span>
               </span>
             )}
             cardMeta={(person) => personSubtitle(person)}
           />
+
+          {selected.size > 0 ? (
+            <div className="bulk-bar" role="region" aria-label="Selected people">
+              <span className="bulk-bar-count" aria-live="polite">
+                {selected.size} selected
+              </span>
+              <div className="bulk-bar-actions">
+                <PeopleActions
+                  people={chosen}
+                  label={`${selected.size} selected`}
+                  kind={current.kind}
+                  gmailMode={gmailMode}
+                  exportHref={selectionExportHref}
+                  size="sm"
+                />
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="bulk-bar-clear"
+                onClick={() => setTicked(new Set())}
+              >
+                Clear
+              </Button>
+            </div>
+          ) : null}
+
           <Pagination
             page={page.page}
             pageCount={pageCount}
