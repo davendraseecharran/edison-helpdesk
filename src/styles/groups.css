@@ -1,0 +1,156 @@
+/*
+ * Groups: the roster list, one group's page, and the paste box that fills it.
+ *
+ * Almost all of it is borrowed. A group's page is the record layout a person
+ * and a device already use (`.ticket`, `.record-head`, `.panel`), and the two
+ * tables are the one `DataTable`, so what is left here is the handful of
+ * things a roster has that nothing else does: the note edited in its own cell,
+ * and the report a pasted list produces before anybody is added.
+ *
+ * No colour is named; every value is a token.
+ */
+
+.group-stack {
+  gap: 16px;
+}
+
+/* --- The note in its cell ------------------------------------------------ */
+
+/*
+ * An input that reads as text until it is wanted. A row of bordered boxes down
+ * a roster would make the note look like the point of the table, and it is the
+ * last column for a reason; the border arrives on hover and focus, which is
+ * when somebody is actually about to type in it.
+ */
+.group-note-input {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-2);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+}
+
+.group-note-input::placeholder {
+  color: var(--ink-3);
+}
+
+.group-note-input:hover:not(:disabled) {
+  border-color: var(--line);
+  background: var(--surface-2);
+}
+
+.group-note-input:focus {
+  border-color: var(--line-focus);
+  background: var(--surface);
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.group-note-input:disabled {
+  opacity: 0.6;
+}
+
+/* --- Pasting a list ------------------------------------------------------ */
+
+.group-paste {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.group-paste-box {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: var(--fs-1);
+}
+
+.paste-report {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.paste-summary {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+/*
+ * Capped and scrolled: thirty-one lines is a normal paste and a report that
+ * pushed the button off the bottom of the screen would be a report nobody
+ * reaches the end of.
+ */
+.paste-rows {
+  max-height: 280px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  list-style: none;
+}
+
+.paste-row {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  padding: 6px 10px;
+  font-size: var(--fs-1);
+}
+
+.paste-row + .paste-row {
+  border-top: 1px solid var(--line);
+}
+
+.paste-key {
+  flex: 0 0 38%;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.paste-answer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  min-width: 0;
+  align-items: baseline;
+}
+
+.paste-name {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.paste-meta {
+  color: var(--ink-2);
+}
+
+/* The two rows somebody has to do something about. */
+.paste-miss {
+  color: var(--warn);
+}
+
+.paste-row-none,
+.paste-row-ambiguous {
+  background: var(--warn-soft);
+}
+
+@media (max-width: 719.98px) {
+  .paste-row {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .paste-key {
+    flex: 0 0 auto;
+  }
+}

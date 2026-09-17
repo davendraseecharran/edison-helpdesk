@@ -12,6 +12,7 @@ import {
   Layers,
   Shield,
   Users,
+  UsersRound,
 } from 'lucide-react';
 import { Icon, type LucideIcon } from '../ui/Icon';
 import { canWorkTickets, isAdmin, type AccountRole } from '../../lib/auth/roles';
@@ -101,8 +102,14 @@ export function navItems(roles: readonly AccountRole[], counts: QueueCounts): Na
   // over `requesters`, Devices is the whole inventory. A skills officer reads
   // the inventory too — editing a machine is already refused to them by the
   // screen and by the database, so hiding the list only hid the answer.
+  //
+  // Groups sits between them because it is the directory read sideways: the
+  // same people, in the lists the chapter and the desk actually work from.
+  // Every role gets it — a roster is not ticket work and not administration,
+  // and the account most likely to keep one is the skills officer's.
   items.push(
     { href: '/people', label: 'People', icon: Users, group: 'Directory' },
+    { href: '/groups', label: 'Groups', icon: UsersRound, group: 'Directory' },
     { href: '/devices', label: 'Devices', icon: Laptop, group: 'Directory' },
   );
 

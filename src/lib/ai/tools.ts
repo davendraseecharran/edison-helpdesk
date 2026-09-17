@@ -543,6 +543,46 @@ async function resolvePerson(ctx: ToolContext, value: string): Promise<PersonRef
   return { id: textOf(chosen.id), name: textOf(chosen.displayName) };
 }
 
+interface GroupRef {
+  id: string;
+  name: string;
+}
+
+/**
+ * The roster somebody said out loud, turned into the one it is.
+ *
+ * Groups are named things a person types from memory — "officers", "the
+ * regionals team" — and there are tens of them, so the whole list is read and
+ * matched here rather than searched in the database: an exact name wins, a
+ * single partial is accepted, and a tie is refused with the names in it. That
+ * is the same contract `resolveAccount` holds, for the same reason: adding
+ * thirty people to the wrong roster is not a mistake anybody notices quickly.
+ */
+async function resolveGroup(ctx: ToolContext, value: string): Promise<GroupRef> {
+  const query = value.trim();
+  if (query === '') throw new ToolError('Name the group.');
+
+  const groups = rows(await rpc(ctx, 'app_list_groups', {}));
+  if (isUuid(query)) {
+    const row = groups.find((entry) => textOf(entry.id) === query);
+    if (row === undefined) throw new ToolError('There is no group with that id.');
+    return { id: query, name: textOf(row.name) };
+  }
+
+  const folded = query.toLowerCase();
+  const exact = groups.filter((entry) => textOf(entry.name).toLowerCase() === folded);
+  const partial = groups.filter((entry) => textOf(entry.name).toLowerCase().includes(folded));
+  const candidates = exact.length > 0 ? exact : partial;
+  if (candidates.length === 0) {
+    throw new ToolError(`There is no group called "${query}". List the groups rather than guessing.`);
+  }
+  if (candidates.length > 1) {
+    const options = candidates.map((entry) => textOf(entry.name)).join(', ');
+    throw new ToolError(`"${query}" matches more than one group: ${options}. Say which one.`);
+  }
+  return { id: textOf(candidates[0].id), name: textOf(candidates[0].name) };
+}
+
 interface AccountRef {
   id: string;
   name: string;
@@ -1012,6 +1052,32 @@ const TOOLS: Record<string, ToolSpec> = {
       if (missing > 0) parts.push(`${missing} not found`);
       if (ambiguous > 0) parts.push(`${ambiguous} ambiguous`);
       return outcome(answers, `Looked up ${answers.length} people: ${parts.join(', ')}.`);
+    },
+  },
+
+  list_groups: {
+    group: 'read',
+    description:
+      "Every group the school keeps: the chapter's members and officers, a competition team, the people a cart belongs to. Each one answers with its name, what it is for, how many people are in it and when it last changed. Read this before naming a group, rather than guessing what one is called.",
+    fields: {},
+    run: async (_args, ctx) => {
+      const data = await rpc(ctx, 'app_list_groups', {});
+      return outcome(data, `Listed ${countOf(data)} groups.`);
+    },
+  },
+
+  group_members: {
+    group: 'read',
+    description:
+      'Who is in one group: their name, whether they are a student or staff, their class or department, their OSIS or staff id, the short note beside them in this group and when they were added.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      const data = await rpc(ctx, 'app_group_members', { p_group: group.id });
+      const count = countOf(data);
+      return outcome(data, `Read ${group.name}: ${count} ${count === 1 ? 'person' : 'people'}.`);
     },
   },
 
@@ -1820,6 +1886,103 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  create_group: {
+    group: 'write',
+    description:
+      'Start a group: a named list of people from the directory, such as "SkillsUSA members", "Officers" or "Chromebook cart 3". It starts empty; add_to_group puts people in it. A group with that name already existing is refused rather than duplicated.',
+    fields: {
+      name: {
+        type: 'string',
+        required: true,
+        maxLength: 80,
+        description: 'What the group is called. At most 80 characters, and unique.',
+      },
+      description: {
+        type: 'string',
+        maxLength: 300,
+        description: 'One line saying what it is for.',
+      },
+    },
+    run: async (args, ctx) => {
+      const id = await rpc(ctx, 'app_create_group', {
+        p_name: args.name,
+        p_description: args.description ?? '',
+      });
+      return outcome({ id }, `Started the group ${String(args.name)}`);
+    },
+  },
+
+  add_to_group: {
+    group: 'write',
+    description:
+      'Add people to a group, a whole list at a time. Each entry is an OSIS number, a staff id, a school email address or a full name as the directory spells it, exactly as find_people takes them — so a class list pasted out of a spreadsheet goes in as it is. Reports how many were added, how many were already in the group, how many matched nobody and how many matched more than one person; the last two are named so somebody can fix them. Adding somebody who is already in the group is not an error.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+      people: {
+        type: 'string[]',
+        required: true,
+        maxItems: FIND_PEOPLE_LIMIT,
+        description:
+          'The people to add, one per entry: OSIS number, staff id, school email address or full name.',
+      },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      const keys = args.people as string[];
+
+      // The same reader the paste box on the group's page uses, so the
+      // assistant and the screen agree about what a line means.
+      const found = rows(await rpc(ctx, 'app_find_people', { p_keys: keys }));
+      const matched: string[] = [];
+      const unmatched: string[] = [];
+      const ambiguous: string[] = [];
+      for (const row of found) {
+        const key = textOf(row.key);
+        if (textOf(row.found) === 'match') matched.push(textOf(row.id));
+        else if (Number(row.matches ?? 0) > 1) ambiguous.push(key);
+        else unmatched.push(key);
+      }
+
+      if (matched.length === 0) {
+        throw new ToolError(
+          `None of those ${keys.length} entries is somebody in the directory. Nobody was added.`,
+        );
+      }
+
+      // What the database wrote, which is the people who were not already in
+      // it. Anything else would be a number that sounds like work happened.
+      const added = Number(
+        await rpc(ctx, 'app_add_group_members', { p_group: group.id, p_requesters: matched }),
+      );
+      const skipped = matched.length - added;
+      const parts = [`${added} added`];
+      if (skipped > 0) parts.push(`${skipped} already in it`);
+      if (unmatched.length > 0) parts.push(`${unmatched.length} not found`);
+      if (ambiguous.length > 0) parts.push(`${ambiguous.length} ambiguous`);
+
+      return outcome(
+        { added, skipped, unmatched, ambiguous },
+        `${group.name}: ${parts.join(', ')}.`,
+      );
+    },
+  },
+
+  remove_from_group: {
+    group: 'write',
+    description:
+      'Take one person out of a group. They stay in the directory and keep everything else; only the membership goes.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+      person: { type: 'string', required: true, description: 'Name, email, OSIS, staff id or record id.' },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      const person = await resolvePerson(ctx, String(args.person));
+      await rpc(ctx, 'app_remove_group_member', { p_group: group.id, p_requester: person.id });
+      return outcome({ id: person.id }, `Took ${person.name} out of ${group.name}`);
+    },
+  },
+
   create_device: {
     group: 'write',
     description: 'Add a machine to the inventory.',
@@ -2380,6 +2543,13 @@ const DIRECTORY_TOOLS = [
   'create_person',
   'update_person',
   'archive_person',
+  // The rosters are the directory read sideways, and the account most likely
+  // to keep one is exactly this one: a skills officer with a chapter to run.
+  'list_groups',
+  'group_members',
+  'create_group',
+  'add_to_group',
+  'remove_from_group',
 ] as const;
 
 export function toolsFor(roles: readonly AccountRole[]): ToolDef[] {

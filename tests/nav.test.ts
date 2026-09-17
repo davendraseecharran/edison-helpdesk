@@ -13,6 +13,7 @@ describe('navItems', () => {
       '/collaborating',
       '/resolved',
       '/people',
+      '/groups',
       '/devices',
     ]);
     expect(items.find((i) => i.href === '/queue')?.count).toBe(3);
@@ -37,7 +38,7 @@ describe('navItems', () => {
     const items = navItems(['skills_officer'], counts);
     // The inventory is a read for them: the device screen refuses the editor,
     // and so does the database.
-    expect(items.map((i) => i.href)).toEqual(['/people', '/devices']);
+    expect(items.map((i) => i.href)).toEqual(['/people', '/groups', '/devices']);
     // Nothing in the rail leads anywhere they would be turned away from.
     expect(items.some((i) => i.group === 'Work' || i.group === 'Admin')).toBe(false);
     expect(items.some((i) => i.href === '/insights')).toBe(false);

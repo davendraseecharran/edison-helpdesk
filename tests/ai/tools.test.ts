@@ -56,17 +56,22 @@ describe('tool classification', () => {
   it('offers a skills officer the directory and no ticket tool at all', () => {
     const names = toolsFor(['skills_officer']).map((tool) => tool.name).sort();
     expect(names).toEqual([
+      'add_to_group',
       'archive_person',
+      'create_group',
       'create_person',
       'delete_view',
       'find_people',
       'get_device',
       'get_person',
+      'group_members',
       'list_attachments',
       'list_devices',
+      'list_groups',
       'list_notifications',
       'list_people',
       'mark_notifications_read',
+      'remove_from_group',
       'save_view',
       'search_records',
       'set_preference',
@@ -114,6 +119,9 @@ describe('tool classification', () => {
       'draft_ticket_from_text',
       // A whole class list in one call, for the officer who has one.
       'find_people',
+      // The rosters a chapter lives by, which every role may read.
+      'list_groups',
+      'group_members',
     ]) {
       expect(READ_TOOLS).toContain(name);
     }
@@ -152,6 +160,12 @@ describe('tool classification', () => {
       'archive_person',
       // The desk's old spreadsheet, as tickets.
       'import_resolved_tickets',
+      // Rosters: starting one, filling it from a pasted list, and taking
+      // somebody out again. Deleting one is an administrator's and is not a
+      // tool at all.
+      'create_group',
+      'add_to_group',
+      'remove_from_group',
     ]) {
       expect(WRITE_TOOLS).toContain(name);
     }
@@ -386,6 +400,9 @@ describe('requiresApproval', () => {
       'delete_view',
       'archive_person',
       'import_resolved_tickets',
+      'create_group',
+      'add_to_group',
+      'remove_from_group',
     ]) {
       expect(requiresApproval(name, {}, true)).toBe(true);
       expect(requiresApproval(name, {}, false)).toBe(false);
