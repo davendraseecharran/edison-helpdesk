@@ -6,11 +6,14 @@ import {
   loadPreferences,
   loadSharedAssistantNotes,
 } from '@/lib/data/preferences';
+import { loadCategoryLabels, loadTicketPresets } from '@/lib/data/ticket-presets';
+import { canWorkTickets } from '@/lib/auth/roles';
 import { PageHeader } from '@/components/Primitives';
 import { AiSection } from '@/components/settings/AiSection';
 import { AppearanceSection } from '@/components/settings/AppearanceSection';
 import { NotificationsSection } from '@/components/settings/NotificationsSection';
 import { ProfileSection } from '@/components/settings/ProfileSection';
+import { QuickTicketsSection } from '@/components/settings/QuickTicketsSection';
 import { SignInMethodsSection } from '@/components/settings/SignInMethodsSection';
 import '@/styles/settings.css';
 
@@ -45,12 +48,23 @@ export default async function SettingsPage({
   // the narrowing that lets the account be used, not a second gate.
   if (actor.kind !== 'active') redirect('/login');
 
-  const [preferences, connection, sharedNotes, methods] = await Promise.all([
-    loadPreferences(),
-    loadAiConnection(),
-    loadSharedAssistantNotes(),
-    loadSignInMethods(),
-  ]);
+  /*
+   * Quick tickets are ticket work, so they are read only for somebody who does
+   * it: a skills officer would be answered with an empty list by the row policy
+   * anyway, and a section that is always empty is a section that should not be
+   * on their screen.
+   */
+  const ticketWorker = canWorkTickets(actor.account.roles);
+
+  const [preferences, connection, sharedNotes, methods, presets, categoryLabels] =
+    await Promise.all([
+      loadPreferences(),
+      loadAiConnection(),
+      loadSharedAssistantNotes(),
+      loadSignInMethods(),
+      ticketWorker ? loadTicketPresets() : Promise.resolve([]),
+      ticketWorker ? loadCategoryLabels() : Promise.resolve({}),
+    ]);
 
   const linkError =
     params.linkError === 'off'
@@ -82,6 +96,9 @@ export default async function SettingsPage({
           googleEmail={methods.googleEmail}
           hasPassword={methods.hasPassword}
         />
+        {ticketWorker ? (
+          <QuickTicketsSection presets={presets} categoryLabels={categoryLabels} />
+        ) : null}
         <AppearanceSection />
         <AiSection
           connection={connection}

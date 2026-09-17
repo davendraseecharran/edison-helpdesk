@@ -159,7 +159,14 @@
   gap: 4px;
 }
 
-.topbar-actions .btn-primary {
+/*
+ * Intake stands apart from the icons beside it. The selector names the wrapper
+ * as well as the button, because the primary action is a split button now and
+ * both of its halves are `.btn-primary`: a margin on each would push the two
+ * apart and undo the join.
+ */
+.topbar-actions > .btn-primary,
+.topbar-actions > .btn-split {
   margin-right: 8px;
 }
 
@@ -1170,8 +1177,18 @@
     margin-left: auto;
   }
 
-  .topbar-actions .btn-primary {
+  .topbar-actions > .btn-primary,
+  .topbar-actions > .btn-split {
     margin-right: 4px;
+  }
+
+  /*
+   * The quick tickets leave the bar with everything else a finger cannot ask
+   * for. The `+` stays exactly as it was, and the presets are in the palette,
+   * which the More sheet's Search item opens.
+   */
+  .topbar-quick {
+    display: none;
   }
 
   .main {

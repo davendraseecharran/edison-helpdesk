@@ -235,6 +235,49 @@
   font-size: var(--fs-1);
 }
 
+/* --- Quick tickets ------------------------------------------------------ */
+
+/*
+ * A list rather than a setting: each row is a thing the desk wrote, with what
+ * it files underneath it and what can be done to it on the right. The card's
+ * own rule between children is what separates one from the next, so nothing
+ * here draws a border.
+ */
+.preset-row {
+  align-items: flex-start;
+}
+
+/* The category and the priority, a step back from the title above them. */
+.preset-meta {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+/* Four controls on a row, two of them a single glyph: 8px between them is a gap. */
+.preset-actions {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.preset-empty {
+  padding: 14px 16px;
+}
+
+/*
+ * The form, in the row's place.
+ *
+ * Six fields do not fit in the right-hand column of a setting row, so adding
+ * and editing both replace the row entirely — which is also what says which
+ * row is being edited, without a second highlight to explain it.
+ */
+.preset-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface-2);
+}
+
 /* --- Setting a password ------------------------------------------------- */
 
 /*

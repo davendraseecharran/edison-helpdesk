@@ -44,6 +44,7 @@ import {
   SunMoon,
   UserPlus,
   X,
+  Zap,
 } from 'lucide-react';
 import { useRuntime } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
@@ -55,6 +56,8 @@ import { AnimatePresence, SpringSurface } from '@/components/ui/Motion';
 import { claimTicketAction, joinTicketAction } from '@/lib/data/actions';
 import { lookupDeviceCodeAction } from '@/lib/data/device-actions';
 import { matchesQuery, type RecentItem, type SearchHit } from '@/lib/data/search';
+import { presetActionLabel, presetHref, presetKeywords } from '@/lib/domain/ticket-presets';
+import { useTicketPresets } from '@/lib/presets/store';
 import { targetKind } from '@/lib/lookup/recognise';
 import { asksFirst, readAsk } from '@/lib/lookup/ask';
 import { routeScannedCode } from '@/lib/scan/route';
@@ -266,6 +269,13 @@ function Palette({
   // Saves the choice through the runtime, so the toast and the one-change-at-a-time guard apply.
   const { theme, choose } = useThemeChoice();
   const lookup = useLookup();
+  /*
+   * The desk's quick tickets, from the cache the top bar's menu fills. The
+   * palette is mounted only while it is open, so asking for them here is
+   * asking once when it opens rather than once per keystroke: the filtering
+   * below is over a list that is already in memory.
+   */
+  const presets = useTicketPresets(canWorkTickets(actor.roles));
   const [scanOpen, setScanOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -413,6 +423,20 @@ function Palette({
         keywords: ['create', 'intake', 'log'],
         run: go('/tickets/new'),
       });
+
+      // The calls that repeat all day, each one row. They sit under the empty
+      // form rather than above it: the form is what somebody who typed "new"
+      // meant, and a preset is what they meant when they typed its name.
+      for (const preset of presets) {
+        list.push({
+          id: `preset:${preset.id}`,
+          label: presetActionLabel(preset),
+          icon: Zap,
+          keywords: presetKeywords(preset),
+          subtitle: preset.title,
+          run: go(presetHref(preset.id)),
+        });
+      }
     }
 
     // The screen's own name, under a "Go to" heading. Written out, every one
@@ -510,7 +534,7 @@ function Palette({
     }
 
     return list;
-  }, [ticketNumber, actor.roles, theme, ask, onClose, router, claim, join, choose, phone]);
+  }, [ticketNumber, actor.roles, presets, theme, ask, onClose, router, claim, join, choose, phone]);
 
   const visibleActions = useMemo(
     () =>

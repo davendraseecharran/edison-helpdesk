@@ -21,16 +21,19 @@ import { updatePreferencesAction } from '@/lib/data/preferences-actions';
 import type { PreferencePatch } from '@/lib/domain/preferences';
 
 export function SettingsSection({
+  id,
   title,
   description,
   children,
 }: {
+  /** Names the section so a link can land on it, as `/settings#quick-tickets` does. */
+  id?: string;
   title: string;
   description: string;
   children: ReactNode;
 }) {
   return (
-    <section className="settings-section">
+    <section className="settings-section" id={id}>
       <div className="settings-section-head">
         <h2 className="settings-section-title">{title}</h2>
         <p className="settings-section-note">{description}</p>
