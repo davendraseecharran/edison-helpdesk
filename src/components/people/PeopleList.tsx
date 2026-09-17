@@ -21,7 +21,7 @@
  * read.
  */
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { startTransition, useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Plus } from 'lucide-react';
@@ -94,11 +94,14 @@ const SEARCH_DEBOUNCE_MS = 250;
 
 export function PeopleList({
   page,
+  other = null,
   gmailMode = 'cc',
   canExport = false,
   ticketWorker = true,
 }: {
   page: PeoplePage;
+  /** The other list's first page, when the page loaded it, so a switch is a swap rather than a round trip. */
+  other?: PeoplePage | null;
   gmailMode?: GmailMode;
   canExport?: boolean;
   /** Whether the reader works tickets. It decides the last two columns. */
@@ -158,9 +161,31 @@ export function PeopleList({
     return params ? `${pathname}?${params}` : pathname;
   }
 
-  const { people, total, pageCount, openTickets, groups } = page;
-  const busy = navigating;
-  const isStudent = current.kind === 'student';
+  /*
+   * Which list is showing. Normally the URL's; for the moment between a
+   * press on the students/staff control and the server's answer it is the
+   * pressed one, drawn from the other list the page already holds. Rendered
+   * in a transition so the pill's own motion is never queued behind the
+   * table's re-render.
+   */
+  const [shownKind, setShownKind] = useState<PersonKind>(current.kind);
+  const [urlKind, setUrlKind] = useState<PersonKind>(current.kind);
+  if (urlKind !== current.kind) {
+    setUrlKind(current.kind);
+    setShownKind(current.kind);
+  }
+  const swapped = shownKind !== current.kind && other !== null;
+  const shown = swapped ? other : page;
+  const { people, total, pageCount, openTickets, groups } = shown;
+  // Waiting on the server only when there was nothing to swap to.
+  const busy = navigating && !swapped;
+  const isStudent = shownKind === 'student';
+
+  function chooseKind(value: PersonKind) {
+    if (value === shownKind) return;
+    startTransition(() => setShownKind(value));
+    updateParams({ kind: value === 'staff' ? 'staff' : '' });
+  }
 
   // Ticked ids. Only the ones on the current page count: a filter or a page
   // change cannot leave a hidden row in the selection, and the ids fall out of
@@ -334,9 +359,9 @@ export function PeopleList({
             <span className="field-label">List</span>
             <SegmentedControl
               label="List"
-              value={current.kind}
+              value={shownKind}
               options={KIND_OPTIONS}
-              onChange={(value) => updateParams({ kind: value === 'staff' ? 'staff' : '' })}
+              onChange={(value) => chooseKind(value === 'staff' ? 'staff' : 'student')}
             />
           </div>
           <Field label="Search" htmlFor="people-search" className="field-search">

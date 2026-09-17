@@ -22,8 +22,21 @@ export default async function PeoplePage({
   const actor = await loadActor();
   const roles = actor.kind === 'active' ? actor.account.roles : [];
   const ticketWorker = canWorkTickets(roles);
-  const [page, preferences] = await Promise.all([
-    loadPeople(filters, { worksTickets: ticketWorker }),
+  /*
+   * Both lists at once, on the plain first page. Switching between students
+   * and staff is the most-pressed control on this screen, and a round trip to
+   * the server for each press is what made it feel slow: the other list is
+   * read here alongside this one, so the switch is a swap of what is already
+   * on the page and the URL catches up. A search or a later page names one
+   * list only, and the other is left null.
+   */
+  const plain = !filters.query && (filters.page ?? 1) <= 1;
+  const viewer = { worksTickets: ticketWorker };
+  const [page, other, preferences] = await Promise.all([
+    loadPeople(filters, viewer),
+    plain
+      ? loadPeople({ ...filters, kind: filters.kind === 'staff' ? 'student' : 'staff' }, viewer)
+      : Promise.resolve(null),
     loadPreferences(),
   ]);
   const canExport = actor.kind === 'active' && canExportDirectory(roles);
@@ -44,6 +57,7 @@ export default async function PeoplePage({
       />
       <PeopleList
         page={page}
+        other={other}
         gmailMode={preferences.gmailMode}
         canExport={canExport}
         ticketWorker={ticketWorker}

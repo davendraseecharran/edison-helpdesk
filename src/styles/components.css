@@ -1495,6 +1495,9 @@ p.flash {
   border-radius: 999px;
   background: var(--surface-2);
   isolation: isolate;
+  /* The pill's edges move on layout properties; keep that layout and its
+     repaint inside the track, whatever the page behind it is doing. */
+  contain: layout paint;
 }
 
 /*

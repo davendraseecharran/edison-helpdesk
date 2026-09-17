@@ -55,7 +55,16 @@ const MUTE_FALLBACK_MS = 120;
 
 function suppressTransitions(): () => void {
   const style = document.createElement('style');
-  style.append(document.createTextNode('*,*::before,*::after{transition:none !important}'));
+  // Everything but the segmented control's pill: the theme picker IS a
+  // segmented control, and a pill that jumped to the new choice the moment
+  // the page changed colour would look like the one thing on the screen
+  // that did not get the message. Its edges carry no colour, so letting
+  // them keep moving costs no cross-fade.
+  style.append(
+    document.createTextNode(
+      '*:not(.segmented-blob),*::before,*::after{transition:none !important}',
+    ),
+  );
   document.head.append(style);
 
   // Read for the flush, not for the value.
