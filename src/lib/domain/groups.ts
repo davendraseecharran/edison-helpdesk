@@ -22,7 +22,7 @@ export const GROUP_FIELD_NAME_MAX = 40;
  * Checklist columns per group. Six because each is a column on a table a phone
  * has to show; past that it is a form, and a form is a different screen.
  */
-export const GROUP_FIELD_LIMIT = 6;
+export const GROUP_FIELD_LIMIT = 40;
 
 import type { PersonKind } from '@/lib/domain/types';
 

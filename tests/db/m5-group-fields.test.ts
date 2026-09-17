@@ -1,11 +1,11 @@
 /**
- * Checklists: the up-to-six things a group ticks off against its members.
+ * Checklists: the things a group ticks off against its members.
  *
  * Three rules, and all three exist because the alternative is a roster nobody
  * can read:
  *
  * 1. SIX PER GROUP. Each column is a column on a table a phone has to show,
- *    and the seventh is refused with a sentence saying what to do instead.
+ *    and a seventh is welcome; forty is the only guard.
  * 2. ONE OF EACH NAME, however it is capitalised. Two columns called "Dues" is
  *    two people ticking different boxes for the same thing.
  * 3. A MARK IS A MEMBERSHIP FACT. Ticking somebody who is not in the group is
@@ -135,24 +135,10 @@ describe('the columns', () => {
     expect(await fields(officer, second)).toHaveLength(1);
   });
 
-  it('stops at six and says what to do about it', async () => {
+  it('keeps going past six: a roster has as many columns as it needs', async () => {
     const groupId = await newGroup(officer);
-    for (let at = 0; at < 6; at += 1) await addField(officer, groupId, `Column ${at}`, at);
-
-    const refused = await rpcFails(officer, 'app_save_group_field', {
-      p_field: null,
-      p_group: groupId,
-      p_name: 'Seventh',
-      p_position: 6,
-    });
-    expect(refused.message).toContain('six columns at most');
-    expect(await fields(officer, groupId)).toHaveLength(6);
-
-    // And there is room again once one goes.
-    const [first] = await fields(officer, groupId);
-    await rpcOk(officer, 'app_delete_group_field', { p_field: first.id });
-    await addField(officer, groupId, 'Seventh', 6);
-    expect(await fields(officer, groupId)).toHaveLength(6);
+    for (let at = 0; at < 7; at += 1) await addField(officer, groupId, `Column ${at}`, at);
+    expect(await fields(officer, groupId)).toHaveLength(7);
   });
 
   it('renames and reorders through the same function', async () => {

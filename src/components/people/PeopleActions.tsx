@@ -151,7 +151,11 @@ export function PeopleActions({
   // Before the list is in, the button is offered: it is what starts the fetch.
   // Once it is in, a list with nobody to write to says so rather than opening
   // an empty compose window.
-  const gmailBlocked = ready && link.url === null;
+  // Nobody to act on is known before anything is fetched: an empty list, or a
+  // lazy list whose count is zero, greys the buttons up front rather than after
+  // a click that could only fail.
+  const nobody = lazy ? (expected ?? 0) === 0 : people.length === 0;
+  const gmailBlocked = nobody || (ready && link.url === null);
   const gmailLabel = single ? 'Email' : 'Open in Gmail';
   const gmailHint = waiting ? preparing : gmailTitle(link, mode);
 
@@ -227,7 +231,7 @@ export function PeopleActions({
           disabled={gmailBlocked}
           aria-busy={loading || undefined}
           aria-describedby={hintId}
-          title={gmailHint}
+          title={nobody ? 'Nobody in this list.' : gmailHint}
           onClick={openGmail}
         >
           {gmailLabel}
@@ -269,7 +273,7 @@ export function PeopleActions({
       ) : (
         <DropdownMenu onOpenChange={onMenuOpen}>
           <DropdownMenuTrigger asChild>
-            <Button size={size} icon={Copy} aria-busy={loading || undefined}>
+            <Button size={size} icon={Copy} aria-busy={loading || undefined} disabled={nobody} title={nobody ? 'Nobody in this list.' : undefined}>
               Copy
               <Icon icon={ChevronDown} size={16} weight="medium" />
             </Button>

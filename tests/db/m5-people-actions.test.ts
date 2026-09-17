@@ -149,7 +149,7 @@ describe('the Gmail mode preference', () => {
   it('refuses a third answer by name, and changes nothing when it does', async () => {
     await rpcOk(officer, 'app_update_preferences', { p_patch: { gmail_mode: 'bcc' } });
 
-    for (const wrong of ['to', '', 'Bcc mode']) {
+    for (const wrong of ['reply', '', 'Bcc mode']) {
       const refused = await rpcFails(officer, 'app_update_preferences', {
         p_patch: { gmail_mode: wrong },
       });

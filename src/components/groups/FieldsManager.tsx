@@ -3,7 +3,7 @@
 /**
  * The columns a group ticks off against its members.
  *
- * "Permission slip", "Dues", "Polo ordered" — six at most, because each one is
+ * "Permission slip", "Dues", "Polo ordered" — as many as the roster needs; forty is only a guard
  * a column on the roster table and the roster has to fit a phone. The cap is
  * the database's; this screen shows what is left rather than letting somebody
  * type a seventh and be told no.
@@ -98,7 +98,7 @@ export function FieldsManager({
       open={open}
       onClose={onClose}
       title="Checklist columns"
-      description="Up to six things to tick off against each member."
+      description="The things to tick off against each member, as many as the roster needs."
       footer={<Button onClick={onClose}>Done</Button>}
     >
       {fields.length === 0 ? (

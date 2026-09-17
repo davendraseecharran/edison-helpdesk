@@ -45,7 +45,7 @@ import { OpenBeam } from '@/components/ui/OpenBeam';
 import { IMAGE_TYPES, MAX_IMAGES } from '@/lib/ai/images';
 import type { PageContext } from './page-context';
 import { imageFilesFrom, type Attachment } from './useAttachments';
-import { ReasoningSlider } from './ReasoningSlider';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import type { SpeechRecognitionHandle } from './useSpeech';
 
 /** Six lines of 14px body text, plus the field's own padding. */
@@ -324,7 +324,28 @@ export const AiComposer = forwardRef<AiComposerHandle, AiComposerProps>(function
                     textarea.current?.focus();
                   }}
                 >
-                  <ReasoningSlider value={reasoning} options={reasoningOptions} onChange={onReasoning} />
+                  {/* The keys the control owns stop here, so the menu does not
+                      read an arrow as navigation or Enter as "pick and close". */}
+                  <div
+                    onKeyDown={(event) => {
+                      if (
+                        ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Enter', ' '].includes(
+                          event.key,
+                        )
+                      ) {
+                        event.stopPropagation();
+                      }
+                    }}
+                  >
+                    <SegmentedControl
+                      label="Reasoning level"
+                      size="sm"
+                      value={reasoning}
+                      options={reasoningOptions.map((option) => ({ value: option.value, label: option.label }))}
+                      onChange={onReasoning}
+                      autoFocus
+                    />
+                  </div>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : null}
