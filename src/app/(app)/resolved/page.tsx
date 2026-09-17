@@ -31,12 +31,10 @@ export default async function ResolvedPage({
             : 'Resolved and cancelled tickets you owned or helped with. Work belonging to other NetRiders is not listed here.'
         }
         /*
-          The counting lives one press from the list it counts, and nowhere
-          else. It is not on the rail: an administrator reads it a few times a
-          term, and a permanent item for an occasional read costs every other
-          item on the rail a little of its place.
+          The counting, one press from the list it counts. Every ticket worker
+          reads it now, so the button is not gated on the role.
         */
-        actions={admin ? <ResolvedAnalyticsLink /> : null}
+        actions={<ResolvedAnalyticsLink />}
       />
       <TicketListView
         page={page}

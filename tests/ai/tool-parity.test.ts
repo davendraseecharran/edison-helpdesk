@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ADMIN_READ_TOOLS,
+  ADMIN_TOOLS,
+  DIRECTORY_EXPORT_TOOLS,
   executeTool,
   isWriteTool,
+  READ_TOOLS,
   requiresApproval,
   toolsFor,
   validateArgs,
+  WRITE_TOOLS,
   type ToolContext,
 } from '../../src/lib/ai/tools';
 import { schoolDayEnd, schoolDayStart } from '../../src/lib/format';
@@ -497,5 +502,102 @@ describe('list_audit', () => {
 
   it('refuses a date that is not one', () => {
     expect(validateArgs('list_audit', { since: 'last Tuesday' }).ok).toBe(false);
+  });
+});
+
+/**
+ * The second parity pass: everything a signed-in person can do from a screen
+ * that the assistant could not, closed in one table.
+ *
+ * One row per tool: its group, and who is offered it. The table is the
+ * assertion — a tool that lands in the wrong group asks or fails to ask, and
+ * one offered to the wrong role is a card a skills officer should never see —
+ * and it is checked against `toolsFor` for all three roles rather than
+ * sampled, so a gating change shows up as a row that no longer matches.
+ */
+describe('the parity tools, and who is offered each', () => {
+  type Who = 'all' | 'desk' | 'admin' | 'directory-export';
+  const TABLE: [string, 'read' | 'write' | 'admin', Who][] = [
+    // Reads.
+    ['list_presets', 'read', 'desk'],
+    ['export_people_csv', 'read', 'directory-export'],
+    ['export_devices_csv', 'read', 'all'],
+    ['export_group_csv', 'read', 'all'],
+    ['list_invites', 'read', 'admin'],
+    ['list_access_requests', 'read', 'admin'],
+    // Settings.
+    ['set_display_name', 'write', 'all'],
+    ['update_shared_notes', 'write', 'all'],
+    ['save_preset', 'write', 'desk'],
+    ['delete_preset', 'write', 'desk'],
+    ['move_preset', 'write', 'desk'],
+    // Bulk.
+    ['create_tickets', 'write', 'desk'],
+    ['claim_tickets', 'write', 'desk'],
+    ['import_people', 'write', 'all'],
+    ['bulk_assign_devices', 'write', 'desk'],
+    ['bulk_return_devices', 'write', 'desk'],
+    // The rest of a group's page.
+    ['update_group', 'write', 'all'],
+    ['set_group_member_note', 'write', 'all'],
+    ['save_group_field', 'write', 'all'],
+    ['delete_group_field', 'write', 'all'],
+    ['set_checklist_marks', 'write', 'all'],
+    ['create_group_event', 'write', 'all'],
+    ['delete_group_event', 'write', 'all'],
+    // Administration.
+    ['delete_group', 'admin', 'admin'],
+    ['revoke_invite', 'admin', 'admin'],
+  ];
+
+  const offered = {
+    admin: new Set(toolsFor(['admin']).map((tool) => tool.name)),
+    netrider: new Set(toolsFor(['netrider']).map((tool) => tool.name)),
+    skills: new Set(toolsFor(['skills_officer']).map((tool) => tool.name)),
+  };
+
+  it('puts each in the group the table says', () => {
+    for (const [name, group] of TABLE) {
+      const list = group === 'read' ? READ_TOOLS : group === 'write' ? WRITE_TOOLS : ADMIN_TOOLS;
+      expect(list, name).toContain(name);
+      expect(isWriteTool(name), name).toBe(group !== 'read');
+    }
+  });
+
+  it('offers each to exactly the roles the table says', () => {
+    for (const [name, , who] of TABLE) {
+      expect(offered.admin.has(name), `${name} for an administrator`).toBe(true);
+      expect(offered.netrider.has(name), `${name} for a NetRider`).toBe(who === 'all' || who === 'desk');
+      expect(offered.skills.has(name), `${name} for a skills officer`).toBe(
+        who === 'all' || who === 'directory-export',
+      );
+    }
+    // The two administrator reads are reads that never ask; the export is the
+    // one read gated by the roster's own roles.
+    expect(ADMIN_READ_TOOLS).toContain('list_invites');
+    expect(ADMIN_READ_TOOLS).toContain('list_access_requests');
+    expect(DIRECTORY_EXPORT_TOOLS).toEqual(['export_people_csv']);
+  });
+
+  it('asks for each the way its group says', () => {
+    for (const [name, group] of TABLE) {
+      if (group === 'read') {
+        expect(requiresApproval(name, {}, true), name).toBe(false);
+      } else if (group === 'admin') {
+        expect(requiresApproval(name, {}, false), name).toBe(true);
+      } else {
+        expect(requiresApproval(name, {}, false), name).toBe(false);
+        expect(requiresApproval(name, {}, true), name).toBe(true);
+      }
+    }
+  });
+
+  it('gives every new tool a description that says what it does', () => {
+    const defs = toolsFor(['admin']);
+    for (const [name] of TABLE) {
+      const def = defs.find((tool) => tool.name === name);
+      expect(def, name).toBeDefined();
+      expect(def?.description.length, name).toBeGreaterThan(40);
+    }
   });
 });

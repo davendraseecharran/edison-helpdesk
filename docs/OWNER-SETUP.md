@@ -95,7 +95,7 @@ Do this first, and do it now: it ends the half-state described above.
 
 The changes are **additive**. No table the district's data lives in is dropped,
 renamed or rewritten, and no existing policy or grant is changed. There are
-fifty-two new migration files, all numbered above the nineteen the hosted
+fifty-three new migration files, all numbered above the nineteen the hosted
 project already carries, so they apply in order after them.
 
 **1.1 Take a backup.** Supabase dashboard → Database → Backups, and confirm a
@@ -111,8 +111,8 @@ npx supabase migration list --linked
 ```
 
 You should see the nineteen migrations you already have listed on both sides,
-followed by **fifty-two** rows that are present locally and blank on the
-remote side. If you see fewer than fifty-two, your checkout is old: run
+followed by **fifty-three** rows that are present locally and blank on the
+remote side. If you see fewer than fifty-three, your checkout is old: run
 `git pull origin main` and look again. If you see rows the other way round
 (remote has something local does not), stop and ask before pushing.
 
@@ -122,9 +122,9 @@ remote side. If you see fewer than fifty-two, your checkout is old: run
 npx supabase db push
 ```
 
-It lists the fifty-two files, asks you to confirm, and applies them in
+It lists the fifty-three files, asks you to confirm, and applies them in
 order. It takes about a minute. The last file it names is
-`20260916160200_m5_welcome_marks.sql`, followed by "Finished supabase db push."
+`20260916170000_m5_analytics.sql`, followed by "Finished supabase db push."
 
 **1.4 Verify.** Reload the live site.
 
@@ -400,9 +400,32 @@ And the four from the first day:
   short text the whole team can read and edit: what the desk is, room names,
   the rules of the house. Both are read by the assistant on every message.
   Six hundred characters each; keep them short.
-- **Resolved analytics**, administrators only: Resolved → Analytics, or the
-  palette. Who resolved how many, by priority, median time to resolve, top
-  category, for this week, month, term or all time.
+- **Analytics.** Work → Analytics, for every NetRider and administrator, over
+  this week, this month, this term or all time. It opens with what was
+  resolved and what came in, each with the change on the period before, the
+  median and the 90th-percentile time to resolve, how much was resolved within
+  a day, the pace per school day and per week, and what is open, unassigned
+  and waiting right now. Under that: throughput per day, or per week over a
+  term, with the backlog drawn behind it; when tickets actually arrive, by
+  weekday and by hour; the common issues by category with the median time each
+  one takes; the priority mix, with how long each takes from the moment
+  somebody claims it; the busiest rooms; how requests arrive; staff against
+  students and who asks most often; how much time went on waiting and what
+  for; and the eight hardest tickets of the period.
+
+  Four honours sit in the middle of it, and none of them is "most tickets":
+  **Fastest on urgent**, the shortest median from claiming an urgent ticket to
+  resolving it; **Takes the hard ones**, the highest average difficulty over
+  what somebody resolved, which counts priority, how long a ticket stayed
+  open, how many people it took and whether it came back; **Most hands on
+  deck**, joining a colleague's ticket most often; and **Steadiest**, resolving
+  something on the most school days of the period. There is
+  no leaderboard for NetRiders: the per-person table, everybody's counts and
+  medians ranked together, is still administrators only, on the same page and
+  under its own heading. The assistant answers the same questions from the
+  same numbers, through a tool called `desk_analytics` — "how many did we
+  close this week", "what is the most common issue", "who is fastest on urgent
+  tickets" — so the panel and the page never disagree.
 - **Importing the old spreadsheet.** Paste the rows into the assistant panel
   and ask it to import them. It maps the columns (date called, who and where,
   the problem, who fixed it, date resolved), asks once if a column is
@@ -429,6 +452,15 @@ And the four from the first day:
   links to where they live: the Open Queue, My tickets, Administration, and
   a new page, Devices → due back, which lists every machine due back, oldest
   first, with the same Return button as Today.
+- **The assistant can do anything you can.** Every setting (name, theme,
+  reasoning, notes, shared notes, welcome effect, Gmail links, notifications,
+  quick tickets), every ticket, people, group, attendance, checklist and
+  device action, the analytics, exports (it hands back the link), and bulk
+  work: paste a spreadsheet, a CSV or a screenshot of one and ask; it reads
+  the rows, says what it mapped, and makes the changes in one go, asking
+  first the way it always does. Only signing-in flows and phone pairing stay
+  in the app itself. Ninety-three tools; a skills officer's assistant has the
+  directory ones.
 - **The welcome effect.** Settings → Assistant → Welcome effect is a checklist
   of seven animations for the assistant's opening mark (Diamond and Wave are
   on by default). One ticked plays every time; several ticked, one is picked
@@ -447,8 +479,8 @@ And the four from the first day:
   and see no tickets.
 - An uninvited person lands on the waiting screen and stays there until you
   answer.
-- The rail is Today, the queue, People, Devices, and Administration for
-  administrators. The command palette opens with Ctrl K (⌘K on a Mac) and also
+- The rail is Today, the queue, Analytics, People, Devices, and
+  Administration for administrators. The command palette opens with Ctrl K (⌘K on a Mac) and also
   talks to the assistant.
 
 Nothing in the app can be reached without signing in. Every screen that needs a
@@ -473,7 +505,7 @@ deployed files.
 
 **The "database is behind" notice is still there after `db push`.** First a
 hard refresh. Then check `npx supabase migration list --linked`: if the
-fifty-two are on both sides, the site is simply serving a cached page; wait
+fifty-three are on both sides, the site is simply serving a cached page; wait
 a minute and reload. If some are missing on the remote side, `db push` did not
 finish; run it again, it continues where it stopped.
 

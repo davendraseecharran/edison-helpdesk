@@ -1,0 +1,953 @@
+/*
+ * The analytics page: its sections, its stat cards and its charts.
+ *
+ * Every chart is inline SVG drawn in the gray ladder — `--ink` for a mark,
+ * `--ink` at a lower opacity for the quieter of two series, `--surface-3` for
+ * a track, `--line` for a gridline — because a chart here is a comparison, not
+ * a status, and the three status tones keep the meaning they have everywhere
+ * else. Text never wears a series colour: labels, values and legends sit in
+ * the text tokens and a swatch beside them carries identity.
+ *
+ * Geometry comes from the components. Columns, bars and heat cells are drawn
+ * with percentage coordinates, so an SVG stretched to its container keeps its
+ * real pixel radii and strokes; the two line marks (the backlog band and a
+ * sparkline) are a normalised viewBox with a non-scaling stroke, which is
+ * what lets one polyline be 2px on a phone and on a desk.
+ *
+ * Motion: the page is opened a few times a term, so its first paint is one of
+ * the moments motion.md allows an entrance. Columns and bars grow from their
+ * baseline, lines are revealed from the left, arcs sweep open, heat rows fade in — all in
+ * 300ms on `--ease-out`, staggered a few milliseconds a mark and capped so a
+ * chart of sixty marks finishes with a chart of seven. Every keyframe runs
+ * FROM a start state TO the element's own resting style, so under reduced
+ * motion, where `base.css` drops every animation, each mark is simply already
+ * drawn. 300ms is a deliberate literal: it is not a transition and none of the
+ * transition tokens name a duration this long.
+ */
+
+/* --- The page ----------------------------------------------------------- */
+
+.analytics-lead {
+  margin: -8px 0 16px;
+  color: var(--ink-2);
+}
+
+.analytics-period {
+  display: inline-flex;
+}
+
+.analytics-period[data-busy] {
+  opacity: 0.7;
+  transition: opacity var(--dur-press) ease-out;
+}
+
+.analytics-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.analytics-head {
+  align-items: flex-start;
+  padding: 12px;
+}
+
+.analytics-head-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.analytics-body {
+  display: grid;
+  gap: 16px;
+  padding: 12px;
+}
+
+.analytics-quiet {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+/* Two or three blocks side by side, stacking as the panel narrows. */
+.analytics-grid {
+  display: grid;
+  gap: 20px 24px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+}
+
+.analytics-grid-wide {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+}
+
+.analytics-block {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  min-width: 0;
+}
+
+.analytics-block-title {
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  font-weight: 500;
+}
+
+/* --- Stat cards --------------------------------------------------------- */
+
+.stat-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 164px), 1fr));
+}
+
+.stat-card {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-3);
+  background: var(--surface-2);
+}
+
+.stat-card-label {
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+/*
+ * Proportional figures on the big number: tabular digits give every glyph the
+ * width of a zero, and "121" at 26px reads loose. Columns of numbers keep
+ * `tabular-nums`; a figure on its own does not need to align with anything.
+ */
+.stat-card-value {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: var(--fs-5);
+  font-weight: 600;
+  letter-spacing: var(--tracking-title);
+  line-height: 1.1;
+  font-variant-numeric: proportional-nums;
+}
+
+.stat-card-delta {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  font-weight: 500;
+  letter-spacing: 0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-card-line {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+/* A row of small figures: the reader's own numbers, the waiting summary. */
+.stat-strip {
+  display: grid;
+  gap: 12px 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 120px), 1fr));
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-3);
+  background: var(--surface-2);
+}
+
+.stat-strip > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.stat-strip dt {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.stat-strip dd {
+  margin: 0;
+  font-size: var(--fs-3);
+  font-weight: 600;
+  letter-spacing: var(--tracking-heading);
+}
+
+/* --- Chart frame -------------------------------------------------------- */
+
+.chart {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  color: var(--ink-2);
+  font-size: var(--fs-0);
+}
+
+.chart-key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 6px;
+  border-radius: 2px;
+  background: var(--ink);
+  vertical-align: -1px;
+}
+
+.chart-key-soft {
+  opacity: 0.3;
+}
+
+.chart-key-line {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  vertical-align: 3px;
+}
+
+/*
+ * Ticks in a column of their own, the plot beside them, the axis beneath.
+ * The optional band above the plot (the backlog line) shares the columns so
+ * its zero and the plot's zero sit on the same vertical, and its title spans
+ * both.
+ */
+.chart-frame {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 8px;
+  row-gap: 6px;
+}
+
+.chart-band-title {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  grid-column: 1 / -1;
+  color: var(--ink-2);
+  font-size: var(--fs-0);
+}
+
+.chart-band-now {
+  color: var(--ink);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-band-ticks,
+.chart-ticks {
+  position: relative;
+  grid-column: 1;
+  min-width: 1.6em;
+}
+
+.chart-band-ticks span,
+.chart-ticks span {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-band {
+  grid-column: 2;
+  height: var(--band-h, 56px);
+}
+
+.chart-plot {
+  position: relative;
+  grid-column: 2;
+  height: var(--chart-h, 160px);
+}
+
+/* The plot's own space between the band and the columns. */
+.chart-band + .chart-ticks,
+.chart-band + .chart-ticks + .chart-plot {
+  margin-top: 10px;
+}
+
+.chart-band svg,
+.chart-plot svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.chart-axis {
+  display: grid;
+  grid-column: 2;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.chart-axis-label {
+  min-width: 0;
+  justify-self: center;
+  visibility: hidden;
+  white-space: nowrap;
+}
+
+.chart-axis-label[data-shown] {
+  visibility: visible;
+}
+
+/* Gridlines and the baseline: hairline, solid, a step off the surface. */
+.chart-grid line {
+  stroke: var(--line);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.chart-baseline {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+/* --- Columns ------------------------------------------------------------ */
+
+.chart-hit {
+  fill: transparent;
+  transition: fill var(--dur-hover) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .chart-slot:hover .chart-hit {
+    fill: var(--surface-3);
+  }
+}
+
+.chart-col {
+  fill: var(--ink);
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: analytics-grow-y 300ms var(--ease-out) backwards;
+  animation-delay: min(calc(var(--i, 0) * 8ms), 240ms);
+}
+
+.chart-col-soft {
+  opacity: 0.3;
+}
+
+/* --- Lines: the backlog band and the sparkline -------------------------- */
+
+.chart-line {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/*
+ * The clip that reveals a line from the left. A dash drawn over `pathLength`
+ * would be the classic way, but under a non-scaling stroke in a stretched
+ * viewBox Chromium leaves gaps in the finished line; a clip rests wide open.
+ */
+.chart-reveal {
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+  animation: analytics-grow-x 300ms var(--ease-out);
+}
+
+.chart-area {
+  fill: var(--ink);
+  opacity: 0.06;
+  animation: analytics-fade 300ms var(--ease-out);
+}
+
+.sparkline {
+  display: block;
+  width: 72px;
+  height: 20px;
+  overflow: visible;
+}
+
+.sparkline .chart-line {
+  stroke-width: 1.5;
+}
+
+/* --- Bars (horizontal) -------------------------------------------------- */
+
+.bars {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bars-head,
+.bar-row {
+  display: grid;
+  grid-template-columns: var(--bars-cols);
+  align-items: center;
+  column-gap: 12px;
+}
+
+.bars-head {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.bars-head-cells,
+.bar-cells {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  grid-column: 3;
+}
+
+.bars-head-cell,
+.bar-cell {
+  min-width: var(--w, 48px);
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar-cell {
+  font-size: var(--fs-1);
+}
+
+/* On the desk the header row names each cell; on a phone the cell names itself. */
+.bar-cell-key {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.bar-label {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bar-track {
+  display: block;
+  width: 100%;
+  height: 10px;
+  overflow: visible;
+}
+
+.bar-bg {
+  fill: var(--surface-3);
+}
+
+.bar-fill {
+  fill: var(--ink);
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+  animation: analytics-grow-x 300ms var(--ease-out) backwards;
+  animation-delay: min(calc(var(--i, 0) * 12ms), 240ms);
+}
+
+/* A stacked bar: segments a step apart, a 2px gap of surface between them. */
+.stack-bar {
+  display: block;
+  width: 100%;
+  height: 14px;
+  overflow: visible;
+}
+
+.stack-seg {
+  fill: var(--ink);
+  transform-box: fill-box;
+  transform-origin: 0 50%;
+  animation: analytics-grow-x 300ms var(--ease-out) backwards;
+  animation-delay: min(calc(var(--i, 0) * 40ms), 240ms);
+}
+
+@media (max-width: 719.98px) {
+  .bars-head {
+    display: none;
+  }
+
+  /* Label, then the figures, then the bar: nothing has to be cut to fit. */
+  .bar-row {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 4px;
+  }
+
+  .bar-label {
+    grid-column: 1;
+    grid-row: 1;
+    white-space: normal;
+  }
+
+  .bar-cells {
+    grid-column: 1;
+    grid-row: 2;
+    justify-content: flex-start;
+    gap: 14px;
+  }
+
+  .bar-cell {
+    text-align: left;
+  }
+
+  .bar-cell {
+    display: grid;
+    gap: 1px;
+    min-width: 0;
+    font-size: var(--fs-0);
+  }
+
+  .bar-cell-key {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip: auto;
+    color: var(--ink-3);
+    font-weight: 400;
+  }
+
+  .bar-track {
+    grid-column: 1;
+    grid-row: 3;
+  }
+}
+
+/* --- Donut -------------------------------------------------------------- */
+
+.donut-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px 24px;
+  align-items: center;
+}
+
+.donut {
+  display: block;
+  width: var(--donut-size, 152px);
+  height: var(--donut-size, 152px);
+  overflow: visible;
+}
+
+.donut-slice {
+  fill: none;
+  stroke: var(--ink);
+  animation: analytics-arc 300ms var(--ease-out) backwards;
+  animation-delay: min(calc(var(--i, 0) * 60ms), 240ms);
+}
+
+.donut-track {
+  fill: none;
+  stroke: var(--surface-3);
+}
+
+.donut-figure {
+  fill: var(--ink);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-title);
+}
+
+.donut-caption {
+  fill: var(--ink-3);
+  font-size: 10px;
+}
+
+/*
+ * One column on a phone, the ring centred. Only the ring: a centred grid item
+ * shrinks to its content, and the table's scroll box sized to the table was
+ * what pushed the page sideways.
+ */
+@media (max-width: 719.98px) {
+  .donut-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .donut-row .donut {
+    justify-self: center;
+  }
+}
+
+/* --- A small table (priority, people) ----------------------------------- */
+
+.analytics-table-wrap {
+  overflow-x: auto;
+}
+
+.analytics-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.analytics-table th,
+.analytics-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.analytics-table th:first-child,
+.analytics-table td:first-child {
+  padding-left: 0;
+}
+
+.analytics-table th:last-child,
+.analytics-table td:last-child {
+  padding-right: 0;
+}
+
+.analytics-table thead th {
+  color: var(--ink-2);
+  font-size: var(--fs-0);
+  font-weight: 500;
+}
+
+.analytics-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.analytics-table .num {
+  text-align: right;
+}
+
+/* The people table, which is the shared DataTable, keeps its own panel edge. */
+.analytics-people-table {
+  margin: 0 -12px -12px;
+  border-top: 1px solid var(--line);
+}
+
+/* --- Heatmap ------------------------------------------------------------ */
+
+.heat {
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.heat-grid {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 8px;
+  row-gap: 6px;
+  min-width: 520px;
+}
+
+.heat-rows {
+  display: grid;
+  grid-template-rows: repeat(7, 1fr);
+  height: var(--heat-h, 140px);
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-variant-numeric: tabular-nums;
+}
+
+.heat-rows span {
+  display: flex;
+  align-items: center;
+}
+
+.heat-cells {
+  display: block;
+  width: 100%;
+  height: var(--heat-h, 140px);
+  overflow: visible;
+}
+
+.heat-cell {
+  fill: var(--ink);
+  animation: analytics-fade 300ms var(--ease-out) backwards;
+  animation-delay: min(calc(var(--i, 0) * 30ms), 240ms);
+}
+
+.heat-cell-empty {
+  fill: var(--surface-3);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .heat-cell:hover {
+    stroke: var(--ink);
+    stroke-width: 1.5px;
+  }
+}
+
+.heat-hours {
+  display: grid;
+  grid-column: 2;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.heat-hours span {
+  min-width: 0;
+  justify-self: start;
+  white-space: nowrap;
+}
+
+/* --- Honours and people ------------------------------------------------- */
+
+.honours {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+}
+
+.honour {
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  min-width: 0;
+  padding: 12px 14px;
+  border-radius: var(--radius-3);
+  background: var(--surface-2);
+}
+
+.honour-title {
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.honour-name {
+  overflow: hidden;
+  font-size: var(--fs-4);
+  font-weight: 600;
+  letter-spacing: var(--tracking-title);
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.honour-name[data-empty] {
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+.honour-value {
+  font-size: var(--fs-2);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.honour-detail {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+/* --- Requesters --------------------------------------------------------- */
+
+.repeat-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: repeat;
+}
+
+.repeat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px 10px;
+  min-width: 0;
+  font-size: var(--fs-1);
+}
+
+.repeat-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repeat-kind {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.repeat-count {
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Hardest tickets ---------------------------------------------------- */
+
+.hard-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hard-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.hard-row:last-child {
+  border-bottom: 0;
+}
+
+.hard-rank {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-variant-numeric: tabular-nums;
+}
+
+.hard-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hard-title {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hard-title a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hard-title a:hover {
+    text-decoration: underline;
+  }
+}
+
+.hard-number {
+  margin-right: 8px;
+  color: var(--ink-2);
+  font-family: var(--font-mono), ui-monospace;
+  font-size: var(--fs-1);
+}
+
+.hard-title[data-hidden] {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+.hard-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.hard-figures {
+  display: flex;
+  gap: 16px;
+  text-align: right;
+}
+
+.hard-figure {
+  display: grid;
+  gap: 1px;
+  font-size: var(--fs-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.hard-figure span {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.hard-score {
+  min-width: 44px;
+  font-weight: 600;
+}
+
+@media (max-width: 719.98px) {
+  .hard-row {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+
+  .hard-figures {
+    grid-column: 2;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .hard-title {
+    white-space: normal;
+  }
+}
+
+/* --- How these are counted ---------------------------------------------- */
+
+.analytics-defs {
+  display: grid;
+  gap: 12px 24px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  margin: 0;
+}
+
+.analytics-defs > div {
+  display: grid;
+  gap: 4px;
+}
+
+.analytics-defs dt {
+  font-weight: 500;
+}
+
+.analytics-defs dd {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+/* --- The entrances ------------------------------------------------------ */
+
+@keyframes analytics-grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+@keyframes analytics-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes analytics-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes analytics-arc {
+  from {
+    stroke-dasharray: 0 100;
+  }
+}

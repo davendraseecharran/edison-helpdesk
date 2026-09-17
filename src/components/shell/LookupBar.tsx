@@ -34,7 +34,6 @@ import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { ThinkingOrb } from 'thinking-orbs';
 import {
-  ChartColumn,
   Hand,
   Laptop,
   MessageCircle,
@@ -72,7 +71,7 @@ import {
   RecentRow,
   type LookupAction,
 } from './LookupResults';
-import { canWorkTickets, isAdmin } from '@/lib/auth/roles';
+import { canWorkTickets } from '@/lib/auth/roles';
 import { navItems } from './RailNav';
 import { ScanButton } from './ScanButton';
 import { useTheme, useThemeChoice } from './ThemeProvider';
@@ -454,20 +453,6 @@ function Palette({
         run: go(item.href),
       });
     }
-    // Not a rail item, so it is not in `navItems` and has to be named here:
-    // the Resolved list carries the link for an administrator, and this is the
-    // other way to reach a page nobody visits often enough to look for.
-    if (isAdmin(actor.roles)) {
-      list.push({
-        id: 'go:/resolved/analytics',
-        label: 'Resolved analytics',
-        icon: ChartColumn,
-        group: GO_TO,
-        keywords: ['page', 'open', 'go to', 'stats', 'statistics', 'report', 'who resolved'],
-        run: go('/resolved/analytics'),
-      });
-    }
-
     // The list Today only shows the head of. Typed, not resting: the rail
     // already says Devices, and this is one view of that page.
     if (canWorkTickets(actor.roles)) {

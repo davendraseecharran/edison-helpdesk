@@ -35,6 +35,7 @@ deployment and will not open the repository.
 - [The phone as a scanner](#the-phone-as-a-scanner)
 - [Attachments, notifications and the audit log](#attachments-notifications-and-the-audit-log)
 - [The assistant](#the-assistant)
+- [Analytics](#analytics)
 - [Attribution](#attribution)
 - [The design system](#the-design-system)
 - [Deploy this branch](#deploy-this-branch)
@@ -364,55 +365,124 @@ person's own ChatGPT account.
 
 ### Every tool, and who is offered it
 
-Fifty-three tools. A skills officer is offered fourteen, a NetRider forty-three,
-an administrator all of them. "Asks" is whether the change is put to the person
-before it runs: **setting** means it follows their "ask before changes" switch,
-**always** means it asks whatever the switch says, and a read never asks.
+Ninety-three tools. A skills officer is offered thirty-nine, a NetRider
+seventy-eight, an administrator all of them. "Asks" is whether the change is put to the
+person before it runs: **setting** means it follows their "ask before changes"
+switch, **always** means it asks whatever the switch says, and a read never
+asks. The table is generated from `TOOLS` in `src/lib/ai/tools.ts` — one row
+per tool, the first sentence of what the model is told — so it cannot drift
+from the code; regenerate it rather than editing a row by hand.
+
+The rule behind the list is parity: whatever a signed-in person can do from a
+screen, their assistant can do for them through the same RPC, gated the same
+way. That includes every setting on the Settings screen except the sign-in
+methods, every bulk action a list offers (assign or return a selection, tick a
+column, paste a class list in), and the sheets the desk keeps: a CSV, a
+spreadsheet or a screenshot of one becomes one call to a bulk tool
+(`create_tickets`, `import_people`, `import_resolved_tickets`, `claim_tickets`,
+`set_checklist_marks`, `bulk_assign_devices`, `bulk_return_devices`) rather
+than a row-by-row loop, and the answer says how many landed, how many were
+skipped and which rows were refused and why. What is not here, and why: the
+sign-in flows (Google linking, passwords, pairing a phone as a scanner) need
+the browser; editing a ticket's title, issue or location has no path in the
+application at all; and every export hands over a link or a preview, never the
+file, because the assistant cannot download.
 
 | Tool | Does | Roles | Asks |
 | --- | --- | --- | --- |
-| `search_records` | Tickets, people and devices at once | All | read |
-| `get_today_briefing` | The Today screen's own read | NetRider, admin | read |
-| `draft_ticket_from_text` | Reads a pasted email as a draft; creates nothing | NetRider, admin | read |
-| `get_ticket` | One ticket in full, with history and notes | NetRider, admin | read |
-| `list_queue` | Tickets by scope, status, priority, category | NetRider, admin | read |
-| `list_my_tickets` | What this person owns | NetRider, admin | read |
-| `list_people` | Students or staff | All | read |
-| `get_person` | One record, with the machines they hold | All | read |
-| `list_devices` | The inventory | All | read |
-| `get_device` | One machine | All | read |
-| `list_attachments` | The files on a ticket or a device | All | read |
-| `list_notifications` | Their own notices | All | read |
-| `list_audit` | The whole log, by day, kind, record type or by hand/AI | Admin | read |
-| `create_ticket` | Opens one, optionally claimed | NetRider, admin | setting |
-| `claim_ticket` | Takes an unclaimed one | NetRider, admin | setting |
-| `add_note` | A permanent work note | NetRider, admin | setting |
-| `set_priority` / `set_category` | What kind, how urgent | NetRider, admin | setting |
-| `set_waiting` / `resume_work` | On hold, and off it again | NetRider, admin | setting |
-| `resolve_ticket` | Closes it with what fixed it | NetRider, admin | setting |
-| `return_to_queue` | Gives it back | NetRider, admin | setting |
-| `add_collaborator` / `remove_collaborator` | Who else is on it | NetRider, admin | setting |
-| `log_work` | Minutes against a school day | NetRider, admin | setting |
-| `record_device_observation` | A machine that is not in inventory | NetRider, admin | setting |
-| `link_device_to_ticket` / `unlink_device_from_ticket` | One that is | NetRider, admin | setting |
-| `attach_to_ticket` | A picture from THIS message onto a ticket | NetRider, admin | setting |
-| `remove_attachment` | Takes a file off, if they may | NetRider, admin | setting |
-| `mark_notifications_read` | Their own, by id or all | All | setting |
-| `set_preference` | Their own theme, notices and assistant settings | All | setting |
-| `save_view` / `delete_view` | Their own named filter sets | All | setting |
-| `create_person` / `update_person` | The directory | All | setting |
-| `archive_person` | Records that somebody has left, or has not | All | setting |
-| `create_device` / `update_device` | The inventory | NetRider, admin | setting |
-| `assign_device` / `return_device` | Handing a machine out and taking it back | NetRider, admin | setting |
-| `set_device_status` / `move_device` | Where it is in its life, and where it lives | NetRider, admin | setting |
-| `bulk_update_devices` | Up to 200 at once | NetRider, admin | setting |
-| `reassign_ticket` | A different owner | Admin | always |
-| `reopen_ticket` / `cancel_ticket` | Undoing or voiding a close | Admin | always |
-| `review_access_request` | Approve or decline somebody waiting | Admin | always |
-| `create_invite` | An address and a role | Admin | always |
-| `set_roles` | Replaces what a colleague holds | Admin | always |
-| `deactivate_account` / `reactivate_account` | Access away, and back | Admin | always |
-| `export_backup` | One table as CSV | Admin | always |
+| `search_records` | Search tickets, people, devices, groups and group events at once by number, name, email, OSIS… | All | read |
+| `get_today_briefing` | What needs this person today: how many tickets are unclaimed, how many of theirs are waiting… | NetRider, admin | read |
+| `draft_ticket_from_text` | Read a pasted email or message as a ticket draft: a title, the issue with the quoted thread a… | NetRider, admin | read |
+| `get_ticket` | The full record of one ticket: its details, history, notes, work log and linked devices. | NetRider, admin | read |
+| `list_queue` | List tickets. | NetRider, admin | read |
+| `list_my_tickets` | The tickets this NetRider owns right now. | NetRider, admin | read |
+| `list_people` | List students or staff from the directory. | All | read |
+| `get_person` | One directory record with the machines they are holding. | All | read |
+| `find_people` | Look up a whole list of people at once — a class list, a roster, a column pasted out of a spr… | All | read |
+| `contact_list` | A copy-ready contact list, and a Gmail link, for a set of people: a group, a pasted list of O… | All | read |
+| `list_groups` | Every group the school keeps: the chapter's members and officers, a competition team, the peo… | All | read |
+| `group_members` | Who is in one group: their name, whether they are a student or staff, their class or departme… | All | read |
+| `group_events` | What a group has done: every meeting, practice or competition it has taken a register at, new… | All | read |
+| `event_attendance` | Who was at one event and who was not. | All | read |
+| `group_checklist` | Where a group has got to on the things it ticks off — permission slips, dues, shirts. | All | read |
+| `list_devices` | List inventory machines. | All | read |
+| `get_device` | One machine: what it is, where it is and who is holding it. | All | read |
+| `list_attachments` | The files attached to one ticket or one device: what each is called, how big it is, who attac… | All | read |
+| `list_notifications` | This NetRider's own notifications, newest first. | All | read |
+| `desk_analytics` | The desk's numbers over a period: how many did we close this week, what is the most common is… | NetRider, admin | read |
+| `list_presets` | The desk's quick tickets: the calls that repeat all day, written down once as a name, a title… | NetRider, admin | read |
+| `export_people_csv` | The directory as a spreadsheet, the same file the Export button on People makes: students or… | Skills officer, admin | read |
+| `export_devices_csv` | The inventory as a spreadsheet, the same columns the Export button on Devices makes, optional… | All | read |
+| `export_group_csv` | A group's roster, or one event's register, as a spreadsheet: the same files the Export button… | All | read |
+| `list_invites` | Every invite the helpdesk has sent: the address, the roles it grants, who sent it, when it ex… | Admin | read |
+| `list_access_requests` | Who is waiting for an administrator to let them into the helpdesk: people who signed in with… | Admin | read |
+| `list_audit` | The audit log: ticket activity, account history and record history in one ordered list, newes… | Admin | read |
+| `create_ticket` | Open a new ticket. | NetRider, admin | setting |
+| `import_resolved_tickets` | Put the desk's old spreadsheet of already-finished jobs into the helpdesk, as many rows at a… | NetRider, admin | setting |
+| `claim_ticket` | Take ownership of an unclaimed ticket. | NetRider, admin | setting |
+| `add_note` | Add a work note to a ticket. | NetRider, admin | setting |
+| `set_priority` | Change a ticket’s priority. | NetRider, admin | setting |
+| `set_category` | Change what kind of problem a ticket is. | NetRider, admin | setting |
+| `set_waiting` | Park a ticket while something outside the helpdesk is holding it up. | NetRider, admin | setting |
+| `resume_work` | Take a ticket off hold and put it back in progress. | NetRider, admin | setting |
+| `resolve_ticket` | Close a ticket with the solution that fixed it. | NetRider, admin | setting |
+| `return_to_queue` | Give a ticket back to the open queue so somebody else can pick it up. | NetRider, admin | setting |
+| `add_collaborator` | Bring a colleague onto a ticket so they can work on it too. | NetRider, admin | setting |
+| `join_ticket` | Put yourself on a colleague's ticket as a collaborator when they ask for a hand. | NetRider, admin | setting |
+| `remove_collaborator` | Take a colleague off a ticket. | NetRider, admin | setting |
+| `log_work` | Record time spent on a ticket. | NetRider, admin | setting |
+| `record_device_observation` | Record the machine a ticket is about when it is not in the inventory. | NetRider, admin | setting |
+| `link_device_to_ticket` | Name an inventory machine on a ticket, so the ticket shows in that machine’s history. | NetRider, admin | setting |
+| `attach_to_ticket` | Put a picture the person sent you in THIS message onto a ticket, as a real attachment on the… | NetRider, admin | setting |
+| `remove_attachment` | Take a file off a ticket or a device. | NetRider, admin | setting |
+| `unlink_device_from_ticket` | Take an inventory machine off a ticket. | NetRider, admin | setting |
+| `mark_notifications_read` | Mark this person's own notifications read. | All | setting |
+| `set_preference` | Change one of this person's own settings. | All | setting |
+| `save_view` | Name the filters on a list so one press puts them back. | All | setting |
+| `delete_view` | Remove one of this person's saved views by name. | All | setting |
+| `create_person` | Add somebody to the directory. | All | setting |
+| `update_person` | Change a directory record. | All | setting |
+| `archive_person` | Record that somebody has left the school, or that they have not after all. | All | setting |
+| `create_group` | Start a group: a named list of people from the directory, such as "SkillsUSA members", "Offic… | All | setting |
+| `add_to_group` | Add people to a group, a whole list at a time. | All | setting |
+| `remove_from_group` | Take one person out of a group. | All | setting |
+| `mark_attendance` | Mark people present at one event, a list at a time — or, with present false, take a mark back… | All | setting |
+| `set_checklist_mark` | Tick or untick one member against one of a group's checklist columns — "Dues", "Permission sl… | All | setting |
+| `create_device` | Add a machine to the inventory. | NetRider, admin | setting |
+| `update_device` | Change an inventory record. | NetRider, admin | setting |
+| `assign_device` | Hand a machine out to somebody. | NetRider, admin | setting |
+| `return_device` | Take a machine back from whoever holds it. | NetRider, admin | setting |
+| `set_device_status` | Change where a machine is in its life. | NetRider, admin | setting |
+| `move_device` | Record that a machine now lives somewhere else. | NetRider, admin | setting |
+| `bulk_update_devices` | Change the status, location or notes of up to 200 machines at once. | NetRider, admin | setting |
+| `create_tickets` | Open several tickets in one call, from a list somebody handed over: a spreadsheet, a CSV, a s… | NetRider, admin | setting |
+| `claim_tickets` | Take ownership of several unclaimed tickets at once — the five reports of one dead projector,… | NetRider, admin | setting |
+| `set_display_name` | Change the name this person is shown as, on tickets, notes and every history entry: the Displ… | All | setting |
+| `update_shared_notes` | Rewrite the school's shared notes for the assistant: the one box on Settings that everybody o… | All | setting |
+| `save_preset` | Add a quick ticket, or change one: the desk's shared list on Settings → Quick tickets. | NetRider, admin | setting |
+| `delete_preset` | Remove a quick ticket from the desk's shared list. | NetRider, admin | setting |
+| `move_preset` | Move a quick ticket one place up or down the desk's list, which is the order the menu and the… | NetRider, admin | setting |
+| `import_people` | Put a list of people into the directory, up to 200 rows at a time: a class list, a new-staff… | All | setting |
+| `update_group` | Rename a group, or rewrite the line saying what it is for. | All | setting |
+| `set_group_member_note` | Write the short note beside one member of a group — "treasurer", "needs a ride", "paid in cash". | All | setting |
+| `save_group_field` | Add a checklist column to a group — "Dues", "Permission slip", "Shirt size" — or rename one. | All | setting |
+| `delete_group_field` | Remove a checklist column from a group, and every tick on it. | All | setting |
+| `set_checklist_marks` | Tick, or untick, a whole list of members against one checklist column at once — everybody who… | All | setting |
+| `create_group_event` | Add a day a group did something — a meeting, a practice, a competition — so attendance can be… | All | setting |
+| `delete_group_event` | Delete one of a group's events and the attendance taken at it. | All | setting |
+| `bulk_assign_devices` | Hand a whole list of machines to one person at once — a cart to a teacher, a tray of loaners… | NetRider, admin | setting |
+| `bulk_return_devices` | Take a whole list of machines back from whoever holds them — a cart at the end of term. | NetRider, admin | setting |
+| `reassign_ticket` | Move a ticket to a different owner. | Admin | always |
+| `reopen_ticket` | Reopen a ticket that was resolved or cancelled. | Admin | always |
+| `cancel_ticket` | Cancel a ticket that should not have been raised, or that no longer applies. | Admin | always |
+| `review_access_request` | Approve or decline somebody waiting for access to the helpdesk. | Admin | always |
+| `create_invite` | Invite somebody to the helpdesk by email address. | Admin | always |
+| `deactivate_account` | Take away a colleague’s access. | Admin | always |
+| `reactivate_account` | Give a deactivated colleague their access back. | Admin | always |
+| `export_backup` | Take the school’s own copy of one table as CSV, the same read the Backups screen makes. | Admin | always |
+| `set_roles` | Set a colleague's roles. | Admin | always |
+| `delete_group` | Delete a group and every membership, event, register and checklist in it. | Admin | always |
+| `revoke_invite` | Take back an invite that has not been accepted, so that address no longer gains access on sig… | Admin | always |
 
 Three of those have a rule worth stating outside the table.
 
@@ -444,6 +514,75 @@ is asked first — so the audit log cannot sit in the admin group, where every
 tool asks and asking before a read would be a confirmation card for nothing. A
 separate `adminOnly` flag says the second thing, and the suite asserts that a
 NetRider is offered every read and write except those.
+
+## Analytics
+
+One page, one function, one document. `/analytics` is Work → Analytics in the
+rail and is open to everybody who works tickets, and every number on it comes
+from a single SECURITY DEFINER call — `app_analytics(p_since timestamptz,
+p_until timestamptz, p_bucket text) returns jsonb` — whose document has the
+shape `src/lib/domain/analytics.ts` declares. `loadAnalytics` checks that
+document field by field rather than casting it, the page draws it, and the
+assistant reads the same call, so the page and the panel can disagree about a
+number only if the database does.
+
+**The gate.** The function refuses an account that does not work tickets, and
+says so in its own sentence; a skills officer is offered neither the page nor
+the tool, and `toolsFor` settles that before a round trip. What comes back is
+aggregate — counts, medians, shares — which is why a NetRider may read it at
+all: their own Resolved list still shows them only their own tickets, and
+row-level security still hides a colleague's ticket from them.
+
+**Where a period starts** is decided in TypeScript, by the same `periodBounds`
+the Resolved table uses: this week on Monday, this month on the first, this
+term on the most recent 1 September, all time with no lower bound at all. The
+bucket follows from the period — a week and a month are read day by day, a term
+week by week, all time month by month, because a bar a day for five years is a
+texture rather than a chart. Every bound is school-local. The database is handed
+two instants and one word; it has never heard of "this term".
+
+**The previous period** is the span of equal length immediately before this one,
+measured the same way, and it is what lets a card say "up 14% on the period
+before". Resolved, created and the median time to resolve each carry their own
+previous figure. All time carries none, because there is nothing before it.
+
+**The four honours**, and not one of them is "most tickets":
+
+| Honour | What is measured |
+| --- | --- |
+| Fastest on urgent | The shortest median from taking an urgent ticket to resolving it |
+| Takes the hard ones | The highest mean difficulty over the tickets they resolved |
+| Most hands on deck | Joining a colleague's ticket most often |
+| Steadiest | Resolved something on the most distinct school days of the period (at least three) |
+
+Each honour carries the figure that earned it, already worded ("2h 10m", "4
+tickets joined"), and one line saying what was measured, so the number cannot
+be misread. The ranked per-person table — everybody's counts, medians and
+difficulty together — is a separate block on the same page and is
+administrators only. Everybody else gets the honours and their own row.
+
+**How hard a ticket was**, as one number: the priority weight (urgent 4, high 3,
+normal 2, low 1) times the natural log of one plus the hours it stayed open,
+plus half a point for every extra pair of hands, plus one for every reopen.
+Logarithmic in time on purpose — otherwise one machine that sat over a holiday
+outranks every urgent ticket of the term. The arithmetic is written twice, once
+in SQL and once in `hardScore`, and the suite holds the two together.
+
+**The hardest tickets** are the eight highest scores of the period, and they are
+the one place this document names a ticket, so they carry the redaction rule:
+the number and the title come back only when the reader could have opened that
+ticket anyway. A colleague's ticket is still counted and still drawn — its
+category, priority, hours, hands and score are all there — with no way to read
+what it said.
+
+**`desk_analytics`** is the assistant's half of the same page. It takes one
+argument, the period, maps it through the same `periodBounds` and `bucketFor`,
+and trims the answer rather than forwarding the document: the overview whole,
+the throughput series as its totals and its two ends, arrivals by weekday and
+by hour, the categories, priorities and channels with their shares as
+percentages, waiting, the honours, the reader's own row, and the hardest
+tickets. The per-day bars, the hour-by-weekday matrix and the per-person
+ranking stay on the page, where there is something to draw them with.
 
 ## Attribution
 
@@ -500,7 +639,7 @@ setup of the project itself and its order still stands; this section is the
 release.
 
 **What is pending.** The hosted project carries the nineteen migrations through
-`20260914010000_staff_directory_options.sql`. This branch adds fifty-two
+`20260914010000_staff_directory_options.sql`. This branch adds fifty-three
 more, every one of them numbered `20260914100000` or above precisely so that
 they apply *after* the owner's four (`20260912210000`, `20260912220000`,
 `20260913150000`, `20260914010000`) and build on the live `requesters`,
@@ -512,13 +651,13 @@ is restated tighter (`tickets_select_visible`, `20260914140000`), five owner
 functions are replaced in place at the same names (`app_set_account_role` is
 superseded by `app_set_account_roles`, and four inventory and directory RPCs
 are dropped and recreated with their grants restated), and one column is added
-(`requesters.archived_at`, `if not exists`). Every one of the fifty-two also sorts
+(`requesters.archived_at`, `if not exists`). Every one of the fifty-three also sorts
 strictly after the highest version the hosted project holds, so `db push`
 applies them in version order and never needs `--include-all` to accept an
 out-of-order file. Confirm the list before you push:
 
 ```bash
-npx supabase migration list --linked   # nothing local pending, 49 remote-missing
+npx supabase migration list --linked   # nothing local pending, 53 remote-missing
 ```
 
 **Pre-flight, before the push.**
@@ -588,7 +727,7 @@ Studio ports are the defaults 54321/54322/54323; this machine runs on 55321/2/3
 through the same uncommitted patch, and lane 2 on 56321/2/3 with its own
 `project_id`.
 
-**The rehearsal.** Applying these fifty-two migrations onto a database
+**The rehearsal.** Applying these fifty-three migrations onto a database
 holding exactly the owner's nineteen — which is what `db push` will do — was
 run end to end on a second local stack on 2026-09-14 and again, with the final set, on 2026-09-15. The database was first
 rebuilt from `origin/main`'s nineteen migration files alone, and only then were
@@ -605,13 +744,13 @@ npx supabase db reset --local
 npx supabase migration list --local        # 19 rows, local == remote on every one
 
 # 2. this branch's migrations applied forward, which is what db push does
-cp -a <branch>/supabase/migrations supabase/migrations         # 71 files
+cp -a <branch>/supabase/migrations supabase/migrations         # 72 files
 npx supabase migration up --local --include-all
 # -> Applying migration 20260914100000_m5_foundation.sql
-# -> ... 52 files ...
+# -> ... 53 files ...
 # -> Applying migration 20260916150000_m5_group_fields_uncapped.sql
-# -> {"applied":[ ...49 paths... ],"message":"Migrations applied"}
-npx supabase migration list --local        # 68 rows, local == remote on every one
+# -> {"applied":[ ...53 paths... ],"message":"Migrations applied"}
+npx supabase migration list --local        # 72 rows, local == remote on every one
 
 # 3. the suites, against that database
 npx vitest run --config vitest.db.config.mts    # 492 tests, 37 files, all passing

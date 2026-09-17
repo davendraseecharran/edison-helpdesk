@@ -3,6 +3,7 @@ import {
   ADMIN_READ_TOOLS,
   ADMIN_TOOLS,
   describeCall,
+  DIRECTORY_EXPORT_TOOLS,
   executeTool,
   isWriteCall,
   isWriteTool,
@@ -43,14 +44,20 @@ describe('tool classification', () => {
     for (const name of ADMIN_TOOLS) expect(names.has(name)).toBe(false);
   });
 
-  it('offers a NetRider every read and write tool except the administrator reads', () => {
+  it('offers a NetRider every read and write tool except the administrator reads and the directory export', () => {
     expect(toolsFor(['netrider']).map((tool) => tool.name).sort()).toEqual(
-      [...READ_TOOLS, ...WRITE_TOOLS].filter((name) => !ADMIN_READ_TOOLS.includes(name)).sort(),
+      [...READ_TOOLS, ...WRITE_TOOLS]
+        .filter((name) => !ADMIN_READ_TOOLS.includes(name) && !DIRECTORY_EXPORT_TOOLS.includes(name))
+        .sort(),
     );
     // The audit log is a read and is still administration. Both facts, held
     // separately, are why `adminOnly` exists beside the group.
     expect(ADMIN_READ_TOOLS.length).toBeGreaterThan(0);
     for (const name of ADMIN_READ_TOOLS) expect(READ_TOOLS).toContain(name);
+    // The directory export is a read the roster's own people may make and a
+    // NetRider may not: the third gating shape, and the only tool with it.
+    expect(DIRECTORY_EXPORT_TOOLS).toEqual(['export_people_csv']);
+    for (const name of DIRECTORY_EXPORT_TOOLS) expect(READ_TOOLS).toContain(name);
   });
 
   it('offers a skills officer the directory and no ticket tool at all', () => {
@@ -60,15 +67,23 @@ describe('tool classification', () => {
       'archive_person',
       'contact_list',
       'create_group',
+      'create_group_event',
       'create_person',
+      'delete_group_event',
+      'delete_group_field',
       'delete_view',
       'event_attendance',
+      'export_devices_csv',
+      'export_group_csv',
+      // The one read a skills officer is offered and a NetRider is not.
+      'export_people_csv',
       'find_people',
       'get_device',
       'get_person',
       'group_checklist',
       'group_events',
       'group_members',
+      'import_people',
       'list_attachments',
       'list_devices',
       'list_groups',
@@ -77,11 +92,17 @@ describe('tool classification', () => {
       'mark_attendance',
       'mark_notifications_read',
       'remove_from_group',
+      'save_group_field',
       'save_view',
       'search_records',
       'set_checklist_mark',
+      'set_checklist_marks',
+      'set_display_name',
+      'set_group_member_note',
       'set_preference',
+      'update_group',
       'update_person',
+      'update_shared_notes',
     ]);
     // Everything a ticket is made of, absent.
     for (const name of [
@@ -99,9 +120,14 @@ describe('tool classification', () => {
   });
 
   it('adds rather than replaces when somebody holds two roles', () => {
-    expect(toolsFor(['netrider', 'skills_officer']).map((t) => t.name).sort()).toEqual(
-      toolsFor(['netrider']).map((t) => t.name).sort(),
+    // A NetRider who is also a skills officer has everything a NetRider has
+    // and the one thing only the roster's own people have: the export.
+    const both = toolsFor(['netrider', 'skills_officer']).map((t) => t.name).sort();
+    expect(both).toEqual(
+      [...new Set([...toolsFor(['netrider']), ...toolsFor(['skills_officer'])].map((t) => t.name))].sort(),
     );
+    expect(both).toContain('export_people_csv');
+    expect(toolsFor(['netrider']).map((t) => t.name)).not.toContain('export_people_csv');
     expect(toolsFor(['admin', 'skills_officer']).map((t) => t.name).sort()).toEqual(
       toolsFor(['admin']).map((t) => t.name).sort(),
     );
@@ -132,6 +158,16 @@ describe('tool classification', () => {
       'group_events',
       'event_attendance',
       'group_checklist',
+      // The desk's own numbers, the same document the Analytics page draws.
+      'desk_analytics',
+      // Parity with the screens: the quick-ticket list, the three exports
+      // (a link or a preview, never a file), and the two administrator lists.
+      'list_presets',
+      'export_people_csv',
+      'export_devices_csv',
+      'export_group_csv',
+      'list_invites',
+      'list_access_requests',
     ]) {
       expect(READ_TOOLS).toContain(name);
     }
@@ -178,6 +214,26 @@ describe('tool classification', () => {
       'remove_from_group',
       'mark_attendance',
       'set_checklist_mark',
+      // Parity with the screens: the rest of a group's page.
+      'update_group',
+      'set_group_member_note',
+      'save_group_field',
+      'delete_group_field',
+      'set_checklist_marks',
+      'create_group_event',
+      'delete_group_event',
+      // Bulk, from a sheet, a CSV or a screenshot of one.
+      'create_tickets',
+      'claim_tickets',
+      'import_people',
+      'bulk_assign_devices',
+      'bulk_return_devices',
+      // Everything on Settings that is not a sign-in method.
+      'set_display_name',
+      'update_shared_notes',
+      'save_preset',
+      'delete_preset',
+      'move_preset',
     ]) {
       expect(WRITE_TOOLS).toContain(name);
     }
@@ -187,17 +243,20 @@ describe('tool classification', () => {
       'cancel_ticket',
       'review_access_request',
       'create_invite',
+      'revoke_invite',
       'set_roles',
       'deactivate_account',
       'reactivate_account',
       'export_backup',
+      // Deleting a roster is the one administrator act on a group.
+      'delete_group',
     ]) {
       expect(ADMIN_TOOLS).toContain(name);
     }
     for (const name of ['list_attachments', 'list_audit']) {
       expect(READ_TOOLS).toContain(name);
     }
-    expect(ADMIN_READ_TOOLS).toEqual(['list_audit']);
+    expect([...ADMIN_READ_TOOLS].sort()).toEqual(['list_access_requests', 'list_audit', 'list_invites']);
   });
 
   /**

@@ -29,6 +29,7 @@ import { usePathname } from 'next/navigation';
 import { Ellipsis, MessagesSquare, PanelRightClose, SquarePen, Unplug, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useRuntime } from '@/components/AppRuntime';
+import { useTheme } from '@/components/shell/ThemeProvider';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { useBodyScrollLock, useEscape, useFocusTrap } from '@/components/ui/focus';
@@ -267,6 +268,32 @@ export function AiPanel({
   // which is how a child's effect ends up torn down and restarted for no
   // reason. These three functions do not change.
   const { send: sendToChat, newConversation: resetConversation } = chat;
+
+  /*
+   * A theme the assistant just set is shown at once.
+   *
+   * `set_preference theme` saves the account's theme on the server; the page
+   * would otherwise carry on in the old one until the next load, which reads
+   * as the change not having happened. Each successful call is adopted here
+   * exactly once — locally, without saving again — the same way a theme
+   * saved on another device is adopted on the next signed-in render.
+   */
+  const { adoptServerTheme } = useTheme();
+  const adoptedThemeCalls = useRef(new Set<string>());
+  const turnsForTheme = chat.turns;
+  useEffect(() => {
+    for (const turn of turnsForTheme) {
+      if (turn.role !== 'assistant') continue;
+      for (const part of turn.parts) {
+        if (part.type !== 'tool' || part.name !== 'set_preference' || part.status !== 'ok') continue;
+        if (adoptedThemeCalls.current.has(part.callId)) continue;
+        if (part.args.key !== 'theme') continue;
+        adoptedThemeCalls.current.add(part.callId);
+        const value = part.args.value;
+        if (value === 'dark' || value === 'light' || value === 'system') adoptServerTheme(value);
+      }
+    }
+  }, [turnsForTheme, adoptServerTheme]);
   const { cancel: stopSpeaking } = speaker;
   const { stop: stopListening } = speech;
 
@@ -893,7 +920,15 @@ export function AiPanel({
                     </div>
                   </div>
                 ) : showWelcome ? (
-                  <div className="ai-welcome">
+                  /* `layout="position"`: when the connection card mounts under
+                     it the welcome is recentred by the flex column, and this
+                     lets it slide there over the surface duration instead of
+                     jumping. */
+                  <motion.div
+                    className="ai-welcome"
+                    layout={reduced ? false : 'position'}
+                    transition={reduced ? INSTANT : SPRING}
+                  >
                     <div className="ai-welcome-orb">
                       {moment !== 'idle' ? (
                         <Orb moment={moment} size={64} level={level} />
@@ -921,7 +956,7 @@ export function AiPanel({
                         ))}
                       </div>
                     ) : null}
-                  </div>
+                  </motion.div>
                 ) : (
                   <div className="ai-turns">
                     {chat.turns.map((turn, index) => (

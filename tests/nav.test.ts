@@ -12,6 +12,7 @@ describe('navItems', () => {
       '/my-tickets',
       '/collaborating',
       '/resolved',
+      '/analytics',
       '/people',
       '/groups',
       '/devices',

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  ChartColumn,
   CircleCheck,
   CalendarCheck,
   ClipboardList,
@@ -95,6 +96,9 @@ export function navItems(roles: readonly AccountRole[], counts: QueueCounts): Na
         group: 'Work',
         count: counts.closed,
       },
+      // The counting: every ticket worker reads it, and the honours on it are
+      // theirs. It carries no count because it is not a list of anything.
+      { href: '/analytics', label: 'Analytics', icon: ChartColumn, group: 'Work' },
     );
   }
 

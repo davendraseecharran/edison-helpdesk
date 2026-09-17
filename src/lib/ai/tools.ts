@@ -33,6 +33,8 @@ import { draftFromText } from '@/lib/intake/draft';
 import { ATTACHMENT_MIME_TYPES, formatBytes } from '@/lib/attachments';
 import { readDataUrl } from '@/lib/ai/images';
 import {
+  ASSISTANT_NOTES_MAX,
+  displayNameError,
   preferencePatch,
   REASONING_CHOICES,
   THEME_CHOICES,
@@ -42,6 +44,16 @@ import {
   welcomeStateFromLabel,
   type PreferencePatch,
 } from '@/lib/domain/preferences';
+import {
+  movePreset,
+  orderPresets,
+  presetError,
+  presetFromRow,
+  TICKET_PRESET_CAP,
+  type TicketPreset,
+} from '@/lib/domain/ticket-presets';
+import { DEVICE_CSV_COLUMNS, deviceCsvRow } from '@/lib/data/device-csv';
+import { mapInventoryDevice } from '@/lib/data/mapping';
 import {
   addSavedView,
   normaliseQuery,
@@ -57,10 +69,20 @@ import {
   type BackupTableName,
 } from '@/lib/data/backup-tables';
 import { AUDIT_ENTITIES } from '@/lib/domain/audit-entities';
-import { cappedExportMessage, csvFileName, csvHeaders, CSV_ROW_CAP, encodeCsv } from '@/lib/csv';
+import {
+  bucketFor,
+  HONOUR_TITLES,
+  percentOf,
+  periodBounds,
+  type HonourKey,
+} from '@/lib/domain/analytics';
+import { PERIOD_PHRASES, STATS_PERIODS, toStatsPeriod } from '@/lib/domain/resolved-stats';
+import { CHANNEL_LABELS, PRIORITY_LABELS, TICKET_CATEGORY_LABELS } from '@/lib/domain/types';
+import { cappedExportMessage, csvFileName, csvHeaders, CSV_ROW_CAP, encodeCsv, toCsv } from '@/lib/csv';
 import { schoolDayEnd, schoolDayStart, schoolToday } from '@/lib/format';
 import { DEVICE_TYPES, deviceTypeLabel } from '@/lib/domain/device-types';
 import {
+  canExportDirectory,
   canWorkTickets,
   normalizeRoles,
   roleLabel,
@@ -552,6 +574,8 @@ async function resolvePerson(ctx: ToolContext, value: string): Promise<PersonRef
 interface GroupRef {
   id: string;
   name: string;
+  description: string;
+  members: number;
 }
 
 /**
@@ -591,10 +615,16 @@ async function resolveGroup(ctx: ToolContext, value: string): Promise<GroupRef> 
   if (query === '') throw new ToolError('Name the group.');
 
   const groups = rows(await rpc(ctx, 'app_list_groups', {}));
+  const asRef = (row: Record<string, unknown>): GroupRef => ({
+    id: textOf(row.id),
+    name: textOf(row.name),
+    description: textOf(row.description),
+    members: Number(row.member_count ?? 0),
+  });
   if (isUuid(query)) {
     const row = groups.find((entry) => textOf(entry.id) === query);
     if (row === undefined) throw new ToolError('There is no group with that id.');
-    return { id: query, name: textOf(row.name) };
+    return asRef(row);
   }
 
   const folded = query.toLowerCase();
@@ -608,7 +638,7 @@ async function resolveGroup(ctx: ToolContext, value: string): Promise<GroupRef> 
     const options = candidates.map((entry) => textOf(entry.name)).join(', ');
     throw new ToolError(`"${query}" matches more than one group: ${options}. Say which one.`);
   }
-  return { id: textOf(candidates[0].id), name: textOf(candidates[0].name) };
+  return asRef(candidates[0]);
 }
 
 interface EventRef {
@@ -734,6 +764,191 @@ async function resolveAccount(ctx: ToolContext, value: string): Promise<AccountR
 }
 
 /**
+ * Somebody waiting for a decision, which `resolveAccount` cannot find.
+ *
+ * `app_directory` leaves out an account that is `pending_approval`, and says
+ * why: listing somebody who has only tried to sign in would tell every
+ * technician in the building that a named person did. So the waiting list is
+ * read the way the Access screen reads it — the `app_accounts` table itself,
+ * under the administrator's own row policies, which show the full table to an
+ * active administrator and one row to anybody else. A name or an address is
+ * matched whole, ignoring capitals; a tie is refused with the names in it.
+ */
+async function resolveWaitingAccount(ctx: ToolContext, value: string): Promise<AccountRef> {
+  const query = value.trim();
+  if (query === '') throw new ToolError('Name the person waiting for access.');
+
+  const waiting = await waitingAccounts(ctx);
+  if (waiting.length === 0) throw new ToolError('Nobody is waiting for access.');
+
+  if (isUuid(query)) {
+    const row = waiting.find((entry) => entry.id === query);
+    if (row === undefined) throw new ToolError('Nobody with that id is waiting for access.');
+    return row;
+  }
+
+  const folded = query.toLowerCase();
+  const exact = waiting.filter(
+    (entry) => entry.name.toLowerCase() === folded || entry.email.toLowerCase() === folded,
+  );
+  const partial = waiting.filter(
+    (entry) => entry.name.toLowerCase().includes(folded) || entry.email.toLowerCase().includes(folded),
+  );
+  const candidates = exact.length > 0 ? exact : partial;
+  if (candidates.length === 0) {
+    const names = waiting.map((entry) => entry.name).join(', ');
+    throw new ToolError(`Nobody waiting for access matches "${query}". Waiting: ${names}.`);
+  }
+  if (candidates.length > 1) {
+    const options = candidates.map((entry) => `${entry.name} (${entry.email})`).join(', ');
+    throw new ToolError(`"${query}" matches more than one waiting account: ${options}. Say which one.`);
+  }
+  return candidates[0];
+}
+
+interface WaitingAccount extends AccountRef {
+  email: string;
+  createdAt: string;
+}
+
+/** The accounts waiting on an administrator, oldest first, as the Access screen lists them. */
+async function waitingAccounts(ctx: ToolContext): Promise<WaitingAccount[]> {
+  const { data, error } = await ctx.supabase
+    .from('app_accounts')
+    .select('id, display_name, email, created_at')
+    .eq('status', 'pending_approval')
+    .order('created_at', { ascending: true });
+  if (error) {
+    console.error('[ai] waiting accounts read failed', { code: error.code, message: error.message });
+    throw new ToolError(GENERIC_RPC_FAILURE, error.code ?? null, error.message ?? '');
+  }
+  return rows(data).map((row) => ({
+    id: textOf(row.id),
+    name: textOf(row.display_name),
+    email: textOf(row.email),
+    createdAt: textOf(row.created_at),
+  }));
+}
+
+interface InviteRef {
+  id: string;
+  email: string;
+  state: string;
+}
+
+/**
+ * One invite, by id or by the address it was sent to.
+ *
+ * An address may have been invited more than once — revoked, then invited
+ * again — so the PENDING one is what the address means; only when none is
+ * pending does a name resolve to whichever came last, so the refusal can say
+ * "that one was already accepted" rather than "no such invite".
+ */
+async function resolveInvite(ctx: ToolContext, value: string): Promise<InviteRef> {
+  const query = value.trim();
+  if (query === '') throw new ToolError('Name the invite by the email address it went to.');
+
+  const invites = rows(await rpc(ctx, 'app_admin_list_invites', {}));
+  const asRef = (row: Record<string, unknown>): InviteRef => ({
+    id: textOf(row.id),
+    email: textOf(row.email),
+    state: textOf(row.state),
+  });
+
+  if (isUuid(query)) {
+    const row = invites.find((entry) => textOf(entry.id) === query);
+    if (row === undefined) throw new ToolError('There is no invite with that id.');
+    return asRef(row);
+  }
+
+  const folded = query.toLowerCase();
+  const matching = invites.filter((entry) => textOf(entry.email).toLowerCase() === folded);
+  if (matching.length === 0) throw new ToolError(`No invite went to "${query}".`);
+  // Newest first is the list's own order, so the first pending one is the
+  // live one and the first of any is the latest.
+  return asRef(matching.find((entry) => textOf(entry.state) === 'pending') ?? matching[0]);
+}
+
+/**
+ * One quick ticket, by name or by id: an exact name wins, a single partial is
+ * accepted, a tie is refused with the names in it. The list is a dozen at most,
+ * so it is read whole rather than searched.
+ */
+async function resolvePreset(ctx: ToolContext, value: string): Promise<TicketPreset> {
+  const query = value.trim();
+  if (query === '') throw new ToolError('Name the quick ticket.');
+
+  const presets = orderPresets(
+    rows(await rpc(ctx, 'app_list_ticket_presets', {}))
+      .map(presetFromRow)
+      .filter((preset): preset is TicketPreset => preset !== null),
+  );
+  if (presets.length === 0) throw new ToolError('There are no quick tickets yet.');
+
+  if (isUuid(query)) {
+    const row = presets.find((preset) => preset.id === query);
+    if (row === undefined) throw new ToolError('There is no quick ticket with that id.');
+    return row;
+  }
+
+  const folded = query.toLowerCase();
+  const exact = presets.filter((preset) => preset.name.toLowerCase() === folded);
+  const partial = presets.filter((preset) => preset.name.toLowerCase().includes(folded));
+  const candidates = exact.length > 0 ? exact : partial;
+  if (candidates.length === 0) {
+    const names = presets.map((preset) => preset.name).join(', ');
+    throw new ToolError(`No quick ticket is called "${query}". There is: ${names}.`);
+  }
+  if (candidates.length > 1) {
+    const options = candidates.map((preset) => preset.name).join(', ');
+    throw new ToolError(`"${query}" matches more than one quick ticket: ${options}. Say which one.`);
+  }
+  return candidates[0];
+}
+
+/**
+ * A pasted list of people, sorted into the three answers the directory gives.
+ *
+ * The same reader the paste box on a group's page uses, so the assistant and
+ * the screen agree about what a line means. Only the ids it matched are ever
+ * written anywhere; the other two lists are named back, so somebody can fix
+ * them, and are never quietly folded into a count.
+ */
+async function lookupPeople(
+  ctx: ToolContext,
+  keys: readonly string[],
+): Promise<{ matched: (PersonRef & { key: string })[]; unmatched: string[]; ambiguous: string[] }> {
+  const found = rows(await rpc(ctx, 'app_find_people', { p_keys: [...keys] }));
+  const matched: (PersonRef & { key: string })[] = [];
+  const unmatched: string[] = [];
+  const ambiguous: string[] = [];
+  for (const row of found) {
+    const key = textOf(row.key);
+    if (textOf(row.found) === 'match') {
+      matched.push({ key, id: textOf(row.id), name: textOf(row.display_name) });
+    } else if (Number(row.matches ?? 0) > 1) {
+      ambiguous.push(key);
+    } else {
+      unmatched.push(key);
+    }
+  }
+  return { matched, unmatched, ambiguous };
+}
+
+/** A refusal without its full stop, for a sentence that supplies its own. */
+function unstopped(message: string): string {
+  return message.trim().replace(/\.$/, '');
+}
+
+/** The tail of a batch summary: "3 not found, 1 ambiguous", or nothing. */
+function lookupTail(unmatched: readonly string[], ambiguous: readonly string[]): string[] {
+  const parts: string[] = [];
+  if (unmatched.length > 0) parts.push(`${unmatched.length} not found`);
+  if (ambiguous.length > 0) parts.push(`${ambiguous.length} ambiguous`);
+  return parts;
+}
+
+/**
  * The one record an attachment call is about.
  *
  * `app_list_attachments` takes a ticket or a device and treats both or neither
@@ -838,6 +1053,18 @@ interface ToolSpec {
    * into one list that would get one of them wrong.
    */
   adminOnly?: true;
+  /**
+   * A directory EXPORT: offered to an administrator or a skills officer, and
+   * to nobody else.
+   *
+   * The third gating shape, and the only tool that has it. A NetRider reads
+   * the roster to work a ticket; carrying it out of the building is the
+   * roster's own people's job (`canExportDirectory`), and the export route
+   * refuses everybody else independently. Neither `adminOnly` nor the
+   * directory allow-list says "these two roles and not the third", so this
+   * flag does.
+   */
+  directoryExport?: true;
   run: (args: Record<string, unknown>, ctx: ToolContext) => Promise<ToolOutcome>;
 }
 
@@ -901,7 +1128,16 @@ const PREFERENCE_KEYS = {
   ai_confirm_changes: 'aiConfirmChanges',
   ai_speak_replies: 'aiSpeakReplies',
   notify_in_app: 'notifyInApp',
+  assistant_notes: 'assistantNotes',
 } as const satisfies Record<string, keyof PreferencePatch>;
+
+/**
+ * The words that take a personal note back off.
+ *
+ * `value` is required, and the checker reads an empty string as "not given",
+ * so there has to be a word for "nothing". These are the ones a person says.
+ */
+const CLEAR_WORDS = ['clear', 'none', 'nothing', 'remove', 'delete'];
 
 type PreferenceKey = keyof typeof PREFERENCE_KEYS;
 
@@ -1005,6 +1241,171 @@ function countOf(data: unknown): number {
 /** The `total` a paged list RPC reports, which is the whole set rather than the page. */
 function totalOf(data: unknown): number {
   return isRecord(data) ? Number(data.total ?? 0) : 0;
+}
+
+// ---------------------------------------------------------------------------
+// The analytics document, trimmed
+// ---------------------------------------------------------------------------
+
+/*
+ * `app_analytics` answers with a chart's worth of detail: a bar for every day
+ * of the period, a heat cell for every hour of every weekday, a row for every
+ * resolver. The page at /analytics draws all of it.
+ *
+ * A model cannot draw, and every character of a tool result is sent to it,
+ * read back into the next turn and stored in the conversation. So the tool
+ * keeps the numbers somebody would say out loud — counts, medians, shares,
+ * the honours, the hardest tickets — and drops the ones only a chart can use:
+ * the throughput series becomes its totals and its two ends, and the
+ * hour-by-weekday matrix goes entirely. The per-person table goes too, because
+ * it is the ranking the owner reserved for administrators on the page; the
+ * reader's own row comes back whoever they are.
+ *
+ * Fields keep the document's own spelling (snake_case), so a number the
+ * assistant quotes is findable under the same name on the page and in the SQL.
+ */
+
+/** A number the document really sent, or null. `0` is a number; "3" is not. */
+function analyticsNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+/** Text that is really there, or null — so "nobody yet" stays distinguishable from "". */
+function analyticsText(value: unknown): string | null {
+  const text = textOf(value).trim();
+  return text === '' ? null : text;
+}
+
+function analyticsRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
+}
+
+function numberList(value: unknown): number[] {
+  return Array.isArray(value) ? value.map((entry) => analyticsNumber(entry) ?? 0) : [];
+}
+
+/**
+ * A stored vocabulary word as the screens print it, falling back to the plain
+ * sentence-case of whatever arrived. `Object.hasOwn` rather than a lookup, so a
+ * document naming `constructor` as a category gets the fallback and not a
+ * function's source.
+ */
+function labelFrom<T extends string>(labels: Record<T, string>, value: unknown): string {
+  const key = textOf(value);
+  return Object.hasOwn(labels, key) ? labels[key as T] : label(key);
+}
+
+/** The throughput series as its totals and its two ends. */
+function throughputSummary(points: Record<string, unknown>[]): Record<string, unknown> {
+  const total = (key: string): number =>
+    points.reduce((sum, point) => sum + (analyticsNumber(point[key]) ?? 0), 0);
+  const first = points[0];
+  const last = points[points.length - 1];
+  return {
+    slices: points.length,
+    created: total('created'),
+    resolved: total('resolved'),
+    // Where the backlog started the period and where it got to. The shape in
+    // between is the chart's, and the chart is on the page.
+    backlog_first: first === undefined ? null : analyticsNumber(first.backlog),
+    backlog_last: last === undefined ? null : analyticsNumber(last.backlog),
+  };
+}
+
+function honourRows(honours: Record<string, unknown>[]): Record<string, unknown>[] {
+  return honours.map((honour) => {
+    const key = textOf(honour.key);
+    return {
+      // The title the page prints, from the one module that owns the wording.
+      title: Object.hasOwn(HONOUR_TITLES, key) ? HONOUR_TITLES[key as HonourKey] : label(key),
+      name: analyticsText(honour.name),
+      value: analyticsText(honour.value),
+      detail: analyticsText(honour.detail),
+    };
+  });
+}
+
+function hardestRows(hardest: Record<string, unknown>[]): Record<string, unknown>[] {
+  return hardest.map((ticket) => {
+    // The database redacts a ticket this reader may not open: the row still
+    // counts, with no number and no title. An absent key says that better than
+    // a null one, which a model tends to read as a value it should go and find.
+    const number = analyticsText(ticket.number);
+    const title = analyticsText(ticket.title);
+    return {
+      ...(number === null ? {} : { number }),
+      ...(title === null ? {} : { title }),
+      category: labelFrom(TICKET_CATEGORY_LABELS, ticket.category),
+      priority: labelFrom(PRIORITY_LABELS, ticket.priority),
+      hours: analyticsNumber(ticket.hours),
+      from_claim_hours: analyticsNumber(ticket.from_claim_hours),
+      hands: analyticsNumber(ticket.hands),
+      resolver_name: analyticsText(ticket.resolver_name),
+      score: analyticsNumber(ticket.score),
+    };
+  });
+}
+
+/** The whole document, as much of it as is worth saying out loud. */
+function trimAnalytics(
+  document: Record<string, unknown>,
+  asked: { period: string; bucket: string; since: string | null },
+): Record<string, unknown> {
+  const people = analyticsRecord(document.people);
+  const waiting = analyticsRecord(document.waiting);
+  const arrivals = analyticsRecord(document.arrivals);
+  return {
+    // The period is ours: the function is given two instants and a bucket, and
+    // has never heard of "this term".
+    period: asked.period,
+    bucket: asked.bucket,
+    // The instants the work was measured between. `until` is when the database
+    // read the clock, which is a little after the question was asked; `since`
+    // is null for all time.
+    since: analyticsText(document.since) ?? asked.since,
+    until: analyticsText(document.until),
+    overview: analyticsRecord(document.overview),
+    throughput: throughputSummary(rows(document.throughput)),
+    // When tickets arrive, Monday first and midnight first. Thirty-one numbers
+    // answer "when are we busiest"; the 7 × 24 matrix behind them does not.
+    arrivals: {
+      by_weekday: numberList(arrivals.by_weekday),
+      by_hour: numberList(arrivals.by_hour),
+    },
+    categories: rows(document.categories).map((row) => ({
+      category: labelFrom(TICKET_CATEGORY_LABELS, row.category),
+      resolved: analyticsNumber(row.resolved) ?? 0,
+      share: percentOf(analyticsNumber(row.share)),
+      median_hours: analyticsNumber(row.median_hours),
+    })),
+    priorities: rows(document.priorities).map((row) => ({
+      priority: labelFrom(PRIORITY_LABELS, row.priority),
+      resolved: analyticsNumber(row.resolved) ?? 0,
+      share: percentOf(analyticsNumber(row.share)),
+      median_hours: analyticsNumber(row.median_hours),
+      p90_hours: analyticsNumber(row.p90_hours),
+      median_from_claim_hours: analyticsNumber(row.median_from_claim_hours),
+    })),
+    channels: rows(document.channels).map((row) => ({
+      channel: labelFrom(CHANNEL_LABELS, row.channel),
+      count: analyticsNumber(row.count) ?? 0,
+      share: percentOf(analyticsNumber(row.share)),
+    })),
+    waiting: {
+      tickets_waited: analyticsNumber(waiting.tickets_waited) ?? 0,
+      share: percentOf(analyticsNumber(waiting.share)),
+      median_wait_hours: analyticsNumber(waiting.median_wait_hours),
+      reasons: rows(waiting.reasons).map((row) => ({
+        reason: analyticsText(row.reason),
+        count: analyticsNumber(row.count) ?? 0,
+      })),
+    },
+    honours: honourRows(rows(people.honours)),
+    // The reader's own row. `people.rows` — everybody's, ranked — is the
+    // administrators' table and stays on the page.
+    me: isRecord(people.me) ? people.me : null,
+    hardest: hardestRows(rows(document.hardest)),
+  };
 }
 
 const TOOLS: Record<string, ToolSpec> = {
@@ -1492,6 +1893,218 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  desk_analytics: {
+    group: 'read',
+    description:
+      "The desk's numbers over a period: how many did we close this week, what is the most common issue, who is fastest on urgent tickets, when are we busiest. Counts and medians with the change on the period before, the mix by category, priority and channel, time spent waiting, the four honours, this person's own row, and the hardest tickets of the period. The page at /analytics (Work → Analytics) shows the same numbers with charts, so the two never disagree.",
+    fields: {
+      period: {
+        type: 'string',
+        description:
+          'Which span: week (the school week so far), month (this calendar month), term (since 1 September) or all. Default month.',
+        choices: STATS_PERIODS,
+      },
+    },
+    run: async (args, ctx) => {
+      /*
+       * The period is turned into instants HERE, by the same `periodBounds` the
+       * page calls, and the bucket by the same `bucketFor`. The database counts;
+       * it is not asked where a school week begins.
+       *
+       * Who may read this is the database's decision, as everywhere else: the
+       * function refuses an account that does not work tickets, and that refusal
+       * arrives through `rpc` as an ordinary ToolError with the sentence it
+       * wrote. `toolsFor` keeps a skills officer from being offered it at all,
+       * and `executeTool` refuses the call before it is sent, so the round trip
+       * is the third line rather than the first.
+       */
+      const period = toStatsPeriod(args.period);
+      const bounds = periodBounds(period);
+      const bucket = bucketFor(period);
+      const document = analyticsRecord(
+        await rpc(ctx, 'app_analytics', {
+          p_since: bounds.since,
+          p_until: bounds.until,
+          p_bucket: bucket,
+        }),
+      );
+      const answer = trimAnalytics(document, { period, bucket, since: bounds.since });
+      const overview = analyticsRecord(document.overview);
+      const resolved = analyticsNumber(overview.resolved) ?? 0;
+      const created = analyticsNumber(overview.created) ?? 0;
+      return outcome(
+        answer,
+        `Read the desk's analytics ${PERIOD_PHRASES[period]}: ${resolved} resolved, ${created} opened.`,
+      );
+    },
+  },
+
+  list_presets: {
+    group: 'read',
+    description:
+      "The desk's quick tickets: the calls that repeat all day, written down once as a name, a title, an issue, a category, a priority and sometimes a room. Read this before editing, moving or deleting one, and before filing a call that sounds like one of them — a quick ticket is filed with create_ticket using its fields plus the requester and channel.",
+    fields: {},
+    run: async (_args, ctx) => {
+      const presets = orderPresets(
+        rows(await rpc(ctx, 'app_list_ticket_presets', {}))
+          .map(presetFromRow)
+          .filter((preset): preset is TicketPreset => preset !== null),
+      );
+      return outcome(
+        presets,
+        `Listed ${presets.length} quick ${presets.length === 1 ? 'ticket' : 'tickets'}.`,
+      );
+    },
+  },
+
+  export_people_csv: {
+    group: 'read',
+    directoryExport: true,
+    description:
+      'The directory as a spreadsheet, the same file the Export button on People makes: students or staff, optionally narrowed by a search, one row per person with their OSIS or staff id, class or department, email and, for students, guardian name and phone. This never hands over the file itself: it answers with how many rows the file will hold and the link to open, and the download is recorded in the history when the link is opened. Give the person the link.',
+    fields: {
+      kind: { type: 'string', required: true, description: 'Students or staff.', choices: PERSON_KINDS },
+      query: { type: 'string', description: 'Narrows the list the way the search box does: a class, a department, a name.' },
+    },
+    run: async (args, ctx) => {
+      const kind = String(args.kind);
+      const query = String(args.query ?? '').trim();
+      // One page, for the total in its envelope: the file itself is the
+      // route's, and it walks every page when the link is opened.
+      const page = await rpc(ctx, 'app_list_people', { p_kind: kind, p_query: query, p_page: 1 });
+      const total = totalOf(page);
+      const search = new URLSearchParams({ kind });
+      if (query !== '') search.set('query', query);
+      const link = `/people/export?${search.toString()}`;
+      const noun = kind === 'staff' ? 'staff' : 'students';
+      const capped = total > CSV_ROW_CAP;
+      return outcome(
+        {
+          link,
+          kind,
+          query,
+          rowCount: total,
+          capped,
+          note: 'Open the link to download the file. The export is recorded in the history when it is.',
+        },
+        `${total.toLocaleString('en-US')} ${noun}${query === '' ? '' : ` match "${query}"`}. Open ${link} to download the CSV.`,
+      );
+    },
+  },
+
+  export_devices_csv: {
+    group: 'read',
+    description:
+      'The inventory as a spreadsheet, the same columns the Export button on Devices makes, optionally narrowed by a search or to the machines one person holds. This never hands over the file itself: it answers with the row count, the columns and a preview of up to 20 rows, and the full file is downloaded with the Export button on the Devices list.',
+    fields: {
+      query: { type: 'string', description: 'Asset tag, serial, model, room, status or holder name, as the list search takes it.' },
+      person: { type: 'string', description: 'Only the machines this person is holding.' },
+    },
+    run: async (args, ctx) => {
+      const person = args.person === undefined ? null : await resolvePerson(ctx, String(args.person));
+      const query = String(args.query ?? '').trim();
+      const page = await rpc(ctx, 'app_list_inventory', {
+        p_query: query,
+        p_page: 1,
+        p_requester: person?.id ?? null,
+      });
+      const total = totalOf(page);
+      const previewRows = pageRows(page).slice(0, EXPORT_PREVIEW_ROWS).map((row) =>
+        deviceCsvRow(mapInventoryDevice(row as Parameters<typeof mapInventoryDevice>[0])),
+      );
+      const capped = total > CSV_ROW_CAP;
+      const preview = toCsv(DEVICE_CSV_COLUMNS, previewRows);
+      const note = 'Download the full file with the Export button on the Devices list.';
+      const who = person === null ? '' : ` held by ${person.name}`;
+      const what = query === '' ? '' : ` matching "${query}"`;
+      return outcome(
+        {
+          filename: csvFileName('devices', schoolToday(), capped),
+          rowCount: total,
+          capped,
+          columns: [...DEVICE_CSV_COLUMNS],
+          preview,
+          previewRows: previewRows.length,
+          note,
+        },
+        `${total.toLocaleString('en-US')} ${total === 1 ? 'device' : 'devices'}${who}${what}. ${note}`,
+      );
+    },
+  },
+
+  export_group_csv: {
+    group: 'read',
+    description:
+      "A group's roster, or one event's register, as a spreadsheet: the same files the Export buttons on the group's page make. The roster has one row per member with every checklist column; the register has one row per member with whether they were present and when they were marked. This never hands over the file itself: it answers with the link to open, and the export is recorded in the history when it is. Give the person the link.",
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+      event: { type: 'string', description: 'An event, by name or by id, for its register. Leave it out for the roster.' },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      if (args.event === undefined) {
+        const link = `/groups/${group.id}/export`;
+        return outcome(
+          { link, group: group.name, rowCount: group.members },
+          `${group.name}: ${group.members} ${group.members === 1 ? 'member' : 'members'}. Open ${link} to download the roster.`,
+        );
+      }
+      const event = await resolveGroupEvent(ctx, group, String(args.event));
+      const link = `/groups/${group.id}/events/${event.id}/export`;
+      return outcome(
+        { link, group: group.name, event: event.name, held_on: event.heldOn, rowCount: group.members },
+        `${event.name} on ${event.heldOn}. Open ${link} to download the register.`,
+      );
+    },
+  },
+
+  list_invites: {
+    group: 'read',
+    adminOnly: true,
+    description:
+      'Every invite the helpdesk has sent: the address, the roles it grants, who sent it, when it expires, and whether it is pending, accepted, expired or revoked. Administrators only. Read this before revoking one.',
+    fields: {
+      state: {
+        type: 'string',
+        description: 'Only invites in this state. Leave it out for all of them.',
+        choices: ['pending', 'accepted', 'expired', 'revoked'],
+      },
+    },
+    run: async (args, ctx) => {
+      const invites = rows(await rpc(ctx, 'app_admin_list_invites', {}))
+        .filter((row) => args.state === undefined || textOf(row.state) === args.state)
+        .map((row) => ({
+          id: textOf(row.id),
+          email: textOf(row.email),
+          roles: Array.isArray(row.roles) ? row.roles.map(String) : [textOf(row.role)],
+          name: textOf(row.display_name) || null,
+          invitedBy: textOf(row.invited_by_name) || null,
+          createdAt: textOf(row.created_at),
+          expiresAt: textOf(row.expires_at),
+          state: textOf(row.state),
+        }));
+      const which = args.state === undefined ? '' : ` ${String(args.state)}`;
+      return outcome(invites, `Listed ${invites.length}${which} ${invites.length === 1 ? 'invite' : 'invites'}.`);
+    },
+  },
+
+  list_access_requests: {
+    group: 'read',
+    adminOnly: true,
+    description:
+      'Who is waiting for an administrator to let them into the helpdesk: people who signed in with a Google address nobody invited. Name, address and when they asked, oldest first. Administrators only; review_access_request answers one.',
+    fields: {},
+    run: async (_args, ctx) => {
+      const waiting = await waitingAccounts(ctx);
+      return outcome(
+        waiting.map((entry) => ({ id: entry.id, name: entry.name, email: entry.email, askedAt: entry.createdAt })),
+        waiting.length === 0
+          ? 'Nobody is waiting for access.'
+          : `${waiting.length} ${waiting.length === 1 ? 'person is' : 'people are'} waiting for access.`,
+      );
+    },
+  },
+
   // --- Write --------------------------------------------------------------
 
   create_ticket: {
@@ -1507,22 +2120,52 @@ const TOOLS: Record<string, ToolSpec> = {
       person: { type: 'string', description: 'The requester as a directory record: name, email, OSIS or staff id. Leave it out when nobody is named.' },
       location: { type: 'string', description: 'Room or area the problem is in.' },
       claim: { type: 'boolean', description: 'True to take ownership immediately instead of leaving it in the queue.' },
+      submitted_on: {
+        type: 'string',
+        date: true,
+        description: 'The school day it was reported, as YYYY-MM-DD, when that is not today. Administrators only; a NetRider\u2019s intake is always dated today.',
+      },
+      collaborators: {
+        type: 'string[]',
+        maxItems: 10,
+        description: 'Colleagues to put on the ticket alongside the owner, by name or account id.',
+      },
+      devices: {
+        type: 'string[]',
+        maxItems: 10,
+        description: 'Inventory machines the ticket is about, by asset tag, serial number or inventory id, linked at intake.',
+      },
     },
     run: async (args, ctx) => {
       // The directory is the district's, so a requester is somebody already in
       // it or nobody at all. There is no inline "new requester" path, and the
       // database refuses one.
       const person = args.person === undefined ? null : await resolvePerson(ctx, String(args.person));
+      const collaborators: string[] = [];
+      for (const name of (args.collaborators as string[] | undefined) ?? []) {
+        const account = await resolveAccount(ctx, name);
+        if (!collaborators.includes(account.id)) collaborators.push(account.id);
+      }
+      const devices: string[] = [];
+      for (const name of (args.devices as string[] | undefined) ?? []) {
+        const device = await resolveDevice(ctx, name);
+        if (!devices.includes(device.id)) devices.push(device.id);
+      }
       const id = await rpc(ctx, 'app_create_ticket', {
         p_title: args.title,
         p_issue: args.issue,
         p_channel: args.channel,
         p_priority: args.priority ?? 'normal',
+        // Left out rather than sent as null, so the function's own default
+        // (today) applies exactly as it does for the form.
+        ...(args.submitted_on === undefined ? {} : { p_submitted_on: args.submitted_on }),
         p_requester_id: person?.id ?? null,
         p_requester_unknown: person === null,
         p_location: args.location ?? null,
         p_owner_id: args.claim === true ? ctx.actor.id : null,
+        p_collaborator_ids: collaborators,
         p_category: args.category ?? 'other',
+        p_device_ids: devices,
       });
       const detail = await rpc(ctx, 'app_ticket_detail', { p_ticket: id });
       const ticket = isRecord(detail) && isRecord(detail.ticket) ? detail.ticket : {};
@@ -2024,7 +2667,7 @@ const TOOLS: Record<string, ToolSpec> = {
       value: {
         type: 'string',
         required: true,
-        description: `The new value. theme: ${THEME_CHOICES.join(', ')}. ai_reasoning: ${REASONING_CHOICES.join(', ')}. gmail_mode: to, cc or bcc (where a Gmail link puts the addresses; to is direct). ai_welcome_states: the effects the assistant's welcome may play, as a comma-separated list of ${WELCOME_EFFECT_HINT}; one is picked at random each time the panel opens, and the list replaces the old one, so include everything that should stay. Everything else: true or false.`,
+        description: `The new value. theme: ${THEME_CHOICES.join(', ')}. ai_reasoning: ${REASONING_CHOICES.join(', ')}. gmail_mode: to, cc or bcc (where a Gmail link puts the addresses; to is direct). ai_welcome_states: the effects the assistant's welcome may play, as a comma-separated list of ${WELCOME_EFFECT_HINT}; one is picked at random each time the panel opens, and the list replaces the old one, so include everything that should stay. assistant_notes: this person's own standing note to their assistant, the whole text, up to ${ASSISTANT_NOTES_MAX} characters; it replaces what was there, and the single word "clear" removes it. Everything else: true or false.`,
       },
     },
     run: async (args, ctx) => {
@@ -2051,6 +2694,15 @@ const TOOLS: Record<string, ToolSpec> = {
         patch.gmailMode = value.trim().toLowerCase() as PreferencePatch['gmailMode'];
       } else if (key === 'ai_welcome_states') {
         patch.aiWelcomeStates = readWelcomeStates(value);
+      } else if (key === 'assistant_notes') {
+        // The note is pasted into every conversation this account has, so
+        // it is cut where the settings box cuts it, and a word for "nothing"
+        // takes it off: the checker reads an empty value as "not given".
+        const cleared = CLEAR_WORDS.includes(value.trim().toLowerCase());
+        if (!cleared && value.trim().length > ASSISTANT_NOTES_MAX) {
+          throw new ToolError(`A note for the assistant is ${ASSISTANT_NOTES_MAX} characters at most.`);
+        }
+        patch.assistantNotes = cleared ? '' : value;
       } else {
         patch.theme = value as PreferencePatch['theme'];
       }
@@ -2059,6 +2711,12 @@ const TOOLS: Record<string, ToolSpec> = {
       if (!narrowed.ok) throw new ToolError(narrowed.error);
 
       await rpc(ctx, 'app_update_preferences', { p_patch: narrowed.patch });
+      if (key === 'assistant_notes') {
+        return outcome(
+          { key, cleared: patch.assistantNotes === '' },
+          patch.assistantNotes === '' ? 'Cleared your notes for the assistant' : 'Saved your notes for the assistant',
+        );
+      }
       return outcome({ key, value }, `Set your ${key.replace(/_/g, ' ')} to ${value}`);
     },
   },
@@ -2317,7 +2975,7 @@ const TOOLS: Record<string, ToolSpec> = {
   mark_attendance: {
     group: 'write',
     description:
-      'Mark people present at one event, a list at a time. Each entry is an OSIS number, a staff id, an email address or a full name, resolved exactly as add_to_group resolves one. Reports how many were marked, how many were already marked, how many are not in the group, and which entries matched nobody or more than one person. Nobody outside the group is ever marked.',
+      'Mark people present at one event, a list at a time — or, with present false, take a mark back for people who were marked by mistake. Each entry is an OSIS number, a staff id, an email address or a full name, resolved exactly as add_to_group resolves one. Reports how many were marked, how many were already marked, how many are not in the group, and which entries matched nobody or more than one person. Nobody outside the group is ever marked.',
     fields: {
       group: { type: 'string', required: true, description: 'The group, by name or by id.' },
       event: { type: 'string', required: true, description: 'The event, by name or by id.' },
@@ -2327,6 +2985,10 @@ const TOOLS: Record<string, ToolSpec> = {
         maxItems: FIND_PEOPLE_LIMIT,
         description:
           'The people who were there, one per entry: OSIS number, staff id, school email address or full name.',
+      },
+      present: {
+        type: 'boolean',
+        description: 'Default true. False takes the mark back for everybody listed, which is how a wrong tick is undone.',
       },
     },
     run: async (args, ctx) => {
@@ -2348,6 +3010,33 @@ const TOOLS: Record<string, ToolSpec> = {
       if (matched.length === 0) {
         throw new ToolError(
           `None of those ${keys.length} entries is somebody in the directory. Nobody was marked.`,
+        );
+      }
+
+      if (args.present === false) {
+        /*
+         * Unmarking has no batch function: the screen unticks one box at a
+         * time through app_mark_attendance, and so does this. A person who is
+         * not in the group is refused by the function, by name, and counted
+         * here rather than stopping the rest.
+         */
+        let unmarked = 0;
+        let outside = 0;
+        for (const id of matched) {
+          try {
+            await rpc(ctx, 'app_mark_attendance', { p_event: event.id, p_requester: id, p_present: false });
+            unmarked += 1;
+          } catch (error) {
+            if (error instanceof ToolError && /not in/.test(error.message)) outside += 1;
+            else throw error;
+          }
+        }
+        const parts = [`${unmarked} unmarked`];
+        if (outside > 0) parts.push(`${outside} not in the group`);
+        parts.push(...lookupTail(unmatched, ambiguous));
+        return outcome(
+          { unmarked, not_member: outside, unmatched, ambiguous },
+          `${event.name} on ${event.heldOn}: ${parts.join(', ')}.`,
         );
       }
 
@@ -2559,6 +3248,707 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  create_tickets: {
+    group: 'write',
+    description:
+      'Open several tickets in one call, from a list somebody handed over: a spreadsheet, a CSV, a screenshot of one, a message naming five broken machines. Each row takes exactly what create_ticket takes. Read the rows yourself and map the columns onto the fields; if a column is ambiguous, ask ONCE, in one message, and otherwise send every row in one call rather than one call per row. Every row is tried: a row the helpdesk refuses is named with its reason and the rest still land, so the answer says how many were opened, their numbers, and which rows were refused and why. Up to 50 rows; send a longer sheet in batches.',
+    fields: {
+      rows: {
+        type: 'object[]',
+        required: true,
+        maxItems: IMPORT_ROW_LIMIT,
+        description: `The tickets to open, one per row, in the order given. At most ${IMPORT_ROW_LIMIT} in one call.`,
+        items: {
+          title: { type: 'string', required: true, description: 'A short summary of the problem, 3 to 120 characters.' },
+          issue: { type: 'string', required: true, description: 'What was reported, in full.' },
+          channel: { type: 'string', required: true, description: 'How the request arrived.', choices: CHANNELS },
+          priority: { type: 'string', description: 'Default normal.', choices: PRIORITIES },
+          category: { type: 'string', description: 'Default other.', choices: CATEGORIES },
+          person: { type: 'string', description: 'The requester as a directory record: name, email, OSIS or staff id. Leave it out when nobody is named.' },
+          location: { type: 'string', description: 'Room or area the problem is in.' },
+          claim: { type: 'boolean', description: 'True to take ownership of this one immediately.' },
+        },
+      },
+    },
+    run: async (args, ctx) => {
+      const sheet = args.rows as Record<string, unknown>[];
+
+      // A sheet repeats names, and each lookup is a round trip: once per
+      // distinct name, and a name that will not resolve refuses only its row.
+      const people = new Map<string, PersonRef | ToolError>();
+      const opened: { row: number; id: string; number: string; title: string }[] = [];
+      const refused: { row: number; title: string; error: string }[] = [];
+
+      for (const [index, row] of sheet.entries()) {
+        const title = String(row.title);
+        try {
+          const requester = row.person === undefined ? null : String(row.person);
+          let person: PersonRef | null = null;
+          if (requester !== null) {
+            if (!people.has(requester)) {
+              try {
+                people.set(requester, await resolvePerson(ctx, requester));
+              } catch (error) {
+                if (!(error instanceof ToolError)) throw error;
+                people.set(requester, error);
+              }
+            }
+            const found = people.get(requester);
+            if (found instanceof ToolError) throw found;
+            person = found ?? null;
+          }
+          const id = String(
+            await rpc(ctx, 'app_create_ticket', {
+              p_title: title,
+              p_issue: row.issue,
+              p_channel: row.channel,
+              p_priority: row.priority ?? 'normal',
+              p_requester_id: person?.id ?? null,
+              p_requester_unknown: person === null,
+              p_location: row.location ?? null,
+              p_owner_id: row.claim === true ? ctx.actor.id : null,
+              p_category: row.category ?? 'other',
+            }),
+          );
+          opened.push({ row: index + 1, id, number: await ticketNumberOf(ctx, id), title });
+        } catch (error) {
+          // Unlike a sheet of history, a list of new calls has no order that
+          // matters: the rest are tried, and this one is named with why.
+          const message =
+            error instanceof ToolError && error.message.trim() !== ''
+              ? error.message
+              : 'That row did not go through.';
+          refused.push({ row: index + 1, title, error: message });
+        }
+      }
+
+      const numbers = opened.map((entry) => entry.number).filter((number) => number !== '');
+      const range =
+        numbers.length === 0
+          ? ''
+          : numbers.length === 1
+            ? ` (${numbers[0]})`
+            : ` (${numbers[0]} to ${numbers[numbers.length - 1]})`;
+      const refusedLine =
+        refused.length === 0
+          ? ''
+          : `; ${refused.length} refused: ${refused
+              .slice(0, 3)
+              .map((entry) => `row ${entry.row} ${unstopped(entry.error)}`)
+              .join('; ')}${refused.length > 3 ? '; and more' : ''}`;
+      return {
+        ok: opened.length > 0,
+        result: { opened: opened.length, refused: refused.length, tickets: opened, refusals: refused },
+        summary:
+          opened.length === 0
+            ? `Nothing was opened${refusedLine}.`
+            : `Opened ${opened.length} of ${sheet.length} ${sheet.length === 1 ? 'ticket' : 'tickets'}${range}${refusedLine}.`,
+      };
+    },
+  },
+
+  claim_tickets: {
+    group: 'write',
+    description:
+      'Take ownership of several unclaimed tickets at once — the five reports of one dead projector, everything in a room. Claimed in the order given; the first one that cannot be claimed stops the rest, and the answer says how many were claimed before it. Up to 50.',
+    fields: {
+      tickets: {
+        type: 'string[]',
+        required: true,
+        maxItems: IMPORT_ROW_LIMIT,
+        description: 'Ticket numbers such as EDT-1042, or ids.',
+      },
+    },
+    run: async (args, ctx) => {
+      const names = args.tickets as string[];
+      const tickets: TicketRef[] = [];
+      for (const name of names) {
+        const ticket = await resolveTicket(ctx, name);
+        if (!tickets.some((entry) => entry.id === ticket.id)) tickets.push(ticket);
+      }
+
+      // Sequential, as the grouped row on Today is: the function takes a lock,
+      // and a failure halfway through is a sentence rather than a guess.
+      const claimed: string[] = [];
+      for (const ticket of tickets) {
+        try {
+          await rpc(ctx, 'app_claim_ticket', { p_ticket: ticket.id });
+          claimed.push(ticket.number);
+        } catch (error) {
+          const message =
+            error instanceof ToolError && error.message.trim() !== ''
+              ? error.message
+              : 'That one did not go through.';
+          return {
+            ok: false,
+            result: { claimed: claimed.length, numbers: claimed, stopped_at: ticket.number, error: message },
+            summary:
+              claimed.length === 0
+                ? `${ticket.number} could not be claimed and nothing was: ${message}`
+                : `Claimed ${claimed.length} of ${tickets.length} (${claimed.join(', ')}), then ${ticket.number} could not be: ${message}`,
+          };
+        }
+      }
+      return outcome(
+        { claimed: claimed.length, numbers: claimed },
+        `Claimed ${claimed.length} ${claimed.length === 1 ? 'ticket' : 'tickets'}: ${claimed.join(', ')}`,
+      );
+    },
+  },
+
+  set_display_name: {
+    group: 'write',
+    description:
+      "Change the name this person is shown as, on tickets, notes and every history entry: the Display name box on Settings. Their own account only. Between 2 and 80 characters.",
+    fields: {
+      name: { type: 'string', required: true, maxLength: 80, description: 'The name to show.' },
+    },
+    run: async (args, ctx) => {
+      const name = String(args.name).trim();
+      const problem = displayNameError(name);
+      if (problem !== null) throw new ToolError(problem);
+      await rpc(ctx, 'app_update_display_name', { p_name: name });
+      return outcome({ name }, `Changed your display name to ${name}`);
+    },
+  },
+
+  update_shared_notes: {
+    group: 'write',
+    description:
+      "Rewrite the school's shared notes for the assistant: the one box on Settings that everybody on the team reads and everybody may edit — what the desk is, room names, the rules of the house. The whole text replaces what was there, so read the current notes back to the person first when they ask for an addition rather than a rewrite. Up to 600 characters; leave the text out to clear it.",
+    fields: {
+      notes: {
+        type: 'string',
+        maxLength: ASSISTANT_NOTES_MAX,
+        description: 'The new shared notes, whole. Leave it out to clear them.',
+      },
+    },
+    run: async (args, ctx) => {
+      const body = String(args.notes ?? '').trim();
+      await rpc(ctx, 'app_set_assistant_notes_shared', { p_body: body });
+      return outcome(
+        { cleared: body === '', length: body.length },
+        body === '' ? 'Cleared the shared notes' : `Saved the shared notes (${body.length} characters)`,
+      );
+    },
+  },
+
+  save_preset: {
+    group: 'write',
+    description:
+      "Add a quick ticket, or change one: the desk's shared list on Settings → Quick tickets. To add one, give a name and a title at least; to change one, name it in preset and send only the fields that change. The requester and the channel are never part of a quick ticket. At most twelve.",
+    fields: {
+      preset: { type: 'string', description: 'An existing quick ticket to change, by name or id. Leave it out to add a new one.' },
+      name: { type: 'string', maxLength: 40, description: 'What the desk calls it, such as "Projector". Required for a new one; 40 characters at most.' },
+      title: { type: 'string', maxLength: 120, description: 'The title the ticket gets in the queue. Required for a new one; 120 at most.' },
+      issue: { type: 'string', maxLength: 2000, description: 'The issue text the ticket starts with.' },
+      category: { type: 'string', description: 'Default other for a new one.', choices: CATEGORIES },
+      priority: { type: 'string', description: 'Default normal for a new one.', choices: PRIORITIES },
+      location: { type: 'string', maxLength: 80, description: 'A room, when the call is always from the same one.' },
+    },
+    run: async (args, ctx) => {
+      const existing = args.preset === undefined ? null : await resolvePreset(ctx, String(args.preset));
+      if (existing === null) {
+        // The database refuses a thirteenth too; this is the same sentence
+        // before the round trip.
+        const count = countOf(await rpc(ctx, 'app_list_ticket_presets', {}));
+        if (count >= TICKET_PRESET_CAP) {
+          throw new ToolError(
+            `The desk already has ${TICKET_PRESET_CAP} quick tickets. Delete one before adding another.`,
+          );
+        }
+      }
+      const draft = {
+        name: String(args.name ?? existing?.name ?? ''),
+        title: String(args.title ?? existing?.title ?? ''),
+        issue: String(args.issue ?? existing?.issue ?? ''),
+        category: String(args.category ?? existing?.category ?? 'other') as TicketPreset['category'],
+        priority: String(args.priority ?? existing?.priority ?? 'normal') as TicketPreset['priority'],
+        location: String(args.location ?? existing?.location ?? ''),
+      };
+      if (existing !== null && Object.keys(pick(args, ['name', 'title', 'issue', 'category', 'priority', 'location'])).length === 0) {
+        throw new ToolError(`Say what to change about the quick ticket ${existing.name}.`);
+      }
+      // The same rules the settings form applies, so a refusal is one
+      // sentence here rather than a round trip.
+      const problem = presetError(draft);
+      if (problem !== null) throw new ToolError(problem);
+
+      const saved = await rpc(ctx, 'app_save_ticket_preset', {
+        p_id: existing?.id ?? null,
+        p_name: draft.name.trim(),
+        p_title: draft.title.trim(),
+        p_issue: draft.issue.trim(),
+        p_category: draft.category,
+        p_priority: draft.priority,
+        p_location: draft.location.trim(),
+        p_position: existing?.position ?? null,
+      });
+      const id = isRecord(saved) ? textOf(saved.id) : existing?.id ?? '';
+      return outcome(
+        { id, name: draft.name.trim() },
+        existing === null
+          ? `Added the quick ticket ${draft.name.trim()}`
+          : `Changed the quick ticket ${existing.name}`,
+      );
+    },
+  },
+
+  delete_preset: {
+    group: 'write',
+    description: "Remove a quick ticket from the desk's shared list. Tickets already filed from it are untouched.",
+    fields: {
+      preset: { type: 'string', required: true, description: 'The quick ticket, by name or id.' },
+    },
+    run: async (args, ctx) => {
+      const preset = await resolvePreset(ctx, String(args.preset));
+      await rpc(ctx, 'app_delete_ticket_preset', { p_id: preset.id });
+      return outcome({ id: preset.id, name: preset.name }, `Removed the quick ticket ${preset.name}`);
+    },
+  },
+
+  move_preset: {
+    group: 'write',
+    description: "Move a quick ticket one place up or down the desk's list, which is the order the menu and the palette show them in.",
+    fields: {
+      preset: { type: 'string', required: true, description: 'The quick ticket, by name or id.' },
+      direction: { type: 'string', required: true, description: 'up or down.', choices: ['up', 'down'] },
+    },
+    run: async (args, ctx) => {
+      const preset = await resolvePreset(ctx, String(args.preset));
+      const presets = orderPresets(
+        rows(await rpc(ctx, 'app_list_ticket_presets', {}))
+          .map(presetFromRow)
+          .filter((entry): entry is TicketPreset => entry !== null),
+      );
+      // The new order is worked out from the list as the database has it,
+      // and only the rows whose position changes are written: usually two.
+      const moves = movePreset(presets, preset.id, String(args.direction) as 'up' | 'down');
+      if (moves.length === 0) {
+        return outcome({ id: preset.id, moved: false }, `${preset.name} is already at the ${args.direction === 'up' ? 'top' : 'bottom'}`);
+      }
+      for (const move of moves) {
+        const row = presets.find((entry) => entry.id === move.id);
+        if (row === undefined) continue;
+        await rpc(ctx, 'app_save_ticket_preset', {
+          p_id: row.id,
+          p_name: row.name,
+          p_title: row.title,
+          p_issue: row.issue,
+          p_category: row.category,
+          p_priority: row.priority,
+          p_location: row.location,
+          p_position: move.position,
+        });
+      }
+      return outcome({ id: preset.id, moved: true }, `Moved ${preset.name} ${String(args.direction)}`);
+    },
+  },
+
+  import_people: {
+    group: 'write',
+    description:
+      "Put a list of people into the directory, up to 200 rows at a time: a class list, a new-staff sheet, a CSV or a screenshot of one. Each row is a student or a member of staff with the same fields create_person takes. A student is identified by OSIS and a member of staff by school email, and the import is safe to repeat: a row whose identifier is already in the directory UPDATES that record with the fields the row carries, and a row nobody has is added. Read the sheet yourself, map its columns onto the fields, say how many rows you read and which columns you mapped, and send every row in one call. A row that cannot be read — no identifier, a name that matches two records — is named with its reason and the rest still land.",
+    fields: {
+      rows: {
+        type: 'object[]',
+        required: true,
+        maxItems: FIND_PEOPLE_LIMIT,
+        description: `The people, one per row. At most ${FIND_PEOPLE_LIMIT} in one call.`,
+        items: {
+          kind: { type: 'string', required: true, description: 'student or staff.', choices: PERSON_KINDS },
+          ...PERSON_FIELDS,
+        },
+      },
+    },
+    run: async (args, ctx) => {
+      const sheet = args.rows as Record<string, unknown>[];
+
+      /*
+       * The identifier is settled for every row before anything is looked up:
+       * a student's OSIS, a member of staff's email, which is what the
+       * directory derives their staff id from. A row without one cannot be
+       * matched and cannot be safely added, so it is refused by its number
+       * while nothing has happened.
+       */
+      const keys: (string | null)[] = sheet.map((row) => {
+        const kind = String(row.kind);
+        const id = kind === 'staff' ? textOf(row.email).trim().toLowerCase() : textOf(row.external_id).trim();
+        return id === '' ? null : id;
+      });
+      const refused: { row: number; error: string }[] = [];
+      sheet.forEach((row, index) => {
+        if (keys[index] === null) {
+          refused.push({
+            row: index + 1,
+            error: row.kind === 'staff' ? 'needs an email address.' : 'needs an OSIS number.',
+          });
+        }
+      });
+
+      // One lookup for the whole sheet. `app_find_people` matches an
+      // identifier and an email exactly, and answers under the key it was
+      // asked with, so a row is matched by its own key and nothing looser.
+      const distinct = [...new Set(keys.filter((key): key is string => key !== null))];
+      const lookup = distinct.length === 0
+        ? { matched: [], unmatched: [], ambiguous: [] }
+        : await lookupPeople(ctx, distinct);
+      const byKey = new Map<string, PersonRef>();
+      for (const match of lookup.matched) byKey.set(match.key, { id: match.id, name: match.name });
+
+      let created = 0;
+      let updated = 0;
+      for (const [index, row] of sheet.entries()) {
+        const key = keys[index];
+        if (key === null) continue;
+        const patch = toJsonKeys(pick(row, Object.keys(PERSON_FIELDS)), PERSON_JSON_KEYS);
+        const kind = String(row.kind);
+        try {
+          if (lookup.ambiguous.includes(key)) {
+            throw new ToolError(`"${key}" matches more than one record. Say which one, or use the id.`);
+          }
+          const match = byKey.get(key);
+          if (match !== undefined) {
+            const current = await rpc(ctx, 'app_get_person', { p_id: match.id });
+            if (!isRecord(current)) throw new ToolError('There is no directory record with that id.');
+            if (textOf(current.kind) !== kind) {
+              throw new ToolError(`"${key}" is already in the directory as ${textOf(current.kind)}, not ${kind}.`);
+            }
+            await rpc(ctx, 'app_save_person', {
+              p_id: match.id,
+              p_version: Number(current.version ?? 1),
+              p_data: { ...current, ...patch },
+            });
+            updated += 1;
+          } else {
+            const displayName =
+              textOf(patch.displayName) ||
+              `${textOf(patch.firstName)} ${textOf(patch.lastName)}`.trim();
+            if (displayName === '') throw new ToolError('needs a name.');
+            await rpc(ctx, 'app_save_person', {
+              p_id: null,
+              p_version: null,
+              p_data: { kind, ...patch, displayName },
+            });
+            created += 1;
+          }
+        } catch (error) {
+          const message =
+            error instanceof ToolError && error.message.trim() !== ''
+              ? error.message
+              : 'That row did not go through.';
+          refused.push({ row: index + 1, error: message });
+        }
+      }
+
+      refused.sort((a, b) => a.row - b.row);
+      const parts = [`${created} added`, `${updated} updated`];
+      if (refused.length > 0) parts.push(`${refused.length} refused`);
+      const detail =
+        refused.length === 0
+          ? ''
+          : `: ${refused
+              .slice(0, 3)
+              .map((entry) => `row ${entry.row} ${unstopped(entry.error)}`)
+              .join('; ')}${refused.length > 3 ? '; and more' : ''}`;
+      return {
+        ok: created + updated > 0,
+        result: { created, updated, refused: refused.length, refusals: refused },
+        summary: `Imported ${sheet.length} ${sheet.length === 1 ? 'row' : 'rows'}: ${parts.join(', ')}${detail}.`,
+      };
+    },
+  },
+
+  update_group: {
+    group: 'write',
+    description: 'Rename a group, or rewrite the line saying what it is for. Only the fields you send are changed.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+      name: { type: 'string', maxLength: 80, description: 'The new name. At most 80 characters, and unique.' },
+      description: { type: 'string', maxLength: 300, description: 'The new one-line description.' },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      if (args.name === undefined && args.description === undefined) {
+        throw new ToolError(`Say what to change about ${group.name}: its name or its description.`);
+      }
+      const name = String(args.name ?? group.name);
+      const description = String(args.description ?? group.description);
+      await rpc(ctx, 'app_update_group', { p_group: group.id, p_name: name, p_description: description });
+      return outcome(
+        { id: group.id, name, description },
+        args.name !== undefined && name !== group.name
+          ? `Renamed ${group.name} to ${name}`
+          : `Updated ${group.name}`,
+      );
+    },
+  },
+
+  set_group_member_note: {
+    group: 'write',
+    description:
+      'Write the short note beside one member of a group — "treasurer", "needs a ride", "paid in cash". Up to 80 characters; leave the note out to clear it.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+      person: { type: 'string', required: true, description: 'Name, email, OSIS, staff id or record id.' },
+      note: { type: 'string', maxLength: 80, description: 'The note. Leave it out to clear it.' },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      const person = await resolvePerson(ctx, String(args.person));
+      const note = String(args.note ?? '').trim();
+      await rpc(ctx, 'app_set_group_member_note', {
+        p_group: group.id,
+        p_requester: person.id,
+        p_note: note,
+      });
+      return outcome(
+        { id: person.id, note },
+        note === ''
+          ? `Cleared the note beside ${person.name} in ${group.name}`
+          : `Noted "${note}" beside ${person.name} in ${group.name}`,
+      );
+    },
+  },
+
+  save_group_field: {
+    group: 'write',
+    description:
+      'Add a checklist column to a group — "Dues", "Permission slip", "Shirt size" — or rename one. Name an existing column in column to rename it; leave it out to add one. Up to 40 columns per group, one of each name.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+      name: { type: 'string', required: true, maxLength: 40, description: 'What the column is called. 40 characters at most.' },
+      column: { type: 'string', description: 'An existing column to rename, by its current name or id. Leave it out to add a new one.' },
+      position: { type: 'integer', description: 'Where it sits, counting from 0 on the left. Default: at the end.' },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      const name = String(args.name);
+      if (args.column !== undefined) {
+        const field = await resolveGroupField(ctx, group, String(args.column));
+        const fields = rows(await rpc(ctx, 'app_list_group_fields', { p_group: group.id }));
+        const current = fields.find((entry) => textOf(entry.id) === field.id);
+        await rpc(ctx, 'app_save_group_field', {
+          p_field: field.id,
+          p_group: group.id,
+          p_name: name,
+          p_position: args.position ?? Number(current?.position ?? 0),
+        });
+        return outcome({ id: field.id, name }, `Renamed the column ${field.name} to ${name} on ${group.name}`);
+      }
+      const fields = rows(await rpc(ctx, 'app_list_group_fields', { p_group: group.id }));
+      const id = await rpc(ctx, 'app_save_group_field', {
+        p_field: null,
+        p_group: group.id,
+        p_name: name,
+        p_position: args.position ?? fields.length,
+      });
+      return outcome({ id, name }, `Added the column ${name} to ${group.name}`);
+    },
+  },
+
+  delete_group_field: {
+    group: 'write',
+    description: 'Remove a checklist column from a group, and every tick on it.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+      column: { type: 'string', required: true, description: 'The column, by name or id.' },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      const field = await resolveGroupField(ctx, group, String(args.column));
+      await rpc(ctx, 'app_delete_group_field', { p_field: field.id });
+      return outcome({ id: field.id }, `Removed the column ${field.name} from ${group.name}`);
+    },
+  },
+
+  set_checklist_marks: {
+    group: 'write',
+    description:
+      'Tick, or untick, a whole list of members against one checklist column at once — everybody who paid dues today, the permission slips that came back. Each entry is an OSIS number, a staff id, an email address or a full name, resolved exactly as add_to_group resolves one. Reports how many were changed, how many are not in the group, and which entries matched nobody or more than one person.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+      column: { type: 'string', required: true, description: 'The checklist column, by name or by id.' },
+      people: {
+        type: 'string[]',
+        required: true,
+        maxItems: FIND_PEOPLE_LIMIT,
+        description: 'The people to tick or untick, one per entry: OSIS number, staff id, school email address or full name.',
+      },
+      checked: { type: 'boolean', required: true, description: 'True to tick, false to take the tick back.' },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      const field = await resolveGroupField(ctx, group, String(args.column));
+      const checked = args.checked === true;
+      const { matched, unmatched, ambiguous } = await lookupPeople(ctx, args.people as string[]);
+      if (matched.length === 0) {
+        throw new ToolError(
+          `None of those ${(args.people as string[]).length} entries is somebody in the directory. Nothing was ticked.`,
+        );
+      }
+
+      // One tick is one call, as on the screen; a person who is not in the
+      // group is refused by the function and counted rather than stopping
+      // the rest.
+      let changed = 0;
+      let outside = 0;
+      for (const person of matched) {
+        try {
+          await rpc(ctx, 'app_set_group_mark', { p_field: field.id, p_requester: person.id, p_checked: checked });
+          changed += 1;
+        } catch (error) {
+          if (error instanceof ToolError && /not in/.test(error.message)) outside += 1;
+          else throw error;
+        }
+      }
+
+      const parts = [`${changed} ${checked ? 'ticked' : 'unticked'}`];
+      if (outside > 0) parts.push(`${outside} not in the group`);
+      parts.push(...lookupTail(unmatched, ambiguous));
+      return outcome(
+        { changed, not_member: outside, unmatched, ambiguous },
+        `${field.name} on ${group.name}: ${parts.join(', ')}.`,
+      );
+    },
+  },
+
+  create_group_event: {
+    group: 'write',
+    description:
+      'Add a day a group did something — a meeting, a practice, a competition — so attendance can be taken against it. Default today.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+      name: { type: 'string', required: true, maxLength: 80, description: 'What the event is called, such as "Weekly meeting". 80 characters at most.' },
+      held_on: { type: 'string', date: true, description: 'The school day it was held, as YYYY-MM-DD. Default today.' },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      const id = await rpc(ctx, 'app_create_group_event', {
+        p_group: group.id,
+        p_name: args.name,
+        p_held_on: args.held_on ?? null,
+      });
+      const day = args.held_on === undefined ? 'today' : String(args.held_on);
+      return outcome({ id }, `Added ${String(args.name)} on ${day} to ${group.name}`);
+    },
+  },
+
+  delete_group_event: {
+    group: 'write',
+    description: 'Delete one of a group\'s events and the attendance taken at it. A day can be taken again; the marks cannot be got back.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+      event: { type: 'string', required: true, description: 'The event, by name or by id.' },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      const event = await resolveGroupEvent(ctx, group, String(args.event));
+      await rpc(ctx, 'app_delete_group_event', { p_event: event.id });
+      return outcome({ id: event.id }, `Deleted ${event.name} on ${event.heldOn} from ${group.name}`);
+    },
+  },
+
+  bulk_assign_devices: {
+    group: 'write',
+    description:
+      'Hand a whole list of machines to one person at once — a cart to a teacher, a tray of loaners to the officer running an event. Each is assigned in turn, exactly as assign_device does one; the first that cannot be stops the rest, and the answer says how many were handed over before it. Up to 200.',
+    fields: {
+      devices: {
+        type: 'string[]',
+        required: true,
+        maxItems: 200,
+        description: 'Asset tags, serial numbers or inventory ids.',
+      },
+      person: { type: 'string', required: true, description: 'Name, email, OSIS or staff id of whoever takes them.' },
+      note: { type: 'string', description: 'Anything to record about the loan, on every one.' },
+    },
+    run: async (args, ctx) => {
+      const person = await resolvePerson(ctx, String(args.person));
+      const devices: DeviceRef[] = [];
+      for (const name of args.devices as string[]) {
+        const device = await resolveDevice(ctx, name);
+        if (!devices.some((entry) => entry.id === device.id)) devices.push(device);
+      }
+      let done = 0;
+      for (const device of devices) {
+        try {
+          await rpc(ctx, 'app_assign_inventory_device', {
+            p_device: device.id,
+            p_requester: person.id,
+            p_note: args.note ?? null,
+          });
+          done += 1;
+        } catch (error) {
+          const message =
+            error instanceof ToolError && error.message.trim() !== '' ? error.message : 'That one did not go through.';
+          return {
+            ok: false,
+            result: { assigned: done, of: devices.length, stopped_at: device.label, error: message },
+            summary:
+              done === 0
+                ? `${device.label} could not be assigned and nothing was: ${message}`
+                : `Assigned ${done} of ${devices.length} to ${person.name}, then ${device.label} could not be: ${message}`,
+          };
+        }
+      }
+      return outcome(
+        { assigned: done, of: devices.length },
+        `Assigned ${done} ${done === 1 ? 'device' : 'devices'} to ${person.name}`,
+      );
+    },
+  },
+
+  bulk_return_devices: {
+    group: 'write',
+    description:
+      'Take a whole list of machines back from whoever holds them — a cart at the end of term. Each is returned in turn, exactly as return_device does one; the first that cannot be stops the rest, and the answer says how many came back before it. Up to 200.',
+    fields: {
+      devices: {
+        type: 'string[]',
+        required: true,
+        maxItems: 200,
+        description: 'Asset tags, serial numbers or inventory ids.',
+      },
+      status: { type: 'string', description: `What state they came back in. Default Available; usually one of ${SEEDED_STATUSES}.` },
+      note: { type: 'string', description: 'Anything to record about the return, on every one.' },
+    },
+    run: async (args, ctx) => {
+      const status = String(args.status ?? 'Available');
+      const devices: DeviceRef[] = [];
+      for (const name of args.devices as string[]) {
+        const device = await resolveDevice(ctx, name);
+        if (!devices.some((entry) => entry.id === device.id)) devices.push(device);
+      }
+      let done = 0;
+      for (const device of devices) {
+        try {
+          await rpc(ctx, 'app_return_inventory_device', {
+            p_device: device.id,
+            p_status: status,
+            p_note: args.note ?? null,
+          });
+          done += 1;
+        } catch (error) {
+          const message =
+            error instanceof ToolError && error.message.trim() !== '' ? error.message : 'That one did not go through.';
+          return {
+            ok: false,
+            result: { returned: done, of: devices.length, stopped_at: device.label, error: message },
+            summary:
+              done === 0
+                ? `${device.label} could not be returned and nothing was: ${message}`
+                : `Took back ${done} of ${devices.length}, then ${device.label} could not be: ${message}`,
+          };
+        }
+      }
+      return outcome(
+        { returned: done, of: devices.length, status },
+        `Took back ${done} ${done === 1 ? 'device' : 'devices'} as ${status.toLowerCase()}`,
+      );
+    },
+  },
+
   // --- Administrator only --------------------------------------------------
 
   reassign_ticket: {
@@ -2613,7 +4003,9 @@ const TOOLS: Record<string, ToolSpec> = {
       role: { type: 'string', description: 'The role to grant on approval. Default netrider.', choices: ROLES },
     },
     run: async (args, ctx) => {
-      const account = await resolveAccount(ctx, String(args.account));
+      // Somebody waiting is not in the directory yet, on purpose, so the
+      // waiting list itself is what a name is matched against.
+      const account = await resolveWaitingAccount(ctx, String(args.account));
       await rpc(ctx, 'app_admin_review_access_request', {
         p_account: account.id,
         p_decision: args.decision,
@@ -2801,6 +4193,40 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  delete_group: {
+    group: 'admin',
+    description:
+      'Delete a group and every membership, event, register and checklist in it. The people themselves stay in the directory. Administrators only, because a roster somebody spent an afternoon pasting in cannot be got back.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      await rpc(ctx, 'app_delete_group', { p_group: group.id });
+      return outcome(
+        { id: group.id, name: group.name, members: group.members },
+        `Deleted the group ${group.name} (${group.members} ${group.members === 1 ? 'member' : 'members'})`,
+      );
+    },
+  },
+
+  revoke_invite: {
+    group: 'admin',
+    description:
+      'Take back an invite that has not been accepted, so that address no longer gains access on sign-in. Name it by the email address it went to, or its id from list_invites.',
+    fields: {
+      invite: { type: 'string', required: true, description: 'The email address the invite went to, or its id.' },
+    },
+    run: async (args, ctx) => {
+      const invite = await resolveInvite(ctx, String(args.invite));
+      if (invite.state !== 'pending') {
+        throw new ToolError(`The invite to ${invite.email} is ${invite.state}, so there is nothing to revoke.`);
+      }
+      await rpc(ctx, 'app_admin_revoke_invite', { p_invite: invite.id });
+      return outcome({ id: invite.id, email: invite.email }, `Revoked the invite to ${invite.email}`);
+    },
+  },
+
 };
 
 // ---------------------------------------------------------------------------
@@ -2983,7 +4409,36 @@ const DIRECTORY_TOOLS = [
   'mark_attendance',
   'group_checklist',
   'set_checklist_mark',
+  // The rest of what a group's page can do: its name, the note beside a
+  // member, its checklist columns, its events, and a whole column ticked at
+  // once. Deleting a group is an administrator's and is gated by its group.
+  'update_group',
+  'set_group_member_note',
+  'save_group_field',
+  'delete_group_field',
+  'set_checklist_marks',
+  'create_group_event',
+  'delete_group_event',
+  // A sheet of people is directory work, exactly as one person is.
+  'import_people',
+  // Their own name and the note the whole desk shares, both on Settings.
+  'set_display_name',
+  'update_shared_notes',
+  // The two exports every active account has a button for. The directory
+  // export is not here: it is gated by `directoryExport`, which admits a
+  // skills officer and refuses a NetRider.
+  'export_devices_csv',
+  'export_group_csv',
 ] as const;
+
+/**
+ * Reads gated by `canExportDirectory`: an administrator or a skills officer,
+ * and not a NetRider. Exported so the suite can say which tools a NetRider is
+ * NOT offered without naming them twice.
+ */
+export const DIRECTORY_EXPORT_TOOLS: string[] = Object.entries(TOOLS)
+  .filter(([, spec]) => spec.directoryExport === true)
+  .map(([name]) => name);
 
 export function toolsFor(roles: readonly AccountRole[]): ToolDef[] {
   const admin = roles.includes('admin');
@@ -2991,6 +4446,7 @@ export function toolsFor(roles: readonly AccountRole[]): ToolDef[] {
   return Object.entries(TOOLS)
     .filter(([name, spec]) => {
       if (isAdminTool(spec)) return admin;
+      if (spec.directoryExport === true) return canExportDirectory(roles);
       if (ticketWorker) return true;
       return (DIRECTORY_TOOLS as readonly string[]).includes(name);
     })
@@ -3184,8 +4640,13 @@ export async function executeTool(
     const message = 'Only an administrator can do that.';
     return { ok: false, result: { error: message }, summary: message };
   }
+  if (spec.directoryExport === true && !canExportDirectory(ctx.actor.roles)) {
+    const message = 'Only an administrator or a skills officer can export the directory.';
+    return { ok: false, result: { error: message }, summary: message };
+  }
   if (
     !isAdminTool(spec) &&
+    spec.directoryExport !== true &&
     !canWorkTickets(ctx.actor.roles) &&
     !(DIRECTORY_TOOLS as readonly string[]).includes(name)
   ) {
@@ -3239,7 +4700,15 @@ function describeValue(key: string, value: unknown): string {
     if (value.some(isRecord)) {
       const count = `${value.length} ${value.length === 1 ? 'row' : 'rows'}`;
       const first = value.find(isRecord);
-      const title = first === undefined ? '' : textOf(first.title);
+      // A sheet of tickets has a title; a sheet of people has a name.
+      const title =
+        first === undefined
+          ? ''
+          : textOf(first.title) ||
+            textOf(first.display_name) ||
+            `${textOf(first.first_name)} ${textOf(first.last_name)}`.trim() ||
+            textOf(first.external_id) ||
+            textOf(first.email);
       return title === '' ? count : `${count}, starting "${title}"`;
     }
     const shown = value.slice(0, 5).map(String).join(', ');
