@@ -35,8 +35,8 @@
  * as "something is happening" without a single pixel moving.
  */
 
-import { ThinkingLogo } from 'thinking-logos';
-import { type CSSProperties, useSyncExternalStore } from 'react';
+import { ThinkingLogo, type LogoState } from 'thinking-logos';
+import { type CSSProperties, useEffect, useState, useSyncExternalStore } from 'react';
 
 import { MARK_LARGE, MARK_SMALL } from './openai-mark.baked';
 
@@ -48,8 +48,10 @@ import { MARK_LARGE, MARK_SMALL } from './openai-mark.baked';
  * - `waiting` — the product is waiting on somebody else: the connect card
  *   while a device code is outstanding, or before one has been asked for.
  *   Slower and flatter than `working`, because nobody here is doing anything.
+ * - any other library state — the welcome's chosen effect, which the account
+ *   picks from in Settings. The panel decides which; this file only plays it.
  */
-export type AiMarkState = 'still' | 'working' | 'waiting';
+export type AiMarkState = 'still' | LogoState;
 
 /**
  * OpenAI's mark, the monochrome single-path form, traced from
@@ -95,6 +97,27 @@ const SMALL_TUNE = {
   rMin: 0.45,
   dwell: 6.6,
   morph: 1.3,
+  // The same face-on correction `LARGE_TUNE` explains: at twenty pixels a
+  // mark turned away from the reader is a smudge.
+  lean: 0,
+};
+
+/**
+ * Tuning for the 64px welcome mark, over the library's presets.
+ *
+ * One knob. Two of the seven states, the knot (`working`) and the crystal
+ * (`generating`), add a constant `lean` to the camera's yaw — 0.4 and 0.5
+ * radians — that the other five do not have. Everywhere else the yaw is
+ * scaled by how far the cycle is from the mark and reaches zero as the dots
+ * land; `lean` sits outside that scale and survives to the mark itself, so
+ * those two showed the assembled logo turned about 25° from the viewer,
+ * foreshortened against the drawn path underneath it. At zero the yaw still
+ * swings while the shape is working (that part is `yawAmp`, which is
+ * scaled) and is gone when the mark lands. Checked frame by frame in a
+ * sampler against the other five, which needed nothing and ignore the knob.
+ */
+const LARGE_TUNE = {
+  lean: 0,
 };
 
 const QUERY = '(prefers-reduced-motion: reduce)';
@@ -122,18 +145,47 @@ function useReducedMotion() {
 export function AiMark({
   size = 20,
   state = 'still',
+  delayMs = 0,
   className,
 }: {
-  /** 20 in the top bar, 44 in the connect card. */
+  /** 20 in the top bar, 44 in the connect card, 64 in the welcome. */
   size?: number;
   /** @default 'still' */
   state?: AiMarkState;
+  /**
+   * How long the mark holds on the assembled logo before it starts to move,
+   * from the moment it is mounted. Zero moves at once.
+   */
+  delayMs?: number;
   className?: string;
 }) {
   const reduced = useReducedMotion();
+
+  /*
+   * The hold before the first movement.
+   *
+   * The welcome wants about a second on the assembled mark before it comes
+   * apart, so the first thing the reader sees is the logo rather than a shape
+   * mid-change. The hold is the drawn path, and the canvas is mounted only
+   * when the timer runs out — not mounted at once and paused, though the
+   * library allows that. Its clock is shared by every instance on the page
+   * and never rewinds, so `startAtMark` lands on the mark only until the first
+   * one has run; a canvas paused on its opening frame would, for every
+   * welcome after the first, hold on whatever the shared clock happened to be
+   * showing. The drawn path is always the mark. Cleared if the mark is taken
+   * down first.
+   */
+  const [released, setReleased] = useState(delayMs <= 0);
+  useEffect(() => {
+    if (delayMs <= 0) return;
+    const timer = window.setTimeout(() => setReleased(true), delayMs);
+    return () => window.clearTimeout(timer);
+  }, [delayMs]);
+
   // At rest the mark is the drawn glyph; the dotted cloud appears only while
-  // the assistant is doing something (or, in the panel's welcome, as `waiting`).
-  const cloud = state === 'still' || reduced ? null : state;
+  // the assistant is doing something (or, in the panel's welcome, as the
+  // effect the account chose).
+  const cloud = state === 'still' || reduced || !released ? null : state;
 
   return (
     <span
@@ -159,7 +211,7 @@ export function AiMark({
           logo={size >= 32 ? MARK_LARGE : MARK_SMALL}
           state={cloud}
           size={Math.round(size * CLOUD_SCALE)}
-          tune={size >= 32 ? undefined : SMALL_TUNE}
+          tune={size >= 32 ? LARGE_TUNE : SMALL_TUNE}
           startAtMark
         />
       ) : null}

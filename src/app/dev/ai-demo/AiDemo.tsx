@@ -50,6 +50,7 @@ const STATUS: AiStatus = {
   reasoning: 'high',
   confirmChanges: false,
   speakReplies: false,
+  welcomeStates: ['generating', 'listening'],
   model: 'gpt-5.6-luna',
   modelLabel: 'GPT-5.6 Luna',
 };

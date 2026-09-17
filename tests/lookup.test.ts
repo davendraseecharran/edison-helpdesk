@@ -4,6 +4,7 @@ import {
   groupHits,
   hitFromRow,
   hrefFor,
+  isSearchKind,
   matchesQuery,
   parseRecent,
   RECENT_LIMIT,
@@ -22,6 +23,11 @@ describe('hrefFor', () => {
     expect(hrefFor({ kind: 'ticket', id: 'abc' })).toBe('/tickets/abc');
     expect(hrefFor({ kind: 'person', id: 'abc' })).toBe('/people/abc');
     expect(hrefFor({ kind: 'device', id: 'abc' })).toBe('/devices/abc');
+    expect(hrefFor({ kind: 'group', id: 'abc' })).toBe('/groups/abc');
+  });
+
+  it('links an event through the redirecting page, since a hit does not carry its group', () => {
+    expect(hrefFor({ kind: 'event', id: 'abc' })).toBe('/events/abc');
   });
 
   it('encodes an id that is not a plain path segment', () => {
@@ -29,17 +35,40 @@ describe('hrefFor', () => {
   });
 });
 
+describe('isSearchKind', () => {
+  it('accepts the five kinds the search returns and nothing else', () => {
+    for (const kind of ['ticket', 'person', 'device', 'group', 'event']) {
+      expect(isSearchKind(kind), kind).toBe(true);
+    }
+    expect(isSearchKind('account')).toBe(false);
+    expect(isSearchKind('Group')).toBe(false);
+    expect(isSearchKind('')).toBe(false);
+    expect(isSearchKind(null)).toBe(false);
+    expect(isSearchKind(1)).toBe(false);
+  });
+});
+
 describe('groupHits', () => {
-  it('splits mixed hits into tickets, people and devices in the given order', () => {
-    const hits = [hit('device', 'd1'), hit('ticket', 't1'), hit('person', 'p1'), hit('ticket', 't2')];
+  it('splits mixed hits into tickets, people, devices, groups and events in the given order', () => {
+    const hits = [
+      hit('event', 'e1'),
+      hit('device', 'd1'),
+      hit('group', 'g1'),
+      hit('ticket', 't1'),
+      hit('person', 'p1'),
+      hit('ticket', 't2'),
+      hit('group', 'g2'),
+    ];
     const grouped = groupHits(hits);
     expect(grouped.tickets.map((h) => h.id)).toEqual(['t1', 't2']);
     expect(grouped.people.map((h) => h.id)).toEqual(['p1']);
     expect(grouped.devices.map((h) => h.id)).toEqual(['d1']);
+    expect(grouped.groups.map((h) => h.id)).toEqual(['g1', 'g2']);
+    expect(grouped.events.map((h) => h.id)).toEqual(['e1']);
   });
 
-  it('returns three empty lists for no hits', () => {
-    expect(groupHits([])).toEqual({ tickets: [], people: [], devices: [] });
+  it('returns five empty lists for no hits', () => {
+    expect(groupHits([])).toEqual({ tickets: [], people: [], devices: [], groups: [], events: [] });
   });
 });
 
@@ -90,6 +119,27 @@ describe('hitFromRow', () => {
       subtitle: 'Student — 7-401',
       meta: '230045611',
       href: '/people/p1',
+    });
+  });
+
+  it('maps a group and an event to their links', () => {
+    expect(
+      hitFromRow({ kind: 'group', id: 'g1', title: 'Officers', subtitle: 'Runs the chapter', meta: '6 members' }),
+    ).toEqual({
+      kind: 'group',
+      id: 'g1',
+      title: 'Officers',
+      subtitle: 'Runs the chapter',
+      meta: '6 members',
+      href: '/groups/g1',
+    });
+    expect(hitFromRow({ kind: 'event', id: 'e1', title: 'Weekly meeting', subtitle: 'Officers', meta: 'Sep 16' })).toEqual({
+      kind: 'event',
+      id: 'e1',
+      title: 'Weekly meeting',
+      subtitle: 'Officers',
+      meta: 'Sep 16',
+      href: '/events/e1',
     });
   });
 
@@ -156,6 +206,17 @@ describe('parseRecent', () => {
     ]);
     expect(parseRecent(raw)).toEqual([
       { kind: 'device', id: 'd1', title: 'EDS-CB-2291', href: '/devices/d1', at: 0 },
+    ]);
+  });
+
+  it('reads a remembered group and event back with their links', () => {
+    const raw = JSON.stringify([
+      { kind: 'group', id: 'g1', title: 'Officers', href: '/groups/g1', at: 2 },
+      { kind: 'event', id: 'e1', title: 'Weekly meeting', href: '/events/e1', at: 1 },
+    ]);
+    expect(parseRecent(raw)).toEqual([
+      { kind: 'group', id: 'g1', title: 'Officers', href: '/groups/g1', at: 2 },
+      { kind: 'event', id: 'e1', title: 'Weekly meeting', href: '/events/e1', at: 1 },
     ]);
   });
 

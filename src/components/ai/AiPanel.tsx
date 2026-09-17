@@ -44,6 +44,7 @@ import { useMediaQuery, usePhone, useReducedMotion } from '@/components/ui/media
 import { AnimatePresence, DURATION, EASE_OUT_FAST, INSTANT, SPRING } from '@/components/ui/Motion';
 import type { ConversationSummary } from '@/lib/ai/conversations';
 import type { Reasoning } from '@/lib/ai/responses-client';
+import { pickWelcomeState, type WelcomeState } from '@/lib/domain/preferences';
 import { AiComposer, type AiComposerHandle } from './AiComposer';
 import { AiConnectCard } from './AiConnectCard';
 import { AiMessage } from './AiMessage';
@@ -105,6 +106,31 @@ function readTodayBriefing(): string | null {
 }
 
 const ALWAYS_ASKS = 'This change always asks first, whatever the setting.';
+
+/**
+ * How long the welcome's mark holds on the assembled logo before it moves.
+ *
+ * About a second: long enough that the first thing seen is the logo and not
+ * a shape mid-change, short enough that nobody waits for it.
+ */
+const WELCOME_HOLD_MS = 1000;
+
+/**
+ * The welcome's mark, playing one of the effects the account allows.
+ *
+ * The pick is made in the initialiser, so it happens once per mount of the
+ * welcome and not on every render, and the hold starts from the same moment.
+ * A new conversation is a new welcome, and a new pick; a list of one is
+ * always that one. Mounted only once the status is known, so the pick is
+ * from the account's own list rather than a default that is replaced a
+ * moment later.
+ */
+function WelcomeMark({ states }: { states: WelcomeState[] }) {
+  const [effect] = useState(() => pickWelcomeState(states));
+  return (
+    <AiMark size={64} state={effect} delayMs={WELCOME_HOLD_MS} className="ai-welcome-mark" />
+  );
+}
 
 type View = 'chat' | 'connect' | 'conversations';
 
@@ -831,10 +857,15 @@ export function AiPanel({
                 ) : showWelcome ? (
                   <div className="ai-welcome">
                     <div className="ai-welcome-orb">
-                      {moment === 'idle' ? (
-                        <AiMark size={64} state="waiting" className="ai-welcome-mark" />
-                      ) : (
+                      {moment !== 'idle' ? (
                         <Orb moment={moment} size={64} level={level} />
+                      ) : status ? (
+                        <WelcomeMark states={status.welcomeStates} />
+                      ) : (
+                        /* The drawn mark until the account's list is known:
+                           the same frame the effect starts on, so nothing
+                           changes shape when it arrives. */
+                        <AiMark size={64} state="still" className="ai-welcome-mark" />
                       )}
                     </div>
                     <p className="ai-welcome-text">{welcomeLine}</p>

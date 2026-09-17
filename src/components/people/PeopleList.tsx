@@ -27,7 +27,12 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import type { PeoplePage } from '@/lib/data/people';
 import type { GmailMode } from '@/lib/domain/preferences';
-import { personPlacement, personSubtitle } from '@/lib/domain/records';
+import {
+  directoryTailColumns,
+  personPlacement,
+  personSubtitle,
+  type DirectoryTailColumn,
+} from '@/lib/domain/records';
 import { type PersonKind, type PersonSummary } from '@/lib/domain/types';
 import type { PersonAddressee } from '@/lib/people/clipboard';
 import { ArchivedBadge } from '@/components/Badges';
@@ -91,10 +96,13 @@ export function PeopleList({
   page,
   gmailMode = 'cc',
   canExport = false,
+  ticketWorker = true,
 }: {
   page: PeoplePage;
   gmailMode?: GmailMode;
   canExport?: boolean;
+  /** Whether the reader works tickets. It decides the last two columns. */
+  ticketWorker?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -150,7 +158,7 @@ export function PeopleList({
     return params ? `${pathname}?${params}` : pathname;
   }
 
-  const { people, total, pageCount, openTickets } = page;
+  const { people, total, pageCount, openTickets, groups } = page;
   const busy = navigating;
   const isStudent = current.kind === 'student';
 
@@ -194,6 +202,68 @@ export function PeopleList({
         ids: [...selected].join(','),
       }).toString()}`
     : null;
+
+  /*
+   * The end of the row, which is a different pair of facts for a technician
+   * and for a skills officer. Both pairs are declared; `directoryTailColumns`
+   * picks, and the data behind the pair nobody is shown was never read.
+   */
+  const tail: Record<DirectoryTailColumn, Column<PersonSummary>> = {
+    devices: {
+      key: 'devices',
+      header: 'Devices',
+      align: 'right',
+      width: 96,
+      cell: (person) =>
+        person.deviceCount > 0 ? person.deviceCount : <span className="dir-quiet">0</span>,
+    },
+    /*
+     * Tickets still waiting on an answer. It is the question somebody scans
+     * this list for — who is stuck — and until now it took opening each
+     * record to find out. A zero is set quiet, so the column reads as the
+     * few names that have something open rather than as a wall of noughts.
+     */
+    open: {
+      key: 'open',
+      header: 'Open',
+      align: 'right',
+      width: 88,
+      cell: (person) => {
+        const count = openTickets[person.id] ?? 0;
+        // Not a link: the name in the same row already goes to the record, and
+        // that record is where the tickets are listed.
+        return count > 0 ? count : <span className="dir-quiet">0</span>;
+      },
+    },
+    /*
+     * The address, for the reader whose work is writing to people. Mono
+     * because an address is an identifier: it is read character by character
+     * when it is read at all, and a proportional font hides the difference
+     * between an l and a 1.
+     */
+    email: {
+      key: 'email',
+      header: 'Email',
+      mono: true,
+      width: 240,
+      cell: (person) => person.email || <span className="dir-quiet">None</span>,
+    },
+    /*
+     * Which rosters somebody is on. A skills officer's whole question about a
+     * name is which of their groups it belongs to, and the answer took opening
+     * every group to find.
+     */
+    groups: {
+      key: 'groups',
+      header: 'Groups',
+      hideOnPhone: true,
+      width: 220,
+      cell: (person) => {
+        const names = groups[person.id] ?? [];
+        return names.length > 0 ? names.join(', ') : <span className="dir-quiet">None</span>;
+      },
+    },
+  };
 
   const columns: Column<PersonSummary>[] = [
     {
@@ -248,34 +318,7 @@ export function PeopleList({
       width: 220,
       cell: (person) => personPlacement(person) || <span className="dir-quiet">Not recorded</span>,
     },
-    {
-      key: 'devices',
-      header: 'Devices',
-      align: 'right',
-      width: 96,
-      cell: (person) =>
-        person.deviceCount > 0 ? person.deviceCount : <span className="dir-quiet">0</span>,
-    },
-    {
-      /*
-       * Tickets still waiting on an answer. It is the question somebody scans
-       * this list for — who is stuck — and until now it took opening each
-       * record to find out. A zero is set quiet, so the column reads as the
-       * few names that have something open rather than as a wall of noughts;
-       * an account that may read the roster but no tickets sees every row
-       * quiet, which is the truth for them.
-       */
-      key: 'open',
-      header: 'Open',
-      align: 'right',
-      width: 88,
-      cell: (person) => {
-        const count = openTickets[person.id] ?? 0;
-        // Not a link: the name in the same row already goes to the record, and
-        // that record is where the tickets are listed.
-        return count > 0 ? count : <span className="dir-quiet">0</span>;
-      },
-    },
+    ...directoryTailColumns(ticketWorker).map((key) => tail[key]),
   ];
 
   return (

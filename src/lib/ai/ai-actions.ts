@@ -43,6 +43,11 @@ import {
 } from './conversations';
 import { describeCall } from './tools';
 import { AI_MODEL, AI_MODEL_LABEL, isReasoning, type Reasoning } from './responses-client';
+import {
+  DEFAULT_WELCOME_STATES,
+  parseWelcomeStates,
+  type WelcomeState,
+} from '@/lib/domain/preferences';
 
 export interface AiActionResult {
   ok: boolean;
@@ -58,6 +63,8 @@ export interface AiStatus {
   reasoning: Reasoning;
   confirmChanges: boolean;
   speakReplies: boolean;
+  /** What the welcome's mark may do; the panel picks one each time it opens. */
+  welcomeStates: WelcomeState[];
   model: string;
   modelLabel: string;
 }
@@ -182,6 +189,7 @@ export async function aiStatusAction(): Promise<AiStatus> {
     reasoning: 'high',
     confirmChanges: false,
     speakReplies: false,
+    welcomeStates: [...DEFAULT_WELCOME_STATES],
     model: AI_MODEL,
     modelLabel: AI_MODEL_LABEL,
   };
@@ -206,6 +214,7 @@ export async function aiStatusAction(): Promise<AiStatus> {
     reasoning: isReasoning(prefs?.ai_reasoning) ? prefs.ai_reasoning : 'high',
     confirmChanges: prefs?.ai_confirm_changes === true,
     speakReplies: prefs?.ai_speak_replies === true,
+    welcomeStates: parseWelcomeStates(prefs?.ai_welcome_states),
     model: AI_MODEL,
     modelLabel: AI_MODEL_LABEL,
   };

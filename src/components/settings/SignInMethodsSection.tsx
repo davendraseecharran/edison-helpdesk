@@ -187,6 +187,7 @@ export function SignInMethodsSection({
 
   return (
     <SettingsSection
+      id="sign-in"
       title="Sign-in methods"
       description="One account, two ways in. Add the second one before the day you need it."
     >

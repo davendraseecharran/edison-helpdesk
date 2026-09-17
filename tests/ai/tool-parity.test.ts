@@ -205,6 +205,39 @@ describe('set_preference', () => {
     expect(result.ok).toBe(false);
     expect(withdrawn.calls).toEqual([]);
   });
+
+  it('takes the welcome effects by the names people use, as a list', async () => {
+    const { ctx, calls } = context({});
+    const result = await executeTool(
+      'set_preference',
+      { key: 'ai_welcome_states', value: 'Diamond, wave and Diamond' },
+      ctx,
+    );
+    expect(result.ok).toBe(true);
+    // The stored words, folded, each once, in the order said.
+    expect(calls).toEqual([
+      { fn: 'app_update_preferences', args: { p_patch: { ai_welcome_states: ['generating', 'listening'] } } },
+    ]);
+  });
+
+  it('refuses a welcome effect it does not have, naming the seven, before any round trip', async () => {
+    const { ctx, calls } = context({});
+    const result = await executeTool(
+      'set_preference',
+      { key: 'ai_welcome_states', value: 'diamond, fireworks' },
+      ctx,
+    );
+    expect(result.ok).toBe(false);
+    expect(result.summary).toContain("Rubik's cube");
+    expect(result.summary).not.toContain('generating');
+    expect(calls).toEqual([]);
+
+    const empty = context({});
+    const nothing = await executeTool('set_preference', { key: 'ai_welcome_states', value: ' , ' }, empty.ctx);
+    expect(nothing.ok).toBe(false);
+    expect(nothing.summary).toMatch(/at least one welcome animation/);
+    expect(empty.calls).toEqual([]);
+  });
 });
 
 describe('save_view', () => {

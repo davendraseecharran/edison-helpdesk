@@ -36,6 +36,10 @@ import {
   preferencePatch,
   REASONING_CHOICES,
   THEME_CHOICES,
+  WELCOME_STATE_LABELS,
+  WELCOME_STATES,
+  WELCOME_STATES_UNKNOWN,
+  welcomeStateFromLabel,
   type PreferencePatch,
 } from '@/lib/domain/preferences';
 import {
@@ -883,8 +887,8 @@ const PERSON_JSON_KEYS: Record<string, string> = {
  * The settings an account may change about itself, in the words the tool takes
  * and the names the domain module knows them by.
  *
- * `app_update_preferences` whitelists five columns and `preferencePatch`
- * narrows to the same five, so this table is the third statement of one list
+ * `app_update_preferences` whitelists these columns and `preferencePatch`
+ * narrows to the same set, so this table is the third statement of one list
  * rather than a new rule. Its real job is the FIRST one: a key outside it is
  * refused by the argument checker, by name, with the allowed keys in the
  * message, before any round trip.
@@ -893,6 +897,7 @@ const PREFERENCE_KEYS = {
   theme: 'theme',
   ai_reasoning: 'aiReasoning',
   gmail_mode: 'gmailMode',
+  ai_welcome_states: 'aiWelcomeStates',
   ai_confirm_changes: 'aiConfirmChanges',
   ai_speak_replies: 'aiSpeakReplies',
   notify_in_app: 'notifyInApp',
@@ -906,6 +911,28 @@ const PREFERENCE_FLAGS: readonly PreferenceKey[] = [
   'ai_speak_replies',
   'notify_in_app',
 ];
+
+/** The welcome effects by the names people use for them, for the tool's hint. */
+const WELCOME_EFFECT_HINT = WELCOME_STATES.map((state) => WELCOME_STATE_LABELS[state].label).join(
+  ', ',
+);
+
+/**
+ * "Diamond and wave", "diamond, wave", "Diamond" — a list of effects as a
+ * person says it, back to the states the column holds. Empty entries are
+ * skipped so a trailing comma is not an error; an unknown name is refused by
+ * naming the seven, in the settings screen's own words.
+ */
+function readWelcomeStates(value: string): PreferencePatch['aiWelcomeStates'] {
+  const states: NonNullable<PreferencePatch['aiWelcomeStates']> = [];
+  for (const word of value.split(/,|\band\b|\n/)) {
+    if (word.trim() === '') continue;
+    const state = welcomeStateFromLabel(word);
+    if (state === null) throw new ToolError(WELCOME_STATES_UNKNOWN);
+    if (!states.includes(state)) states.push(state);
+  }
+  return states;
+}
 
 /**
  * True, false, and the words people say instead.
@@ -986,7 +1013,7 @@ const TOOLS: Record<string, ToolSpec> = {
   search_records: {
     group: 'read',
     description:
-      'Search tickets, people and devices at once by number, name, email, OSIS, staff id, asset tag or serial. Use this before acting on anything named by a person rather than by id.',
+      'Search tickets, people, devices, groups and group events at once by number, name, email, OSIS, staff id, guardian phone, asset tag or serial. Use this before acting on anything named by a person rather than by id.',
     fields: {
       query: { type: 'string', required: true, description: 'What to search for.' },
       limit: { type: 'integer', description: 'How many results to return. Default 8, at most 25.' },
@@ -1997,7 +2024,7 @@ const TOOLS: Record<string, ToolSpec> = {
       value: {
         type: 'string',
         required: true,
-        description: `The new value. theme: ${THEME_CHOICES.join(', ')}. ai_reasoning: ${REASONING_CHOICES.join(', ')}. gmail_mode: to, cc or bcc (where a Gmail link puts the addresses; to is direct). Everything else: true or false.`,
+        description: `The new value. theme: ${THEME_CHOICES.join(', ')}. ai_reasoning: ${REASONING_CHOICES.join(', ')}. gmail_mode: to, cc or bcc (where a Gmail link puts the addresses; to is direct). ai_welcome_states: the effects the assistant's welcome may play, as a comma-separated list of ${WELCOME_EFFECT_HINT}; one is picked at random each time the panel opens, and the list replaces the old one, so include everything that should stay. Everything else: true or false.`,
       },
     },
     run: async (args, ctx) => {
@@ -2006,9 +2033,9 @@ const TOOLS: Record<string, ToolSpec> = {
       const patch: PreferencePatch = {};
 
       if (PREFERENCE_FLAGS.includes(key)) {
-        // The five keys are three booleans and two vocabularies, and the two
-        // vocabularies are checked by `preferencePatch` below — the same
-        // function the settings screen uses, so both refuse in the same words.
+        // Three booleans, three vocabularies and one list, and every one of
+        // them is checked by `preferencePatch` below — the same function the
+        // settings screen uses, so both refuse in the same words.
         (patch as Record<string, boolean>)[PREFERENCE_KEYS[key]] = readFlag(key, value);
       } else if (key === 'ai_reasoning') {
         // Against what the interface OFFERS rather than what the column
@@ -2022,6 +2049,8 @@ const TOOLS: Record<string, ToolSpec> = {
         patch.aiReasoning = value as PreferencePatch['aiReasoning'];
       } else if (key === 'gmail_mode') {
         patch.gmailMode = value.trim().toLowerCase() as PreferencePatch['gmailMode'];
+      } else if (key === 'ai_welcome_states') {
+        patch.aiWelcomeStates = readWelcomeStates(value);
       } else {
         patch.theme = value as PreferencePatch['theme'];
       }

@@ -280,9 +280,16 @@ the export button on Devices — but nothing comes in that way.
 `Ctrl/Cmd+K` (a full-height sheet on a phone) opens one palette over the whole
 application: actions first (new ticket, claim by number, go to a section,
 toggle the theme, ask the assistant, scan with your phone), then matching
-tickets, people and devices, then the five records you opened last. Results
-come from `searchAction` → `app_search`, measured under row-level security
-rather than as a superuser.
+tickets, people, devices, groups and group events, then the five records you
+opened last. Results come from `searchAction` → `app_search`, measured under
+row-level security rather than as a superuser. A person is found by name,
+OSIS or staff id, email, official class, or the guardian's phone number
+(digits compared, punctuation ignored); a group or event by name, with the
+same trigram tolerance for a misspelling. The Settings sections are
+destinations of their own, offered once something is typed, and land on the
+section (`/settings#appearance`; the page scrolls itself there after its data
+arrives, since the router only scrolls to a hash that already exists). Typed
+"due" offers Devices due back, the page behind Today's due-back line.
 
 ## The phone as a scanner
 
@@ -493,7 +500,7 @@ setup of the project itself and its order still stands; this section is the
 release.
 
 **What is pending.** The hosted project carries the nineteen migrations through
-`20260914010000_staff_directory_options.sql`. This branch adds forty-nine
+`20260914010000_staff_directory_options.sql`. This branch adds fifty-two
 more, every one of them numbered `20260914100000` or above precisely so that
 they apply *after* the owner's four (`20260912210000`, `20260912220000`,
 `20260913150000`, `20260914010000`) and build on the live `requesters`,
@@ -505,7 +512,7 @@ is restated tighter (`tickets_select_visible`, `20260914140000`), five owner
 functions are replaced in place at the same names (`app_set_account_role` is
 superseded by `app_set_account_roles`, and four inventory and directory RPCs
 are dropped and recreated with their grants restated), and one column is added
-(`requesters.archived_at`, `if not exists`). Every one of the forty-nine also sorts
+(`requesters.archived_at`, `if not exists`). Every one of the fifty-two also sorts
 strictly after the highest version the hosted project holds, so `db push`
 applies them in version order and never needs `--include-all` to accept an
 out-of-order file. Confirm the list before you push:
@@ -581,7 +588,7 @@ Studio ports are the defaults 54321/54322/54323; this machine runs on 55321/2/3
 through the same uncommitted patch, and lane 2 on 56321/2/3 with its own
 `project_id`.
 
-**The rehearsal.** Applying these forty-nine migrations onto a database
+**The rehearsal.** Applying these fifty-two migrations onto a database
 holding exactly the owner's nineteen — which is what `db push` will do — was
 run end to end on a second local stack on 2026-09-14 and again, with the final set, on 2026-09-15. The database was first
 rebuilt from `origin/main`'s nineteen migration files alone, and only then were
@@ -598,10 +605,10 @@ npx supabase db reset --local
 npx supabase migration list --local        # 19 rows, local == remote on every one
 
 # 2. this branch's migrations applied forward, which is what db push does
-cp -a <branch>/supabase/migrations supabase/migrations         # 68 files
+cp -a <branch>/supabase/migrations supabase/migrations         # 71 files
 npx supabase migration up --local --include-all
 # -> Applying migration 20260914100000_m5_foundation.sql
-# -> ... 49 files ...
+# -> ... 52 files ...
 # -> Applying migration 20260916150000_m5_group_fields_uncapped.sql
 # -> {"applied":[ ...49 paths... ],"message":"Migrations applied"}
 npx supabase migration list --local        # 68 rows, local == remote on every one

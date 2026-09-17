@@ -160,3 +160,31 @@ export const loadTodayBriefing = cache(async (): Promise<TodayView> => {
     devicesDue: list(data.devices_due, deviceFrom),
   };
 });
+
+/** Every machine due back, for the page that lists them; `count` is the whole set even when `rows` is a page of it. */
+export interface DevicesDue {
+  count: number;
+  rows: DueDevice[];
+}
+
+/** Nothing due, which is also what anybody outside inventory is told. */
+export const NO_DEVICES_DUE: DevicesDue = { count: 0, rows: [] };
+
+/**
+ * The whole due-back list, oldest first.
+ *
+ * The same rule and row shape as the briefing's slice, from the same function
+ * family: `app_devices_due` takes the page size the briefing does not. It
+ * answers a skills officer with zero and no rows rather than an error, so the
+ * page decides what to show them; a failure is read the same way, and logged
+ * without anything from the request.
+ */
+export async function loadDevicesDue(limit = 1000): Promise<DevicesDue> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('app_devices_due', { p_limit: limit });
+  if (error || !isRecord(data)) {
+    if (error) console.error(`app_devices_due failed (${error.code ?? 'no code'})`);
+    return NO_DEVICES_DUE;
+  }
+  return { count: countOf(data.count), rows: list(data.rows, deviceFrom) };
+}

@@ -1,5 +1,5 @@
 import { loadActor } from '@/lib/auth/session';
-import { canExportDirectory } from '@/lib/auth/roles';
+import { canExportDirectory, canWorkTickets } from '@/lib/auth/roles';
 import { loadPeople } from '@/lib/data/people';
 import { loadPreferences } from '@/lib/data/preferences';
 import { PageHeader } from '@/components/Primitives';
@@ -15,14 +15,18 @@ export default async function PeoplePage({
   searchParams: Promise<PeopleSearchParams>;
 }) {
   const filters = toPeopleFilters(await searchParams);
-  // The actor and the settings are both memoised for the render pass, so this
-  // costs nothing beyond what the layout above already asked for.
-  const [page, preferences, actor] = await Promise.all([
-    loadPeople(filters),
+  // The actor is memoised for the render pass and the layout above has already
+  // asked for it, so awaiting it first costs nothing and decides what the list
+  // has to read: a technician's last two columns need the ticket counts, a
+  // skills officer's need the rosters, and neither pays for the other.
+  const actor = await loadActor();
+  const roles = actor.kind === 'active' ? actor.account.roles : [];
+  const ticketWorker = canWorkTickets(roles);
+  const [page, preferences] = await Promise.all([
+    loadPeople(filters, { worksTickets: ticketWorker }),
     loadPreferences(),
-    loadActor(),
   ]);
-  const canExport = actor.kind === 'active' && canExportDirectory(actor.account.roles);
+  const canExport = actor.kind === 'active' && canExportDirectory(roles);
 
   return (
     <>
@@ -38,7 +42,12 @@ export default async function PeoplePage({
           />
         }
       />
-      <PeopleList page={page} gmailMode={preferences.gmailMode} canExport={canExport} />
+      <PeopleList
+        page={page}
+        gmailMode={preferences.gmailMode}
+        canExport={canExport}
+        ticketWorker={ticketWorker}
+      />
     </>
   );
 }

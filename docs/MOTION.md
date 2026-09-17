@@ -40,7 +40,6 @@ Two rules hold everywhere and are not repeated per row:
 | Drawers | drag | follows the pointer, damped past the boundary; released above the velocity threshold it dismisses, below it returns | — | — | drag still works; nothing else moves |
 | Sheets (desktop, from the right) | open | `translate: 100% → 0`, no fade | 200 ms (`--dur-surface`) | `--ease-out` | none |
 | Sheets (desktop, from the right) | close | `translate: 0 → 100%` | 120 ms (`--dur-press`) | `--ease-out` | none |
-| Command palette | open | **none** — no scale, no slide | 0 | — | — |
 | Intake's "More details" | opened or closed | **none** for the region — it is as tall as the page, opened rarely, and its state is remembered per account, so the reflow is a transition almost nobody sees twice. Its chevron turns: `rotate` 0 → 180° | 200 ms on the chevron | `--ease-out` | no rotation |
 | Palette selection | arrow key | **none** | 0 | — | — |
 | Assistant composer | panel opens | one border-beam lap | 3 s, once | linear | not rendered |
@@ -58,6 +57,9 @@ Two rules hold everywhere and are not repeated per row:
 | Skeleton → content | the stream lands | content replaces the skeleton in place, no layout shift | 120 ms | `easeOut` | same |
 | Switch | pressed | `transform` on the thumb, `background-color` on the track | 120 ms | `ease` | colour only |
 | Segmented controls, everywhere: reasoning level, theme, Gmail links, students or staff, notification and audit filters | a choice is picked | the pill's two edges, `left` and `right`, on different clocks under an SVG goo filter, so it stretches between options and snaps shut | 240 ms leading edge, 420 ms trailing edge after 70 ms | `--ease-out` | the pill jumps, no filter |
+| Sign-in mark (the bulb) | the page arrives | three strokes draw themselves (`stroke-dashoffset` 1 → 0 over `pathLength` 1): the globe, then the base, then the filament; the two words rise 8px out of a 3px blur; a halo behind the globe swells in and then breathes | globe 520 ms, base 320 ms from 180 ms, filament 600 ms from 300 ms, words 520 ms from 400 and 500 ms, halo 620 ms from 900 ms, breath 5.2 s | `--ease-out`, breath `ease-in-out` | everything already drawn, halo still |
+| Sign-in mark | pointer rests on the wordmark | the halo scales 1 → 1.25 | 200 ms (`--dur-surface`) | `--ease-out` | none |
+| Settings | arriving at a section link (`/settings#quick-tickets`) | the page scrolls to the section, which stops under the top bar (`scroll-margin-top`) | the browser's smooth scroll | — | jumps |
 | Theme switch | the preference changes | **none** — every transition is muted, a reflow is forced, the mute is lifted | 0 | — | same |
 
 ## Notes on the choices

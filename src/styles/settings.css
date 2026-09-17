@@ -23,6 +23,12 @@
   gap: 40px;
 }
 
+/* A link can land on a section (`/settings#quick-tickets`); the heading
+   stops under the top bar with a little air, not behind it. */
+.settings-section {
+  scroll-margin-top: calc(var(--topbar-h) + 24px);
+}
+
 .settings-section-head {
   display: flex;
   flex-direction: column;
@@ -324,6 +330,79 @@
 /* A met requirement steps forward; nothing here goes green. */
 .setting-check-met {
   color: var(--ink-2);
+}
+
+/* --- A checklist -------------------------------------------------------- */
+
+/*
+ * The welcome effect: seven boxes, each a name and a line about the motion.
+ * The list takes the row's full width under the label rather than sitting to
+ * its right, because seven two-line items do not fit beside anything. As many
+ * columns as there is room for, one on a phone; DOM order is reading order.
+ */
+.setting-choices {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+/* The row's text block has a 240px basis meant for a row; in a column that
+   basis is height, and a stretch of nothing under the hint. */
+.setting-choices .setting-row-text {
+  flex: 0 0 auto;
+}
+
+.setting-choice-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px 24px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Native checkboxes in the accent, with the shared focus ring. */
+.setting-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.setting-choice input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.setting-choice input:focus-visible {
+  border-radius: 2px;
+  box-shadow: var(--focus);
+}
+
+/* A save in flight dims the boxes; the press they still take is refused. */
+.setting-choice input[aria-disabled='true'] {
+  opacity: 0.6;
+}
+
+.setting-choice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.setting-choice-label {
+  color: var(--ink);
+  font-size: var(--fs-2);
+}
+
+.setting-choice-motion {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
 }
 
 /* --- Phones ------------------------------------------------------------- */

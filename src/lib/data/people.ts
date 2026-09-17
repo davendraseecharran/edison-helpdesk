@@ -54,6 +54,29 @@ export interface PeoplePage {
    * concerned.
    */
   openTickets: Record<string, number>;
+  /**
+   * The rosters each person on this page belongs to, by person id, named and
+   * in alphabetical order. Empty for a reader who works tickets: they are shown
+   * devices and open tickets instead, and nobody pays for a column they are not
+   * shown.
+   */
+  groups: Record<string, string[]>;
+}
+
+/** Who is asking, in the one respect the list's columns depend on. */
+export interface PeopleViewer {
+  /**
+   * Whether this account works tickets. A technician's directory ends in
+   * Devices and Open; a skills officer's ends in Email and Groups, which is a
+   * different second read. See `directoryTailColumns` for the rule itself.
+   */
+  worksTickets: boolean;
+}
+
+/** One row of `people_group_members` with its group's name joined on. */
+interface GroupMembershipRow {
+  requester_id: string;
+  people_groups: { name: string } | { name: string }[] | null;
 }
 
 /**
@@ -90,7 +113,52 @@ async function loadOpenTicketCounts(
   return counts;
 }
 
-export async function loadPeople(filters: PeopleFilters): Promise<PeoplePage> {
+/**
+ * The rosters a page of people belong to.
+ *
+ * A second read over the ids on the page, exactly like the ticket counts above
+ * and for the same reason: `people_groups` and `people_group_members` carry
+ * their own SELECT policies, so running this as the signed-in user lets the
+ * database answer rather than a function deciding on its behalf. One query for
+ * the page, not one per row, and a failure leaves the column blank rather than
+ * taking the roster down with it.
+ */
+async function loadGroupNames(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ids: string[],
+): Promise<Record<string, string[]>> {
+  if (ids.length === 0) return {};
+  const { data, error } = await supabase
+    .from('people_group_members')
+    .select('requester_id, people_groups!inner(name)')
+    .in('requester_id', ids);
+  if (error || !data) return {};
+
+  const names: Record<string, string[]> = {};
+  for (const row of data as GroupMembershipRow[]) {
+    // PostgREST returns an embedded row as an object or an array depending on
+    // how it reads the relationship, so both shapes are handled rather than
+    // asserted.
+    const joined = Array.isArray(row.people_groups)
+      ? row.people_groups
+      : row.people_groups
+        ? [row.people_groups]
+        : [];
+    for (const group of joined) {
+      const name = group?.name?.trim();
+      if (!name) continue;
+      (names[row.requester_id] ??= []).push(name);
+    }
+  }
+  // Alphabetical, so the cell reads the same on two renders of the same page.
+  for (const list of Object.values(names)) list.sort((left, right) => left.localeCompare(right));
+  return names;
+}
+
+export async function loadPeople(
+  filters: PeopleFilters,
+  viewer: PeopleViewer = { worksTickets: true },
+): Promise<PeoplePage> {
   const supabase = await createClient();
   const page = Math.max(1, filters.page ?? 1);
 
@@ -107,12 +175,15 @@ export async function loadPeople(filters: PeopleFilters): Promise<PeoplePage> {
   const mapped = mapInventoryPage(data as never, mapPerson);
   // Somebody can leave the last page while a colleague is editing. Return to
   // the first page rather than showing a false zero with no way back.
-  if (mapped.rows.length === 0 && page > 1) return loadPeople({ ...filters, page: 1 });
+  if (mapped.rows.length === 0 && page > 1) return loadPeople({ ...filters, page: 1 }, viewer);
 
-  const openTickets = await loadOpenTicketCounts(
-    supabase,
-    mapped.rows.map((person) => person.id),
-  );
+  // Each of the two extra reads belongs to one reader's columns, so only that
+  // reader's read is made.
+  const ids = mapped.rows.map((person) => person.id);
+  const [openTickets, groups] = await Promise.all([
+    viewer.worksTickets ? loadOpenTicketCounts(supabase, ids) : Promise.resolve({}),
+    viewer.worksTickets ? Promise.resolve({}) : loadGroupNames(supabase, ids),
+  ]);
 
   return {
     people: mapped.rows,
@@ -120,6 +191,7 @@ export async function loadPeople(filters: PeopleFilters): Promise<PeoplePage> {
     page,
     pageCount: Math.max(1, Math.ceil(mapped.total / (mapped.pageSize || PEOPLE_PAGE_SIZE))),
     openTickets,
+    groups,
   };
 }
 

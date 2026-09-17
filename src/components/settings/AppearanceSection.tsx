@@ -35,6 +35,7 @@ export function AppearanceSection({ gmailMode = 'to' }: { gmailMode?: GmailMode 
 
   return (
     <SettingsSection
+      id="appearance"
       title="Appearance"
       description="How the helpdesk looks, on every device you sign in from."
     >

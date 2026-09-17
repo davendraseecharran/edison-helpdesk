@@ -7,16 +7,25 @@
  * is the one network call and maps `app_search` rows through `hitFromRow`.
  */
 
-export type SearchKind = 'ticket' | 'person' | 'device';
+export type SearchKind = 'ticket' | 'person' | 'device' | 'group' | 'event';
 
 export interface SearchHit {
   kind: SearchKind;
   id: string;
-  /** Ticket: "EDT-1042 <title>". Person: display name. Device: the identifier read off the machine. */
+  /**
+   * Ticket: "EDT-1042 <title>". Person: display name. Device: the identifier
+   * read off the machine. Group: its name. Event: its name.
+   */
   title: string;
-  /** Ticket: requester. Person: "Student — 7-401". Device: model and type. */
+  /**
+   * Ticket: requester. Person: "Student — 7-401". Device: model and type.
+   * Group: its description, when it has one. Event: the group it belongs to.
+   */
   subtitle: string | null;
-  /** Ticket: the raw status value. Person: OSIS or staff ID. Device: status and holder. */
+  /**
+   * Ticket: the raw status value. Person: OSIS or staff ID. Device: status and
+   * holder. Group: "12 members". Event: the day, "Sep 16".
+   */
   meta: string | null;
   href: string;
 }
@@ -25,6 +34,8 @@ export interface GroupedHits {
   tickets: SearchHit[];
   people: SearchHit[];
   devices: SearchHit[];
+  groups: SearchHit[];
+  events: SearchHit[];
 }
 
 /** One selected record, as remembered per browser. */
@@ -47,7 +58,13 @@ export const RECENT_STORAGE_KEY = 'edison.lookup.recent';
 
 export const RECENT_LIMIT = 5;
 
-const KINDS: ReadonlySet<string> = new Set<SearchKind>(['ticket', 'person', 'device']);
+const KINDS: ReadonlySet<string> = new Set<SearchKind>([
+  'ticket',
+  'person',
+  'device',
+  'group',
+  'event',
+]);
 
 export function isSearchKind(value: unknown): value is SearchKind {
   return typeof value === 'string' && KINDS.has(value);
@@ -57,6 +74,11 @@ const ROUTES: Record<SearchKind, string> = {
   ticket: '/tickets',
   person: '/people',
   device: '/devices',
+  group: '/groups',
+  // An event's page lives under its group, and a hit carries only the event's
+  // id. `/events/{id}` is a server page that reads the group and redirects, so
+  // the link stays derivable from the two fields every hit has.
+  event: '/events',
 };
 
 /** The page a hit opens. */
@@ -64,13 +86,15 @@ export function hrefFor(hit: Pick<SearchHit, 'kind' | 'id'>): string {
   return `${ROUTES[hit.kind]}/${encodeURIComponent(hit.id)}`;
 }
 
-/** Split mixed hits into the three palette groups, keeping the server's rank order within each. */
+/** Split mixed hits into the palette's groups, keeping the server's rank order within each. */
 export function groupHits(hits: SearchHit[]): GroupedHits {
-  const grouped: GroupedHits = { tickets: [], people: [], devices: [] };
+  const grouped: GroupedHits = { tickets: [], people: [], devices: [], groups: [], events: [] };
   for (const hit of hits) {
     if (hit.kind === 'ticket') grouped.tickets.push(hit);
     else if (hit.kind === 'person') grouped.people.push(hit);
-    else grouped.devices.push(hit);
+    else if (hit.kind === 'device') grouped.devices.push(hit);
+    else if (hit.kind === 'group') grouped.groups.push(hit);
+    else grouped.events.push(hit);
   }
   return grouped;
 }

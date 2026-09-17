@@ -109,9 +109,9 @@ const COPY: Record<MomentId, MomentCopy> = {
    */
   'today.empty': {
     lines: [
-      'Nothing needs you. The queue is clear.',
+      'Nothing needs you right now. The queue is clear.',
       'All clear. Nothing is waiting on you.',
-      'Nothing needs you. Good time to walk the carts.',
+      'Nothing needs you right now. Good time to walk the carts.',
       'Queue is clear. The next thing to break will find you.',
     ],
     follow: [

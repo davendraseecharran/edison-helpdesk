@@ -13,6 +13,7 @@ import { PreferenceSwitch, SettingsSection } from './parts';
 export function NotificationsSection({ notifyInApp }: { notifyInApp: boolean }) {
   return (
     <SettingsSection
+      id="notifications"
       title="Notifications"
       description="What the helpdesk tells you about while you are signed in."
     >

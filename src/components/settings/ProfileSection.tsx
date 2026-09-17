@@ -52,6 +52,7 @@ export function ProfileSection({
 
   return (
     <SettingsSection
+      id="profile"
       title="Profile"
       description="Your name as it appears on tickets, notes and every entry in a history."
     >

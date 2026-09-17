@@ -64,6 +64,56 @@ let officer: SupabaseClient;
 /** The machines this file made, so an assertion never counts somebody else's. */
 const mine = new Set<string>();
 
+describe('app_devices_due, the whole list behind Today', () => {
+  it('counts every machine and hands back as many rows as asked, oldest first', async () => {
+    const graduate = await seedRequester('student', { student_status: 'graduated' });
+    const older = await seedDue({
+      assigned_requester_id: graduate.id,
+      status: 'Assigned',
+      updated_at: daysAgo(497),
+    });
+    const newer = await seedDue({
+      assigned_requester_id: graduate.id,
+      status: 'Assigned',
+      updated_at: daysAgo(496),
+    });
+
+    const whole = await rpcOk<{ count: number; rows: Briefing['devices_due'] }>(netrider, 'app_devices_due', {
+      p_limit: 1000,
+    });
+    const ids = whole.rows.map((row) => row.id);
+    expect(whole.count).toBeGreaterThanOrEqual(ids.length);
+    expect(ids.indexOf(older)).toBeGreaterThanOrEqual(0);
+    expect(ids.indexOf(older)).toBeLessThan(ids.indexOf(newer));
+
+    // The briefing's own function is now a slice of this one: same count,
+    // at most twenty rows, the same head of the list.
+    const view = await briefing(netrider);
+    expect(view.counts.devices_due).toBe(whole.count);
+    expect(view.devices_due.length).toBeLessThanOrEqual(20);
+    expect(view.devices_due.map((row) => row.id)).toEqual(ids.slice(0, view.devices_due.length));
+  });
+
+  it('caps a page at a thousand and never hands back fewer than one', async () => {
+    const one = await rpcOk<{ count: number; rows: unknown[] }>(netrider, 'app_devices_due', {
+      p_limit: 0,
+    });
+    expect(one.rows.length).toBeLessThanOrEqual(1);
+    const capped = await rpcOk<{ count: number; rows: unknown[] }>(netrider, 'app_devices_due', {
+      p_limit: 5000,
+    });
+    expect(capped.rows.length).toBeLessThanOrEqual(1000);
+    expect(capped.count).toBe(one.count);
+  });
+
+  it('answers a skills officer with nothing rather than an error', async () => {
+    const view = await rpcOk<{ count: number; rows: unknown[] }>(officer, 'app_devices_due', {
+      p_limit: 50,
+    });
+    expect(view).toEqual({ count: 0, rows: [] });
+  });
+});
+
 async function briefing(client: SupabaseClient): Promise<Briefing> {
   return rpcOk<Briefing>(client, 'app_today_briefing');
 }

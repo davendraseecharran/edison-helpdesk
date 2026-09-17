@@ -486,3 +486,22 @@
   margin: -4px 0 12px;
   font-size: var(--fs-1);
 }
+
+/* The remainder, under the list. Quiet enough to be a footnote and a link
+   because the whole point of it is that there is somewhere to go. */
+.today-more {
+  margin: 8px 0 0;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.today-more a {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+}
+
+.today-more a:hover {
+  color: var(--ink-2);
+}

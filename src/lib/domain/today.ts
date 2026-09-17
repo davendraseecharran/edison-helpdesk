@@ -305,6 +305,39 @@ export function needsCount(counts: BriefingCounts): number {
   return counts.unassigned + counts.waiting + counts.accessRequests;
 }
 
+/** One place the rest of a section lives, with how many are there. */
+export interface MoreLink {
+  href: string;
+  label: string;
+}
+
+/**
+ * Where the rows that did not fit under "Needs you" are.
+ *
+ * The list is ranked across three kinds and cut at seven, so what is hidden
+ * is not one thing but up to three, each with its own page: the open queue,
+ * your own waiting tickets, the administrator's access requests. One link per
+ * kind that has something hidden, each naming its count, so the section can
+ * be left for the page that holds the rest rather than scrolled for in vain.
+ * A folded row stands for several tickets and is counted as all of them.
+ */
+export function moreNeedsLinks(briefing: Briefing, shown: NeedItem[]): MoreLink[] {
+  const seen: Record<NeedKind, number> = { unassigned: 0, waiting: 0, access: 0 };
+  for (const item of shown) seen[item.kind] += item.count;
+  const hidden = (kind: NeedKind, total: number) => Math.max(0, total - seen[kind]);
+
+  const links: MoreLink[] = [];
+  const queue = hidden('unassigned', briefing.counts.unassigned);
+  if (queue > 0) links.push({ href: '/queue', label: `${queue} more in the Open Queue` });
+  const waiting = hidden('waiting', briefing.counts.waiting);
+  if (waiting > 0) links.push({ href: '/my-tickets', label: `${waiting} more waiting in My tickets` });
+  const access = hidden('access', briefing.counts.accessRequests);
+  if (access > 0) {
+    links.push({ href: '/admin', label: `${access} more access ${access === 1 ? 'request' : 'requests'}` });
+  }
+  return links;
+}
+
 /** The most machines the section shows before it becomes an inventory report. */
 export const DUE_LIMIT = 6;
 
@@ -323,6 +356,24 @@ export function devicesDue(briefing: Briefing): DueDevice[] {
       return left.id.localeCompare(right.id);
     })
     .slice(0, DUE_LIMIT);
+}
+
+/**
+ * The line under the due-back list when only part of it fits.
+ *
+ * `DUE_LIMIT` is a screen's worth; the database counted the whole set. A
+ * reader who is shown six of two hundred and sixty-six and told nothing has
+ * been quietly lied to, so the remainder gets a line of its own. Null when
+ * everything due back is already on the page, because a line saying "0 more"
+ * is worse than no line.
+ *
+ * `total` is the count, `shown` the rows rendered. One left over reads as
+ * "1 more due back", which is the same sentence without a special case.
+ */
+export function moreDueBackLine(total: number, shown: number): string | null {
+  const rest = Math.trunc(total) - Math.trunc(shown);
+  if (!Number.isFinite(rest) || rest <= 0) return null;
+  return `${rest} more due back`;
 }
 
 /**

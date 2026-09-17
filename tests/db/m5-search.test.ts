@@ -33,13 +33,15 @@ import {
   signIn,
 } from './support/harness';
 
+type SearchKind = 'ticket' | 'person' | 'device' | 'group' | 'event';
+
 interface CandidateRow {
-  kind: 'ticket' | 'person' | 'device';
+  kind: SearchKind;
   id: string;
 }
 
 interface SearchRow {
-  kind: 'ticket' | 'person' | 'device';
+  kind: SearchKind;
   id: string;
   title: string;
   subtitle: string | null;
@@ -59,6 +61,15 @@ const TAG_PREFIX = `DOE-SR${RUN}`;
 const EXACT_TAG = `${TAG_PREFIX}7`;
 const LONGER_TAG = `${TAG_PREFIX}77`;
 const PERSON_NAME = `Wren Calloway-${RUN}`;
+const PERSON_EMAIL = `wren.calloway-${RUN}@edison.example`;
+/** The guardian's number as the spreadsheet has it, and as its bare digits. */
+const GUARDIAN_PHONE = `(917) 555-${RUN}`;
+const GUARDIAN_DIGITS = `917555${RUN}`;
+const GROUP_NAME = `Robotics officers ${RUN}`;
+const GROUP_DESCRIPTION = `Runs the ${RUN} build season`;
+const EVENT_NAME = `Kickoff briefing ${RUN}`;
+/** A fixed day, so the rendered date is a known string rather than today's. */
+const EVENT_DATE = '2026-03-05';
 /** A two-character query nobody else in the fixtures answers to. */
 const SHORT_TAG_PREFIX = 'ZQ';
 const OWNED_TITLE = `Smartboard pen missing ${RUN}`;
@@ -73,6 +84,8 @@ let unrelated: SupabaseClient;
 let pending: SupabaseClient;
 
 let personId: string;
+let groupId: string;
+let eventId: string;
 let exactDeviceId: string;
 let longerDeviceId: string;
 let shortQueryDeviceId: string;
@@ -122,7 +135,22 @@ beforeAll(async () => {
     external_id: OSIS,
     source_external_id: OSIS,
     official_class: '9R',
+    email: PERSON_EMAIL,
+    guardian_phone: GUARDIAN_PHONE,
   }));
+
+  // A roster with the student on it and one event, made the way the screens
+  // make them: through the chapter's own functions, by an active account.
+  groupId = await rpcOk<string>(owner, 'app_create_group', {
+    p_name: GROUP_NAME,
+    p_description: GROUP_DESCRIPTION,
+  });
+  await rpcOk(owner, 'app_add_group_members', { p_group: groupId, p_requesters: [personId] });
+  eventId = await rpcOk<string>(owner, 'app_create_group_event', {
+    p_group: groupId,
+    p_name: EVENT_NAME,
+    p_held_on: EVENT_DATE,
+  });
 
   ({ id: exactDeviceId } = await seedInventoryDevice({
     asset_tag: EXACT_TAG,
@@ -229,6 +257,89 @@ describe('what the lookup finds', () => {
 
     const rows = ofKind(await search(owner, number), 'ticket');
     expect(rows.find((row) => row.id === anonymous)?.subtitle).toBe('Requester unknown');
+  });
+});
+
+describe('the rosters and the people on them', () => {
+  it('finds a group by its name, with its description and its size', async () => {
+    const groups = ofKind(await search(owner, GROUP_NAME), 'group');
+
+    const found = groups.find((row) => row.id === groupId);
+    expect(found).toBeDefined();
+    expect(found?.title).toBe(GROUP_NAME);
+    expect(found?.subtitle).toBe(GROUP_DESCRIPTION);
+    // Rendered text, singular because one person is on it.
+    expect(found?.meta).toBe('1 member');
+    // The name as written is the best possible match.
+    expect(found?.rank).toBe(1);
+  });
+
+  it('finds a group from the start of its name and from a misspelling of it', async () => {
+    const prefix = ofKind(await search(owner, `Robotics off`), 'group');
+    expect(prefix.map((row) => row.id)).toContain(groupId);
+
+    // Trigram similarity, like a person's name: what somebody heard still
+    // finds the roster.
+    const misspelt = ofKind(await search(owner, `Robotics oficers ${RUN}`), 'group');
+    expect(misspelt.map((row) => row.id)).toContain(groupId);
+  });
+
+  it('finds an event by its name, under the group that held it', async () => {
+    const events = ofKind(await search(owner, EVENT_NAME), 'event');
+
+    const found = events.find((row) => row.id === eventId);
+    expect(found).toBeDefined();
+    expect(found?.title).toBe(EVENT_NAME);
+    expect(found?.subtitle).toBe(GROUP_NAME);
+    // The day as a person says it, no leading zero.
+    expect(found?.meta).toBe('Mar 5');
+
+    const misspelt = ofKind(await search(owner, `Kickof briefing ${RUN}`), 'event');
+    expect(misspelt.map((row) => row.id)).toContain(eventId);
+  });
+
+  it('finds a student by the guardian’s phone number, however it is punctuated', async () => {
+    // As the spreadsheet has it, as a parent reads it out, and as bare digits:
+    // three spellings of one number.
+    for (const query of [GUARDIAN_PHONE, `917.555.${RUN}`, GUARDIAN_DIGITS]) {
+      const people = ofKind(await search(owner, query), 'person');
+      const found = people.find((row) => row.id === personId);
+      expect(found, query).toBeDefined();
+      // The whole number is the student, not a near miss.
+      expect(found?.rank, query).toBe(1);
+    }
+
+    // Seven digits is the shortest run that reaches the phone arm, and a
+    // prefix ranks below the whole number.
+    const partial = ofKind(await search(owner, GUARDIAN_DIGITS.slice(0, 7)), 'person');
+    const found = partial.find((row) => row.id === personId);
+    expect(found).toBeDefined();
+    expect(found?.rank).toBeCloseTo(0.9, 5);
+  });
+
+  it('finds a student by email address', async () => {
+    const exact = ofKind(await search(owner, PERSON_EMAIL), 'person');
+    const found = exact.find((row) => row.id === personId);
+    expect(found).toBeDefined();
+    expect(found?.rank).toBe(1);
+
+    // Any casing, and the start of the address.
+    const upper = ofKind(await search(owner, PERSON_EMAIL.toUpperCase()), 'person');
+    expect(upper.map((row) => row.id)).toContain(personId);
+    const prefix = ofKind(await search(owner, `wren.calloway-${RUN}@`), 'person');
+    expect(prefix.map((row) => row.id)).toContain(personId);
+  });
+
+  it('gives an account that is not active no group or event, from either half', async () => {
+    for (const query of [GROUP_NAME, EVENT_NAME, GUARDIAN_PHONE, PERSON_EMAIL]) {
+      expect(await search(pending, query), query).toHaveLength(0);
+      expect(await candidates(pending, query), query).toHaveLength(0);
+    }
+
+    // The positive control: the same queries answer an active account, so the
+    // empty lists above are about the account and not about the queries.
+    expect(candidateIds(await candidates(unrelated, GROUP_NAME), 'group')).toContain(groupId);
+    expect(candidateIds(await candidates(unrelated, EVENT_NAME), 'event')).toContain(eventId);
   });
 });
 
@@ -398,6 +509,8 @@ describe('the trusted id-only half, called directly', () => {
     expect(candidateIds(rows, 'ticket').length).toBeLessThanOrEqual(200);
     expect(candidateIds(rows, 'person').length).toBeLessThanOrEqual(200);
     expect(candidateIds(rows, 'device').length).toBeLessThanOrEqual(200);
+    expect(candidateIds(rows, 'group').length).toBeLessThanOrEqual(200);
+    expect(candidateIds(rows, 'event').length).toBeLessThanOrEqual(200);
   });
 });
 

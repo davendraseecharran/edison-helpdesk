@@ -52,6 +52,8 @@ import {
   deviceTitle,
   devicesDue,
   devicesDueSentence,
+  moreDueBackLine,
+  moreNeedsLinks,
   needsCount,
   needsYou,
   nextBestAction,
@@ -299,6 +301,12 @@ export function TodayScreen({
   const assistant = useAssistantLine(briefing.counts, briefing.ok !== false && total > 0);
   const sentence = assistant ?? library;
   const dueSentence = devicesDueSentence(briefing.counts);
+  /*
+   * The rest of the machines, named rather than silently dropped. The count is
+   * the database's over the whole set; `due` is the screen's cap.
+   */
+  const dueRest = moreDueBackLine(briefing.counts.devicesDue, due.length);
+  const needsRest = useMemo(() => moreNeedsLinks(briefing, items), [briefing, items]);
   const friday = isFridayAfternoon({ weekday, hour })
     ? say('friday.afternoon', { hour, weekday })
     : null;
@@ -424,6 +432,17 @@ export function TodayScreen({
             ))}
           </ul>
         )}
+        {/* Where the rest are, one link a kind: the section is a start, not the whole day. */}
+        {needsRest.length > 0 ? (
+          <p className="today-more">
+            {needsRest.map((link, index) => (
+              <span key={link.href}>
+                {index > 0 ? ' · ' : null}
+                <Link href={link.href}>{link.label}</Link>
+              </span>
+            ))}
+          </p>
+        ) : null}
       </section>
 
       {/*
@@ -439,7 +458,19 @@ export function TodayScreen({
         <section className="today-stage today-due" aria-labelledby="today-due-heading">
           <div className="today-needs-head">
             <h2 id="today-due-heading">Devices due back</h2>
+            {/* Every key that acts on a row of THIS list, because the two
+                sections share one keyboard and a reader whose queue is empty
+                would otherwise never be told that j and k move at all. `can`
+                above allows exactly open and resolve on a machine, and resolve
+                on a machine is a return. */}
             <p className="today-keys" aria-hidden="true">
+              <span>
+                <kbd className="kbd">j</kbd>
+                <kbd className="kbd">k</kbd> move
+              </span>
+              <span>
+                <kbd className="kbd">o</kbd> open
+              </span>
               <span>
                 <kbd className="kbd">r</kbd> return
               </span>
@@ -478,6 +509,12 @@ export function TodayScreen({
               </li>
             ))}
           </ul>
+          {/* Where the rest of them are: the same rule, the whole list, oldest first. */}
+          {dueRest ? (
+            <p className="today-more">
+              <Link href="/devices/due-back">{dueRest}</Link>
+            </p>
+          ) : null}
         </section>
       ) : null}
 
@@ -508,7 +545,7 @@ export function TodayScreen({
 }
 
 /**
- * Nothing needs you.
+ * Nothing needs you right now.
  *
  * Two different sentences for two different facts. Arriving at an empty desk
  * is the ordinary empty state. Emptying it while you were sitting there is a

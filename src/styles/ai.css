@@ -1075,8 +1075,7 @@
     transition: none;
   }
 
-  .ai-mark[data-state='working'] .ai-mark-drawn,
-  .ai-mark[data-state='waiting'] .ai-mark-drawn {
+  .ai-mark:not([data-state='still']) .ai-mark-drawn {
     opacity: 0.7;
   }
 }

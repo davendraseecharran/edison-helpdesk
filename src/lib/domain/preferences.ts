@@ -3,7 +3,7 @@
  * and changing them.
  *
  * Pure on purpose. The database owns these settings — `app_my_preferences()`
- * creates the row, `app_update_preferences()` accepts seven keys and refuses a
+ * creates the row, `app_update_preferences()` accepts eight keys and refuses a
  * value outside its vocabulary — and this module is the same knowledge in
  * TypeScript, so the settings screen can label a control, fall back sensibly
  * when a row holds something this build does not know about, and refuse an
@@ -11,6 +11,7 @@
  * rule here is enforced again inside the RPC.
  */
 
+import type { LogoState } from 'thinking-logos';
 import type { ThemePreference } from '@/components/shell/theme-script';
 import { parseSavedViews, type SavedView } from './saved-views';
 
@@ -44,6 +45,54 @@ export const GMAIL_MODE_LABELS: Record<GmailMode, string> = {
 };
 
 export const THEME_CHOICES: readonly ThemeChoice[] = ['dark', 'light', 'system'];
+
+/**
+ * What the mark does while the assistant's welcome is on screen.
+ *
+ * The seven are the library's seven logo states, typed as such so the stored
+ * vocabulary cannot drift from what the canvas can play. Nobody chooses
+ * "generating", though: on screen each one is named for what it looks like,
+ * and the state names stay in the database and the code.
+ */
+export type WelcomeState = LogoState;
+
+/** Every welcome effect, in the order the checklist shows them. */
+export const WELCOME_STATES: readonly WelcomeState[] = [
+  'generating',
+  'searching',
+  'waiting',
+  'solving',
+  'thinking',
+  'working',
+  'listening',
+];
+
+/**
+ * What each effect is called and, in a line, what it does. The labels are the
+ * words the settings screen and the assistant's tool both use, so "the
+ * diamond" means the same thing whichever way it is asked for.
+ */
+export const WELCOME_STATE_LABELS: Record<WelcomeState, { label: string; motion: string }> = {
+  generating: { label: 'Diamond', motion: 'A crystal, stitched back into the mark.' },
+  searching: { label: 'Globe', motion: 'A globe swept by a meridian.' },
+  waiting: { label: 'Rings', motion: 'A bellows of stacked rings.' },
+  solving: { label: "Rubik's cube", motion: 'A cube that scrambles and clicks back.' },
+  thinking: { label: 'Sphere', motion: 'A sphere that gathers into the mark.' },
+  working: { label: 'Spiral', motion: 'A thread wound into a knot.' },
+  listening: { label: 'Wave', motion: 'A floating body that pulses.' },
+};
+
+/** The two everybody starts with, matching the column default. */
+export const DEFAULT_WELCOME_STATES: readonly WelcomeState[] = ['generating', 'listening'];
+
+/** The refusal for an empty list, word for word what the RPC raises. */
+export const WELCOME_STATES_EMPTY = 'Keep at least one welcome animation.';
+
+/** The labels, joined the way a refusal names them. */
+const WELCOME_LABEL_LIST = WELCOME_STATES.map((state) => WELCOME_STATE_LABELS[state].label).join(', ');
+
+export const WELCOME_STATES_UNKNOWN = `Choose welcome effects from ${WELCOME_LABEL_LIST}.`;
+
 /**
  * Everything the database accepts.
  *
@@ -100,6 +149,8 @@ export interface Preferences {
   notifyInApp: boolean;
   /** Where this account's Gmail links put their addresses: To, CC or BCC. */
   gmailMode: GmailMode;
+  /** What the welcome's mark may do. One of these is picked each time it opens. */
+  aiWelcomeStates: WelcomeState[];
 }
 
 /**
@@ -116,10 +167,64 @@ export const DEFAULT_PREFERENCES: Preferences = {
   aiSpeakReplies: false,
   notifyInApp: true,
   gmailMode: 'to',
+  aiWelcomeStates: [...DEFAULT_WELCOME_STATES],
 };
 
 export function isThemeChoice(value: unknown): value is ThemeChoice {
   return THEME_CHOICES.includes(value as ThemeChoice);
+}
+
+export function isWelcomeState(value: unknown): value is WelcomeState {
+  return WELCOME_STATES.includes(value as WelcomeState);
+}
+
+/**
+ * A stored list of welcome effects, as the row holds it.
+ *
+ * Known states only, each once, in the order given; anything else is dropped
+ * rather than refused, because this is the READ side and a row written by a
+ * newer build must still render a checklist with something ticked. A list
+ * that comes to nothing is the default, for the same reason.
+ */
+export function parseWelcomeStates(value: unknown): WelcomeState[] {
+  if (!Array.isArray(value)) return [...DEFAULT_WELCOME_STATES];
+  const states: WelcomeState[] = [];
+  for (const entry of value) {
+    if (isWelcomeState(entry) && !states.includes(entry)) states.push(entry);
+  }
+  return states.length === 0 ? [...DEFAULT_WELCOME_STATES] : states;
+}
+
+/**
+ * The effect the welcome shows this time: one of the list, at random.
+ *
+ * A list of one is always that one. `random` is `Math.random` in the panel
+ * and an injected source in the tests, so the choice can be asserted.
+ */
+export function pickWelcomeState(
+  states: readonly WelcomeState[],
+  random: () => number = Math.random,
+): WelcomeState {
+  const pool = states.length > 0 ? states : DEFAULT_WELCOME_STATES;
+  const index = Math.floor(random() * pool.length);
+  return pool[Math.min(pool.length - 1, Math.max(0, index))];
+}
+
+/**
+ * The label a person used, back to the state it names.
+ *
+ * Case does not matter and the stored word is accepted too, so "diamond",
+ * "Diamond" and "generating" all reach the same column value. Null for
+ * anything else; the caller decides what to say.
+ */
+export function welcomeStateFromLabel(word: string): WelcomeState | null {
+  const folded = word.trim().toLowerCase();
+  if (folded === '') return null;
+  if (isWelcomeState(folded)) return folded;
+  for (const state of WELCOME_STATES) {
+    if (WELCOME_STATE_LABELS[state].label.toLowerCase() === folded) return state;
+  }
+  return null;
 }
 
 export function isReasoningEffort(value: unknown): value is ReasoningEffort {
@@ -163,6 +268,7 @@ export function preferencesFromRow(row: unknown): Preferences {
         ? source.notify_in_app
         : DEFAULT_PREFERENCES.notifyInApp,
     gmailMode: isGmailMode(source.gmail_mode) ? source.gmail_mode : DEFAULT_PREFERENCES.gmailMode,
+    aiWelcomeStates: parseWelcomeStates(source.ai_welcome_states),
   };
 }
 
@@ -175,22 +281,23 @@ export interface PreferencePatch {
   aiSpeakReplies?: boolean;
   notifyInApp?: boolean;
   gmailMode?: GmailMode;
+  aiWelcomeStates?: WelcomeState[];
 }
 
 export type PatchResult =
-  | { ok: true; patch: Record<string, string | boolean> }
+  | { ok: true; patch: Record<string, string | boolean | string[]> }
   | { ok: false; error: string };
 
 /**
  * Turns a patch into the JSON the RPC takes, in its column names.
  *
- * Only the seven keys the database whitelists are carried across, so a form
- * that posts its whole state back cannot smuggle an eighth; a key that is
+ * Only the eight keys the database whitelists are carried across, so a form
+ * that posts its whole state back cannot smuggle a ninth; a key that is
  * absent keeps the value it had. The messages match the ones the RPC raises, so
  * the reader sees the same sentence whichever side refuses.
  */
 export function preferencePatch(patch: PreferencePatch): PatchResult {
-  const out: Record<string, string | boolean> = {};
+  const out: Record<string, string | boolean | string[]> = {};
 
   if (patch.theme !== undefined) {
     if (!isThemeChoice(patch.theme)) {
@@ -224,6 +331,22 @@ export function preferencePatch(patch: PreferencePatch): PatchResult {
       return { ok: false, error: 'Choose to, cc or bcc for a Gmail link.' };
     }
     out.gmail_mode = patch.gmailMode;
+  }
+
+  if (patch.aiWelcomeStates !== undefined) {
+    if (!Array.isArray(patch.aiWelcomeStates)) {
+      return { ok: false, error: 'Send the welcome effects as a list.' };
+    }
+    // Folded and made a set here as well as in the RPC, so what the screen
+    // shows after a save is what was stored: a box ticked twice is one box.
+    const states: WelcomeState[] = [];
+    for (const entry of patch.aiWelcomeStates) {
+      const word = typeof entry === 'string' ? entry.trim().toLowerCase() : entry;
+      if (!isWelcomeState(word)) return { ok: false, error: WELCOME_STATES_UNKNOWN };
+      if (!states.includes(word)) states.push(word);
+    }
+    if (states.length === 0) return { ok: false, error: WELCOME_STATES_EMPTY };
+    out.ai_welcome_states = states;
   }
 
   const flags: [keyof PreferencePatch, string][] = [

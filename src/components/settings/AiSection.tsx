@@ -35,7 +35,11 @@ import {
   ASSISTANT_NOTES_MAX,
   REASONING_CHOICES,
   REASONING_LABELS,
+  WELCOME_STATE_LABELS,
+  WELCOME_STATES,
+  WELCOME_STATES_EMPTY,
   type ReasoningEffort,
+  type WelcomeState,
 } from '@/lib/domain/preferences';
 import { PreferenceSwitch, SettingRow, SettingsSection, useSavePreference } from './parts';
 
@@ -153,11 +157,91 @@ function NotesRow({
   );
 }
 
+/**
+ * The welcome effect: which of the seven the mark may play when the panel
+ * opens. A checklist rather than a choice, because more than one may be on
+ * and the panel picks between them each time.
+ *
+ * Each box saves as it is ticked, the way the switches do, and is put back if
+ * the save is refused. The last box cannot be unticked: the refusal is the
+ * sentence the database would raise, said here without the round trip. The
+ * list is kept in the order shown, whatever order the boxes were ticked in,
+ * so what is stored reads the same as the screen.
+ */
+function WelcomeEffectRow({ states }: { states: WelcomeState[] }) {
+  const { notify } = useRuntime();
+  const { savingKey, save } = useSavePreference();
+  const [chosen, setChosen] = useState<WelcomeState[]>(states);
+  const labelId = useId();
+  const hintId = useId();
+  const saving = savingKey === 'welcome-states';
+
+  async function toggle(state: WelcomeState, on: boolean) {
+    if (saving) return;
+    const next = on
+      ? WELCOME_STATES.filter((entry) => entry === state || chosen.includes(entry))
+      : chosen.filter((entry) => entry !== state);
+    if (next.length === 0) {
+      notify('error', WELCOME_STATES_EMPTY);
+      return;
+    }
+    const before = chosen;
+    setChosen(next);
+    const saved = await save('welcome-states', { aiWelcomeStates: next }, 'Welcome effect saved.');
+    if (!saved) setChosen(before);
+  }
+
+  return (
+    <div
+      className="setting-row setting-choices"
+      role="group"
+      aria-labelledby={labelId}
+      aria-describedby={hintId}
+    >
+      <div className="setting-row-text">
+        <span className="setting-row-label" id={labelId}>
+          Welcome effect
+        </span>
+        <span className="setting-row-hint" id={hintId}>
+          What the mark does when the assistant opens. With more than one ticked, it picks one
+          each time.
+        </span>
+      </div>
+      <ul className="setting-choice-list">
+        {WELCOME_STATES.map((state) => {
+          const { label, motion } = WELCOME_STATE_LABELS[state];
+          return (
+            <li key={state}>
+              <label className="setting-choice">
+                {/* Busy rather than disabled, for the reason the switches
+                    give: a disabled box drops focus, and the press it still
+                    takes is refused in `toggle`. */}
+                <input
+                  type="checkbox"
+                  checked={chosen.includes(state)}
+                  aria-disabled={saving || undefined}
+                  aria-busy={saving || undefined}
+                  onChange={(event) => void toggle(state, event.target.checked)}
+                />
+                <span className="setting-choice-text">
+                  <span className="setting-choice-label">{label}</span>
+                  <span className="setting-choice-motion">{motion}</span>
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export function AiSection({
   connection,
   reasoning,
   confirmChanges,
   speakReplies,
+  welcomeStates,
   notes,
   sharedNotes,
 }: {
@@ -165,6 +249,8 @@ export function AiSection({
   reasoning: ReasoningEffort;
   confirmChanges: boolean;
   speakReplies: boolean;
+  /** Which welcome effects this account allows. Never empty. */
+  welcomeStates: WelcomeState[];
   notes: string;
   sharedNotes: SharedAssistantNotes;
 }) {
@@ -203,6 +289,7 @@ export function AiSection({
 
   return (
     <SettingsSection
+      id="assistant"
       title="Assistant"
       description="The assistant works through your own ChatGPT account, and acts as you."
     >
@@ -272,6 +359,8 @@ export function AiSection({
         hint="Reads the assistant's answers out on this device."
         message="Speech setting saved."
       />
+
+      <WelcomeEffectRow states={welcomeStates} />
     </SettingsSection>
   );
 }

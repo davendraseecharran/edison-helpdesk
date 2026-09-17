@@ -6,6 +6,8 @@ import {
   devicesDue,
   devicesDueSentence,
   DUE_LIMIT,
+  moreDueBackLine,
+  moreNeedsLinks,
   EMPTY_BRIEFING,
   NEEDS_LIMIT,
   needsCount,
@@ -341,6 +343,22 @@ describe('devicesDueSentence', () => {
   });
 });
 
+describe('moreDueBackLine', () => {
+  it('says nothing when the whole list is on screen', () => {
+    expect(moreDueBackLine(6, 6)).toBeNull();
+    expect(moreDueBackLine(0, 0)).toBeNull();
+  });
+
+  it('never invents a remainder out of a count that is behind the rows', () => {
+    expect(moreDueBackLine(2, 6)).toBeNull();
+  });
+
+  it('names the remainder, singular and plural the same way', () => {
+    expect(moreDueBackLine(7, 6)).toBe('1 more due back');
+    expect(moreDueBackLine(266, 6)).toBe('260 more due back');
+  });
+});
+
 describe('needsCount with machines due', () => {
   it('leaves them out, because a fortnight is not this hour', () => {
     expect(needsCount({ waiting: 1, unassigned: 2, mine: 9, accessRequests: 0, devicesDue: 7 })).toBe(3);
@@ -363,5 +381,33 @@ describe('how a machine is named', () => {
     expect(deviceCode(device('1', at))).toBe('A-91');
     expect(deviceCode(device('1', at, { assetTag: null }))).toBe('5CD1');
     expect(deviceCode(device('1', at, { assetTag: null, serialNumber: null }))).toBe('INV-1');
+  });
+});
+
+describe('moreNeedsLinks', () => {
+  const base = { ...EMPTY_BRIEFING, counts: { ...EMPTY_BRIEFING.counts } };
+  const row = (kind: 'unassigned' | 'waiting' | 'access', count = 1) =>
+    ({ kind, count }) as unknown as ReturnType<typeof needsYou>[number];
+
+  it('says nothing when everything fits', () => {
+    const briefing = { ...base, counts: { ...base.counts, unassigned: 2, waiting: 1 } };
+    expect(moreNeedsLinks(briefing, [row('unassigned'), row('unassigned'), row('waiting')])).toEqual([]);
+  });
+
+  it('links each kind that has rows hidden, with its own count and page', () => {
+    const briefing = { ...base, counts: { ...base.counts, unassigned: 9, waiting: 3, accessRequests: 1 } };
+    expect(moreNeedsLinks(briefing, [row('unassigned'), row('waiting'), row('waiting')])).toEqual([
+      { href: '/queue', label: '8 more in the Open Queue' },
+      { href: '/my-tickets', label: '1 more waiting in My tickets' },
+      { href: '/admin', label: '1 more access request' },
+    ]);
+  });
+
+  it('counts a folded row as every ticket it stands for', () => {
+    const briefing = { ...base, counts: { ...base.counts, unassigned: 5 } };
+    expect(moreNeedsLinks(briefing, [row('unassigned', 5)])).toEqual([]);
+    expect(moreNeedsLinks(briefing, [row('unassigned', 3)])).toEqual([
+      { href: '/queue', label: '2 more in the Open Queue' },
+    ]);
   });
 });

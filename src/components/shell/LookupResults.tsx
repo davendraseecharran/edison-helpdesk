@@ -1,7 +1,7 @@
 'use client';
 
 import { Command } from 'cmdk';
-import { Laptop, Ticket, User } from 'lucide-react';
+import { CalendarDays, Laptop, Ticket, User, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { StatusBadge } from '@/components/Badges';
 import { Icon, type LucideIcon } from '@/components/ui/Icon';
@@ -19,12 +19,16 @@ const KIND_ICON: Record<SearchKind, LucideIcon> = {
   ticket: Ticket,
   person: User,
   device: Laptop,
+  group: Users,
+  event: CalendarDays,
 };
 
 const KIND_LABEL: Record<SearchKind, string> = {
   ticket: 'Ticket',
   person: 'Person',
   device: 'Device',
+  group: 'Group',
+  event: 'Event',
 };
 
 /** A command the palette offers beside the records it finds. */
@@ -133,13 +137,14 @@ export function HitItem({ hit, onSelect }: { hit: SearchHit; onSelect: (hit: Sea
 }
 
 /**
- * The three record groups, each rendered only when it has something to show.
+ * The record groups, in rail order, each rendered only when it has something
+ * to show.
  *
  * When the text was recognised as an identifier, the group it points at is
  * headed with what the palette read rather than with the generic noun: paste a
  * sticker and the heading says "Asset tag A-93542614", which is the one line
  * that tells you the paste landed, that it was read as a tag rather than a
- * serial, and that the rows underneath are the answer to it. The other two
+ * serial, and that the rows underneath are the answer to it. The other
  * groups keep their plain headings, because they are not what was asked for.
  */
 export function HitGroups({
@@ -157,6 +162,8 @@ export function HitGroups({
     ['ticket', 'Tickets', groups.tickets],
     ['person', 'People', groups.people],
     ['device', 'Devices', groups.devices],
+    ['group', 'Groups', groups.groups],
+    ['event', 'Events', groups.events],
   ];
   return (
     <>

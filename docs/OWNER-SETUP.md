@@ -95,7 +95,7 @@ Do this first, and do it now: it ends the half-state described above.
 
 The changes are **additive**. No table the district's data lives in is dropped,
 renamed or rewritten, and no existing policy or grant is changed. There are
-forty-nine new migration files, all numbered above the nineteen the hosted
+fifty-two new migration files, all numbered above the nineteen the hosted
 project already carries, so they apply in order after them.
 
 **1.1 Take a backup.** Supabase dashboard → Database → Backups, and confirm a
@@ -111,8 +111,8 @@ npx supabase migration list --linked
 ```
 
 You should see the nineteen migrations you already have listed on both sides,
-followed by **forty-nine** rows that are present locally and blank on the
-remote side. If you see fewer than forty-nine, your checkout is old: run
+followed by **fifty-two** rows that are present locally and blank on the
+remote side. If you see fewer than fifty-two, your checkout is old: run
 `git pull origin main` and look again. If you see rows the other way round
 (remote has something local does not), stop and ask before pushing.
 
@@ -122,9 +122,9 @@ remote side. If you see fewer than forty-nine, your checkout is old: run
 npx supabase db push
 ```
 
-It lists the forty-nine files, asks you to confirm, and applies them in
+It lists the fifty-two files, asks you to confirm, and applies them in
 order. It takes about a minute. The last file it names is
-`20260916150000_m5_group_fields_uncapped.sql`, followed by "Finished supabase db push."
+`20260916160200_m5_welcome_marks.sql`, followed by "Finished supabase db push."
 
 **1.4 Verify.** Reload the live site.
 
@@ -415,11 +415,30 @@ And the four from the first day:
   ids, emails or names into the assistant and ask who they are. One call
   answers up to two hundred: name, class or department, devices held, and,
   for ticket workers, open tickets. Skills officers have it too.
+- **The command palette reaches further.** Ctrl K finds a group or one of
+  its events by name, a student by their guardian's phone number (any
+  punctuation), anybody by email address, and every Settings section by name
+  or by what is in it ("gmail", "password", "chatgpt"), landing on that section
+  of the page. Typing "settings" lists the sections; "due" offers the due-back
+  list.
+- **People, for a skills officer.** The Devices and Open columns are ticket
+  work, so an account that does none sees Email and Groups in their place.
+  NetRiders and administrators see the list as before.
+- **Today points onward.** When "Needs you" or "Devices due back" shows only
+  the head of its list, a line under it says how many more there are and
+  links to where they live: the Open Queue, My tickets, Administration, and
+  a new page, Devices → due back, which lists every machine due back, oldest
+  first, with the same Return button as Today.
+- **The welcome effect.** Settings → Assistant → Welcome effect is a checklist
+  of seven animations for the assistant's opening mark (Diamond and Wave are
+  on by default). One ticked plays every time; several ticked, one is picked
+  at random each time the panel opens. The assistant can change it too.
 
 ## 7. What the first sign-in looks like
 
-- The sign-in page offers **Sign in with Google**, and a quieter "Use a
-  password" for anybody who has set one under Settings → Sign-in methods.
+- The sign-in page draws its bulb, lights it, and offers **Sign in with
+  Google**, with a quieter "Use a password" for anybody who has set one under
+  Settings → Sign-in methods.
 - An invited person lands on **Today**: the things that might need them right
   now, the unclaimed queue, their own tickets waiting on a reply, their live
   work, and, for an administrator, the people waiting for access. When nothing
@@ -454,7 +473,7 @@ deployed files.
 
 **The "database is behind" notice is still there after `db push`.** First a
 hard refresh. Then check `npx supabase migration list --linked`: if the
-forty-nine are on both sides, the site is simply serving a cached page; wait
+fifty-two are on both sides, the site is simply serving a cached page; wait
 a minute and reload. If some are missing on the remote side, `db push` did not
 finish; run it again, it continues where it stopped.
 

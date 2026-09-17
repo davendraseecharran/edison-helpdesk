@@ -10,6 +10,7 @@ import { loadCategoryLabels, loadTicketPresets } from '@/lib/data/ticket-presets
 import { canWorkTickets } from '@/lib/auth/roles';
 import { PageHeader } from '@/components/Primitives';
 import { AiSection } from '@/components/settings/AiSection';
+import { JumpToSection } from '@/components/settings/JumpToSection';
 import { AppearanceSection } from '@/components/settings/AppearanceSection';
 import { NotificationsSection } from '@/components/settings/NotificationsSection';
 import { ProfileSection } from '@/components/settings/ProfileSection';
@@ -105,10 +106,12 @@ export default async function SettingsPage({
           reasoning={preferences.aiReasoning}
           confirmChanges={preferences.aiConfirmChanges}
           speakReplies={preferences.aiSpeakReplies}
+          welcomeStates={preferences.aiWelcomeStates}
           notes={preferences.assistantNotes}
           sharedNotes={sharedNotes}
         />
         <NotificationsSection notifyInApp={preferences.notifyInApp} />
+        <JumpToSection />
       </div>
     </div>
   );

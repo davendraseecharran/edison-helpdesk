@@ -60,6 +60,7 @@ interface Preferences {
   ai_confirm_changes: boolean;
   ai_speak_replies: boolean;
   notify_in_app: boolean;
+  ai_welcome_states: string[];
   updated_at: string;
 }
 
@@ -168,6 +169,8 @@ describe('account preferences', () => {
     expect(row.ai_confirm_changes).toBe(false);
     expect(row.ai_speak_replies).toBe(false);
     expect(row.notify_in_app).toBe(true);
+    // The welcome starts on the diamond and the wave, for everybody.
+    expect(row.ai_welcome_states).toEqual(['generating', 'listening']);
 
     expect(await rawPreferences(identity('owner').id)).not.toBeNull();
   });
@@ -295,6 +298,88 @@ describe('account preferences', () => {
 
     const refused = await rpcFails(denied, 'app_update_preferences', { p_patch: { theme: 'light' } });
     expect(refused.code).toBe(REFUSED);
+  });
+});
+
+describe('the welcome effect preference', () => {
+  // 20260916160200_m5_welcome_marks.sql: a set of the library's seven states,
+  // at least one, each once. The function folds and de-duplicates; the column
+  // check stands behind it.
+
+  it('is present, with both defaults, for an account that has never chosen', async () => {
+    const fresh = await updatePreferences(helper, { theme: 'dark' });
+    expect(fresh.ai_welcome_states).toEqual(['generating', 'listening']);
+  });
+
+  it('saves two states, then one, and reads back what was saved', async () => {
+    const two = await updatePreferences(owner, { ai_welcome_states: ['solving', 'waiting'] });
+    expect(two.ai_welcome_states).toEqual(['solving', 'waiting']);
+    expect((await myPreferences(owner)).ai_welcome_states).toEqual(['solving', 'waiting']);
+
+    const one = await updatePreferences(owner, { ai_welcome_states: ['thinking'] });
+    expect(one.ai_welcome_states).toEqual(['thinking']);
+    expect((await rawPreferences(identity('owner').id))?.ai_welcome_states).toEqual(['thinking']);
+  });
+
+  it('folds the words and keeps each once, in the order sent', async () => {
+    const row = await updatePreferences(owner, {
+      ai_welcome_states: ['  Generating ', 'listening', 'GENERATING'],
+    });
+    expect(row.ai_welcome_states).toEqual(['generating', 'listening']);
+  });
+
+  it('refuses an empty list with the exact sentence, and changes nothing', async () => {
+    await updatePreferences(owner, { ai_welcome_states: ['waiting'] });
+
+    const failure = await rpcFails(owner, 'app_update_preferences', {
+      p_patch: { ai_welcome_states: [] },
+    });
+    expect(failure.code).toBe(REJECTED);
+    expect(failure.message).toBe('Keep at least one welcome animation.');
+
+    expect((await myPreferences(owner)).ai_welcome_states).toEqual(['waiting']);
+  });
+
+  it('refuses a state it does not know, naming the seven it does', async () => {
+    const failure = await rpcFails(owner, 'app_update_preferences', {
+      p_patch: { ai_welcome_states: ['waiting', 'exploding'] },
+    });
+    expect(failure.code).toBe(REJECTED);
+    expect(failure.message).toMatch(
+      /thinking, searching, working, solving, listening, waiting or generating/,
+    );
+
+    // A null in the list is not a state either, and neither is a number.
+    for (const wrong of [[null], [7], ['']]) {
+      const refused = await rpcFails(owner, 'app_update_preferences', {
+        p_patch: { ai_welcome_states: wrong },
+      });
+      expect(refused.code).toBe(REJECTED);
+    }
+    expect((await myPreferences(owner)).ai_welcome_states).toEqual(['waiting']);
+  });
+
+  it('refuses a list that is not a list', async () => {
+    const failure = await rpcFails(owner, 'app_update_preferences', {
+      p_patch: { ai_welcome_states: 'generating' },
+    });
+    expect(failure.code).toBe(REJECTED);
+    expect(failure.message).toMatch(/as a list/i);
+  });
+
+  it('leaves the settings beside it alone, and is nobody else’s to read', async () => {
+    await updatePreferences(owner, { ai_reasoning: 'max' });
+    const row = await updatePreferences(owner, { ai_welcome_states: ['searching'] });
+    expect(row.ai_reasoning).toBe('max');
+    expect(row.theme).toBe('dark');
+
+    expect((await myPreferences(helper)).ai_welcome_states).toEqual(['generating', 'listening']);
+
+    // Put the suite's defaults back.
+    await updatePreferences(owner, {
+      ai_reasoning: 'high',
+      ai_welcome_states: ['generating', 'listening'],
+    });
   });
 });
 

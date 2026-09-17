@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   countLabel,
   deviceErrorField,
+  directoryTailColumns,
   groupPeople,
   isGeneratedIdentifier,
   isLoopbackUrl,
@@ -226,5 +227,23 @@ describe('isLoopbackUrl', () => {
   it('treats something that is not a URL as not loopback', () => {
     expect(isLoopbackUrl('')).toBe(false);
     expect(isLoopbackUrl('not a url')).toBe(false);
+  });
+});
+
+describe('directoryTailColumns', () => {
+  it('gives a technician the machines and the open tickets', () => {
+    expect(directoryTailColumns(true)).toEqual(['devices', 'open']);
+  });
+
+  it('gives a skills officer the address and the rosters instead', () => {
+    // They read no tickets and hand out no machines, so both of the other
+    // columns would be the same value on every row.
+    expect(directoryTailColumns(false)).toEqual(['email', 'groups']);
+  });
+
+  it('never shows the same column to both', () => {
+    const worker = directoryTailColumns(true);
+    const officer = directoryTailColumns(false);
+    expect(worker.filter((key) => officer.includes(key))).toEqual([]);
   });
 });

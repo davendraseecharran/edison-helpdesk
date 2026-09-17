@@ -16,11 +16,21 @@
 
 /* --- Wordmark ----------------------------------------------------------- */
 
+/*
+ * The mark and the name, stacked. Everything in here is timed from the page
+ * arriving, in this order: the globe draws (0 to 0.5s), the filament follows
+ * (0.3 to 0.9s), the two words rise into place under it (0.4s and 0.5s), and
+ * the halo swells once the filament is in (0.9 to 1.5s) and then breathes.
+ * A screen somebody sees once a day can afford a second and a half, and the
+ * form underneath is usable from the first frame.
+ */
+
 .auth-wordmark {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0.28em;
-  margin-bottom: 40px;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 36px;
   color: var(--ink);
   font-size: var(--fs-3);
   font-weight: 400;
@@ -28,8 +38,25 @@
   text-decoration: none;
 }
 
+.auth-wordmark-text {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28em;
+}
+
 .auth-wordmark-strong {
   font-weight: 600;
+}
+
+.auth-wordmark-strong,
+.auth-wordmark-tail {
+  display: inline-block;
+  animation: auth-word-rise 520ms var(--ease-out) both;
+  animation-delay: 400ms;
+}
+
+.auth-wordmark-tail {
+  animation-delay: 500ms;
 }
 
 .auth-wordmark:hover {
@@ -38,8 +65,140 @@
 
 .auth-wordmark:focus-visible {
   outline: 2px solid var(--accent, var(--accent));
-  outline-offset: 4px;
-  border-radius: 2px;
+  outline-offset: 6px;
+  border-radius: 4px;
+}
+
+.auth-bulb {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+}
+
+.auth-bulb-mark {
+  position: relative;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+
+/* Each stroke is one unit long (`pathLength`), so a dash of one unit drawn
+   from an offset of one to zero is the line being drawn. */
+.auth-bulb-globe,
+.auth-bulb-filament,
+.auth-bulb-base {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: auth-stroke-draw var(--ease-out) forwards;
+}
+
+.auth-bulb-globe {
+  animation-duration: 520ms;
+}
+
+.auth-bulb-base {
+  animation-duration: 320ms;
+  animation-delay: 180ms;
+}
+
+.auth-bulb-filament {
+  stroke-width: 1.25;
+  animation-duration: 600ms;
+  animation-delay: 300ms;
+}
+
+/*
+ * The light. A halo behind the globe rather than a fill inside it: a lit bulb
+ * is what it does to the room. Ink at low alpha, so in the light theme it is
+ * a shadow of warmth and in the dark one it is light — no colour either way.
+ */
+.auth-bulb-halo {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--ink) 22%, transparent) 0%,
+    color-mix(in oklab, var(--ink) 8%, transparent) 45%,
+    transparent 72%
+  );
+  filter: blur(6px);
+  transform: translateX(-50%) scale(0.6);
+  opacity: 0;
+  animation:
+    auth-halo-light 620ms var(--ease-out) 900ms forwards,
+    auth-halo-breathe 5200ms ease-in-out 1520ms infinite;
+  transition: transform var(--dur-surface) var(--ease-out);
+}
+
+.auth-wordmark:hover .auth-bulb-halo {
+  transform: translateX(-50%) scale(1.25);
+}
+
+@keyframes auth-stroke-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes auth-word-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes auth-halo-light {
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+@keyframes auth-halo-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-bulb-globe,
+  .auth-bulb-filament,
+  .auth-bulb-base {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+
+  .auth-wordmark-strong,
+  .auth-wordmark-tail {
+    animation: none;
+  }
+
+  .auth-bulb-halo {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+    animation: none;
+    transition: none;
+  }
 }
 
 /* --- Column ------------------------------------------------------------- */

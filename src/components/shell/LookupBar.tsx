@@ -36,6 +36,7 @@ import { ThinkingOrb } from 'thinking-orbs';
 import {
   ChartColumn,
   Hand,
+  Laptop,
   MessageCircle,
   Plus,
   QrCode,
@@ -467,6 +468,21 @@ function Palette({
       });
     }
 
+    // The list Today only shows the head of. Typed, not resting: the rail
+    // already says Devices, and this is one view of that page.
+    if (canWorkTickets(actor.roles)) {
+      list.push({
+        id: 'go:/devices/due-back',
+        label: 'Devices due back',
+        icon: Laptop,
+        group: GO_TO,
+        keywords: ['due', 'due back', 'overdue', 'return', 'returns', 'graduated', 'repair'],
+        subtitle: 'Holders who left, repairs untouched for a fortnight',
+        matchOnly: true,
+        run: go('/devices/due-back'),
+      });
+    }
+
     list.push({
       id: 'go:/settings',
       label: 'Settings',
@@ -475,6 +491,65 @@ function Palette({
       keywords: ['page', 'open', 'go to', 'preferences', 'account'],
       run: go('/settings'),
     });
+
+    /*
+     * The sections of the settings page, each reachable by what it is about.
+     * Somebody who types "dark" or "chatgpt" is looking for the control, not
+     * for the page it sits on, and the plain Settings row above would leave
+     * them to scroll for it. `matchOnly`, so the resting palette does not grow
+     * by six rows nobody asked for; the subtitle says where the row goes.
+     */
+    const sections: Array<{ id: string; label: string; keywords: string[]; offered?: boolean }> = [
+      {
+        id: 'profile',
+        label: 'Profile',
+        keywords: ['name', 'display name', 'account', 'email'],
+      },
+      {
+        id: 'sign-in',
+        label: 'Sign-in methods',
+        keywords: ['google', 'password', 'login', 'link', 'sign in'],
+      },
+      {
+        id: 'quick-tickets',
+        label: 'Quick tickets',
+        keywords: ['preset', 'presets', 'quick', 'manage'],
+        // Presets are ticket work; the section is not on the page for a
+        // skills officer, and a row that opens a page without it would be a
+        // wrong turn.
+        offered: canWorkTickets(actor.roles),
+      },
+      {
+        id: 'appearance',
+        label: 'Appearance',
+        keywords: ['theme', 'dark', 'light', 'gmail', 'links'],
+      },
+      {
+        id: 'assistant',
+        label: 'Assistant',
+        keywords: ['chatgpt', 'ai', 'connect', 'reasoning', 'notes', 'voice', 'speak'],
+      },
+      {
+        id: 'notifications',
+        label: 'Notifications',
+        keywords: ['notify', 'alerts'],
+      },
+    ];
+    for (const section of sections) {
+      if (section.offered === false) continue;
+      list.push({
+        id: `go:/settings#${section.id}`,
+        label: section.label,
+        icon: Settings,
+        group: GO_TO,
+        // "settings" on its own lists every section, which is the page's
+        // table of contents without opening the page.
+        keywords: [...section.keywords, 'settings'],
+        subtitle: 'Settings',
+        matchOnly: true,
+        run: go(`/settings#${section.id}`),
+      });
+    }
 
     const next = NEXT_THEME[theme];
     list.push({
@@ -586,7 +661,7 @@ function Palette({
     // type it hoping to find a ticket whose title contains it.
     if (askLeads && askAction) return actionValue(askAction);
     if (showRecent) return `recent:${hitValue(lookup.recent[0])}`;
-    const { tickets, people, devices } = lookup.groups;
+    const { tickets, people, devices, groups, events } = lookup.groups;
     /*
      * The row Enter opens.
      *
@@ -599,7 +674,8 @@ function Palette({
     const named = targetKind(lookup.recognition.kind);
     const preferred =
       named === 'device' ? devices[0] : named === 'person' ? people[0] : named === 'ticket' ? tickets[0] : undefined;
-    const hit = preferred ?? tickets[0] ?? people[0] ?? devices[0];
+    const hit =
+      preferred ?? tickets[0] ?? people[0] ?? devices[0] ?? groups[0] ?? events[0];
     if (searchable && hit) return hitValue(hit);
     const head = commands[0] ?? destinations[0];
     return head ? actionValue(head) : '';

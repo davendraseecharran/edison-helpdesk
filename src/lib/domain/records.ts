@@ -159,6 +159,24 @@ export function personPlacement(person: {
   return parts.join(', ');
 }
 
+/**
+ * The two columns at the end of a directory row, which depend on who is reading.
+ *
+ * A technician scans the roster for machines and for who is stuck, so they get
+ * Devices and Open. A skills officer reads no tickets and hands out no
+ * machines: both of those columns are a zero on every row for them, and a
+ * column that is the same on every row is a column that is not there. What they
+ * actually work from is an address and which rosters somebody is on.
+ *
+ * Here rather than in the list, so the rule is a unit test rather than two
+ * accounts to sign in as.
+ */
+export type DirectoryTailColumn = 'devices' | 'open' | 'email' | 'groups';
+
+export function directoryTailColumns(ticketWorker: boolean): DirectoryTailColumn[] {
+  return ticketWorker ? ['devices', 'open'] : ['email', 'groups'];
+}
+
 /** "12 selected", "1 device", "3 devices": one place for the plural. */
 export function countLabel(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`;
