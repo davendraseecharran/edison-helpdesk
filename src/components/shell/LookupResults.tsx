@@ -44,6 +44,8 @@ export interface LookupAction {
   meta?: ReactNode;
   /** Shown whatever was typed; the filter does not apply. */
   always?: boolean;
+  /** Shown only once something is typed: the top bar's menu is its home, not the empty palette. */
+  matchOnly?: boolean;
   run: () => void | Promise<void>;
 }
 

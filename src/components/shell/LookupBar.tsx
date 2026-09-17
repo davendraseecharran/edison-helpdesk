@@ -434,6 +434,7 @@ function Palette({
           icon: Zap,
           keywords: presetKeywords(preset),
           subtitle: preset.title,
+          matchOnly: true,
           run: go(presetHref(preset.id)),
         });
       }
@@ -539,7 +540,9 @@ function Palette({
   const visibleActions = useMemo(
     () =>
       actions.filter(
-        (action) => action.always || matchesQuery(action.label, action.keywords, term),
+        (action) =>
+          (action.always || matchesQuery(action.label, action.keywords, term)) &&
+          !(action.matchOnly && term.trim() === ''),
       ),
     [actions, term],
   );

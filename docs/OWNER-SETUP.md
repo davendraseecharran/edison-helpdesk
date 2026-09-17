@@ -95,7 +95,7 @@ Do this first, and do it now: it ends the half-state described above.
 
 The changes are **additive**. No table the district's data lives in is dropped,
 renamed or rewritten, and no existing policy or grant is changed. There are
-forty-three new migration files, all numbered above the nineteen the hosted
+forty-seven new migration files, all numbered above the nineteen the hosted
 project already carries, so they apply in order after them.
 
 **1.1 Take a backup.** Supabase dashboard → Database → Backups, and confirm a
@@ -111,8 +111,8 @@ npx supabase migration list --linked
 ```
 
 You should see the nineteen migrations you already have listed on both sides,
-followed by **forty-three** rows that are present locally and blank on the
-remote side. If you see fewer than forty-three, your checkout is old: run
+followed by **forty-seven** rows that are present locally and blank on the
+remote side. If you see fewer than forty-seven, your checkout is old: run
 `git pull origin main` and look again. If you see rows the other way round
 (remote has something local does not), stop and ask before pushing.
 
@@ -122,9 +122,9 @@ remote side. If you see fewer than forty-three, your checkout is old: run
 npx supabase db push
 ```
 
-It lists the forty-three files, asks you to confirm, and applies them in
+It lists the forty-seven files, asks you to confirm, and applies them in
 order. It takes about a minute. The last file it names is
-`20260916120000_m5_password_minimum.sql`, followed by "Finished supabase db push."
+`20260916130300_m5_group_events.sql`, followed by "Finished supabase db push."
 
 **1.4 Verify.** Reload the live site.
 
@@ -365,9 +365,32 @@ disconnect at any time from the panel's menu. What the assistant is sent is
 the person's own question plus the ticket or record on screen; students' and
 staff members' details go only where the person has already looked.
 
-### Four things the desk asked for on day one
+### What the desk asked for, all in this version, no setup needed
 
-All four are in this version and need no setup.
+The chapter's tools:
+
+- **Groups**: rosters, in the directory rather than a spreadsheet. "SkillsUSA
+  members", "Officers", "Regionals competitors". Add people by search, by a
+  class filter, or by pasting a list of OSIS numbers, staff ids, emails or
+  names. Every group page can email everyone, copy their addresses, names,
+  ids or guardian phones, and export a CSV. The assistant knows them: "add
+  these to Regionals", "who is in Officers".
+- **Attendance**: on a group, name an event and take the register by scanning
+  student IDs with a phone or laptop camera, or by typing an OSIS. Live count,
+  a copyable list of absentees, CSV at the end. "Who missed Tuesday" is a
+  question the assistant answers.
+- **Checklists**: up to six yes/no columns per group that you name (dues paid,
+  permission slip in, shirt size collected), ticked on the group page,
+  filterable by what is missing, in the CSV.
+- **Copy and Gmail anywhere people are listed**: on People, on a selection, on
+  a group. "Open in Gmail" opens a compose window with everyone in CC, or BCC
+  if the person prefers, remembered per account. Export CSV is administrators
+  and skills officers only, and every export is written to the audit log.
+- **Quick tickets**: the calls that repeat all day as presets the desk edits
+  under Settings → Quick tickets. The top bar's New ticket button has a menu
+  of them; one tap opens intake with everything but the requester filled.
+
+And the four from the first day:
 
 - **Notes for the assistant.** Settings → Assistant has two boxes. "Notes for
   the assistant" is personal (how you like to work). "Shared notes" is one
@@ -428,7 +451,7 @@ deployed files.
 
 **The "database is behind" notice is still there after `db push`.** First a
 hard refresh. Then check `npx supabase migration list --linked`: if the
-forty-three are on both sides, the site is simply serving a cached page; wait
+forty-seven are on both sides, the site is simply serving a cached page; wait
 a minute and reload. If some are missing on the remote side, `db push` did not
 finish; run it again, it continues where it stopped.
 

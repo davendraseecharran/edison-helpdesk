@@ -23,7 +23,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Download, ListChecks, Pencil, Trash2, X } from 'lucide-react';
+import { ListChecks, Pencil, Trash2, X } from 'lucide-react';
 import {
   deleteGroupAction,
   removeGroupMemberAction,
@@ -38,7 +38,9 @@ import { GROUP_NOTE_MAX } from '@/lib/domain/groups';
 import { PERSON_KIND_LABELS } from '@/lib/domain/types';
 import { useRuntime } from '@/components/AppRuntime';
 import { TimeAgo } from '@/components/Primitives';
-import { Button, ButtonLink } from '@/components/ui/Button';
+import { Button } from '@/components/ui/Button';
+import { PeopleActions } from '@/components/people/PeopleActions';
+import type { GmailMode } from '@/lib/domain/preferences';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Dialog } from '@/components/ui/Dialog';
 import { Select } from '@/components/ui/Select';
@@ -51,9 +53,12 @@ import '@/styles/groups.css';
 export function GroupDetail({
   detail,
   events,
+  gmailMode = 'cc',
 }: {
   detail: GroupDetailData;
   events: GroupEventSummary[];
+  /** How this account addresses a Gmail link. Their setting, not this screen's. */
+  gmailMode?: GmailMode;
 }) {
   const { actor, pendingKey, run } = useRuntime();
   const router = useRouter();
@@ -212,10 +217,19 @@ export function GroupDetail({
           </div>
         </div>
         <div className="btn-row record-actions">
-          {/* PeopleActions slot */}
-          <ButtonLink href={`/groups/${group.id}/export`} icon={Download} prefetch={false}>
-            Export CSV
-          </ButtonLink>
+          {/* Everyone in the group, to Gmail, to the clipboard, or out as a file. */}
+          <PeopleActions
+            people={members.map((member) => ({
+              id: member.id,
+              displayName: member.displayName,
+              email: member.email,
+              externalId: member.externalId,
+              kind: member.kind,
+            }))}
+            label={group.name}
+            gmailMode={gmailMode}
+            exportHref={`/groups/${group.id}/export`}
+          />
           <Button icon={ListChecks} onClick={() => setManagingFields(true)} disabled={busy}>
             Columns
           </Button>
