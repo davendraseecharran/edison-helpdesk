@@ -27,7 +27,13 @@
 
 import { beforeAll, describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { anonClient, identity, rpcFails, rpcOk, signIn } from './support/harness';
+import {
+  anonClient,
+  identity,
+  rpcFails,
+  rpcOk,
+  signIn,
+} from './support/harness';
 
 interface PresetRow {
   id: string;
@@ -262,8 +268,11 @@ describe('the desk’s quick tickets', () => {
     expect(priority.message).toContain('Choose a priority');
 
     // And the vocabulary it does contain is the ticket's own.
-    const labels = await rpcOk<Record<string, string>>(worker, 'app_category_labels');
-    for (const value of Object.keys(labels)) {
+    // And the vocabulary it does contain is the ticket's own. The category
+    // function itself is the server's, not a session's, so the seeded presets
+    // stand in: they carry categories that are valid by construction.
+    const seeded = await rpcOk<Array<{ category: string }>>(worker, 'app_list_ticket_presets');
+    for (const value of new Set(seeded.map((preset) => preset.category))) {
       const saved = await save(worker, { name: uniqueName('Vocabulary'), category: value });
       expect(saved.category).toBe(value);
       await remove(worker, saved.id);

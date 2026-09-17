@@ -440,8 +440,13 @@ describe('the export entry', () => {
     ).toContain('2 rows');
 
     expect(
-      (await rpcFails(officer, 'app_log_group_export', { p_group: groupId, p_what: 'everything' }))
-        .message,
+      (
+        await rpcFails(officer, 'app_log_group_export', {
+          p_group: groupId,
+          p_what: 'everything',
+          p_count: 1,
+        })
+      ).message,
     ).toContain('roster or attendance');
   });
 });
