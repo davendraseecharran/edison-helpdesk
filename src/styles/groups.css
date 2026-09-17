@@ -154,3 +154,181 @@
     flex: 0 0 auto;
   }
 }
+
+/* --- Events and the register -------------------------------------------- */
+
+/* Name, day, button: one row where there is width, stacked on a phone. */
+.event-new {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+}
+
+.event-new-name {
+  flex: 3 1 200px;
+  min-width: 0;
+}
+
+.event-new-date {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.event-count {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/*
+ * The two ways to mark somebody, side by side: the camera first because that
+ * is what a phone at a door is for, and the typed box beside it because a card
+ * that will not read is a Tuesday rather than an exception.
+ */
+.roll-take {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-end;
+}
+
+/*
+ * `ScanButton` renders one small ghost icon button, sized for the palette it
+ * was written for. Here it is the primary control on the screen, so it is
+ * given the height of a target somebody hits without looking and a label-sized
+ * square to sit in. Nothing about the component changes: this is its button.
+ */
+.roll-scan .btn.palette-scan {
+  width: 100%;
+  min-width: 96px;
+  height: 56px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-3);
+  background: var(--surface-2);
+  color: var(--ink);
+}
+
+.roll-scan .btn.palette-scan:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+.roll-scan .btn.palette-scan svg {
+  width: 26px;
+  height: 26px;
+}
+
+.roll-scan {
+  flex: 0 1 140px;
+}
+
+.roll-typed {
+  display: flex;
+  flex: 1 1 260px;
+  gap: 12px;
+  align-items: flex-end;
+  min-width: 0;
+}
+
+.roll-typed .field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* Tick boxes are a target before they are a control: 44px, centred in the cell. */
+.roll-check,
+.field-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 32px;
+}
+
+@media (max-width: 719.98px) {
+  .roll-take {
+    gap: 12px;
+  }
+
+  /* On a phone the camera is the point: it takes the width, and the typed box
+     goes underneath rather than beside. */
+  .roll-scan {
+    flex: 1 1 100%;
+  }
+
+  .roll-typed {
+    flex: 1 1 100%;
+  }
+
+  .event-new-name,
+  .event-new-date {
+    flex-basis: 100%;
+  }
+}
+
+/* --- The checklist columns manager --------------------------------------- */
+
+.field-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.field-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.field-row-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.field-row-count {
+  flex: 0 0 auto;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  white-space: nowrap;
+}
+
+.field-row-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.field-add {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.field-add .field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* The "Missing: …" filter sits with the count in the panel head. */
+.group-missing {
+  min-width: 180px;
+}
+
+@media (max-width: 719.98px) {
+  .field-row {
+    flex-wrap: wrap;
+  }
+
+  .field-row-name {
+    flex: 1 1 100%;
+  }
+
+  .group-missing {
+    min-width: 0;
+  }
+}

@@ -19,12 +19,8 @@
 
 import { useState } from 'react';
 import { UserPlus } from 'lucide-react';
-import {
-  addGroupMembersAction,
-  resolvePeopleAction,
-  PASTE_LIMIT,
-  type ResolvedPerson,
-} from '@/lib/data/group-actions';
+import { addGroupMembersAction, resolvePeopleAction } from '@/lib/data/group-actions';
+import { PASTE_LIMIT, type ResolvedPerson } from '@/lib/domain/groups';
 import { PERSON_KIND_LABELS } from '@/lib/domain/types';
 import { useRuntime } from '@/components/AppRuntime';
 import { Field } from '@/components/Primitives';

@@ -15,10 +15,7 @@ import type { ActionResult } from '@/lib/data/actions';
 import { Field } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
-
-/** The database's own ceilings, so the box stops where the column does. */
-export const GROUP_NAME_MAX = 80;
-export const GROUP_DESCRIPTION_MAX = 300;
+import { GROUP_DESCRIPTION_MAX, GROUP_NAME_MAX } from '@/lib/domain/groups';
 
 export interface GroupValues {
   name: string;

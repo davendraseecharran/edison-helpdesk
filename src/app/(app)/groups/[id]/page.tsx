@@ -1,3 +1,4 @@
+import { loadGroupEvents } from '@/lib/data/group-events';
 import { loadGroup } from '@/lib/data/groups';
 import { EmptyState } from '@/components/Primitives';
 import { ButtonLink } from '@/components/ui/Button';
@@ -7,7 +8,7 @@ export const metadata = { title: 'Group — Edison Helpdesk' };
 
 export default async function GroupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const detail = await loadGroup(id);
+  const [detail, events] = await Promise.all([loadGroup(id), loadGroupEvents(id)]);
 
   if (!detail) {
     // Identical whether the group is gone or was never there: a deleted group
@@ -25,5 +26,5 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  return <GroupDetail detail={detail} />;
+  return <GroupDetail detail={detail} events={events} />;
 }

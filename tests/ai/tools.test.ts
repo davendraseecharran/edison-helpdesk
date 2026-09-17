@@ -61,19 +61,24 @@ describe('tool classification', () => {
       'create_group',
       'create_person',
       'delete_view',
+      'event_attendance',
       'find_people',
       'get_device',
       'get_person',
+      'group_checklist',
+      'group_events',
       'group_members',
       'list_attachments',
       'list_devices',
       'list_groups',
       'list_notifications',
       'list_people',
+      'mark_attendance',
       'mark_notifications_read',
       'remove_from_group',
       'save_view',
       'search_records',
+      'set_checklist_mark',
       'set_preference',
       'update_person',
     ]);
@@ -122,6 +127,10 @@ describe('tool classification', () => {
       // The rosters a chapter lives by, which every role may read.
       'list_groups',
       'group_members',
+      // And what a roster is for: the register, and the checklist.
+      'group_events',
+      'event_attendance',
+      'group_checklist',
     ]) {
       expect(READ_TOOLS).toContain(name);
     }
@@ -166,6 +175,8 @@ describe('tool classification', () => {
       'create_group',
       'add_to_group',
       'remove_from_group',
+      'mark_attendance',
+      'set_checklist_mark',
     ]) {
       expect(WRITE_TOOLS).toContain(name);
     }
@@ -403,6 +414,8 @@ describe('requiresApproval', () => {
       'create_group',
       'add_to_group',
       'remove_from_group',
+      'mark_attendance',
+      'set_checklist_mark',
     ]) {
       expect(requiresApproval(name, {}, true)).toBe(true);
       expect(requiresApproval(name, {}, false)).toBe(false);

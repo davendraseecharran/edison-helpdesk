@@ -45,6 +45,7 @@ const ENTITY_HREF: Record<string, (id: string) => string> = {
   ticket: (id) => `/tickets/${id}`,
   person: (id) => `/people/${id}`,
   device: (id) => `/devices/${id}`,
+  group: (id) => `/groups/${id}`,
 };
 
 const ENTITY_OPTIONS: Array<{ value: string; label: string }> = [
@@ -53,6 +54,7 @@ const ENTITY_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'account', label: 'Accounts' },
   { value: 'person', label: 'People' },
   { value: 'device', label: 'Devices' },
+  { value: 'group', label: 'Groups' },
   { value: 'invite', label: 'Invites' },
   { value: 'import', label: 'Imports' },
 ];
@@ -278,7 +280,7 @@ export function AuditLog({ page }: { page: AuditLogPage }) {
         >
           {filtersActive
             ? 'Widen the dates or drop a filter to see more of the history.'
-            : 'Every change to a ticket, account, person, device, invite or import appears here as it happens.'}
+            : 'Every change to a ticket, account, person, device, group, invite or import appears here as it happens.'}
         </EmptyState>
       ) : (
         <>

@@ -23,6 +23,13 @@ export interface GroupSummary {
   updatedAt: string;
 }
 
+export interface GroupField {
+  id: string;
+  name: string;
+  position: number;
+  checkedCount: number;
+}
+
 export interface GroupMember {
   id: string;
   displayName: string;
@@ -34,6 +41,18 @@ export interface GroupMember {
   groupLabel: string | null;
   note: string;
   addedAt: string;
+}
+
+interface FieldRow {
+  id: string;
+  name: string;
+  position: number | null;
+  checked_count: number | null;
+}
+
+interface MarkRow {
+  requester_id: string;
+  field_id: string;
 }
 
 interface GroupRow {
@@ -78,6 +97,15 @@ function mapMember(row: MemberRow): GroupMember {
   };
 }
 
+function mapField(row: FieldRow): GroupField {
+  return {
+    id: row.id,
+    name: row.name,
+    position: Number(row.position ?? 0),
+    checkedCount: Number(row.checked_count ?? 0),
+  };
+}
+
 export async function loadGroups(): Promise<GroupSummary[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('app_list_groups');
@@ -88,6 +116,14 @@ export async function loadGroups(): Promise<GroupSummary[]> {
 export interface GroupDetail {
   group: GroupSummary;
   members: GroupMember[];
+  /** The checklist columns, in the order they are shown. At most six. */
+  fields: GroupField[];
+  /**
+   * Which boxes are ticked, as `requesterId -> set of fieldId`. A plain object
+   * of arrays because it crosses to a client component, where the table turns
+   * it into lookups.
+   */
+  marks: Record<string, string[]>;
 }
 
 /**
@@ -97,17 +133,50 @@ export interface GroupDetail {
  */
 export async function loadGroup(id: string): Promise<GroupDetail | null> {
   const supabase = await createClient();
-  const [list, members] = await Promise.all([
+  const [list, members, fields, marks] = await Promise.all([
     supabase.rpc('app_list_groups'),
     supabase.rpc('app_group_members', { p_group: id }),
+    supabase.rpc('app_list_group_fields', { p_group: id }),
+    supabase.rpc('app_group_marks', { p_group: id }),
   ]);
 
   if (list.error) return null;
   const group = ((list.data ?? []) as GroupRow[]).find((row) => row.id === id);
   if (group === undefined) return null;
 
+  // One read for every tick on the group, turned into the lookup the table
+  // wants: a cell asks "is this person ticked for this column?" up to 144
+  // times, and it must not ask the database any of them.
+  const ticked: Record<string, string[]> = {};
+  for (const row of (marks.data ?? []) as MarkRow[]) {
+    (ticked[row.requester_id] ??= []).push(row.field_id);
+  }
+
   return {
     group: mapGroup(group),
     members: ((members.data ?? []) as MemberRow[]).map(mapMember),
+    fields: ((fields.data ?? []) as FieldRow[]).map(mapField),
+    marks: ticked,
   };
+}
+
+/**
+ * Records that a copy of a roster left the building, before it does.
+ *
+ * The same rule the directory export follows: if the entry cannot be written
+ * the file is not served, because an export nobody can see afterwards is
+ * exactly what the entry exists to prevent. The count goes in; no name does.
+ */
+export async function logGroupExport(
+  groupId: string,
+  what: 'roster' | 'attendance',
+  count: number,
+): Promise<boolean> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc('app_log_group_export', {
+    p_group: groupId,
+    p_what: what,
+    p_count: count,
+  });
+  return !error;
 }

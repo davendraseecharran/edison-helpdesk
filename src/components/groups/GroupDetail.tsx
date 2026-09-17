@@ -1,53 +1,87 @@
 'use client';
 
 /**
- * One group: who is in it, and the two ways to change that.
+ * One group: who is in it, what each of them still owes, and what it has done.
  *
  * The table is the roster as somebody would read it off a clipboard — name,
  * where in the school, the identifier that tells two people of one name apart,
- * and the short note that says what they are to THIS group ("Treasurer",
- * "regionals only"). The note is edited in the cell it lives in, because
- * opening a dialog to type one word is how a roster stops being kept.
+ * the short note that says what they are to THIS group ("Treasurer",
+ * "regionals only"), and one tick box per checklist column. The note and the
+ * boxes are edited in the cells they live in, because opening a dialog to type
+ * one word is how a roster stops being kept.
+ *
+ * The one filter is "missing" — everybody who has NOT been ticked for a column
+ * — because that is the only question a checklist is ever asked. It is applied
+ * here rather than in the database: the whole roster is already on the page,
+ * and a round trip to hide rows would be slower than the eye.
  *
  * Deleting is an administrator's, and it asks first: the group goes and its
- * members go with it. Everything else here — renaming, adding, removing — is
- * open to every active account and can be put back by whoever undid it.
+ * members go with it. Everything else here — renaming, adding, removing,
+ * ticking, taking a register — is open to every active account.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Pencil, Trash2, X } from 'lucide-react';
+import { Download, ListChecks, Pencil, Trash2, X } from 'lucide-react';
 import {
   deleteGroupAction,
   removeGroupMemberAction,
   setGroupMemberNoteAction,
+  setGroupMarkAction,
   updateGroupAction,
 } from '@/lib/data/group-actions';
 import type { GroupDetail as GroupDetailData, GroupMember } from '@/lib/data/groups';
+import type { GroupEventSummary } from '@/lib/data/group-events';
 import { isAdmin } from '@/lib/auth/roles';
+import { GROUP_NOTE_MAX } from '@/lib/domain/groups';
 import { PERSON_KIND_LABELS } from '@/lib/domain/types';
 import { useRuntime } from '@/components/AppRuntime';
 import { TimeAgo } from '@/components/Primitives';
-import { Button } from '@/components/ui/Button';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Dialog } from '@/components/ui/Dialog';
+import { Select } from '@/components/ui/Select';
 import { AddPeoplePanel } from './AddPeoplePanel';
+import { FieldsManager } from './FieldsManager';
 import { GroupDialog, type GroupValues } from './GroupDialog';
+import { GroupEvents } from './GroupEvents';
 import '@/styles/groups.css';
 
-/** The database cuts a note here, so the box does too. */
-const NOTE_MAX = 80;
-
-export function GroupDetail({ detail }: { detail: GroupDetailData }) {
+export function GroupDetail({
+  detail,
+  events,
+}: {
+  detail: GroupDetailData;
+  events: GroupEventSummary[];
+}) {
   const { actor, pendingKey, run } = useRuntime();
   const router = useRouter();
-  const { group, members } = detail;
+  const { group, members, fields, marks } = detail;
   const admin = isAdmin(actor.roles);
   const busy = pendingKey !== null;
 
   const [editing, setEditing] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [managingFields, setManagingFields] = useState(false);
+  /** A field id, or '' for everybody. The only question a checklist is asked. */
+  const [missing, setMissing] = useState('');
+
+  const ticked = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const [requesterId, fieldIds] of Object.entries(marks)) {
+      map.set(requesterId, new Set(fieldIds));
+    }
+    return map;
+  }, [marks]);
+
+  const shown = useMemo(
+    () =>
+      missing === ''
+        ? members
+        : members.filter((member) => !(ticked.get(member.id)?.has(missing) ?? false)),
+    [members, missing, ticked],
+  );
 
   async function save(values: GroupValues) {
     const result = await run(
@@ -60,6 +94,12 @@ export function GroupDetail({ detail }: { detail: GroupDetailData }) {
 
   async function remove(member: GroupMember) {
     await run(`group:remove:${member.id}`, () => removeGroupMemberAction(group.id, member.id));
+  }
+
+  async function setMark(member: GroupMember, fieldId: string, checked: boolean) {
+    await run(`group:mark:${fieldId}:${member.id}`, () =>
+      setGroupMarkAction(fieldId, member.id, checked),
+    );
   }
 
   const columns: Column<GroupMember>[] = [
@@ -110,12 +150,35 @@ export function GroupDetail({ detail }: { detail: GroupDetailData }) {
         />
       ),
     },
+    // One column per checklist field, in the order the manager put them. They
+    // stay on the phone card: a tick box is the whole reason the column exists,
+    // and hiding it on the device the roster is kept on would be the wrong half
+    // to drop.
+    ...fields.map((field) => ({
+      key: `field:${field.id}`,
+      header: field.name,
+      width: 120,
+      cell: (member: GroupMember) => {
+        const on = ticked.get(member.id)?.has(field.id) ?? false;
+        return (
+          <label className="row-check field-check">
+            <input
+              type="checkbox"
+              checked={on}
+              disabled={busy}
+              aria-label={`${field.name} for ${member.displayName}`}
+              onChange={() => void setMark(member, field.id, !on)}
+            />
+          </label>
+        );
+      },
+    })),
     {
       key: 'remove',
       header: 'Remove',
-      align: 'right',
+      align: 'right' as const,
       width: 96,
-      cell: (member) => (
+      cell: (member: GroupMember) => (
         <Button
           size="sm"
           icon={X}
@@ -150,6 +213,12 @@ export function GroupDetail({ detail }: { detail: GroupDetailData }) {
         </div>
         <div className="btn-row record-actions">
           {/* PeopleActions slot */}
+          <ButtonLink href={`/groups/${group.id}/export`} icon={Download} prefetch={false}>
+            Export CSV
+          </ButtonLink>
+          <Button icon={ListChecks} onClick={() => setManagingFields(true)} disabled={busy}>
+            Columns
+          </Button>
           <Button icon={Pencil} onClick={() => setEditing(true)} disabled={busy}>
             Edit
           </Button>
@@ -172,19 +241,43 @@ export function GroupDetail({ detail }: { detail: GroupDetailData }) {
             <h2 className="panel-title" id="group-members-heading">
               Members
             </h2>
-            <span className="panel-aside">
-              {members.length} {members.length === 1 ? 'person' : 'people'}
-            </span>
+            <div className="panel-head-end">
+              {fields.length > 0 ? (
+                <Select
+                  id="group-missing"
+                  aria-label="Show only people missing a column"
+                  className="group-missing"
+                  value={missing}
+                  onChange={setMissing}
+                  options={[
+                    { value: '', label: 'Everybody' },
+                    ...fields.map((field) => ({
+                      value: field.id,
+                      label: `Missing: ${field.name}`,
+                    })),
+                  ]}
+                />
+              ) : null}
+              <span className="panel-aside">
+                {missing === ''
+                  ? `${members.length} ${members.length === 1 ? 'person' : 'people'}`
+                  : `${shown.length} of ${members.length}`}
+              </span>
+            </div>
           </div>
           {members.length === 0 ? (
             <p className="panel-empty">
               Nobody is in this group yet. Find somebody below, or paste the list
               you already have.
             </p>
+          ) : shown.length === 0 ? (
+            <p className="panel-empty">
+              Everybody has been ticked for that one.
+            </p>
           ) : (
             <DataTable
               columns={columns}
-              rows={members}
+              rows={shown}
               rowKey={(member) => member.id}
               caption={`People in ${group.name}`}
               cardTitle={(member) => (
@@ -200,7 +293,16 @@ export function GroupDetail({ detail }: { detail: GroupDetailData }) {
         </section>
 
         <AddPeoplePanel groupId={group.id} memberIds={members.map((member) => member.id)} />
+
+        <GroupEvents groupId={group.id} events={events} />
       </div>
+
+      <FieldsManager
+        open={managingFields}
+        onClose={() => setManagingFields(false)}
+        groupId={group.id}
+        fields={fields}
+      />
 
       <GroupDialog
         key={`${group.name}:${group.description}`}
@@ -286,7 +388,7 @@ function MemberNote({
       className="group-note-input"
       aria-label={`Note for ${member.displayName}`}
       value={value}
-      maxLength={NOTE_MAX}
+      maxLength={GROUP_NOTE_MAX}
       disabled={disabled}
       placeholder="Add a note"
       onChange={(event) => setValue(event.target.value)}

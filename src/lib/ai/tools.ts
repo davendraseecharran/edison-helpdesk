@@ -583,6 +583,100 @@ async function resolveGroup(ctx: ToolContext, value: string): Promise<GroupRef> 
   return { id: textOf(candidates[0].id), name: textOf(candidates[0].name) };
 }
 
+interface EventRef {
+  id: string;
+  name: string;
+  heldOn: string;
+}
+
+/**
+ * Which of a group's events somebody meant.
+ *
+ * Unlike every other resolver here, an exact name that matches SEVERAL is not
+ * a tie: "the weekly meeting" is a name a group uses every week, and the list
+ * comes back newest first, so the newest one is what the words mean. A
+ * PARTIAL match that hits more than one is still refused, because that is
+ * somebody being vague rather than somebody using a standing name.
+ */
+async function resolveGroupEvent(
+  ctx: ToolContext,
+  group: GroupRef,
+  value: string,
+): Promise<EventRef> {
+  const query = value.trim();
+  if (query === '') throw new ToolError('Name the event.');
+
+  const events = rows(await rpc(ctx, 'app_list_group_events', { p_group: group.id }));
+  if (events.length === 0) throw new ToolError(`${group.name} has no events yet.`);
+
+  const asRef = (row: Record<string, unknown>): EventRef => ({
+    id: textOf(row.id),
+    name: textOf(row.name),
+    heldOn: textOf(row.held_on),
+  });
+
+  if (isUuid(query)) {
+    const row = events.find((entry) => textOf(entry.id) === query);
+    if (row === undefined) throw new ToolError(`${group.name} has no event with that id.`);
+    return asRef(row);
+  }
+
+  const folded = query.toLowerCase();
+  const exact = events.filter((entry) => textOf(entry.name).toLowerCase() === folded);
+  if (exact.length > 0) return asRef(exact[0]);
+
+  const partial = events.filter((entry) => textOf(entry.name).toLowerCase().includes(folded));
+  if (partial.length === 0) {
+    throw new ToolError(`${group.name} has no event called "${query}".`);
+  }
+  if (partial.length > 1) {
+    const options = partial
+      .slice(0, 5)
+      .map((entry) => `${textOf(entry.name)} (${textOf(entry.held_on)})`)
+      .join('; ');
+    throw new ToolError(`"${query}" matches more than one event: ${options}. Say which one.`);
+  }
+  return asRef(partial[0]);
+}
+
+interface FieldRef {
+  id: string;
+  name: string;
+}
+
+/** One of a group's six checklist columns, by name or id. */
+async function resolveGroupField(
+  ctx: ToolContext,
+  group: GroupRef,
+  value: string,
+): Promise<FieldRef> {
+  const query = value.trim();
+  if (query === '') throw new ToolError('Name the checklist column.');
+
+  const fields = rows(await rpc(ctx, 'app_list_group_fields', { p_group: group.id }));
+  if (fields.length === 0) throw new ToolError(`${group.name} has no checklist columns.`);
+
+  if (isUuid(query)) {
+    const row = fields.find((entry) => textOf(entry.id) === query);
+    if (row === undefined) throw new ToolError(`${group.name} has no column with that id.`);
+    return { id: query, name: textOf(row.name) };
+  }
+
+  const folded = query.toLowerCase();
+  const exact = fields.filter((entry) => textOf(entry.name).toLowerCase() === folded);
+  const partial = fields.filter((entry) => textOf(entry.name).toLowerCase().includes(folded));
+  const candidates = exact.length > 0 ? exact : partial;
+  if (candidates.length === 0) {
+    const options = fields.map((entry) => textOf(entry.name)).join(', ');
+    throw new ToolError(`${group.name} has no column called "${query}". It has: ${options}.`);
+  }
+  if (candidates.length > 1) {
+    const options = candidates.map((entry) => textOf(entry.name)).join(', ');
+    throw new ToolError(`"${query}" matches more than one column: ${options}. Say which one.`);
+  }
+  return { id: textOf(candidates[0].id), name: textOf(candidates[0].name) };
+}
+
 interface AccountRef {
   id: string;
   name: string;
@@ -1078,6 +1172,100 @@ const TOOLS: Record<string, ToolSpec> = {
       const data = await rpc(ctx, 'app_group_members', { p_group: group.id });
       const count = countOf(data);
       return outcome(data, `Read ${group.name}: ${count} ${count === 1 ? 'person' : 'people'}.`);
+    },
+  },
+
+  group_events: {
+    group: 'read',
+    description:
+      'What a group has done: every meeting, practice or competition it has taken a register at, newest first, each with how many of its members were present.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      const data = await rpc(ctx, 'app_list_group_events', { p_group: group.id });
+      return outcome(data, `Listed ${countOf(data)} events for ${group.name}.`);
+    },
+  },
+
+  event_attendance: {
+    group: 'read',
+    description:
+      'Who was at one event and who was not. Name the group and the event; where a group uses one name every week, the newest event with that name is the one meant. Absentees are named, because "who do I chase?" is the question a register is kept to answer.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+      event: { type: 'string', required: true, description: 'The event, by name or by id.' },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      const event = await resolveGroupEvent(ctx, group, String(args.event));
+      const roll = rows(await rpc(ctx, 'app_event_roll', { p_event: event.id }));
+
+      const present = roll.filter((row) => row.present === true).map((row) => textOf(row.display_name));
+      const absent = roll.filter((row) => row.present !== true).map((row) => textOf(row.display_name));
+
+      return outcome(
+        {
+          event: event.name,
+          held_on: event.heldOn,
+          group: group.name,
+          present_count: present.length,
+          absent_count: absent.length,
+          present,
+          absent,
+        },
+        `${event.name} on ${event.heldOn}: ${present.length} of ${roll.length} present.`,
+      );
+    },
+  },
+
+  group_checklist: {
+    group: 'read',
+    description:
+      'Where a group has got to on the things it ticks off — permission slips, dues, shirts. Answers one entry per column with how many members are ticked and WHO IS NOT, which is the list somebody is about to act on.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      const [fields, marks, members] = await Promise.all([
+        rpc(ctx, 'app_list_group_fields', { p_group: group.id }),
+        rpc(ctx, 'app_group_marks', { p_group: group.id }),
+        rpc(ctx, 'app_group_members', { p_group: group.id }),
+      ]);
+
+      const roster = rows(members);
+      const ticked = new Map<string, Set<string>>();
+      for (const row of rows(marks)) {
+        const person = textOf(row.requester_id);
+        const field = textOf(row.field_id);
+        const set = ticked.get(field) ?? new Set<string>();
+        set.add(person);
+        ticked.set(field, set);
+      }
+
+      const columns = rows(fields).map((field) => {
+        const id = textOf(field.id);
+        const done = ticked.get(id) ?? new Set<string>();
+        const missing = roster
+          .filter((member) => !done.has(textOf(member.requester_id)))
+          .map((member) => textOf(member.display_name));
+        return {
+          column: textOf(field.name),
+          checked: roster.length - missing.length,
+          of: roster.length,
+          missing,
+        };
+      });
+
+      const summary =
+        columns.length === 0
+          ? `${group.name} has no checklist columns.`
+          : `${group.name}: ${columns
+              .map((column) => `${column.column} ${column.checked}/${column.of}`)
+              .join(', ')}.`;
+      return outcome({ group: group.name, members: roster.length, columns }, summary);
     },
   },
 
@@ -1983,6 +2171,100 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  mark_attendance: {
+    group: 'write',
+    description:
+      'Mark people present at one event, a list at a time. Each entry is an OSIS number, a staff id, an email address or a full name, resolved exactly as add_to_group resolves one. Reports how many were marked, how many were already marked, how many are not in the group, and which entries matched nobody or more than one person. Nobody outside the group is ever marked.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+      event: { type: 'string', required: true, description: 'The event, by name or by id.' },
+      people: {
+        type: 'string[]',
+        required: true,
+        maxItems: FIND_PEOPLE_LIMIT,
+        description:
+          'The people who were there, one per entry: OSIS number, staff id, school email address or full name.',
+      },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      const event = await resolveGroupEvent(ctx, group, String(args.event));
+      const keys = args.people as string[];
+
+      const found = rows(await rpc(ctx, 'app_find_people', { p_keys: keys }));
+      const matched: string[] = [];
+      const unmatched: string[] = [];
+      const ambiguous: string[] = [];
+      for (const row of found) {
+        const key = textOf(row.key);
+        if (textOf(row.found) === 'match') matched.push(textOf(row.id));
+        else if (Number(row.matches ?? 0) > 1) ambiguous.push(key);
+        else unmatched.push(key);
+      }
+
+      if (matched.length === 0) {
+        throw new ToolError(
+          `None of those ${keys.length} entries is somebody in the directory. Nobody was marked.`,
+        );
+      }
+
+      const answers = rows(
+        await rpc(ctx, 'app_mark_attendance_many', { p_event: event.id, p_requesters: matched }),
+      );
+      const counted = (name: string) =>
+        answers.filter((row) => textOf(row.outcome) === name).length;
+      const marked = counted('present');
+      const already = counted('already');
+      const outside = counted('not_member');
+
+      const parts = [`${marked} marked`];
+      if (already > 0) parts.push(`${already} already`);
+      if (outside > 0) parts.push(`${outside} not in the group`);
+      if (unmatched.length > 0) parts.push(`${unmatched.length} not found`);
+      if (ambiguous.length > 0) parts.push(`${ambiguous.length} ambiguous`);
+
+      return outcome(
+        { marked, already, not_member: outside, unmatched, ambiguous },
+        `${event.name} on ${event.heldOn}: ${parts.join(', ')}.`,
+      );
+    },
+  },
+
+  set_checklist_mark: {
+    group: 'write',
+    description:
+      'Tick or untick one member against one of a group\'s checklist columns — "Dues", "Permission slip". Refuses somebody who is not in the group.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+      column: { type: 'string', required: true, description: 'The checklist column, by name or by id.' },
+      person: { type: 'string', required: true, description: 'Name, email, OSIS, staff id or record id.' },
+      checked: {
+        type: 'boolean',
+        required: true,
+        description: 'True to tick it, false to take the tick back.',
+      },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      const field = await resolveGroupField(ctx, group, String(args.column));
+      const person = await resolvePerson(ctx, String(args.person));
+      const checked = args.checked === true;
+
+      await rpc(ctx, 'app_set_group_mark', {
+        p_field: field.id,
+        p_requester: person.id,
+        p_checked: checked,
+      });
+
+      return outcome(
+        { id: person.id, checked },
+        checked
+          ? `Ticked ${person.name} for ${field.name}`
+          : `Took ${person.name}'s ${field.name} tick back`,
+      );
+    },
+  },
+
   create_device: {
     group: 'write',
     description: 'Add a machine to the inventory.',
@@ -2550,6 +2832,13 @@ const DIRECTORY_TOOLS = [
   'create_group',
   'add_to_group',
   'remove_from_group',
+  // What a roster is for: a register at the door, and the list of who still
+  // owes a permission slip. Both are chapter business rather than desk work.
+  'group_events',
+  'event_attendance',
+  'mark_attendance',
+  'group_checklist',
+  'set_checklist_mark',
 ] as const;
 
 export function toolsFor(roles: readonly AccountRole[]): ToolDef[] {

@@ -21,7 +21,10 @@ import { createClient } from '@/lib/supabase/server';
 import { loadActor } from '@/lib/auth/session';
 import type { ActionResult } from '@/lib/data/actions';
 import { callRpc } from '@/lib/data/rpc';
-import type { PersonKind } from '@/lib/domain/types';
+// A module marked `'use server'` may export nothing but async functions: every
+// export of one is an endpoint. The ceiling and the shape live in the pure
+// module both this and the screens import.
+import { PASTE_LIMIT, type ResolvedPerson } from '@/lib/domain/groups';
 
 export async function createGroupAction(
   name: string,
@@ -100,20 +103,6 @@ export async function setGroupMemberNoteAction(
   });
 }
 
-/** One line of a pasted list, and what the directory made of it. */
-export interface ResolvedPerson {
-  /** The line as it was pasted, so a "no match" row can be read against it. */
-  key: string;
-  found: 'match' | 'none' | 'ambiguous';
-  /** How many records the line matched. Two or more is what makes it ambiguous. */
-  matches: number;
-  id: string | null;
-  displayName: string | null;
-  kind: PersonKind | null;
-  /** Class or department: which of two people of one name this is. */
-  groupLabel: string | null;
-}
-
 interface FindRow {
   key: string;
   found: string;
@@ -123,9 +112,6 @@ interface FindRow {
   kind: string | null;
   group_label: string | null;
 }
-
-/** The database answers at most this many keys in one call. */
-export const PASTE_LIMIT = 200;
 
 /**
  * Reads a pasted block into one answer per line.
@@ -166,4 +152,48 @@ export async function resolvePeopleAction(keys: string[]): Promise<ResolvedPerso
     kind: row.kind === 'staff' ? 'staff' : row.kind === 'student' ? 'student' : null,
     groupLabel: row.group_label,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Checklist columns
+//
+// The six things a group ticks off against its members. Same shape as
+// everything else here: the database owns the cap, the one-of-each-name rule
+// and the membership check, and says so in a sentence the form shows.
+// ---------------------------------------------------------------------------
+
+export async function saveGroupFieldAction(
+  groupId: string,
+  field: { id?: string | null; name: string; position: number },
+): Promise<ActionResult> {
+  return callRpc(
+    'app_save_group_field',
+    {
+      p_field: field.id ?? null,
+      p_group: groupId,
+      p_name: field.name,
+      p_position: field.position,
+    },
+    field.id ? 'Column saved.' : 'Column added.',
+  );
+}
+
+export async function deleteGroupFieldAction(fieldId: string): Promise<ActionResult> {
+  return callRpc('app_delete_group_field', { p_field: fieldId }, 'Column removed.');
+}
+
+/**
+ * One tick. No message, for the same reason a note has none: the box on screen
+ * is the confirmation, and a roster is ticked a column at a time.
+ */
+export async function setGroupMarkAction(
+  fieldId: string,
+  requesterId: string,
+  checked: boolean,
+): Promise<ActionResult> {
+  return callRpc('app_set_group_mark', {
+    p_field: fieldId,
+    p_requester: requesterId,
+    p_checked: checked,
+  });
 }
