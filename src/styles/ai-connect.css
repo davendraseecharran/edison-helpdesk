@@ -24,6 +24,24 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-3);
   background: var(--surface-2);
+  /* Mounted when a question arrives before ChatGPT is connected: it rises in
+     rather than appearing, so the welcome above is nudged, not shoved. */
+  transition:
+    opacity var(--dur-surface) var(--ease-out),
+    translate var(--dur-surface) var(--ease-out);
+}
+
+@starting-style {
+  .ai-connect-inline {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-connect-inline {
+    transition: none;
+  }
 }
 
 .ai-connect-inline-head {

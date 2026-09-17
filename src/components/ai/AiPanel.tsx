@@ -199,6 +199,15 @@ export function AiPanel({
   const bodyRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<AiComposerHandle>(null);
   const queuedPrompt = useRef<string | null>(null);
+  /*
+   * A prompt handed in from outside (the palette's "Ask the assistant", the
+   * settings screen) while the panel is opening. Until it has been sent, or
+   * has settled into the composer as a draft, the panel shows a sending mark
+   * in the welcome's place rather than the welcome itself: the welcome's
+   * examples would otherwise flash for a frame between the panel sliding in
+   * and the first turn appearing, which reads as a jump.
+   */
+  const [handedIn, setHandedIn] = useState<string | null>(null);
   const stickToBottom = useRef(true);
   const dictationBase = useRef('');
 
@@ -383,6 +392,8 @@ export function AiPanel({
     (prompt: string, known: AiStatus) => {
       if (known.enabled && known.connected) sendText(prompt);
       else {
+        // Not sent: the text waits in the composer, so there is nothing arriving.
+        setHandedIn(null);
         setDraft(prompt);
         if (known.enabled) {
           setConnectInline(true);
@@ -392,6 +403,7 @@ export function AiPanel({
     },
     [sendText, setDraft],
   );
+
 
   // --- Status -----------------------------------------------------------
 
@@ -490,6 +502,7 @@ export function AiPanel({
         setConnectAtOnce(true);
       }
       if (detail.prompt) {
+        setHandedIn(detail.prompt);
         const known = statusRef.current;
         if (known) deliver(detail.prompt, known);
         else queuedPrompt.current = detail.prompt;
@@ -645,6 +658,7 @@ export function AiPanel({
   function startNewConversation() {
     setMenuOpen(false);
     speaker.cancel();
+    setHandedIn(null);
     chat.newConversation();
     setWelcomeRun((run) => run + 1);
     setDraft('');
@@ -673,7 +687,14 @@ export function AiPanel({
 
   // --- Render ---------------------------------------------------------------
 
-  const showWelcome = view === 'chat' && chat.turns.length === 0;
+  // A prompt on its way in is not a welcome: the panel opens on the sending
+  // mark and the first turn takes its place, with nothing in between.
+  // Adjusted during render rather than in an effect: the moment a turn
+  // exists the prompt has arrived, and a stale flag would hide the next
+  // conversation's welcome.
+  if (handedIn !== null && chat.turns.length > 0) setHandedIn(null);
+  const arriving = view === 'chat' && chat.turns.length === 0 && handedIn !== null;
+  const showWelcome = view === 'chat' && chat.turns.length === 0 && !arriving;
   const headerOrb = !showWelcome && view !== 'connect';
   // The header names the conversation, not the product: the first thing the
   // person asked, on one line. Empty until there is one, so the strip is
@@ -865,6 +886,12 @@ export function AiPanel({
                     onDelete={(id) => void deleteConversation(id)}
                     onBack={() => setRequestedView('chat')}
                   />
+                ) : arriving ? (
+                  <div className="ai-welcome ai-welcome-arriving">
+                    <div className="ai-welcome-orb">
+                      <Orb moment="sending" size={64} />
+                    </div>
+                  </div>
                 ) : showWelcome ? (
                   <div className="ai-welcome">
                     <div className="ai-welcome-orb">
