@@ -2066,6 +2066,51 @@ p.flash {
   white-space: nowrap;
 }
 
+.filter-bar-fold {
+  display: none;
+  gap: 6px;
+}
+
+.filter-bar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ink);
+}
+
+@media (max-width: 719.98px) {
+  .filter-bar-fold {
+    display: inline-flex;
+    margin-right: auto;
+  }
+
+  .filter-bar-end {
+    flex: 1 1 100%;
+    height: auto;
+  }
+
+  /* Nothing to fold (a search and a list switch): no button. */
+  .filter-bar:not(:has(.filter-bar-fields .field:not(.field-search):not(.field-segmented)))
+    .filter-bar-fold {
+    display: none;
+  }
+
+  .filter-bar:not([data-unfolded]) .filter-bar-fields .field:not(.field-search):not(.field-segmented) {
+    display: none;
+  }
+
+  .filter-bar[data-unfolded] .filter-bar-fields .field:not(.field-search):not(.field-segmented) {
+    animation: filter-unfold var(--dur-surface) var(--ease-out);
+  }
+}
+
+@keyframes filter-unfold {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+}
+
 /* --- Motion ------------------------------------------------------------- */
 
 /*
@@ -2170,5 +2215,16 @@ p.flash {
 
   .menu-item {
     min-height: 44px;
+  }
+
+  /*
+   * Sixteen pixels in anything that takes typing. Below that, Safari on an
+   * iPhone zooms the whole page in when a field takes focus and leaves it
+   * zoomed after, so every search box and form felt broken on the phone.
+   */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select {
+    font-size: 16px;
   }
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { SlidersHorizontal } from 'lucide-react';
 import Link from 'next/link';
 
 export interface FilterBarProps {
@@ -33,6 +34,11 @@ export interface FilterBarProps {
  *     a quarter of the viewport spent on controls nobody is touching — so it
  *     scrolls away like anything else, and the header goes back to the top bar.
  *
+ * On a phone the bar folds: the search box and a list switch (students or
+ * staff) stay, and the selects behind them wait behind a "Filters" button
+ * that carries a dot while any of them is set. Four selects stacked two by two
+ * pushed the first row of the list below the fold on every visit.
+ *
  * A ResizeObserver rather than a one-off read: the bar regrows when the window
  * narrows, when a filter brings in the "Clear filters" action, and when the
  * summary changes width.
@@ -49,6 +55,7 @@ export function FilterBar({
   label = 'Filters',
 }: FilterBarProps) {
   const barRef = useRef<HTMLDivElement>(null);
+  const [unfolded, setUnfolded] = useState(false);
 
   useEffect(() => {
     const bar = barRef.current;
@@ -71,9 +78,25 @@ export function FilterBar({
   }, []);
 
   return (
-    <div className="filter-bar" role="group" aria-label={label} ref={barRef}>
+    <div
+      className="filter-bar"
+      role="group"
+      aria-label={label}
+      ref={barRef}
+      data-unfolded={unfolded || undefined}
+    >
       <div className="filter-bar-fields">{children}</div>
       <div className="filter-bar-end">
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm filter-bar-fold"
+          aria-expanded={unfolded}
+          onClick={() => setUnfolded((value) => !value)}
+        >
+          <SlidersHorizontal size={16} aria-hidden="true" />
+          Filters
+          {active ? <span className="filter-bar-dot" aria-label="(some set)" /> : null}
+        </button>
         {active ? (
           clearHref ? (
             <Link href={clearHref} className="btn btn-ghost btn-sm">

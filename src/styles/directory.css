@@ -286,13 +286,33 @@
     padding: 10px 12px;
   }
 
-  .bulk-bar-actions {
-    flex: 1 1 100%;
+  /*
+   * Two rows, never more: the count and Clear, then the actions in one line
+   * that scrolls sideways. Four buttons two to a row stacked the bar three
+   * rows deep and covered half of what was being selected.
+   */
+  .bulk-bar-clear {
+    order: 1;
   }
 
-  .bulk-bar-actions .btn {
-    flex: 1 1 calc(50% - 4px);
-    min-width: 0;
+  .bulk-bar-actions {
+    order: 2;
+    flex: 1 1 100%;
+    flex-wrap: nowrap;
+    margin-inline: -12px;
+    padding-inline: 12px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+  }
+
+  .bulk-bar-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bulk-bar-actions .btn,
+  .bulk-bar-actions .btn-split {
+    flex: 0 0 auto;
   }
 }
 

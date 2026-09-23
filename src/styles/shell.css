@@ -916,6 +916,14 @@
   cursor: default;
 }
 
+.bottom-tab-label-press {
+  pointer-events: auto;
+  padding: 4px 12px;
+  margin-bottom: -4px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* --- Lookup cluster ----------------------------------------------------- */
 
 /*
@@ -1189,6 +1197,23 @@
    */
   .topbar-quick {
     display: none;
+  }
+
+  /*
+   * With its chevron gone the split is one button again, so it takes the
+   * whole round shape back and the icons' 44px square. It was 44px tall inside
+   * a 32px wrapper, hanging off the bottom of the bar with two square corners.
+   */
+  .topbar-actions > .btn-split {
+    height: 44px;
+    align-items: center;
+  }
+
+  .topbar-actions > .btn-split > .btn-split-main {
+    width: 40px;
+    min-height: 40px;
+    height: 40px;
+    border-radius: 999px;
   }
 
   .main {

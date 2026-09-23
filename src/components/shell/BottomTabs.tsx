@@ -339,7 +339,15 @@ export function BottomTabs({
         />
         <div className="bottom-tab bottom-tab-cluster" ref={clusterRef}>
           {cluster}
-          <span className="bottom-tab-label" aria-hidden="true">
+          {/* Part of the target: a thumb aims at the word as often as the
+              circle above it, and a label that ignored the tap read as a
+              dead tab. Hidden from assistive technology, which has the
+              button's own name. */}
+          <span
+            className="bottom-tab-label bottom-tab-label-press"
+            aria-hidden="true"
+            onClick={() => setClusterOpen((value) => !value)}
+          >
             Lookup
           </span>
         </div>
