@@ -38,8 +38,8 @@ import { CODEX_ORIGINATOR, CODEX_USER_AGENT } from './codex-auth';
 import type { ToolDef } from './tools';
 
 /** The one model this product offers. Never rendered from user input. */
-export const AI_MODEL = 'gpt-5.6-luna';
-export const AI_MODEL_LABEL = 'GPT-5.6 Luna';
+export const AI_MODEL = 'gpt-6-luna';
+export const AI_MODEL_LABEL = 'GPT-6 Luna';
 
 export const RESPONSES_URL = 'https://chatgpt.com/backend-api/codex/responses';
 

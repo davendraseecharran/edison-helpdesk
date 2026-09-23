@@ -69,13 +69,13 @@ describe('AI attribution on activity events', () => {
     const { ticketId } = await ownedTicket();
     const assisted = await signInWithHeaders('owner', {
       'x-edison-via': 'ai',
-      'x-edison-ai-model': 'gpt-5.6-luna',
+      'x-edison-ai-model': 'gpt-6-luna',
     });
     await rpcOk(assisted, 'app_add_note', { p_ticket: ticketId, p_body: NOTE });
 
     const event = await lastNoteEvent(ticketId);
     expect(event.performed_via).toBe('ai');
-    expect(event.ai_model).toBe('gpt-5.6-luna');
+    expect(event.ai_model).toBe('gpt-6-luna');
     // Attribution never replaces identity: the human account is still the actor.
     expect(event.actor_id).toBe(identity('owner').id);
   });
@@ -313,7 +313,7 @@ describe('record events', () => {
       actor_id: identity('admin').id,
       summary: 'Added Chromebook C-1042',
       performed_via: 'ai',
-      ai_model: 'gpt-5.6-luna',
+      ai_model: 'gpt-6-luna',
     });
     if (assisted.error) throw new Error(`Could not seed record events: ${assisted.error.message}`);
   });
@@ -357,7 +357,7 @@ describe('record events', () => {
       .eq('entity_id', deviceId)
       .single();
     expect(data?.performed_via).toBe('ai');
-    expect(data?.ai_model).toBe('gpt-5.6-luna');
+    expect(data?.ai_model).toBe('gpt-6-luna');
   });
 
   it('shows nothing to an account awaiting setup or to anonymous callers', async () => {

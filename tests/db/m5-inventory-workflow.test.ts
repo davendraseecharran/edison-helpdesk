@@ -54,7 +54,7 @@ import {
 const RUN = String(Math.floor(Math.random() * 9000) + 1000);
 
 /** The model an assistant declares, and the two headers it sends with it. */
-const MODEL = 'gpt-5.6-luna';
+const MODEL = 'gpt-6-luna';
 const AI_HEADERS = { 'x-edison-via': 'ai', 'x-edison-ai-model': MODEL };
 
 /** insufficient_privilege and check_violation, as PostgREST reports them. */

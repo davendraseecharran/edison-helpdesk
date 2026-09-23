@@ -337,7 +337,7 @@ person's own ChatGPT account.
   the exact source lines are cited in `src/lib/ai/responses-client.ts` and
   `src/lib/ai/codex-auth.ts`. The whole feature is gated behind `AI_TOKEN_KEY`
   for exactly this reason: unset it and the assistant is simply not there.
-- **The model** is `gpt-5.6-luna` and nothing else. Reasoning defaults to high;
+- **The model** is `gpt-6-luna` and nothing else. Reasoning defaults to high;
   Settings offers High, Extra high and Max.
 - **Tools** are classified read, write or admin, in one exhaustive list that a
   test asserts against — by counting, not by sampling — so a tool added without

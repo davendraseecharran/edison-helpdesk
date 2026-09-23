@@ -11,7 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import { mapDevice, mapNote, mapTicket, mapWorkLog, type TicketRow } from '../src/lib/data/mapping';
 
-const MODEL = 'gpt-5.6-luna';
+const MODEL = 'gpt-6-luna';
 
 describe('mapNote', () => {
   function row(over: Record<string, unknown> = {}) {

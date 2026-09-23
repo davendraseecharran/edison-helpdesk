@@ -246,7 +246,7 @@ describe('what the audit log shows', () => {
     const { ticketId } = await ownedTicket({ title: `Smart board drifts ${RUN}` });
     const assisted = await signInWithHeaders('owner', {
       'x-edison-via': 'ai',
-      'x-edison-ai-model': 'gpt-5.6-luna',
+      'x-edison-ai-model': 'gpt-6-luna',
     });
     await rpcOk(assisted, 'app_add_note', {
       p_ticket: ticketId,
@@ -261,7 +261,7 @@ describe('what the audit log shows', () => {
     const assistedNote = aiRows.find(
       (row) => row.entity_id === ticketId && row.kind === 'note_added',
     );
-    expect(assistedNote?.ai_model).toBe('gpt-5.6-luna');
+    expect(assistedNote?.ai_model).toBe('gpt-6-luna');
     // Attribution never replaces identity: the human account is still the actor.
     expect(assistedNote?.actor_id).toBe(identity('owner').id);
 
