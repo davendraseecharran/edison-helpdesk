@@ -8,7 +8,10 @@
  * every field of a machine and its holder, which is the whole of the owner's
  * filter surface. Rows can be ticked, on the table or on the phone cards, and
  * a bar for the selection carries the four things somebody does to a batch:
- * restatus them, move them, hand them out, take them back.
+ * restatus them, move them, hand them out, take them back. The selection
+ * outlives a search — find a tag, tick it, find the next — and the bar counts
+ * the machines out of view and opens into the whole batch. Boxes can be
+ * painted down the column, or shift-clicked for a range.
  *
  * Status and location are a patch — one statement over a list of ids, through
  * `app_bulk_update_inventory`, which snapshots every machine it changes.
@@ -19,7 +22,7 @@
  * class is the reason they are here at all.
  */
 
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition, type ComponentProps } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Plus } from 'lucide-react';
@@ -42,6 +45,9 @@ import { DataTable, type Column } from '@/components/ui/DataTable';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { Pagination } from '@/components/ui/Pagination';
 import { Select } from '@/components/ui/Select';
+import { SelectionTray } from '@/components/ui/SelectionTray';
+import { useKeptSelection, usePaintSelect } from '@/components/ui/useSelection';
+import { useUrlSearch } from '@/components/ui/useUrlSearch';
 import { AssignDeviceDialog } from './AssignDeviceDialog';
 import { ChangeStatusDialog } from './ChangeStatusDialog';
 import { MoveDeviceDialog } from './MoveDeviceDialog';
@@ -62,13 +68,15 @@ function RowCheck({
   device,
   checked,
   onToggle,
+  paint,
 }: {
   device: DeviceSummary;
   checked: boolean;
   onToggle: (id: string, on: boolean) => void;
+  paint?: ComponentProps<'label'>;
 }) {
   return (
-    <label className="row-check">
+    <label className="row-check" {...paint}>
       <input
         type="checkbox"
         checked={checked}
@@ -78,6 +86,8 @@ function RowCheck({
     </label>
   );
 }
+
+const deviceKey = (device: DeviceSummary) => device.id;
 
 export function DeviceList({
   page,
@@ -124,23 +134,9 @@ export function DeviceList({
     startNavigation(() => router.replace(query ? `${pathname}?${query}` : pathname));
   }
 
-  const [query, setQuery] = useState(current.query);
-  // The URL's value the box was last set from. When it changes underneath
-  // (Clear filters, the back button), the box follows during render, which is
-  // React's way of deriving state from a prop without an extra effect pass.
-  const [seen, setSeen] = useState(current.query);
-  if (seen !== current.query) {
-    setSeen(current.query);
-    setQuery(current.query);
-  }
-  useEffect(() => {
-    if (query === current.query) return;
-    const timer = setTimeout(() => updateParams({ query }), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-    // updateParams reads the latest params itself; re-running on every
-    // params change would restart the pause mid-word.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, current.query]);
+  // Typed locally, pushed to the URL after a pause; `useUrlSearch` keeps what
+  // was typed while an earlier push is still loading.
+  const search = useUrlSearch(current.query, (query) => updateParams({ query }), SEARCH_DEBOUNCE_MS);
 
   function hrefForPage(target: number): string {
     const next = new URLSearchParams(searchParams.toString());
@@ -160,35 +156,20 @@ export function DeviceList({
     [devices],
   );
 
-  // Ticked ids. Only the ones on the current page count: a filter or a page
-  // change cannot leave a hidden row in the selection, and the ids fall out of
-  // the set the next time it is rebuilt.
-  const [ticked, setTicked] = useState<Set<string>>(() => new Set());
-  const selected = useMemo(() => {
-    const onPage = new Set(devices.map((device) => device.id));
-    return new Set([...ticked].filter((id) => onPage.has(id)));
-  }, [ticked, devices]);
+  // Ticked machines, kept across searches and pages.
+  const selection = useKeptSelection(devices, deviceKey);
+  const paint = usePaintSelect({
+    order: selection.onPage,
+    isOn: selection.has,
+    apply: selection.apply,
+  });
 
   const [dialog, setDialog] = useState<BulkDialog>(null);
-  const allOnPage = devices.length > 0 && devices.every((device) => selected.has(device.id));
-  const someOnPage = devices.some((device) => selected.has(device.id));
+  const { allOnPage, someOnPage } = selection;
   const selectAllRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (selectAllRef.current) selectAllRef.current.indeterminate = someOnPage && !allOnPage;
   }, [someOnPage, allOnPage]);
-
-  function toggle(id: string, on: boolean) {
-    setTicked((prev) => {
-      const next = new Set(prev);
-      if (on) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }
-
-  function toggleAll(on: boolean) {
-    setTicked(on ? new Set(devices.map((device) => device.id)) : new Set());
-  }
 
   async function bulk(patch: BulkDevicePatch): Promise<ActionResult> {
     return runOverSelection((ids) => bulkUpdateDevicesAction(ids, patch));
@@ -203,17 +184,17 @@ export function DeviceList({
   async function runOverSelection(
     call: (ids: string[]) => Promise<ActionResult>,
   ): Promise<ActionResult> {
-    const ids = [...selected];
+    const ids = selection.items.map((device) => device.id);
     const result = await run(BULK_KEY, () => call(ids));
     if (result.ok) {
-      setTicked(new Set());
+      selection.clear();
       router.refresh();
     }
     return result;
   }
 
   const bulkPending = pendingKey === BULK_KEY;
-  const subject = countLabel(selected.size, 'device');
+  const subject = countLabel(selection.size, 'device');
   const busy = navigating;
 
   const columns: Column<DeviceSummary>[] = [
@@ -226,14 +207,19 @@ export function DeviceList({
             type="checkbox"
             checked={allOnPage}
             aria-label="Select every device on this page"
-            onChange={(event) => toggleAll(event.target.checked)}
+            onChange={(event) => selection.setAllOnPage(event.target.checked)}
           />
         </label>
       ),
       hideOnPhone: true,
       width: 40,
       cell: (device) => (
-        <RowCheck device={device} checked={selected.has(device.id)} onToggle={toggle} />
+        <RowCheck
+          device={device}
+          checked={selection.has(device.id)}
+          onToggle={paint.change}
+          paint={paint.boxProps(device.id)}
+        />
       ),
     },
     {
@@ -309,7 +295,12 @@ export function DeviceList({
   ];
 
   return (
-    <section className="panel directory" data-busy={busy || undefined} aria-busy={busy || undefined}>
+    <section
+      className="panel directory"
+      data-busy={busy || undefined}
+      aria-busy={busy || undefined}
+      data-painting={paint.painting || undefined}
+    >
       <FilterBar
         label="Inventory filters"
         active={filtersActive}
@@ -324,10 +315,10 @@ export function DeviceList({
               name="query"
               autoComplete="off"
               placeholder="Asset tag, serial, model, room or holder"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              value={search.value}
+              onChange={(event) => search.setValue(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') updateParams({ query });
+                if (event.key === 'Enter') search.commit();
               }}
             />
           </Field>
@@ -420,7 +411,7 @@ export function DeviceList({
             settle
             cardTitle={(device) => (
               <span className="dir-card-title">
-                <RowCheck device={device} checked={selected.has(device.id)} onToggle={toggle} />
+                <RowCheck device={device} checked={selection.has(device.id)} onToggle={paint.change} />
                 <Link href={`/devices/${device.id}`} className="mono row-link">
                   {deviceLabel(device)}
                 </Link>
@@ -433,37 +424,6 @@ export function DeviceList({
             }
           />
 
-          {selected.size > 0 ? (
-            <div className="bulk-bar" role="region" aria-label="Selected devices">
-              <span className="bulk-bar-count" aria-live="polite">
-                {selected.size} selected
-              </span>
-              <div className="bulk-bar-actions">
-                <Button size="sm" disabled={bulkPending} onClick={() => setDialog('status')}>
-                  Change status
-                </Button>
-                <Button size="sm" disabled={bulkPending} onClick={() => setDialog('move')}>
-                  Move to location
-                </Button>
-                <Button size="sm" disabled={bulkPending} onClick={() => setDialog('assign')}>
-                  Assign to
-                </Button>
-                <Button size="sm" disabled={bulkPending} onClick={() => setDialog('return')}>
-                  Return
-                </Button>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="bulk-bar-clear"
-                disabled={bulkPending}
-                onClick={() => setTicked(new Set())}
-              >
-                Clear
-              </Button>
-            </div>
-          ) : null}
-
           <Pagination
             page={page.page}
             pageCount={pageCount}
@@ -472,6 +432,34 @@ export function DeviceList({
           />
         </>
       )}
+
+      <SelectionTray
+        label="Selected devices"
+        count={selection.size}
+        offPage={selection.offPage}
+        noun={['device', 'devices']}
+        items={selection.items.map((device) => ({
+          id: device.id,
+          title: deviceLabel(device),
+          meta: [device.model, device.location].filter(Boolean).join(', ') || undefined,
+          href: `/devices/${device.id}`,
+        }))}
+        onRemove={selection.remove}
+        onClear={selection.clear}
+      >
+        <Button size="sm" disabled={bulkPending} onClick={() => setDialog('status')}>
+          Change status
+        </Button>
+        <Button size="sm" disabled={bulkPending} onClick={() => setDialog('move')}>
+          Move to location
+        </Button>
+        <Button size="sm" disabled={bulkPending} onClick={() => setDialog('assign')}>
+          Assign to
+        </Button>
+        <Button size="sm" disabled={bulkPending} onClick={() => setDialog('return')}>
+          Return
+        </Button>
+      </SelectionTray>
 
       <ChangeStatusDialog
         open={dialog === 'status'}
@@ -485,7 +473,7 @@ export function DeviceList({
         open={dialog === 'move'}
         onClose={() => setDialog(null)}
         subject={subject}
-        count={selected.size}
+        count={selection.size}
         locations={locations}
         pending={bulkPending}
         onSubmit={(location) => bulk({ location })}
@@ -497,7 +485,7 @@ export function DeviceList({
         open={dialog === 'assign'}
         onClose={() => setDialog(null)}
         subject={subject}
-        count={selected.size}
+        count={selection.size}
         pending={bulkPending}
         onSubmit={({ person, note }) =>
           runOverSelection((ids) => bulkAssignDevicesAction(ids, person.id, note))
@@ -507,7 +495,7 @@ export function DeviceList({
         open={dialog === 'return'}
         onClose={() => setDialog(null)}
         subject={subject}
-        count={selected.size}
+        count={selection.size}
         statuses={statuses}
         pending={bulkPending}
         onSubmit={({ status, note }) =>

@@ -13,15 +13,18 @@
  *
  * Rows can be ticked, the same way the inventory's can, and a bar for the
  * selection carries the things somebody does with a handful of people: write to
- * them, copy their addresses, take them as a file. The selection is the rows on
- * THIS page only — a page change or a new search cannot leave somebody acting
- * on a row they can no longer see — and the people in it are already on screen,
- * so nothing is fetched for it. The header's version of the same controls acts
- * on the whole filter instead, which is a different question and a different
- * read.
+ * them, copy their addresses, take them as a file. The selection outlives a
+ * search or a page change — tick three people, search for a fourth, tick them
+ * too — because that is how a list of recipients is built. So nobody acts on a
+ * row they cannot see without knowing it, the bar counts the ones out of view
+ * and opens into the whole list, each removable. The rows are kept as they were
+ * read, so nothing is fetched for them. Boxes can be painted: press and drag
+ * down the column, or shift-click for a range. The header's version of the same
+ * controls acts on the whole filter instead, which is a different question and
+ * a different read.
  */
 
-import { startTransition, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { startTransition, useEffect, useMemo, useRef, useState, useTransition, type ComponentProps } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Plus } from 'lucide-react';
@@ -37,11 +40,14 @@ import { type PersonKind, type PersonSummary } from '@/lib/domain/types';
 import type { PersonAddressee } from '@/lib/people/clipboard';
 import { ArchivedBadge } from '@/components/Badges';
 import { EmptyState, Field } from '@/components/Primitives';
-import { Button, ButtonLink } from '@/components/ui/Button';
+import { ButtonLink } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { Pagination } from '@/components/ui/Pagination';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { SelectionTray } from '@/components/ui/SelectionTray';
+import { useKeptSelection, usePaintSelect } from '@/components/ui/useSelection';
+import { useUrlSearch } from '@/components/ui/useUrlSearch';
 import { PeopleActions } from './PeopleActions';
 
 /**
@@ -54,13 +60,15 @@ function RowCheck({
   person,
   checked,
   onToggle,
+  paint,
 }: {
   person: PersonSummary;
   checked: boolean;
   onToggle: (id: string, on: boolean) => void;
+  paint?: ComponentProps<'label'>;
 }) {
   return (
-    <label className="row-check">
+    <label className="row-check" {...paint}>
       <input
         type="checkbox"
         checked={checked}
@@ -70,6 +78,8 @@ function RowCheck({
     </label>
   );
 }
+
+const personKey = (person: PersonSummary) => person.id;
 
 /** A directory row, as much of it as writing to somebody or listing them needs. */
 function addresseeOf(person: PersonSummary): PersonAddressee {
@@ -134,24 +144,10 @@ export function PeopleList({
     startNavigation(() => router.replace(query ? `${pathname}?${query}` : pathname));
   }
 
-  // The search box is controlled locally and pushed to the URL after a pause,
-  // so typing "Whit" is one round trip rather than four. When the URL changes
-  // under it (Clear filters, the back button) the box follows during render,
-  // which is React's way of deriving state from a prop without an extra pass.
-  const [query, setQuery] = useState(current.query);
-  const [seen, setSeen] = useState(current.query);
-  if (seen !== current.query) {
-    setSeen(current.query);
-    setQuery(current.query);
-  }
-  useEffect(() => {
-    if (query === current.query) return;
-    const timer = setTimeout(() => updateParams({ query }), SEARCH_DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-    // updateParams reads the latest params itself; re-running on every
-    // params change would restart the pause mid-word.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, current.query]);
+  // The search box is typed into locally and pushed to the URL after a pause,
+  // so typing "Whit" is one round trip rather than four; `useUrlSearch` keeps
+  // what was typed while an earlier push is still loading.
+  const search = useUrlSearch(current.query, (query) => updateParams({ query }), SEARCH_DEBOUNCE_MS);
 
   function hrefForPage(target: number): string {
     const next = new URLSearchParams(searchParams.toString());
@@ -187,46 +183,32 @@ export function PeopleList({
     updateParams({ kind: value === 'staff' ? 'staff' : '' });
   }
 
-  // Ticked ids. Only the ones on the current page count: a filter or a page
-  // change cannot leave a hidden row in the selection, and the ids fall out of
-  // the set the next time it is rebuilt.
-  const [ticked, setTicked] = useState<Set<string>>(() => new Set());
-  const selected = useMemo(() => {
-    const onPage = new Set(people.map((person) => person.id));
-    return new Set([...ticked].filter((id) => onPage.has(id)));
-  }, [ticked, people]);
+  // Ticked people, kept across searches and pages; see the file comment.
+  const selection = useKeptSelection(people, personKey);
+  const paint = usePaintSelect({
+    order: selection.onPage,
+    isOn: selection.has,
+    apply: selection.apply,
+  });
+  const chosen = useMemo(() => selection.items.map(addresseeOf), [selection.items]);
+  const chosenKinds = new Set(selection.items.map((person) => person.kind));
 
-  const chosen = useMemo(
-    () => people.filter((person) => selected.has(person.id)).map(addresseeOf),
-    [people, selected],
-  );
-
-  const allOnPage = people.length > 0 && people.every((person) => selected.has(person.id));
-  const someOnPage = people.some((person) => selected.has(person.id));
   const selectAllRef = useRef<HTMLInputElement>(null);
+  const { someOnPage, allOnPage } = selection;
   useEffect(() => {
     if (selectAllRef.current) selectAllRef.current.indeterminate = someOnPage && !allOnPage;
   }, [someOnPage, allOnPage]);
 
-  function toggle(id: string, on: boolean) {
-    setTicked((prev) => {
-      const next = new Set(prev);
-      if (on) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }
-
-  function toggleAll(on: boolean) {
-    setTicked(on ? new Set(people.map((person) => person.id)) : new Set());
-  }
-
-  const selectionExportHref = canExport
-    ? `/people/export?${new URLSearchParams({
-        ...(current.kind === 'staff' ? { kind: 'staff' } : {}),
-        ids: [...selected].join(','),
-      }).toString()}`
-    : null;
+  // One file is one list: a selection of students and staff together is
+  // written to and copied, but exported a list at a time.
+  const selectionKind = chosenKinds.size === 1 ? [...chosenKinds][0] : null;
+  const selectionExportHref =
+    canExport && selectionKind
+      ? `/people/export?${new URLSearchParams({
+          ...(selectionKind === 'staff' ? { kind: 'staff' } : {}),
+          ids: selection.items.map((person) => person.id).join(','),
+        }).toString()}`
+      : null;
 
   /*
    * The end of the row, which is a different pair of facts for a technician
@@ -300,14 +282,19 @@ export function PeopleList({
             type="checkbox"
             checked={allOnPage}
             aria-label="Select everybody on this page"
-            onChange={(event) => toggleAll(event.target.checked)}
+            onChange={(event) => selection.setAllOnPage(event.target.checked)}
           />
         </label>
       ),
       hideOnPhone: true,
       width: 40,
       cell: (person) => (
-        <RowCheck person={person} checked={selected.has(person.id)} onToggle={toggle} />
+        <RowCheck
+          person={person}
+          checked={selection.has(person.id)}
+          onToggle={paint.change}
+          paint={paint.boxProps(person.id)}
+        />
       ),
     },
     {
@@ -347,7 +334,12 @@ export function PeopleList({
   ];
 
   return (
-    <section className="panel directory" data-busy={busy || undefined} aria-busy={busy || undefined}>
+    <section
+      className="panel directory"
+      data-busy={busy || undefined}
+      aria-busy={busy || undefined}
+      data-painting={paint.painting || undefined}
+    >
       <FilterBar
         label="Directory filters"
         active={filtersActive}
@@ -371,10 +363,10 @@ export function PeopleList({
               name="query"
               autoComplete="off"
               placeholder={isStudent ? 'Name, OSIS, class or address' : 'Name, staff ID, email or department'}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              value={search.value}
+              onChange={(event) => search.setValue(event.target.value)}
               onKeyDown={(event) => {
-                if (event.key === 'Enter') updateParams({ query });
+                if (event.key === 'Enter') search.commit();
               }}
             />
           </Field>
@@ -416,7 +408,7 @@ export function PeopleList({
             settle
             cardTitle={(person) => (
               <span className="dir-card-title">
-                <RowCheck person={person} checked={selected.has(person.id)} onToggle={toggle} />
+                <RowCheck person={person} checked={selection.has(person.id)} onToggle={paint.change} />
                 <span className="dir-name-row">
                   <Link href={`/people/${person.id}`} className="row-link">
                     {person.displayName}
@@ -428,32 +420,6 @@ export function PeopleList({
             cardMeta={(person) => personSubtitle(person)}
           />
 
-          {selected.size > 0 ? (
-            <div className="bulk-bar" role="region" aria-label="Selected people">
-              <span className="bulk-bar-count" aria-live="polite">
-                {selected.size} selected
-              </span>
-              <div className="bulk-bar-actions">
-                <PeopleActions
-                  people={chosen}
-                  label={`${selected.size} selected`}
-                  kind={current.kind}
-                  gmailMode={gmailMode}
-                  exportHref={selectionExportHref}
-                  size="sm"
-                />
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="bulk-bar-clear"
-                onClick={() => setTicked(new Set())}
-              >
-                Clear
-              </Button>
-            </div>
-          ) : null}
-
           <Pagination
             page={page.page}
             pageCount={pageCount}
@@ -462,6 +428,31 @@ export function PeopleList({
           />
         </>
       )}
+
+      <SelectionTray
+        label="Selected people"
+        count={selection.size}
+        offPage={selection.offPage}
+        noun={['person', 'people']}
+        items={selection.items.map((person) => ({
+          id: person.id,
+          title: person.displayName,
+          meta: person.kind === 'staff' ? 'Staff' : 'Student',
+          code: person.externalId || undefined,
+          href: `/people/${person.id}`,
+        }))}
+        onRemove={selection.remove}
+        onClear={selection.clear}
+      >
+        <PeopleActions
+          people={chosen}
+          label={`${selection.size} selected`}
+          kind={selectionKind ?? current.kind}
+          gmailMode={gmailMode}
+          exportHref={selectionExportHref}
+          size="sm"
+        />
+      </SelectionTray>
     </section>
   );
 }

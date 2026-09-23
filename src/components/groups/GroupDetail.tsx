@@ -10,6 +10,11 @@
  * boxes are edited in the cells they live in, because opening a dialog to type
  * one word is how a roster stops being kept.
  *
+ * The boxes paint: press on one and drag down the column and every box crossed
+ * takes the first one's new state — the whole table ticked for "Paid dues" in
+ * one stroke — and shift-click fills a range. Each tick shows at once and is
+ * saved behind it; one the database refuses springs back with a message.
+ *
  * The one filter is "missing" — everybody who has NOT been ticked for a column
  * — because that is the only question a checklist is ever asked. It is applied
  * here rather than in the database: the whole roster is already on the page,
@@ -20,7 +25,7 @@
  * ticking, taking a register — is open to every active account.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ListChecks, Pencil, Trash2, X } from 'lucide-react';
@@ -44,6 +49,7 @@ import type { GmailMode } from '@/lib/domain/preferences';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Dialog } from '@/components/ui/Dialog';
 import { Select } from '@/components/ui/Select';
+import { usePaintSelect } from '@/components/ui/useSelection';
 import { AddPeoplePanel } from './AddPeoplePanel';
 import { FieldsManager } from './FieldsManager';
 import { GroupDialog, type GroupValues } from './GroupDialog';
@@ -60,7 +66,7 @@ export function GroupDetail({
   /** How this account addresses a Gmail link. Their setting, not this screen's. */
   gmailMode?: GmailMode;
 }) {
-  const { actor, pendingKey, run } = useRuntime();
+  const { actor, pendingKey, run, notify } = useRuntime();
   const router = useRouter();
   const { group, members, fields, marks } = detail;
   const admin = isAdmin(actor.roles);
@@ -101,11 +107,70 @@ export function GroupDetail({
     await run(`group:remove:${member.id}`, () => removeGroupMemberAction(group.id, member.id));
   }
 
-  async function setMark(member: GroupMember, fieldId: string, checked: boolean) {
-    await run(`group:mark:${fieldId}:${member.id}`, () =>
-      setGroupMarkAction(fieldId, member.id, checked),
-    );
+  /*
+   * Ticks shown before the database has answered, keyed `member|field`. They
+   * are dropped when the server's marks arrive, which is after the last save
+   * of a stroke and a short pause, so rows under the "missing" filter do not
+   * vanish from under a paint that is still moving.
+   */
+  const [overrides, setOverrides] = useState<ReadonlyMap<string, boolean>>(() => new Map());
+  const [marksSeen, setMarksSeen] = useState(marks);
+  if (marksSeen !== marks) {
+    setMarksSeen(marks);
+    setOverrides(new Map());
   }
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+  }, []);
+
+  function isMarked(cell: string): boolean {
+    const override = overrides.get(cell);
+    if (override !== undefined) return override;
+    const [memberId, fieldId] = cell.split('|');
+    return ticked.get(memberId)?.has(fieldId) ?? false;
+  }
+
+  function applyMarks(cells: readonly string[], checked: boolean) {
+    const changing = cells.filter((cell) => isMarked(cell) !== checked);
+    if (changing.length === 0) return;
+    setOverrides((prev) => {
+      const next = new Map(prev);
+      for (const cell of changing) next.set(cell, checked);
+      return next;
+    });
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    void Promise.all(
+      changing.map(async (cell) => {
+        const [memberId, fieldId] = cell.split('|');
+        const result = await setGroupMarkAction(fieldId, memberId, checked).catch(() => null);
+        return result?.ok ? null : { cell, error: result?.error };
+      }),
+    ).then((outcomes) => {
+      const failed = outcomes.filter((outcome) => outcome !== null);
+      if (failed.length > 0) {
+        setOverrides((prev) => {
+          const next = new Map(prev);
+          for (const { cell } of failed) next.set(cell, !checked);
+          return next;
+        });
+        notify(
+          'error',
+          failed[0].error ??
+            `${failed.length} ${failed.length === 1 ? 'tick was' : 'ticks were'} not saved. Try again.`,
+        );
+      }
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      refreshTimer.current = setTimeout(() => router.refresh(), 600);
+    });
+  }
+
+  // Column by column, so a shift-click range runs down one column.
+  const cellOrder = useMemo(
+    () => fields.flatMap((field) => shown.map((member) => `${member.id}|${field.id}`)),
+    [fields, shown],
+  );
+  const paint = usePaintSelect({ order: cellOrder, isOn: isMarked, apply: applyMarks });
 
   const columns: Column<GroupMember>[] = [
     {
@@ -164,15 +229,14 @@ export function GroupDetail({
       header: field.name,
       width: 120,
       cell: (member: GroupMember) => {
-        const on = ticked.get(member.id)?.has(field.id) ?? false;
+        const cell = `${member.id}|${field.id}`;
         return (
-          <label className="row-check field-check">
+          <label className="row-check field-check" {...paint.boxProps(cell)}>
             <input
               type="checkbox"
-              checked={on}
-              disabled={busy}
+              checked={isMarked(cell)}
               aria-label={`${field.name} for ${member.displayName}`}
-              onChange={() => void setMark(member, field.id, !on)}
+              onChange={(event) => paint.change(cell, event.target.checked)}
             />
           </label>
         );
@@ -250,7 +314,11 @@ export function GroupDetail({
       </header>
 
       <div className="stack group-stack">
-        <section className="panel directory" aria-labelledby="group-members-heading">
+        <section
+          className="panel directory"
+          aria-labelledby="group-members-heading"
+          data-painting={paint.painting || undefined}
+        >
           <div className="panel-head">
             <h2 className="panel-title" id="group-members-heading">
               Members

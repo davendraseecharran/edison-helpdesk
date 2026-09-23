@@ -1,0 +1,109 @@
+/*
+ * The checkbox, drawn rather than native.
+ *
+ * Native boxes took `accent-color`, which paints them in each browser's own
+ * shape and never animates. This one is a square in the line colour that fills
+ * with ink when ticked while the tick draws itself left to right (a clip, so it
+ * reads as a stroke without an SVG per box). The same box everywhere a list
+ * or a form asks a yes/no of one row: the directory, the inventory, rosters,
+ * the register, intake and Settings. The indeterminate state (a header box over
+ * a part-ticked page) is a bar.
+ *
+ * `.row-check` boxes are paintable (see `usePaintSelect`): pressing and dragging
+ * down the column ticks every box crossed, so the label is the hit area and
+ * text selection is off while a paint is under way.
+ */
+:where(.row-check, .check, .setting-choice) input[type='checkbox'] {
+  appearance: none;
+  position: relative;
+  display: inline-grid;
+  place-content: center;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover) ease,
+    border-color var(--dur-hover) ease,
+    scale var(--dur-press) var(--ease-out);
+}
+
+:where(.check) input[type='checkbox'] {
+  margin-top: 3px;
+}
+
+:where(.setting-choice) input[type='checkbox'] {
+  margin-top: 2px;
+}
+
+:where(.row-check, .check, .setting-choice) input[type='checkbox']:hover {
+  border-color: var(--ink-3);
+}
+
+:where(.row-check, .check, .setting-choice) input[type='checkbox']:active {
+  scale: 0.9;
+}
+
+:where(.row-check, .check, .setting-choice) input[type='checkbox']::after {
+  content: '';
+  width: 9px;
+  height: 5px;
+  margin-top: -2px;
+  border-bottom: 2px solid var(--accent-ink);
+  border-left: 2px solid var(--accent-ink);
+  rotate: -45deg;
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 180ms var(--ease-out);
+}
+
+:where(.row-check, .check, .setting-choice) input[type='checkbox']:checked,
+:where(.row-check, .check, .setting-choice) input[type='checkbox']:indeterminate {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+:where(.row-check, .check, .setting-choice) input[type='checkbox']:checked::after {
+  clip-path: inset(0 0 0 0);
+}
+
+:where(.row-check, .check, .setting-choice) input[type='checkbox']:indeterminate::after {
+  width: 8px;
+  height: 0;
+  margin-top: 0;
+  border-left: 0;
+  rotate: 0deg;
+  clip-path: inset(0 0 0 0);
+}
+
+:where(.row-check, .check, .setting-choice) input[type='checkbox']:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+:where(.row-check, .check, .setting-choice) input[type='checkbox']:disabled,
+:where(.row-check, .check, .setting-choice) input[type='checkbox'][aria-disabled='true'] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.row-check {
+  user-select: none;
+  touch-action: manipulation;
+}
+
+/* A paint under way: the whole list is the gesture, not its text. */
+[data-painting] {
+  user-select: none;
+  cursor: cell;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(.row-check, .check, .setting-choice) input[type='checkbox'],
+  :where(.row-check, .check, .setting-choice) input[type='checkbox']::after {
+    transition: background-color var(--dur-hover) ease, border-color var(--dur-hover) ease;
+  }
+}

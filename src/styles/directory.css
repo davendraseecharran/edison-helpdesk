@@ -758,3 +758,139 @@
   color: var(--ink-3);
   font-size: var(--fs-0);
 }
+
+/* --- The selection tray: the count opens the whole selection ----------- */
+
+.tray-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 8px;
+  margin-left: -8px;
+  border: 0;
+  border-radius: var(--radius-2);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--dur-hover) ease;
+}
+
+.tray-trigger:hover,
+.tray-trigger[data-state='open'] {
+  background: var(--surface-3);
+}
+
+.tray-trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.tray-count {
+  display: inline-grid;
+  overflow: hidden;
+  min-width: 1ch;
+  font-variant-numeric: tabular-nums;
+}
+
+.tray-count > span {
+  grid-area: 1 / 1;
+}
+
+.tray-off {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  font-weight: 500;
+}
+
+.tray-chevron {
+  color: var(--ink-3);
+  transition: rotate var(--dur-surface) var(--ease-out);
+}
+
+.tray-trigger[data-state='open'] .tray-chevron {
+  rotate: 180deg;
+}
+
+.tray-list {
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(420px, 60vh);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.tray-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 8px 8px 12px;
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+}
+
+.tray-items {
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  overscroll-behavior: contain;
+}
+
+.tray-items > li {
+  overflow: hidden;
+}
+
+.tray-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px 6px 8px;
+  border-radius: var(--radius-2);
+  transition: background-color var(--dur-hover) ease;
+}
+
+.tray-item:hover {
+  background: var(--surface-3);
+}
+
+.tray-item-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.tray-item-title {
+  overflow: hidden;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+a.tray-item-title:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.tray-item-meta {
+  display: flex;
+  gap: 8px;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.tray-item-code {
+  font-family: var(--font-mono);
+}
+
+.tray-remove {
+  flex: 0 0 auto;
+}
