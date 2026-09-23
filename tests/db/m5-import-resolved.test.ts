@@ -39,7 +39,7 @@ let netrider: SupabaseClient;
 let admin: SupabaseClient;
 let officer: SupabaseClient;
 
-/** A moment in the recent past, so the three-year rule is never the reason a test fails. */
+/** A moment in the recent past, so the 2020 floor is never the reason a test fails. */
 function daysAgo(days: number): string {
   return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 }
@@ -233,12 +233,14 @@ describe('app_import_resolved_ticket', () => {
     );
     expect(ahead.message).toContain('cannot be in the future');
 
+    // The floor is the start of 2020, the same line intake holds
+    // (20260923120100): a row from 2019 is a typo'd year on a hand-kept sheet.
     const ancient = await rpcFails(
       netrider,
       'app_import_resolved_ticket',
-      importArgs({ p_called_at: daysAgo(1200), p_resolved_at: daysAgo(1199) }),
+      importArgs({ p_called_at: '2019-12-30T15:00:00Z', p_resolved_at: '2019-12-31T15:00:00Z' }),
     );
-    expect(ancient.message).toContain('three years');
+    expect(ancient.message).toContain('before 2020');
   });
 
   it('refuses a category the queue does not know, rather than filing it under other', async () => {
