@@ -14,7 +14,7 @@ export const metadata = { title: 'Analytics — Edison Helpdesk' };
  * when asked for, so the fixture is not in the bundle otherwise.
  */
 async function sampleAnalytics(period: StatsPeriod): Promise<Analytics> {
-  const { SAMPLE_ANALYTICS } = await import('../../../../tests/fixtures/analytics');
+  const { SAMPLE_ANALYTICS } = await import('@/lib/demo/analytics-sample');
   return { ...SAMPLE_ANALYTICS, period };
 }
 

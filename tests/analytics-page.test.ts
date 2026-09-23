@@ -21,7 +21,7 @@ vi.mock('next/navigation', () => ({
 import { AnalyticsScreen } from '../src/components/analytics/AnalyticsScreen';
 import { heatOpacity } from '../src/components/analytics/charts/Heatmap';
 import { fillPercent, linePoints, niceScale, ticksOf } from '../src/components/analytics/charts/scale';
-import { SAMPLE_ANALYTICS, SAMPLE_ANALYTICS_FOR_NETRIDER } from './fixtures/analytics';
+import { SAMPLE_ANALYTICS, SAMPLE_ANALYTICS_FOR_NETRIDER } from '@/lib/demo/analytics-sample';
 
 function sum(values: readonly number[]): number {
   return values.reduce((a, b) => a + b, 0);
