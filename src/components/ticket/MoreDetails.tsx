@@ -5,7 +5,7 @@
  *
  * A phone call about a projector is a title, a requester and a sentence. The
  * form asked for nine more things first — a room, machines from the inventory,
- * a device's serial and asset tag, a submission date, a list of collaborators —
+ * a device's serial and asset tag, a list of collaborators —
  * and every one of them is legitimately needed by some ticket and by almost no
  * walk-in. Asking them all, every time, is why recording a call took a minute
  * instead of fifteen seconds, and a desk with a queue behind it pays that
@@ -97,7 +97,7 @@ export function MoreDetails({
         <Icon icon={ChevronDown} size={15} className="intake-more-chevron" />
         <span className="intake-more-label">More details</span>
         <span className="intake-more-hint">
-          {!open && summary ? summary : 'Location, inventory, device, date, collaborators'}
+          {!open && summary ? summary : 'Location, inventory, device, collaborators'}
         </span>
       </button>
       {/* Unmounted rather than hidden: a closed section holding eleven form

@@ -181,6 +181,7 @@ export function systemInstructions(context: PromptContext): string {
     lines.push(
       '',
       'Quick tickets are the desk’s shared list of calls that repeat: list_presets reads it, and save_preset, delete_preset and move_preset are the Settings → Quick tickets screen. Filing one is create_ticket with the preset’s fields plus the requester and the channel.',
+      'A call that came in earlier is create_ticket with opened_at, so it counts from when it happened; one already fixed adds solution, and resolved_at when that was not just now. A sheet of past work is import_resolved_tickets.',
     );
   }
 

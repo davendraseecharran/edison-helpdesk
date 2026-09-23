@@ -74,6 +74,16 @@ export interface CreateTicketFields {
   category?: string | null;
   /** Inventory machines to name on the ticket at intake. */
   deviceIds?: string[];
+  /**
+   * When the request was opened, as an ISO instant, when that was earlier than
+   * now. Null is now. The database holds the bounds (not in the future, not
+   * before 2020) and treats anything within a minute of now as now.
+   */
+  openedAt?: string | null;
+  /** Set to create the ticket already resolved, by and owned by the caller. */
+  solution?: string | null;
+  /** When it was resolved, with `solution`. Null is now. */
+  resolvedAt?: string | null;
 }
 
 export async function createTicketAction(fields: CreateTicketFields): Promise<ActionResult> {
@@ -99,8 +109,11 @@ export async function createTicketAction(fields: CreateTicketFields): Promise<Ac
       p_devices: fields.devices ?? [],
       p_category: fields.category ?? 'other',
       p_device_ids: fields.deviceIds ?? [],
+      p_opened_at: fields.openedAt ?? null,
+      p_solution: fields.solution ?? null,
+      p_resolved_at: fields.solution ? (fields.resolvedAt ?? null) : null,
     },
-    'Ticket created.',
+    fields.solution ? 'Ticket created, already resolved.' : 'Ticket created.',
   );
 }
 

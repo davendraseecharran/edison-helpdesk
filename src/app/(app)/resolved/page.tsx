@@ -2,6 +2,7 @@ import { loadQueue } from '@/lib/data/tickets';
 import { loadActor, requireTicketWorker } from '@/lib/auth/session';
 import { requestTime } from '@/lib/format';
 import { PageHeader } from '@/components/Primitives';
+import { ImportSheetButton } from '@/components/ticket/ImportSheetButton';
 import { ResolvedAnalyticsLink } from '@/components/ticket/ResolvedAnalyticsLink';
 import { TicketListView } from '@/components/TicketListView';
 import type { QueueSearchParams } from '../search-params';
@@ -12,13 +13,11 @@ export const metadata = { title: 'Resolved — Edison Helpdesk' };
 export default async function ResolvedPage({
   searchParams,
 }: {
-  searchParams: Promise<QueueSearchParams>;
+  searchParams: Promise<QueueSearchParams & { import?: string | string[] }>;
 }) {
   await requireTicketWorker();
-  const [page, actor] = await Promise.all([
-    loadQueue('closed', toFilters(await searchParams)),
-    loadActor(),
-  ]);
+  const params = await searchParams;
+  const [page, actor] = await Promise.all([loadQueue('closed', toFilters(params)), loadActor()]);
   const admin = actor.kind === 'active' && actor.account.role === 'admin';
 
   return (
@@ -31,10 +30,16 @@ export default async function ResolvedPage({
             : 'Resolved and cancelled tickets you owned or helped with. Work belonging to other NetRiders is not listed here.'
         }
         /*
-          The counting, one press from the list it counts. Every ticket worker
-          reads it now, so the button is not gated on the role.
+          The counting, one press from the list it counts, and the desk's old
+          sheet, in. Both are every ticket worker's: the import takes the same
+          role the assistant's import does, and the database holds it.
         */
-        actions={<ResolvedAnalyticsLink />}
+        actions={
+          <>
+            <ImportSheetButton openOnLoad={params.import === '1'} />
+            <ResolvedAnalyticsLink />
+          </>
+        }
       />
       <TicketListView
         page={page}

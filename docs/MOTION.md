@@ -41,6 +41,8 @@ Two rules hold everywhere and are not repeated per row:
 | Sheets (desktop, from the right) | open | `translate: 100% → 0`, no fade | 200 ms (`--dur-surface`) | `--ease-out` | none |
 | Sheets (desktop, from the right) | close | `translate: 0 → 100%` | 120 ms (`--dur-press`) | `--ease-out` | none |
 | Intake's "More details" | opened or closed | **none** for the region — it is as tall as the page, opened rarely, and its state is remembered per account, so the reflow is a transition almost nobody sees twice. Its chevron turns: `rotate` 0 → 180° | 200 ms on the chevron | `--ease-out` | no rotation |
+| Intake's "Opened" and "Resolved" moments | pressed | the popover is a menu surface and opens like one (`opacity`, `scale` 0.97 → 1 from the trigger); the chevron turns `rotate` 0 → 180°. "Already resolved" reveals its section with **none**: it is one press away from Create and a section sliding in under the finger would move the button | 200 ms (`--dur-surface`) | `--ease-out` | opacity only, no rotation |
+| Import from a spreadsheet: the paste box | a file is held over it | `border-color`, `background-color` | 150 ms (`--dur-hover`) | `ease` | colour, no transition |
 | Palette selection | arrow key | **none** | 0 | — | — |
 | Assistant composer | panel opens | one border-beam lap | 3 s, once | linear | not rendered |
 | Assistant mark (top bar, connect card) | a reply is on its way | `transform: rotate`, `opacity` 1 → 0.55 → 1 | 6 s turn, 2.4 s breath | `linear`, `ease-in-out` | static, held dim |

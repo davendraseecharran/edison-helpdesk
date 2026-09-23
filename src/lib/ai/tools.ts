@@ -2120,10 +2120,26 @@ const TOOLS: Record<string, ToolSpec> = {
       person: { type: 'string', description: 'The requester as a directory record: name, email, OSIS or staff id. Leave it out when nobody is named.' },
       location: { type: 'string', description: 'Room or area the problem is in.' },
       claim: { type: 'boolean', description: 'True to take ownership immediately instead of leaving it in the queue.' },
+      opened_at: {
+        type: 'string',
+        instant: true,
+        description:
+          'When the request actually came in, when that was earlier than now: YYYY-MM-DD (the start of that school day) or a full ISO date and time. Anyone may set it; never in the future and never before 2020. The ticket counts from then, and its history says it was logged later.',
+      },
+      solution: {
+        type: 'string',
+        description:
+          'What fixed it, when the work is already done. The ticket is then created resolved, by and owned by the person you are working for, so leave claim out and do not name another owner.',
+      },
+      resolved_at: {
+        type: 'string',
+        instant: true,
+        description: 'When it was resolved, with solution: YYYY-MM-DD or a full ISO date and time. Defaults to now; never before opened_at and never in the future.',
+      },
       submitted_on: {
         type: 'string',
         date: true,
-        description: 'The school day it was reported, as YYYY-MM-DD, when that is not today. Administrators only; a NetRider\u2019s intake is always dated today.',
+        description: 'Older, date-only form of opened_at that does not move when the ticket counts from. Administrators only. Prefer opened_at; never send both.',
       },
       collaborators: {
         type: 'string[]',
@@ -2166,11 +2182,21 @@ const TOOLS: Record<string, ToolSpec> = {
         p_collaborator_ids: collaborators,
         p_category: args.category ?? 'other',
         p_device_ids: devices,
+        // Left out rather than sent as null when not given, like submitted_on,
+        // so the function's own "now" applies exactly as it does for the form.
+        ...(args.opened_at === undefined ? {} : { p_opened_at: args.opened_at }),
+        ...(args.solution === undefined ? {} : { p_solution: args.solution }),
+        ...(args.resolved_at === undefined ? {} : { p_resolved_at: args.resolved_at }),
       });
       const detail = await rpc(ctx, 'app_ticket_detail', { p_ticket: id });
       const ticket = isRecord(detail) && isRecord(detail.ticket) ? detail.ticket : {};
       const number = textOf(ticket.number) || 'the ticket';
-      return outcome({ id, number }, `Opened ${number}: ${String(args.title)}`);
+      return outcome(
+        { id, number, resolved: args.solution !== undefined },
+        args.solution === undefined
+          ? `Opened ${number}: ${String(args.title)}`
+          : `Logged ${number} as resolved: ${String(args.title)}`,
+      );
     },
   },
 
@@ -2206,7 +2232,7 @@ const TOOLS: Record<string, ToolSpec> = {
             type: 'string',
             required: true,
             instant: true,
-            description: 'The day it was closed, as YYYY-MM-DD, or a full ISO instant. Never in the future, and nothing older than three years.',
+            description: 'The day it was closed, as YYYY-MM-DD, or a full ISO instant. Never in the future, and nothing before 2020.',
           },
           resolved_by: {
             type: 'string',
@@ -2219,6 +2245,10 @@ const TOOLS: Record<string, ToolSpec> = {
           location: { type: 'string', description: 'Room or area the problem was in.' },
           category: { type: 'string', description: 'Default other.', choices: CATEGORIES },
           priority: { type: 'string', description: 'Default normal.', choices: PRIORITIES },
+          solution: {
+            type: 'string',
+            description: 'How it was fixed, when the sheet says. Leave it out when the sheet only says who fixed it; the ticket then says the sheet did not record how.',
+          },
         },
       },
     },
@@ -2272,6 +2302,7 @@ const TOOLS: Record<string, ToolSpec> = {
             p_location: row.location ?? null,
             p_category: row.category ?? null,
             p_priority: row.priority ?? null,
+            p_solution: row.solution ?? null,
           });
           landed.push(String(id));
         } catch (error) {
@@ -3267,6 +3298,11 @@ const TOOLS: Record<string, ToolSpec> = {
           person: { type: 'string', description: 'The requester as a directory record: name, email, OSIS or staff id. Leave it out when nobody is named.' },
           location: { type: 'string', description: 'Room or area the problem is in.' },
           claim: { type: 'boolean', description: 'True to take ownership of this one immediately.' },
+          opened_at: {
+            type: 'string',
+            instant: true,
+            description: 'When this call came in, when that was earlier than now: YYYY-MM-DD or a full ISO date and time. Never in the future, never before 2020.',
+          },
         },
       },
     },
@@ -3308,6 +3344,7 @@ const TOOLS: Record<string, ToolSpec> = {
               p_location: row.location ?? null,
               p_owner_id: row.claim === true ? ctx.actor.id : null,
               p_category: row.category ?? 'other',
+              ...(row.opened_at === undefined ? {} : { p_opened_at: row.opened_at }),
             }),
           );
           opened.push({ row: index + 1, id, number: await ticketNumberOf(ctx, id), title });

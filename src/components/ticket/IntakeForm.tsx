@@ -3,10 +3,17 @@
 /**
  * Intake form for both roles.
  *
- * Admin: any channel, any owner or the queue, and a backdatable submission
- * date. Technician: walk-in only, owner fixed to themselves, dated today — the
- * controls for the other options are not rendered, and `createTicket` rejects
- * them anyway rather than silently correcting a forged value.
+ * Admin: any channel, any owner or the queue. NetRider: walk-in only, owner
+ * fixed to themselves — the controls for the other options are not rendered,
+ * and `app_create_ticket` rejects them anyway rather than silently correcting
+ * a forged value.
+ *
+ * Both may say when it happened and that it is already finished. The opened
+ * moment is a quiet "Opened: Now" above the button, because almost every
+ * ticket is opened now and the fast path must not grow a field; pressing it
+ * picks an earlier moment. "Already resolved" opens the solution and the
+ * resolved moment, and the ticket is created finished, in one call, as the
+ * work of whoever logs it.
  *
  * `preset` is a quick ticket the desk wrote down once: the part of one of the
  * three calls that repeat all day which is the same every time. It seeds the
@@ -41,6 +48,7 @@ import {
   SuggestedPriority,
   SuggestionTabHint,
 } from '@/components/ticket/IntakeSuggestions';
+import { MomentPicker } from '@/components/ticket/MomentPicker';
 import { MoreDetails } from '@/components/ticket/MoreDetails';
 import { PasteToDraft } from '@/components/ticket/PasteToDraft';
 import { addNoteAction, createTicketAction } from '@/lib/data/actions';
@@ -54,6 +62,7 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { Select } from '@/components/ui/Select';
 import { deviceTypeOptions } from '@/lib/domain/device-types';
 import type { TicketPresetDraft } from '@/lib/domain/ticket-presets';
+import { momentForSubmit } from '@/lib/domain/ticket-moments';
 
 /** The intake form has no catalogue to read, so it offers the vocabulary itself. */
 const DEVICE_TYPE_OPTIONS = deviceTypeOptions();
@@ -135,7 +144,7 @@ function intakeDescription(isAdminIntake: boolean, preset: TicketPresetDraft | n
 }
 
 export function IntakeForm({ preset = null }: { preset?: TicketPresetDraft | null }) {
-  const { directory, today, notify, pendingKey, run } = useRuntime();
+  const { directory, notify, pendingKey, run } = useRuntime();
   const actor = useActorAccount();
   const router = useRouter();
   const isAdminIntake = canChooseChannelAndOwner(actor);
@@ -149,7 +158,11 @@ export function IntakeForm({ preset = null }: { preset?: TicketPresetDraft | nul
   const [issue, setIssue] = useState(preset?.issue ?? '');
   const [channel, setChannel] = useState<IntakeChannel>('walk_in');
   const [priority, setPriority] = useState<Priority>(preset?.priority ?? 'normal');
-  const [submittedOn, setSubmittedOn] = useState(today);
+  /* When it happened. Null is now, which is almost always the answer. */
+  const [openedAt, setOpenedAt] = useState<string | null>(null);
+  const [alreadyResolved, setAlreadyResolved] = useState(false);
+  const [solution, setSolution] = useState('');
+  const [resolvedAt, setResolvedAt] = useState<string | null>(null);
   const [category, setCategory] = useState<TicketCategory>(preset?.category ?? 'other');
   const [requesterMode, setRequesterMode] = useState<RequesterMode>('existing');
   const [person, setPerson] = useState<PersonSearchResult | null>(null);
@@ -221,20 +234,41 @@ export function IntakeForm({ preset = null }: { preset?: TicketPresetDraft | nul
     formEvent.preventDefault();
     setFieldError(null);
 
+    // The two checks worth making before the round trip, because the answer
+    // belongs beside the field rather than in a banner under the form.
+    if (alreadyResolved && solution.trim().length < 5) {
+      setFieldError({ field: 'solution', error: 'Write what fixed it, in a few words at least.' });
+      return;
+    }
+    if (
+      alreadyResolved &&
+      openedAt !== null &&
+      resolvedAt !== null &&
+      Date.parse(resolvedAt) < Date.parse(openedAt)
+    ) {
+      setFieldError({ field: 'resolvedAt', error: 'A ticket cannot be resolved before it was opened.' });
+      return;
+    }
+
+    const now = Date.now();
     const result = await run('create-ticket', () =>
       createTicketAction({
         title,
         issue,
-        // A technician's intake is always a self-assigned walk-in dated today.
-        // The database rejects any other combination rather than correcting it.
+        // A NetRider's intake is always a self-assigned walk-in. The database
+        // rejects any other combination rather than correcting it.
         channel: isAdminIntake ? channel : 'walk_in',
         priority,
-        submittedOn: isAdminIntake ? submittedOn : null,
+        submittedOn: null,
+        openedAt: momentForSubmit(openedAt, now),
+        solution: alreadyResolved ? solution.trim() : null,
+        resolvedAt: alreadyResolved ? momentForSubmit(resolvedAt, now) : null,
         category,
         requesterId: requesterMode === 'existing' && person ? person.id : null,
         requesterUnknown: requesterMode === 'unknown',
         location,
-        ownerId: isAdminIntake ? (ownerId || null) : null,
+        // Resolved at intake, it is the work of whoever logs it.
+        ownerId: isAdminIntake && !alreadyResolved ? (ownerId || null) : null,
         collaboratorIds,
         devices: devices.map((device) => ({
           deviceType: device.deviceType,
@@ -261,8 +295,10 @@ export function IntakeForm({ preset = null }: { preset?: TicketPresetDraft | nul
       return;
     }
     if (!result.ok) {
-      // The database returns one message per rejected field; show it inline.
-      setFieldError({ error: result.error ?? 'The ticket could not be created.' });
+      // The database returns one message per rejected field; the ones about
+      // when and how it ended go beside their control.
+      const error = result.error ?? 'The ticket could not be created.';
+      setFieldError({ field: fieldOfError(error), error });
     }
   }
   /*
@@ -278,7 +314,6 @@ export function IntakeForm({ preset = null }: { preset?: TicketPresetDraft | nul
       devices.length === 0
         ? null
         : `${devices.length} ${devices.length === 1 ? 'device' : 'devices'}`,
-      isAdminIntake && submittedOn !== today ? 'backdated' : null,
       collaboratorIds.length === 0
         ? null
         : `${collaboratorIds.length} ${collaboratorIds.length === 1 ? 'collaborator' : 'collaborators'}`,
@@ -472,11 +507,16 @@ export function IntakeForm({ preset = null }: { preset?: TicketPresetDraft | nul
                   label="Owner"
                   htmlFor="owner"
                   error={errorFor('ownerId')}
-                  hint="Leave on the queue so any NetRider can claim it."
+                  hint={
+                    alreadyResolved
+                      ? 'Resolved at intake, so it is yours.'
+                      : 'Leave on the queue so any NetRider can claim it.'
+                  }
                 >
                   <Select
                     id="owner"
-                    value={ownerId}
+                    disabled={alreadyResolved}
+                    value={alreadyResolved ? (actor?.id ?? '') : ownerId}
                     onChange={(value) => {
                       setOwnerId(value);
                       setCollaboratorIds((current) => current.filter((id) => id !== value));
@@ -717,36 +757,10 @@ export function IntakeForm({ preset = null }: { preset?: TicketPresetDraft | nul
 
             <IntakeSection
               id="when"
-              title="Date and collaborators"
-              help="When the request came in, and anyone else working on it."
+              title="Collaborators"
+              help="Anyone else working on it."
             >
               <div className="form-grid">
-                {isAdminIntake ? (
-                  <Field
-                    label="Submission date"
-                    htmlFor="submitted-on"
-                    error={errorFor('submittedOn')}
-                    hint="Defaults to today. Backdating keeps the real creation timestamp."
-                  >
-                    <input
-                      id="submitted-on"
-                      type="date"
-                      value={submittedOn}
-                      max={today}
-                      aria-invalid={errorFor('submittedOn') ? 'true' : undefined}
-                      onChange={(event) => setSubmittedOn(event.target.value)}
-                    />
-                  </Field>
-                ) : (
-                  <Field
-                    label="Submission date"
-                    htmlFor="submitted-on-fixed"
-                    hint="Walk-ins are dated today."
-                  >
-                    <input id="submitted-on-fixed" type="date" value={today} readOnly disabled />
-                  </Field>
-                )}
-
                 <fieldset className="field-group form-grid-full">
                   <legend>
                     Collaborators <span className="field-optional">optional</span>
@@ -777,6 +791,72 @@ export function IntakeForm({ preset = null }: { preset?: TicketPresetDraft | nul
             </IntakeSection>
           </MoreDetails>
 
+          {/*
+            When it happened, and whether it is already over. A quiet line
+            that says "Now" costs the walk-in nothing; the rare ticket logged
+            late presses it. Above the button rather than inside More details,
+            because "this was yesterday" is decided while looking at Create.
+          */}
+          <div className="intake-when">
+            <MomentPicker
+              label="Opened"
+              what="The opened time"
+              value={openedAt}
+              onChange={setOpenedAt}
+              error={errorFor('openedAt')}
+            />
+            <label className="check intake-resolved-toggle">
+              <input
+                type="checkbox"
+                checked={alreadyResolved}
+                onChange={(event) => {
+                  setAlreadyResolved(event.target.checked);
+                  if (fieldError?.field === 'solution' || fieldError?.field === 'resolvedAt') {
+                    setFieldError(null);
+                  }
+                }}
+              />
+              <span className="check-text">Already resolved</span>
+            </label>
+          </div>
+
+          {alreadyResolved ? (
+            <IntakeSection
+              id="resolved"
+              title="How it ended"
+              help="What fixed it and when. The ticket is created resolved, as your work."
+            >
+              <div className="form-grid">
+                <Field
+                  label="Solution"
+                  htmlFor="intake-solution"
+                  error={errorFor('solution')}
+                  className="form-grid-full"
+                >
+                  <textarea
+                    id="intake-solution"
+                    value={solution}
+                    rows={3}
+                    autoFocus
+                    aria-invalid={errorFor('solution') ? 'true' : undefined}
+                    onChange={(event) => setSolution(event.target.value)}
+                    placeholder="Swapped the charger for a spare from the cart."
+                  />
+                </Field>
+                <div className="form-grid-full">
+                  <MomentPicker
+                    label="Resolved"
+                    what="The resolved time"
+                    value={resolvedAt}
+                    onChange={setResolvedAt}
+                    notBefore={openedAt ? { iso: openedAt, what: 'it was opened' } : null}
+                    error={errorFor('resolvedAt')}
+                  />
+                </div>
+              </div>
+            </IntakeSection>
+          ) : null}
+
           {fieldError && !fieldError.field ? (
             <p className="flash flash-error intake-error" role="alert">
               {fieldError.error}
@@ -785,7 +865,7 @@ export function IntakeForm({ preset = null }: { preset?: TicketPresetDraft | nul
 
           <div className="intake-actions">
             <Button type="submit" variant="primary" disabled={submitting} loading={submitting}>
-              Create ticket
+              {alreadyResolved ? 'Create resolved ticket' : 'Create ticket'}
             </Button>
             <Button onClick={() => router.back()} disabled={submitting}>
               Cancel
@@ -795,4 +875,18 @@ export function IntakeForm({ preset = null }: { preset?: TicketPresetDraft | nul
       </IntakeSuggestions>
     </div>
   );
+}
+
+/**
+ * Which control a refusal from the database belongs beside. The rest stay in
+ * the banner under the form, which is where a message about the whole ticket
+ * reads.
+ */
+function fieldOfError(message: string): string | undefined {
+  if (message.startsWith('The opened time')) return 'openedAt';
+  if (message.startsWith('The resolved time') || message.includes('resolved before it was opened')) {
+    return 'resolvedAt';
+  }
+  if (message.includes('solution') || message.startsWith('Write what fixed it')) return 'solution';
+  return undefined;
 }

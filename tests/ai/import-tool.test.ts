@@ -197,6 +197,7 @@ describe('import_resolved_tickets: what reaches the database', () => {
       p_location: null,
       p_category: null,
       p_priority: null,
+      p_solution: null,
     });
     expect(imports[1].args.p_title).toBe('Second');
     expect(imports[1].args.p_resolved_at).toBe('2026-03-09T18:00:00.000Z');
@@ -359,5 +360,63 @@ describe('find_people', () => {
     );
     expect(refused.ok).toBe(false);
     expect(refused.summary).toMatch(/works the directory, not tickets/i);
+  });
+});
+
+describe('create_ticket and import_resolved_tickets: when it happened, and how it ended', () => {
+  it('sends the opened moment, the solution and the resolved moment create_ticket was given', async () => {
+    const { ctx, calls } = context({
+      results: {
+        app_create_ticket: 'ticket-1',
+        app_ticket_detail: { ticket: { number: 'EDT-1200' } },
+      },
+    });
+    const result = await executeTool(
+      'create_ticket',
+      {
+        title: 'Chromebook will not charge',
+        issue: 'Brought to the desk before first period.',
+        channel: 'walk_in',
+        opened_at: '2026-09-21 08:05',
+        solution: 'Swapped the charger for a spare.',
+        resolved_at: '2026-09-21 08:20',
+      },
+      ctx,
+    );
+    expect(result.ok).toBe(true);
+    expect(result.summary).toBe('Logged EDT-1200 as resolved: Chromebook will not charge');
+    const created = calls.find((call) => call.fn === 'app_create_ticket')?.args ?? {};
+    // School time: 8:05 in New York in September is 12:05Z.
+    expect(created.p_opened_at).toBe('2026-09-21T12:05:00.000Z');
+    expect(created.p_resolved_at).toBe('2026-09-21T12:20:00.000Z');
+    expect(created.p_solution).toBe('Swapped the charger for a spare.');
+  });
+
+  it('leaves all three out when they were not given, so the function’s own now applies', async () => {
+    const { ctx, calls } = context({
+      results: { app_create_ticket: 'ticket-1', app_ticket_detail: { ticket: { number: 'EDT-1' } } },
+    });
+    await executeTool('create_ticket', { title: 'x', issue: 'y', channel: 'walk_in' }, ctx);
+    const created = calls.find((call) => call.fn === 'app_create_ticket')?.args ?? {};
+    expect('p_opened_at' in created).toBe(false);
+    expect('p_solution' in created).toBe(false);
+    expect('p_resolved_at' in created).toBe(false);
+  });
+
+  it('refuses an opened time that is not a moment', () => {
+    expect(
+      validateArgs('create_ticket', { title: 'x', issue: 'y', channel: 'walk_in', opened_at: 'this morning' }).ok,
+    ).toBe(false);
+  });
+
+  it('carries the sheet’s own solution through the import', async () => {
+    const { ctx, calls } = context({ results: { app_import_resolved_ticket: 'ticket-9' } });
+    await executeTool(
+      'import_resolved_tickets',
+      { rows: [sheetRow({ solution: 'Reseated the HDMI cable.' })] },
+      ctx,
+    );
+    const imported = calls.find((call) => call.fn === 'app_import_resolved_ticket')?.args ?? {};
+    expect(imported.p_solution).toBe('Reseated the HDMI cable.');
   });
 });

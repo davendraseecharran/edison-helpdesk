@@ -34,6 +34,7 @@ import { useRouter } from 'next/navigation';
 import { Command } from 'cmdk';
 import { ThinkingOrb } from 'thinking-orbs';
 import {
+  FileUp,
   Hand,
   Laptop,
   MessageCircle,
@@ -422,6 +423,17 @@ function Palette({
         icon: Plus,
         keywords: ['create', 'intake', 'log'],
         run: go('/tickets/new'),
+      });
+      // The desk's old sheet, into the Resolved list. Typed, not resting: it is
+      // a few-times-a-year job, and "import" or "sheet" is what it is asked as.
+      list.push({
+        id: 'import-sheet',
+        label: 'Import from a spreadsheet',
+        icon: FileUp,
+        keywords: ['import', 'sheet', 'spreadsheet', 'csv', 'google sheets', 'paste', 'resolved', 'backfill'],
+        subtitle: 'Finished work, one resolved ticket a row',
+        matchOnly: true,
+        run: go('/resolved?import=1'),
       });
 
       // The calls that repeat all day, each one row. They sit under the empty
