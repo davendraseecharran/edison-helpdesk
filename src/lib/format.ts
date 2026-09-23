@@ -157,6 +157,25 @@ function schoolInstant(key: string, hour: number, minute: number, second: number
 }
 
 /**
+ * The instant a school-local wall-clock time names: `2026-09-12` at 9:05 is
+ * 13:05Z in September and 14:05Z in December. Null for a bad key or a clock
+ * that is not one.
+ */
+export function schoolWallTime(key: string, hour: number, minute: number): string | null {
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) return null;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+  return schoolInstant(key, hour, minute, 0, 0);
+}
+
+/** The school-local wall clock of an instant, as the `HH:MM` a time field takes. */
+export function schoolClockKey(date: Date): string {
+  const parts = schoolWallClock.formatToParts(date);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value ?? '0');
+  const hour = value('hour') % 24;
+  return `${String(hour).padStart(2, '0')}:${String(value('minute')).padStart(2, '0')}`;
+}
+
+/**
  * Midnight at the start of a school-local day, as an ISO instant.
  *
  * On the spring-forward day there is no 2 a.m., but there is still a midnight,

@@ -376,6 +376,7 @@ input[type='text'],
 input[type='email'],
 input[type='password'],
 input[type='date'],
+input[type='time'],
 input[type='number'],
 input[type='search'],
 input[type='url'],
@@ -451,6 +452,49 @@ textarea[aria-invalid='true'] {
  * Firefox and Safari expose no picker button, so there is nothing to restyle
  * and nothing to fall back from: the field is the same box either way.
  */
+/* The time field is the date field's sibling, and wears the same hand: its own
+   clock mark as a mask, the same digits and the same focused segment. */
+input[type='time']::-webkit-calendar-picker-indicator {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin-left: 4px;
+  background: var(--ink-3);
+  cursor: pointer;
+  opacity: 1;
+  transition: background-color var(--dur-hover) ease;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M12 6v6l4 2'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  input[type='time']:not(:disabled)::-webkit-calendar-picker-indicator:hover {
+    background: var(--ink);
+  }
+}
+
+input[type='time']::-webkit-datetime-edit-text,
+input[type='time']::-webkit-datetime-edit-hour-field,
+input[type='time']::-webkit-datetime-edit-minute-field,
+input[type='time']::-webkit-datetime-edit-ampm-field {
+  padding: 0 1px;
+  border-radius: var(--radius-1);
+  color: inherit;
+}
+
+input[type='time']::-webkit-datetime-edit-text {
+  color: var(--ink-3);
+}
+
+input[type='time']::-webkit-datetime-edit-hour-field:focus,
+input[type='time']::-webkit-datetime-edit-minute-field:focus,
+input[type='time']::-webkit-datetime-edit-ampm-field:focus {
+  background: var(--accent-soft);
+  color: var(--ink);
+  outline: none;
+}
+
 input[type='date']::-webkit-calendar-picker-indicator {
   width: 16px;
   height: 16px;

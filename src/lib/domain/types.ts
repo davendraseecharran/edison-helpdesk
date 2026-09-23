@@ -272,8 +272,14 @@ export interface Ticket {
   linkedDeviceCount: number;
   /** School-local submission date, backdatable by an admin (`YYYY-MM-DD`). */
   submittedOn: string;
-  /** Actual creation timestamp. Backdating never rewrites this. */
+  /**
+   * When the request was opened. Usually the moment it was recorded; a ticket
+   * logged later carries the earlier moment here and the real one in
+   * `loggedAt`. The older date-only backdate (`submittedOn`) never moved it.
+   */
   createdAt: string;
+  /** When it was actually written down, when that was later than `createdAt`. */
+  loggedAt?: string | null;
   createdById: AccountId;
   /** Primary owner. Preserved even when a collaborator resolves the ticket. */
   ownerId: AccountId | null;

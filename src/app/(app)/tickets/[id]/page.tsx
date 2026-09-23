@@ -52,8 +52,14 @@ export default async function TicketDetailPage({
   const requesterName = ticket.requesterUnknown
     ? 'Requester unknown'
     : (requester?.displayName ?? 'Unknown');
-  // Compare against the school-local creation date, not the UTC slice.
-  const backdated = ticket.submittedOn !== toDateKey(new Date(ticket.createdAt));
+  // Two ways a ticket can say it began earlier than it was typed. The current
+  // one moves the opened moment itself and keeps when it was written in
+  // `loggedAt`. The older one moved only the calendar date (`submittedOn`) and
+  // left createdAt at the moment of typing; compare against the school-local
+  // day, not the UTC slice.
+  const loggedLater = ticket.loggedAt ?? null;
+  const dateOnlyBackdate =
+    loggedLater === null && ticket.submittedOn !== toDateKey(new Date(ticket.createdAt));
 
   return (
     <div
@@ -172,20 +178,24 @@ export default async function TicketDetailPage({
                   {ticket.isRemote ? 'Remote, no physical location' : (ticket.location ?? 'Unknown')}
                 </dd>
 
-                <dt>Submitted</dt>
+                <dt>Opened</dt>
                 <dd>
-                  {formatDateKey(ticket.submittedOn)}
-                  {backdated ? (
+                  {dateOnlyBackdate
+                    ? formatDateKey(ticket.submittedOn)
+                    : formatDateTime(ticket.createdAt)}
+                  {dateOnlyBackdate ? (
                     <span className="facts-sub">
                       Backdated. Recorded {formatDateTime(ticket.createdAt)}
                     </span>
                   ) : null}
                 </dd>
 
-                <dt>Recorded by</dt>
+                <dt>{loggedLater ? 'Logged by' : 'Recorded by'}</dt>
                 <dd>
                   {detail.creator?.displayName ?? 'Unknown'}
-                  <span className="facts-sub">{formatDateTime(ticket.createdAt)}</span>
+                  <span className="facts-sub">
+                    {loggedLater ? `Later, on ${formatDateTime(loggedLater)}` : formatDateTime(ticket.createdAt)}
+                  </span>
                 </dd>
               </dl>
             </div>

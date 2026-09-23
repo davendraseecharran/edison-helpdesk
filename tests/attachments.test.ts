@@ -312,9 +312,9 @@ describe('mapAttachment', () => {
   });
 
   it('carries the model when the row was stamped by an assistant', () => {
-    const attachment = mapAttachment(row({ performed_via: 'ai', ai_model: 'gpt-5.6-luna' }));
+    const attachment = mapAttachment(row({ performed_via: 'ai', ai_model: 'gpt-6-luna' }));
     expect(attachment.performedVia).toBe('ai');
-    expect(attachment.aiModel).toBe('gpt-5.6-luna');
+    expect(attachment.aiModel).toBe('gpt-6-luna');
   });
 
   it('never treats an unrecognised value as AI', () => {

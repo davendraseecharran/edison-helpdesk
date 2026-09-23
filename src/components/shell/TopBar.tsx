@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Plus, QrCode, SlidersHorizontal, Zap } from 'lucide-react';
+import { ChevronDown, FileUp, Plus, QrCode, SlidersHorizontal, Zap } from 'lucide-react';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import {
@@ -167,12 +167,12 @@ function QuickTicketsMenu() {
           size="sm"
           icon={ChevronDown}
           className="btn-split-more topbar-quick"
-          aria-label="Quick tickets"
+          aria-label="Quick tickets and import"
           onPointerEnter={primeTicketPresets}
           onFocus={primeTicketPresets}
         />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" aria-label="Quick tickets">
+      <DropdownMenuContent align="end" aria-label="Quick tickets and import">
         {presets.map((preset) => (
           <DropdownMenuItem key={preset.id} asChild>
             <Link href={presetHref(preset.id)}>
@@ -183,6 +183,12 @@ function QuickTicketsMenu() {
         ))}
         {/* No rule above the first row of an empty menu. */}
         {presets.length > 0 ? <DropdownMenuSeparator /> : null}
+        <DropdownMenuItem asChild>
+          <Link href="/resolved?import=1">
+            <Icon icon={FileUp} size={16} />
+            <span>Import from a spreadsheet</span>
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/settings#quick-tickets">
             <Icon icon={SlidersHorizontal} size={16} />

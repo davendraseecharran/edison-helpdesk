@@ -45,6 +45,7 @@ export interface TicketRow {
   category?: string | null;
   submitted_on: string;
   created_at: string;
+  logged_at?: string | null;
   created_by: string;
   owner_id: string | null;
   assigned_at: string | null;
@@ -79,6 +80,7 @@ export function mapTicket(row: TicketRow): Ticket {
     linkedDeviceCount: Number(row.device_count ?? 0),
     submittedOn: row.submitted_on,
     createdAt: row.created_at,
+    loggedAt: row.logged_at ?? null,
     createdById: row.created_by,
     ownerId: row.owner_id,
     collaboratorIds: row.collaborator_ids ?? [],
