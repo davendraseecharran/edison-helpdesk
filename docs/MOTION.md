@@ -38,6 +38,10 @@ Two rules hold everywhere and are not repeated per row:
 | Scrim behind any modal surface | open | `opacity`; the ground is `--scrim` with `backdrop-filter: blur(12px) saturate(120%)` | 200 ms | `--ease-out` | opacity only |
 | Drawers (phone bottom sheets) | open | `translateY(100% → 0)`, then the finger | vaul's own | vaul's own | none |
 | Drawers | drag | follows the pointer, damped past the boundary; released above the velocity threshold it dismisses, below it returns | — | — | drag still works; nothing else moves |
+| The content column | the path changes (not a search or filter, which change only the query) | `opacity` 0.35 → 1 on `<main>`; opacity only, so the fixed selection bar and sticky filter bar keep their containing block | 180 ms | `cubic-bezier(0.23, 1, 0.32, 1)` | none |
+| Checkboxes (`.row-check`, `.check`, `.setting-choice`) | ticked | box fills with ink; the tick draws left to right (`clip-path`); press `scale` 0.9 | 180 ms tick, 150 ms fill | `--ease-out` | fill only |
+| Selection count | the number changes | old digit leaves up, new one rises (8px) | 120 ms (`EASE_OUT_FAST`) | easeOut | swap, no movement |
+| Phone filters | Filters pressed | the folded selects fade in, 4px down | 200 ms (`--dur-surface`) | `--ease-out` | none |
 | Sheets (desktop, from the right) | open | `translate: 100% → 0`, no fade | 200 ms (`--dur-surface`) | `--ease-out` | none |
 | Sheets (desktop, from the right) | close | `translate: 0 → 100%` | 120 ms (`--dur-press`) | `--ease-out` | none |
 | Intake's "More details" | opened or closed | **none** for the region — it is as tall as the page, opened rarely, and its state is remembered per account, so the reflow is a transition almost nobody sees twice. Its chevron turns: `rotate` 0 → 180° | 200 ms on the chevron | `--ease-out` | no rotation |

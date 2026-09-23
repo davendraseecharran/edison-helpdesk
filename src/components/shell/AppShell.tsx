@@ -8,7 +8,7 @@
  * account; the only identity control is a real sign-out.
  */
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useRuntime } from '@/components/AppRuntime';
 import { Flash } from '@/components/Primitives';
@@ -53,6 +53,24 @@ export function AppShell({
   const { actor } = useRuntime();
   const router = useRouter();
   const pathname = usePathname();
+
+  /*
+   * A new page arrives rather than cuts in: the content column fades up over
+   * 180 ms when the path changes (a search or a filter, which change only the
+   * query, do not). Opacity only, deliberately — a transform on <main> would
+   * make it the containing block of the fixed selection bar and the sticky
+   * filter bar for as long as it ran. Reduced motion: no fade.
+   */
+  const mainRef = useRef<HTMLElement>(null);
+  const firstPath = useRef(pathname);
+  useEffect(() => {
+    if (pathname === firstPath.current) return;
+    firstPath.current = pathname;
+    const main = mainRef.current;
+    if (!main || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    main.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+  }, [pathname]);
+
   const items = useMemo(() => navItems(actor.roles, counts), [actor.roles, counts]);
   const ticketWorker = canWorkTickets(actor.roles);
   const home = landingPath(actor.roles);
@@ -198,7 +216,7 @@ export function AppShell({
           canScan={ticketWorker}
         />
         <RailNav items={items} />
-        <main className="main" id="main-content" tabIndex={-1}>
+        <main className="main" id="main-content" tabIndex={-1} ref={mainRef}>
           {actor.schemaBehind ? (
             <p className="shell-notice" role="status">
               This site&rsquo;s database is behind its code: the migrations have not been applied
