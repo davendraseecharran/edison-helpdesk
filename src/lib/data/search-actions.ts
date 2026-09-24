@@ -24,6 +24,7 @@ import { createClient } from '@/lib/supabase/server';
 import { loadActor } from '@/lib/auth/session';
 import { openDuplicates, isStillOpen, type DuplicateHit } from '@/lib/intake/duplicates';
 import { formHitFromRow, hitFromRow, SEARCH_MIN_LENGTH, type SearchHit } from './search';
+import type { IndexRow } from '@/lib/lookup/local-index';
 
 /** Hits per kind. The palette shows a few of each, not a page. */
 const SEARCH_LIMIT = 8;
@@ -80,6 +81,44 @@ async function searchForms(
     return hits;
   } catch (cause) {
     console.error(`app_search_forms threw (${cause instanceof Error ? cause.name : 'unknown'})`);
+    return [];
+  }
+}
+
+/**
+ * The directory and the inventory as one compact index, for the browser to
+ * hold in memory and search as the keys are pressed (see `app_search_index`).
+ * Rows are tuples — kind, id, title, subtitle, meta, keys — because eight
+ * thousand objects with repeated property names would be twice the bytes.
+ * Empty for anybody who is not active, and on any failure: the palette then
+ * simply goes on asking the server, as it always has.
+ */
+export async function searchIndexAction(): Promise<IndexRow[]> {
+  try {
+    const actor = await loadActor();
+    if (actor.kind !== 'active') return [];
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc('app_search_index');
+    if (error) {
+      console.error(`app_search_index failed (${error.code ?? 'no code'})`);
+      return [];
+    }
+    const rows: IndexRow[] = [];
+    for (const row of Array.isArray(data) ? data : []) {
+      const r = row as Record<string, unknown>;
+      if ((r.kind !== 'person' && r.kind !== 'device') || typeof r.id !== 'string') continue;
+      rows.push([
+        r.kind === 'person' ? 0 : 1,
+        r.id,
+        typeof r.title === 'string' ? r.title : '',
+        typeof r.subtitle === 'string' ? r.subtitle : '',
+        typeof r.meta === 'string' ? r.meta : '',
+        typeof r.keys === 'string' ? r.keys : '',
+      ]);
+    }
+    return rows;
+  } catch (cause) {
+    console.error(`searchIndexAction failed (${cause instanceof Error ? cause.name : 'unknown'})`);
     return [];
   }
 }

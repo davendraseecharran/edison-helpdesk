@@ -1,4 +1,5 @@
 import { IntentPrefetch } from '@/components/shell/IntentPrefetch';
+import { LiveChanges } from '@/components/shell/LiveChanges';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { loadActor } from '@/lib/auth/session';
@@ -63,6 +64,7 @@ export default async function AppGroupLayout({ children }: { children: ReactNode
           layout, which is above this one and knows nothing about accounts. */}
       <ServerTheme theme={preferences.theme} />
       <IntentPrefetch />
+      <LiveChanges />
       {/* The one signature loading moment: the lamp warming up behind the
           wordmark. It is here rather than in the root layout because this is
           the layout a real page load mounts and an in-app navigation does not,

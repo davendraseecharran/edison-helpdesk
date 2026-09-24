@@ -19,10 +19,16 @@
  *
  * And a tab that comes back after a minute away refreshes itself, so the
  * queue somebody left open over lunch is not the queue they act on.
+ *
+ * It also reads the session's search index (people and machines, held in
+ * memory) once the first page has settled, so the palette's first keystroke
+ * already has something to answer from.
  */
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useRuntime } from '@/components/AppRuntime';
+import { warmSearchIndex } from '@/lib/lookup/local-store';
 
 const PAGES =
   /^\/(today|queue|my-tickets|collaborating|resolved|all-tickets|analytics|people|groups|devices|workflows|forms|tickets|events|notifications|settings|admin)(\/|$|\?)/;
@@ -44,6 +50,16 @@ function internalHref(target: EventTarget | null): string | null {
 
 export function IntentPrefetch() {
   const router = useRouter();
+  const { actor } = useRuntime();
+
+  useEffect(() => {
+    const idle =
+      'requestIdleCallback' in window
+        ? (fn: () => void) => window.requestIdleCallback(fn, { timeout: 4000 })
+        : (fn: () => void) => window.setTimeout(fn, 1500);
+    const timer = window.setTimeout(() => idle(() => void warmSearchIndex(actor.id)), 1200);
+    return () => window.clearTimeout(timer);
+  }, [actor.id]);
 
   useEffect(() => {
     const fetchedAt = new Map<string, number>();

@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { searchAction } from '@/lib/data/search-actions';
+import { useRuntime } from '@/components/AppRuntime';
+import { mergeHits, searchLocal } from '@/lib/lookup/local-index';
+import { useSearchIndex, warmSearchIndex } from '@/lib/lookup/local-store';
 import { recognisePaste, type Recognition } from '@/lib/lookup/recognise';
 import {
   groupHits,
@@ -77,8 +80,20 @@ function ticketHit(hits: SearchHit[], number: string): SearchHit | null {
  * current text arrives, which keeps the orb steady rather than flickering on
  * fast replies, and the previous answer stays on screen meanwhile rather
  * than blinking to nothing between keystrokes.
+ *
+ * People and machines answer before any of that: the session's index
+ * (`local-index.ts`) is searched on every keystroke, so a name or a tag is
+ * on screen as it is typed, and the server's answer — tickets, groups,
+ * events, forms, and anything the index cannot know — lands on top of it.
  */
 export function useLookup(): LookupState {
+  const { actor } = useRuntime();
+  const index = useSearchIndex(actor.id);
+  // The palette opening is the moment an index older than five minutes is
+  // worth reading again; the first read happens at launch (IntentPrefetch).
+  useEffect(() => {
+    void warmSearchIndex(actor.id);
+  }, [actor.id]);
   const [query, setQuery] = useState('');
   const [recent, setRecent] = useState<RecentItem[]>(readRecent);
   /** The latest answer and the term it answers. */
@@ -113,10 +128,19 @@ export function useLookup(): LookupState {
     return () => window.clearTimeout(timer);
   }, [term, searchable]);
 
-  const hits = useMemo(() => (searchable ? answer.hits : []), [searchable, answer.hits]);
+  const local = useMemo(() => (searchable ? searchLocal(index, term) : []), [index, term, searchable]);
+  const answered = answer.term === term;
+  const hits = useMemo(() => {
+    if (!searchable) return [];
+    if (answered) return mergeHits(local, answer.hits);
+    // The server has not answered this text yet: what the index found, and the
+    // previous answer's other kinds so the list does not blink between keys.
+    if (local.length === 0) return answer.hits;
+    return [...local, ...answer.hits.filter((hit) => hit.kind !== 'person' && hit.kind !== 'device')];
+  }, [searchable, answered, local, answer.hits]);
   const groups = useMemo(() => groupHits(hits), [hits]);
-  const loading = searchable && answer.term !== term;
-  const empty = searchable && answer.term === term && hits.length === 0;
+  const loading = searchable && !answered && local.length === 0;
+  const empty = searchable && answered && hits.length === 0;
   const ticketNumber = useMemo(
     () => (recognition.kind === 'ticket' ? recognition.value : ticketNumberFromQuery(query)),
     [recognition, query],
