@@ -174,51 +174,13 @@
 }
 
 /*
- * The viewfinder. It takes whatever height is left after the controls,
- * because the controls are what a thumb has to reach and the camera is what
- * the eye is aimed with.
+ * The viewfinder (`CameraViewfinder`, drawn by `camera.css`). It takes
+ * whatever height is left after the controls, because the controls are what
+ * a thumb has to reach and the camera is what the eye is aimed with.
  */
 .scan-phone-view {
-  position: relative;
-  display: grid;
   flex: 1 1 auto;
-  place-items: center;
-  min-height: 180px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-3);
-  background: var(--surface-3);
-}
-
-.scan-phone-video,
-.scan-phone-view-skeleton {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.scan-phone-reticle {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: min(72%, 260px);
-  aspect-ratio: 3 / 2;
-  border: 2px solid var(--accent);
-  border-radius: var(--radius-2);
-  color: var(--accent);
-}
-
-.scan-phone-placeholder {
-  position: relative;
-  max-width: 34ch;
-  margin: 0;
-  padding: 16px;
-  color: var(--ink-2);
-  font-size: var(--fs-2);
-  text-align: center;
+  min-height: 260px;
 }
 
 .scan-phone-panel {
@@ -304,11 +266,6 @@
 .scan-phone-gone {
   justify-content: center;
   text-align: center;
-}
-
-/* A pairing that has stopped keeps its layout but stops looking live. */
-.scan-phone:not([data-live]) .scan-phone-view {
-  background: var(--surface-2);
 }
 
 /*

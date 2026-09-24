@@ -1,7 +1,8 @@
 'use client';
 
 /**
- * The Workflows hub: five jobs, the desk's saved runs, and what was done lately.
+ * The Workflows hub: five jobs and a check, the desk's saved runs, and what
+ * was done lately.
  *
  * The tiles are the jobs. The saved runs are the same jobs with the target
  * already chosen — "Load Cart 3" — so a NetRider at the cart taps once and is
@@ -26,7 +27,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/shadcn/dropdown-menu';
 import { deleteWorkflowShortcutAction } from '@/lib/data/workflow-actions';
-import { WORKFLOW_ICONS } from './icons';
+import { CHECK_ICON, WORKFLOW_ICONS } from './icons';
+import { CHECK_WORKFLOW } from '@/lib/domain/device-check';
 import {
   rerunHref,
   runCounts,
@@ -74,6 +76,17 @@ export function WorkflowHub({ shortcuts, runs }: { shortcuts: WorkflowShortcut[]
     <div className="wf-hub glide-host">
       <GlideLayer kind="pad" selector=".wf-tile" />
       <ul className="wf-tiles" aria-label="Workflows">
+        <li>
+          <Link href={CHECK_WORKFLOW.href} className="wf-tile pressable">
+            <span className="wf-tile-icon" aria-hidden="true">
+              <Icon icon={CHECK_ICON} size={20} weight="medium" />
+            </span>
+            <span className="wf-tile-text">
+              <span className="wf-tile-title">{CHECK_WORKFLOW.title}</span>
+              <span className="wf-tile-description">{CHECK_WORKFLOW.description}</span>
+            </span>
+          </Link>
+        </li>
         {WORKFLOWS.map((workflow) => (
           <li key={workflow.kind}>
             <Link href={`/workflows/${workflow.slug}`} className="wf-tile pressable" data-tilt="">

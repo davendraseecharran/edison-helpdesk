@@ -180,6 +180,32 @@
   --outline-image-dark: oklch(1 0 0 / 0.1);
 
   /*
+   * The camera's frame, the same in both themes because the picture inside it
+   * is the world's, not the interface's: a near-black ground while it starts,
+   * white marks drawn over the picture, a dim over everything outside the
+   * target so the eye goes to the middle, and the chip controls sit on.
+   */
+  --camera-ground: #0b0b0c;
+  --camera-ink: #ffffff;
+  --camera-dim: rgb(0 0 0 / 0.38);
+  --camera-chip: rgb(0 0 0 / 0.62);
+  --camera-chip-hover: rgb(0 0 0 / 0.8);
+  --camera-shade: rgb(0 0 0 / 0.5);
+  --camera-glow: rgb(255 255 255 / 0.55);
+  --camera-wash: rgb(255 255 255 / 0.22);
+
+  /*
+   * Paper. A label is printed black on white whatever the screen is set to,
+   * and its preview is a picture of that paper, so these do not follow the
+   * theme. `--label-cut` is the die-cut outline the preview draws and the
+   * printer never sees; `--label-used` fills a label already peeled off.
+   */
+  --label-paper: #ffffff;
+  --label-ink: #000000;
+  --label-cut: rgb(0 0 0 / 0.16);
+  --label-used: rgb(0 0 0 / 0.07);
+
+  /*
    * Radii, concentric. Outer = inner + the padding between them, so a 4px
    * control inside 8px of padding needs a 12px card. Small, in the way that
    * reads as precise rather than friendly: 4 on a chip or an inner input, 6 on

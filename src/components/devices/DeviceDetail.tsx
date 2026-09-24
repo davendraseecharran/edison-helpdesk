@@ -21,7 +21,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MapPin, Pencil, User, Wrench } from 'lucide-react';
+import { MapPin, Pencil, Printer, User, Wrench } from 'lucide-react';
 import type { ActionResult } from '@/lib/data/actions';
 import {
   assignDeviceAction,
@@ -30,6 +30,7 @@ import {
 } from '@/lib/data/device-actions';
 import { formatDateTime } from '@/lib/format';
 import { deviceTypeLabel } from '@/lib/domain/device-types';
+import { labelsHref } from '@/lib/labels/layout';
 import {
   ASSIGNED_STATUS,
   AVAILABLE_STATUS,
@@ -45,7 +46,7 @@ import { Avatar, TimeAgo } from '@/components/Primitives';
 import { CopyButton } from '@/components/directory/CopyButton';
 import { RecordHistory } from '@/components/directory/RecordHistory';
 import { RecordTicketList } from '@/components/directory/RecordTicketList';
-import { Button } from '@/components/ui/Button';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Sheet } from '@/components/ui/Sheet';
 import '@/styles/device-model.css';
@@ -339,6 +340,9 @@ export function DeviceDetail({
           <Button icon={Pencil} onClick={() => setEditing(true)} disabled={busy}>
             Edit
           </Button>
+          <ButtonLink icon={Printer} href={labelsHref([device.id])}>
+            Print label
+          </ButtonLink>
         </div>
       </header>
 

@@ -39,6 +39,7 @@ import {
   type SessionRow,
 } from '@/lib/workflows/session';
 import { AuditBoard } from './AuditBoard';
+import { AuditResolution } from './AuditResolution';
 import { FinishSummary } from './FinishSummary';
 import { HandoutPanel } from './HandoutPanel';
 import { LaptopCart } from './LaptopCart';
@@ -224,6 +225,9 @@ export function WorkflowRunner({ kind, initialTarget, locations, statuses }: Wor
     router.replace(workflowHref(kind), { scroll: false });
   }
 
+  // Every machine the run touched, once, for "Print labels for these".
+  const labelIds = useMemo(() => runDeviceIds(rows), [rows]);
+
   const headline = headlineFor(kind, label, counts.done, diff?.found.length ?? 0, expected.length, rows);
   const scanning = phase === 'scan';
 
@@ -281,7 +285,6 @@ export function WorkflowRunner({ kind, initialTarget, locations, statuses }: Wor
                 location={target.location}
                 expectedCount={expected.length}
                 diff={diff}
-                finished={phase === 'finished'}
               />
             ) : kind === 'handout' ? (
               <HandoutPanel
@@ -323,6 +326,7 @@ export function WorkflowRunner({ kind, initialTarget, locations, statuses }: Wor
                 onUndoAll={session.undoAll}
                 onKeepScanning={keepScanning}
                 onNewRun={newRun}
+                labelIds={labelIds}
               />
             ) : (
               <div className="wf-console panel">
@@ -372,7 +376,26 @@ export function WorkflowRunner({ kind, initialTarget, locations, statuses }: Wor
                     onClick={() => session.setSound(!session.sound)}
                   />
                 </div>
-                {camera ? <WorkflowCamera onCode={session.submit} onClose={() => setCamera(false)} /> : null}
+                {camera ? (
+                  <WorkflowCamera
+                    onCode={session.submit}
+                    onClose={() => setCamera(false)}
+                    title={label ? `${info.title}: ${label}` : info.title}
+                    feed={
+                      rows.length > 0 ? (
+                        <ScanList
+                          kind={kind}
+                          target={target}
+                          rows={rows.slice(0, 3)}
+                          personName={person?.displayName}
+                          onUndo={(key) => void session.undo(key)}
+                          describe={kind === 'audit' ? (row) => auditNote(row, target.location, expected) : undefined}
+                          empty=""
+                        />
+                      ) : null
+                    }
+                  />
+                ) : null}
                 {pairing ? (
                   <PhonePairing
                     label={label ? `${info.title}: ${label}` : info.title}
@@ -382,6 +405,10 @@ export function WorkflowRunner({ kind, initialTarget, locations, statuses }: Wor
                 ) : null}
               </div>
             )}
+
+            {phase === 'finished' && diff && (diff.missing.length > 0 || diff.elsewhere.length > 0) ? (
+              <AuditResolution location={target.location} diff={diff} statuses={statuses} locations={locations} />
+            ) : null}
 
             <div className="wf-stats" aria-live="off">
               <span className="wf-stat wf-stat-main">
@@ -492,4 +519,15 @@ function announce(kind: WorkflowKind, row: SessionRow | null, target: WorkflowTa
   if (row.state === 'skipped') return `${name}: skipped.`;
   if (kind === 'audit') return `${name}: found.`;
   return `${name}: ${targetLabel(kind, target) || 'done'}.`;
+}
+
+/** The machines a run read, oldest first, once each: what "Print labels for these" prints. */
+function runDeviceIds(rows: readonly SessionRow[]): string[] {
+  const ids: string[] = [];
+  for (const row of [...rows].reverse()) {
+    if (!row.device || row.state === 'error' || row.state === 'pending') continue;
+    if (row.state === 'done' && row.undo === 'undone') continue;
+    if (!ids.includes(row.device.id)) ids.push(row.device.id);
+  }
+  return ids;
 }

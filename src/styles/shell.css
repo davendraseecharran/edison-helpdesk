@@ -514,23 +514,9 @@
 
 /* --- Barcode scan ------------------------------------------------------- */
 
-.scan-frame {
-  overflow: hidden;
-  border-radius: var(--radius-2);
-  background: var(--surface-3);
-}
-
-.scan-video {
-  display: block;
-  width: 100%;
-  aspect-ratio: 4 / 3;
-  object-fit: cover;
-}
-
-.scan-error {
-  margin-top: 12px;
-  color: var(--bad);
-  font-size: var(--fs-1);
+/* The frame is `camera.css`; the dialog only gives it room. */
+.scan-dialog .cam-frame {
+  max-height: 420px;
 }
 
 @media (max-width: 719.98px) {

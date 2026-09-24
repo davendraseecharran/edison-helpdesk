@@ -9,9 +9,9 @@
  */
 
 import { useState, type FormEvent } from 'react';
-import { BookmarkPlus, Copy, RotateCcw } from 'lucide-react';
+import { BookmarkPlus, Copy, Printer, RotateCcw } from 'lucide-react';
 import { Field } from '@/components/Primitives';
-import { Button } from '@/components/ui/Button';
+import { Button, ButtonLink } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { showToast } from '@/components/ui/shadcn/sonner';
 import { saveWorkflowShortcutAction } from '@/lib/data/workflow-actions';
@@ -21,6 +21,7 @@ import {
   type WorkflowKind,
   type WorkflowTarget,
 } from '@/lib/domain/workflows';
+import { labelsHref } from '@/lib/labels/layout';
 import { formatElapsed, type SessionCounts } from '@/lib/workflows/session';
 
 export interface FinishSummaryProps {
@@ -37,6 +38,8 @@ export interface FinishSummaryProps {
   onUndoAll: () => Promise<void>;
   onKeepScanning: () => void;
   onNewRun: () => void;
+  /** The machines the run read, for "Print labels for these". */
+  labelIds?: string[];
 }
 
 export function FinishSummary({
@@ -52,6 +55,7 @@ export function FinishSummary({
   onUndoAll,
   onKeepScanning,
   onNewRun,
+  labelIds = [],
 }: FinishSummaryProps) {
   const [confirmUndo, setConfirmUndo] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -111,6 +115,11 @@ export function FinishSummary({
           <Button icon={RotateCcw} loading={undoingAll} onClick={() => setConfirmUndo(true)}>
             Undo all
           </Button>
+        ) : null}
+        {labelIds.length > 0 ? (
+          <ButtonLink href={labelsHref(labelIds)} icon={Printer}>
+            {labelIds.length === 1 ? 'Print a label for it' : 'Print labels for these'}
+          </ButtonLink>
         ) : null}
         {kind !== 'handout' ? (
           <Button icon={BookmarkPlus} disabled={saved} onClick={() => setSaveOpen(true)}>

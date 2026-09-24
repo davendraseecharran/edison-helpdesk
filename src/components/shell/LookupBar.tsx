@@ -39,6 +39,7 @@ import {
   Laptop,
   MessageCircle,
   Plus,
+  Printer,
   QrCode,
   Search,
   Settings,
@@ -61,7 +62,8 @@ import { presetActionLabel, presetHref, presetKeywords } from '@/lib/domain/tick
 import { useTicketPresets } from '@/lib/presets/store';
 import { shortcutHref, shortcutKeywords, workflowHref, WORKFLOWS } from '@/lib/domain/workflows';
 import { useWorkflowShortcuts } from '@/lib/workflows/store';
-import { WORKFLOW_ICONS } from '@/components/workflows/icons';
+import { CHECK_ICON, WORKFLOW_ICONS } from '@/components/workflows/icons';
+import { CHECK_WORKFLOW, SCANNED_CODE_EVENT } from '@/lib/domain/device-check';
 import { targetKind } from '@/lib/lookup/recognise';
 import { asksFirst, readAsk } from '@/lib/lookup/ask';
 import { routeScannedCode } from '@/lib/scan/route';
@@ -327,6 +329,12 @@ function Palette({
    */
   const onScan = useCallback(
     (code: string) => {
+      // Check a device reads codes itself; a camera scan from the palette
+      // over it lands on its card rather than on another page.
+      if (!window.dispatchEvent(new CustomEvent(SCANNED_CODE_EVENT, { detail: code, cancelable: true }))) {
+        onClose();
+        return;
+      }
       void (async () => {
         const route = routeScannedCode(code, await lookupDeviceCodeAction(code));
         if (route.kind === 'device') {
@@ -459,6 +467,25 @@ function Palette({
     // The scan jobs, by the name somebody at a cart would type, and the
     // desk's saved runs of them. Typed, not resting: the rail says Workflows.
     if (canWorkTickets(actor.roles)) {
+      // "Who has this?" is asked as often as any job, and changes nothing.
+      list.push({
+        id: 'workflow:check',
+        label: CHECK_WORKFLOW.title,
+        icon: CHECK_ICON,
+        keywords: ['check', 'who has', 'holder', 'whose', 'scan', 'barcode', 'device', 'laptop', 'lookup'],
+        subtitle: CHECK_WORKFLOW.description,
+        matchOnly: true,
+        run: go(CHECK_WORKFLOW.href),
+      });
+      list.push({
+        id: 'labels',
+        label: 'Print labels',
+        icon: Printer,
+        keywords: ['label', 'labels', 'print', 'sticker', 'asset tag', 'barcode', 'qr', 'avery', 'dymo', 'brother'],
+        subtitle: 'Asset labels on Avery sheets, Dymo, Brother or a desk thermal',
+        matchOnly: true,
+        run: go('/devices/labels'),
+      });
       for (const workflow of WORKFLOWS) {
         list.push({
           id: `workflow:${workflow.kind}`,

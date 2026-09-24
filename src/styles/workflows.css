@@ -438,64 +438,9 @@
 
 /* --- Camera ------------------------------------------------------------------ */
 
+/* The frame itself is `camera.css`; in a run it sits above the list. */
 .wf-camera {
-  display: grid;
-  gap: 6px;
-}
-
-.wf-camera-frame {
-  position: relative;
-  overflow: hidden;
-  max-height: 320px;
-  border-radius: var(--radius-3);
-  background: var(--surface-4);
-  aspect-ratio: 4 / 3;
-}
-
-.wf-camera-video {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.wf-camera-wait {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  margin: 0;
-  color: var(--ink-2);
-  font-size: var(--fs-1);
-}
-
-.wf-camera-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-}
-
-/* A read: the frame's edge brightens once and fades. */
-.wf-camera-hit {
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 3px var(--accent);
-  opacity: 0;
-  pointer-events: none;
-  animation: wf-hit 420ms var(--ease-out);
-}
-
-@keyframes wf-hit {
-  from {
-    opacity: 1;
-  }
-}
-
-.wf-camera-note {
-  margin: 0;
-  color: var(--ink-3);
-  font-size: var(--fs-0);
+  margin-top: 2px;
 }
 
 /* --- Paired phone ------------------------------------------------------------- */
@@ -1135,6 +1080,571 @@
   gap: 8px;
 }
 
+/* --- Room audit: deciding --------------------------------------------------------- */
+
+.wf-resolve {
+  display: grid;
+  gap: 16px;
+  padding: 16px;
+}
+
+.wf-resolve-head {
+  display: grid;
+  gap: 4px;
+}
+
+.wf-resolve-title {
+  margin: 0;
+  font-size: var(--fs-4);
+  font-weight: 600;
+  letter-spacing: var(--tracking-title);
+}
+
+.wf-resolve-lede {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+}
+
+.wf-resolve-group {
+  display: grid;
+  gap: 8px;
+}
+
+.wf-resolve-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.wf-resolve-group-title {
+  margin: 0;
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+
+.wf-resolve-count {
+  margin-left: 4px;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+.wf-resolve-all,
+.wf-resolve-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.wf-resolve-all .select-trigger,
+.wf-resolve-choice .select-trigger {
+  min-width: 180px;
+}
+
+.wf-resolve-input {
+  width: 180px;
+}
+
+.wf-resolve-hint {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.wf-resolve-rows {
+  display: grid;
+  max-height: 420px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.wf-resolve-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 12px;
+  align-items: center;
+  padding: 8px 2px;
+}
+
+.wf-resolve-row + .wf-resolve-row {
+  border-top: 1px solid var(--line);
+}
+
+/* A row with its own answer: a bar at its edge says it differs from the list's. */
+.wf-resolve-row[data-own] {
+  box-shadow: inset 2px 0 0 var(--ink);
+  padding-left: 10px;
+}
+
+.wf-resolve-machine {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wf-resolve-label {
+  overflow: hidden;
+  font-size: var(--fs-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-resolve-meta {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-resolve-blocked {
+  grid-column: 1 / -1;
+  color: var(--bad);
+  font-size: var(--fs-1);
+}
+
+.wf-resolve-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.wf-resolve-plan {
+  flex: 1 1 240px;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+}
+
+.wf-resolve-summary {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-2);
+}
+
+.wf-resolve-summary li::before {
+  content: '';
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin: 0 10px 2px 2px;
+  border-radius: 50%;
+  background: var(--ink-3);
+}
+
+.wf-resolve-results {
+  display: grid;
+  max-height: 420px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.wf-resolve-result {
+  display: grid;
+  grid-template-columns: auto minmax(0, 12rem) minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  padding: 8px 2px;
+  font-size: var(--fs-2);
+}
+
+.wf-resolve-result + .wf-resolve-result {
+  border-top: 1px solid var(--line);
+}
+
+.wf-resolve-mark {
+  align-self: center;
+  color: var(--bad);
+}
+
+.wf-resolve-result[data-ok] .wf-resolve-mark {
+  color: var(--good);
+}
+
+.wf-resolve-text {
+  color: var(--ink-2);
+}
+
+.wf-resolve-result:not([data-ok]) .wf-resolve-text {
+  color: var(--ink);
+}
+
+/* --- Check a device ------------------------------------------------------------------ */
+
+.dc {
+  max-width: 800px;
+}
+
+.dc-stage {
+  display: grid;
+  gap: 16px;
+}
+
+/* The card's place: kept at the card's height while one leaves and the next
+   arrives, so the list under it does not jump on every scan. */
+.dc-slot {
+  display: grid;
+  min-height: 220px;
+}
+
+.dc-card-wrap {
+  min-width: 0;
+}
+
+.dc-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.dc-card[data-tone='bad'] .dc-headline {
+  color: var(--bad);
+}
+
+.dc-card-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.dc-card-title {
+  min-width: 0;
+}
+
+.dc-tag {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-6);
+  font-weight: 600;
+  letter-spacing: var(--tracking-display);
+  line-height: 1.1;
+}
+
+.dc-subtitle {
+  margin: 4px 0 0;
+  color: var(--ink-2);
+}
+
+.dc-looking {
+  margin: 0;
+  color: var(--ink-3);
+}
+
+.dc-headline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin: 0;
+  font-size: var(--fs-3);
+  font-weight: 500;
+}
+
+.dc-body {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+/* The answer to the question the scan asked: who has it. */
+.dc-holder {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--surface-2);
+}
+
+.dc-holder-glyph {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--surface-4);
+  color: var(--ink-3);
+}
+
+.dc-holder-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dc-holder-name {
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: var(--fs-4);
+  font-weight: 600;
+  letter-spacing: var(--tracking-title);
+  text-decoration: none;
+}
+
+a.dc-holder-name:focus-visible {
+  border-radius: var(--radius-1);
+  box-shadow: var(--focus);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  a.dc-holder-name:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
+
+.dc-holder[data-empty] .dc-holder-name {
+  color: var(--ink-2);
+  font-size: var(--fs-3);
+}
+
+.dc-holder-meta {
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.dc-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.dc-facts > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dc-facts dt {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 500;
+}
+
+.dc-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--fs-2);
+}
+
+.dc-section {
+  display: grid;
+  gap: 6px;
+}
+
+.dc-section-title {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 600;
+}
+
+.dc-quiet {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.dc-tickets,
+.dc-history {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dc-ticket {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  min-height: 32px;
+  padding: 6px 8px;
+  margin: 0 -8px;
+  border-radius: var(--radius-2);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background-color var(--dur-hover) ease;
+}
+
+.dc-ticket:focus-visible {
+  box-shadow: var(--focus);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dc-ticket:hover {
+    background: var(--surface-3);
+  }
+}
+
+.dc-ticket-number {
+  flex: none;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.dc-ticket-title {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dc-history li {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: var(--fs-1);
+}
+
+.dc-history-summary {
+  min-width: 0;
+  color: var(--ink-2);
+}
+
+.dc-history-time {
+  flex: none;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.dc-actions,
+.dc-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dc-actions {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.dc-empty {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  align-content: center;
+  padding: 32px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-4);
+  color: var(--ink-3);
+  text-align: center;
+}
+
+.dc-empty-title {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: var(--fs-3);
+  font-weight: 500;
+}
+
+.dc-empty-body {
+  max-width: 44ch;
+  margin: 0;
+  font-size: var(--fs-2);
+}
+
+.dc-recent-list {
+  display: grid;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dc-recent-row {
+  display: grid;
+  grid-template-columns: minmax(0, 12rem) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: baseline;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-2);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-hover) ease;
+}
+
+.dc-recent-row:focus-visible {
+  box-shadow: var(--focus);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .dc-recent-row:hover {
+    background: var(--surface-3);
+  }
+}
+
+.dc-recent-tag {
+  overflow: hidden;
+  font-size: var(--fs-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dc-recent-glance {
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dc-recent-time {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.dc-glance {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-3);
+  background: var(--surface-2);
+  font-size: var(--fs-2);
+}
+
+.dc-glance .mono {
+  font-weight: 600;
+}
+
 /* --- Narrower ------------------------------------------------------------------------ */
 
 @media (max-width: 1023.98px) {
@@ -1222,13 +1732,67 @@
   .wf-row-undo {
     align-self: start;
   }
+
+  .wf-resolve {
+    padding: 12px;
+  }
+
+  .dc-card {
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .dc-tag {
+    font-size: var(--fs-5);
+  }
+
+  .dc-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dc-actions .btn {
+    min-height: 40px;
+  }
+
+  .dc-recent-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .dc-recent-glance {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .wf-resolve-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wf-resolve-all,
+  .wf-resolve-choice,
+  .wf-resolve-all .select-trigger,
+  .wf-resolve-choice .select-trigger,
+  .wf-resolve-input {
+    width: 100%;
+  }
+
+  .wf-resolve-result {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .wf-resolve-result .wf-resolve-text {
+    grid-column: 2;
+  }
+
+  .wf-resolve-foot .btn {
+    width: 100%;
+  }
 }
 
 /* Movement goes; every state is still drawn. */
 @media (prefers-reduced-motion: reduce) {
   .wf-row,
   .wf-row-dot,
-  .wf-camera-hit,
   .wf-cart-slot[data-fill='added'] .wf-cart-laptop,
   .wf-settle-value[data-dir] {
     animation: none;

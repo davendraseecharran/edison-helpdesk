@@ -9,11 +9,12 @@
  * Chromebooks back in, and a page load per machine is nineteen page loads
  * nobody wanted.
  *
- * So the scan puts a card in the corner instead, naming the machine and
- * offering the three things anybody does next. Return happens right there —
- * the common one, and the one that makes scan, tap, scan, tap a rhythm. Assign
- * and Open go to the page, because assigning needs a person and opening is the
- * whole point of opening.
+ * So the scan puts a card in the corner instead, naming the machine, saying
+ * who has it (or what state it is in), and offering the thing anybody does
+ * next. Return when somebody has it, Assign when nobody does — the common
+ * one, and the one that makes scan, tap, scan, tap a rhythm. "Check" opens
+ * the whole card on Check a device (holder, tickets, history), and Open goes
+ * to the page.
  *
  * The next scan replaces the card. It is a thing in your hand, not a log.
  *
@@ -22,13 +23,15 @@
  * cannot drift apart.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Laptop, X } from 'lucide-react';
 import { useRuntime } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
+import { checkDeviceByIdAction } from '@/lib/data/device-check-actions';
 import { returnDeviceAction } from '@/lib/data/device-actions';
+import { checkedGlance, checkHref } from '@/lib/domain/device-check';
 import { devicePath } from '@/lib/scan/route';
 import { say } from '@/lib/voice/moments';
 import '@/styles/scan-card.css';
@@ -55,26 +58,45 @@ export function readScannedDevice(event: Event): ScannedDevice | null {
   return { id, label: typeof label === 'string' && label !== '' ? label : id };
 }
 
+/** Who has it, once the check has answered: null while it is on its way. */
+interface Glance {
+  held: boolean;
+  text: string;
+}
+
 export function ScannedDeviceCard() {
   const { pendingKey, run } = useRuntime();
   const router = useRouter();
   const [device, setDevice] = useState<ScannedDevice | null>(null);
+  const [glance, setGlance] = useState<Glance | null>(null);
   /** The machine that was just put back, for the line that marks it. */
   const [returned, setReturned] = useState<string | null>(null);
+  const shown = useRef<string | null>(null);
 
   useEffect(() => {
     function onScanned(event: Event) {
       const next = readScannedDevice(event);
       if (next === null) return;
+      shown.current = next.id;
       setReturned(null);
+      setGlance(null);
       setDevice(next);
+      void checkDeviceByIdAction(next.id).then(
+        (result) => {
+          if (shown.current !== next.id || result.kind !== 'device') return;
+          setGlance({ held: result.device.holder !== null, text: checkedGlance(result.device) });
+        },
+        () => {},
+      );
     }
     window.addEventListener(SCANNED_DEVICE_EVENT, onScanned);
     return () => window.removeEventListener(SCANNED_DEVICE_EVENT, onScanned);
   }, []);
 
   const close = useCallback(() => {
+    shown.current = null;
     setDevice(null);
+    setGlance(null);
     setReturned(null);
   }, []);
 
@@ -90,6 +112,9 @@ export function ScannedDeviceCard() {
   if (!device) return null;
 
   const busy = pendingKey !== null;
+  // Until the check answers, both are offered, as the card always did.
+  const offerReturn = glance === null || glance.held;
+  const offerAssign = glance === null || !glance.held;
 
   return (
     <div className="scan-card" role="status">
@@ -100,6 +125,7 @@ export function ScannedDeviceCard() {
           <Icon icon={X} size={14} />
         </button>
       </div>
+      {glance && !returned ? <p className="scan-card-glance">{glance.text}</p> : null}
 
       {returned ? (
         /* No mark. A cart check-in is a hundred of these in an afternoon, and
@@ -108,24 +134,40 @@ export function ScannedDeviceCard() {
         <p className="scan-card-done">{returned}</p>
       ) : (
         <div className="scan-card-actions">
+          {offerReturn ? (
+            <Button
+              size="sm"
+              variant="accent"
+              disabled={busy}
+              loading={pendingKey === `return:${device.id}`}
+              onClick={() => void returnIt()}
+            >
+              Return
+            </Button>
+          ) : null}
+          {offerAssign ? (
+            <Button
+              size="sm"
+              variant={offerReturn ? 'secondary' : 'accent'}
+              disabled={busy}
+              onClick={() => {
+                close();
+                router.push(`${devicePath(device.id)}?do=assign`);
+              }}
+            >
+              Assign
+            </Button>
+          ) : null}
           <Button
             size="sm"
-            variant="accent"
-            disabled={busy}
-            loading={pendingKey === `return:${device.id}`}
-            onClick={() => void returnIt()}
-          >
-            Return
-          </Button>
-          <Button
-            size="sm"
+            variant="ghost"
             disabled={busy}
             onClick={() => {
               close();
-              router.push(`${devicePath(device.id)}?do=assign`);
+              router.push(checkHref(device.label));
             }}
           >
-            Assign
+            Check
           </Button>
           <Button
             size="sm"

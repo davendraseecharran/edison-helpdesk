@@ -12,6 +12,7 @@
  * the ordinary empty form, not a page that will not load.
  */
 
+import { loadDeviceRef } from '@/lib/data/devices';
 import { loadTicketPreset } from '@/lib/data/ticket-presets';
 import { presetDraft } from '@/lib/domain/ticket-presets';
 import { IntakeForm } from '@/components/ticket/IntakeForm';
@@ -19,10 +20,16 @@ import { IntakeForm } from '@/components/ticket/IntakeForm';
 export default async function NewTicketPage({
   searchParams,
 }: {
-  searchParams: Promise<{ preset?: string }>;
+  searchParams: Promise<{ preset?: string; device?: string }>;
 }) {
-  const { preset: id } = await searchParams;
-  const preset = typeof id === 'string' ? await loadTicketPreset(id) : null;
+  const { preset: id, device: deviceId } = await searchParams;
+  // `?device=` links the machine a ticket was started from (Check a device),
+  // read in the caller's own session like the preset; an id that names
+  // nothing is the ordinary empty form.
+  const [preset, device] = await Promise.all([
+    typeof id === 'string' ? loadTicketPreset(id) : null,
+    typeof deviceId === 'string' ? loadDeviceRef(deviceId) : null,
+  ]);
 
-  return <IntakeForm preset={preset ? presetDraft(preset) : null} />;
+  return <IntakeForm preset={preset ? presetDraft(preset) : null} device={device} />;
 }
