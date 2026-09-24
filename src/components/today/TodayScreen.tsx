@@ -39,6 +39,7 @@ import { useRouter } from 'next/navigation';
 import { useRuntime } from '@/components/AppRuntime';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { useApplePlatform, usePhone, useReducedMotion } from '@/components/ui/media';
+import { AnimatePresence, CountSwap, EASE_OUT_FAST, motion } from '@/components/ui/Motion';
 import { useRowKeys } from '@/components/ui/useRowKeys';
 import { claimTicketsAction } from '@/lib/data/actions';
 import { markDeviceAvailableAction, returnDeviceAction } from '@/lib/data/device-actions';
@@ -85,6 +86,21 @@ function subscribeToNothing(): () => void {
 function shortAge(since: string, at: Date): string {
   const label = ageLabel(since, at);
   return label === 'just now' ? 'now' : label;
+}
+
+/**
+ * How a Today row leaves: it fades and folds shut over 120ms, the exit
+ * number, and the rows below close the gap as it goes. A row claimed,
+ * returned, or taken by somebody else on the next refresh all leave this way.
+ * Under reduced motion it simply goes.
+ */
+function rowPresence(reduced: boolean) {
+  return {
+    initial: false as const,
+    exit: reduced ? undefined : { opacity: 0, height: 0 },
+    transition: EASE_OUT_FAST,
+    style: { overflow: 'clip' as const },
+  };
 }
 
 /** Per browser, per account: whether this person has landed here before. */
@@ -375,8 +391,13 @@ export function TodayScreen({
           <ClearState briefing={briefing} cleared={cleared} reduced={reduced} hour={hour} weekday={weekday} />
         ) : (
           <ul className="today-list" {...keys.arrowProps}>
+            {/* A row somebody finished leaves by folding shut rather than
+                vanishing, so the rows under it close up visibly and the eye
+                keeps its place. Rows arriving appear in place: only the
+                leaving answers something the reader did. */}
+            <AnimatePresence initial={false}>
             {items.map((item, index) => (
-              <li key={item.key}>
+              <motion.li key={item.key} {...rowPresence(reduced)}>
                 <div className="today-row" {...keys.rowProps(item.key)}>
                   <span className="today-row-main">
                     <span className="today-row-title">
@@ -428,8 +449,9 @@ export function TodayScreen({
                     )}
                   </span>
                 </div>
-              </li>
+              </motion.li>
             ))}
+            </AnimatePresence>
           </ul>
         )}
         {/* Where the rest are, one link a kind: the section is a start, not the whole day. */}
@@ -478,8 +500,9 @@ export function TodayScreen({
           </div>
           {dueSentence ? <p className="today-due-lead subtle">{dueSentence}</p> : null}
           <ul className="today-list" {...keys.arrowProps}>
+            <AnimatePresence initial={false}>
             {due.map((device) => (
-              <li key={device.id}>
+              <motion.li key={device.id} {...rowPresence(reduced)}>
                 <div className="today-row" {...keys.rowProps(`device:${device.id}`)}>
                   <span className="today-row-main">
                     <span className="today-row-title">
@@ -506,8 +529,9 @@ export function TodayScreen({
                     </Button>
                   </span>
                 </div>
-              </li>
+              </motion.li>
             ))}
+            </AnimatePresence>
           </ul>
           {/* Where the rest of them are: the same rule, the whole list, oldest first. */}
           {dueRest ? (
@@ -521,13 +545,13 @@ export function TodayScreen({
       <nav className="today-stage today-ledger" aria-label="Where the rest of the work is">
         {ticketWorker ? (
           <Link className="today-ledger-item" href="/my-tickets">
-            <b>{briefing.counts.mine}</b>
+            <b><CountSwap value={briefing.counts.mine} /></b>
             <span>{briefing.counts.mine === 1 ? 'ticket you own' : 'tickets you own'}</span>
           </Link>
         ) : null}
         {ticketWorker ? (
           <Link className="today-ledger-item" href="/queue">
-            <b>{briefing.counts.unassigned}</b>
+            <b><CountSwap value={briefing.counts.unassigned} /></b>
             <span>in the queue</span>
           </Link>
         ) : null}
@@ -535,7 +559,7 @@ export function TodayScreen({
             printing a zero and a label explaining the zero. */}
         {admin && briefing.counts.accessRequests > 0 ? (
           <Link className="today-ledger-item" href="/admin">
-            <b>{briefing.counts.accessRequests}</b>
+            <b><CountSwap value={briefing.counts.accessRequests} /></b>
             <span>waiting for access</span>
           </Link>
         ) : null}
