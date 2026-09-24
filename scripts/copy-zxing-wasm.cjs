@@ -8,6 +8,7 @@
  * `barcode-detector` and commit the result. Not a build hook: the deployment
  * upload excludes `scripts/`, so a hook here fails on the host.
  */
+/* eslint-disable @typescript-eslint/no-require-imports -- a plain Node script, run by hand */
 const fs = require('node:fs');
 const path = require('node:path');
 
