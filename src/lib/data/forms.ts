@@ -17,6 +17,7 @@ import { publicSupabaseConfig } from '@/lib/supabase/config';
 import {
   fieldsFromJson,
   isFormState,
+  responseVia,
   type FormAudience,
   type FormField,
   type FormResponseRow,
@@ -159,7 +160,7 @@ export function mapResponse(row: Record<string, unknown>): FormResponseRow {
         ? (row.answers as Record<string, unknown>)
         : {},
     changed: Array.isArray(row.changed) ? row.changed.map(String) : [],
-    via: row.via === 'kiosk' ? 'kiosk' : 'link',
+    via: responseVia(row.via),
     submittedAt: text(row.submitted_at),
     recordedByName: textOrNull(row.recorded_by_name),
   };

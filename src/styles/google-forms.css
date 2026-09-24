@@ -1,0 +1,289 @@
+/*
+ * Google Forms in and out, and a sheet of responses in.
+ *
+ * The import dialog, the export sheet and the responses import. Built on the
+ * tokens and on the Resolved import's table (`tickets.css`, `.import-*`),
+ * which the responses import reuses whole; nothing here names a colour and
+ * nothing here moves.
+ */
+
+.dialog.gf-dialog {
+  width: min(720px, calc(100% - 32px));
+}
+
+.gf-paste,
+.gf-script,
+.gf-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.gf-input {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  font-size: var(--fs-2);
+}
+
+.gf-link-button {
+  align-self: flex-start;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: 500 var(--fs-1) / 1.4 var(--font-sans);
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition:
+    color var(--dur-hover) ease,
+    text-decoration-color var(--dur-hover) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .gf-link-button:hover {
+    color: var(--ink);
+    text-decoration-color: var(--ink);
+  }
+}
+
+.gf-link-button:focus-visible {
+  border-radius: var(--radius-1);
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+/* --- Numbered steps: they are a sequence ------------------------------- */
+
+.gf-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: gf-step;
+}
+
+.gf-steps > li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding-left: 34px;
+  counter-increment: gf-step;
+}
+
+.gf-steps > li::before {
+  position: absolute;
+  top: -1px;
+  left: 0;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink);
+  content: counter(gf-step);
+  font: 600 var(--fs-0) / 1 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+}
+
+.gf-step-text {
+  color: var(--ink);
+  font-size: var(--fs-2);
+  line-height: 1.5;
+}
+
+.gf-step-text code {
+  padding: 1px 5px;
+  border-radius: var(--radius-1);
+  background: var(--surface-3);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+  overflow-wrap: anywhere;
+}
+
+.gf-code {
+  max-height: 240px;
+  margin: 0;
+  padding: 12px 14px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--surface-2);
+  color: var(--ink-2);
+  font-size: var(--fs-0);
+  line-height: 1.55;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.gf-code:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+/* --- Preview ------------------------------------------------------------ */
+
+.gf-description {
+  margin: -4px 0 0;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  white-space: pre-line;
+}
+
+.gf-audience {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.gf-heading {
+  margin: 4px 0 8px;
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+
+.gf-questions,
+.gf-skipped {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+}
+
+.gf-question {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.gf-question + .gf-question,
+.gf-skipped li + li {
+  border-top: 1px solid var(--line);
+}
+
+.gf-q-icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--ink-3);
+}
+
+.gf-question[data-directory] .gf-q-icon {
+  color: var(--ink);
+}
+
+.gf-q-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.gf-q-label {
+  color: var(--ink);
+  font-size: var(--fs-2);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.gf-required {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 500;
+}
+
+.gf-q-meta {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.gf-q-note {
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.gf-q-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  margin-top: 2px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  cursor: pointer;
+}
+
+.gf-skipped li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+}
+
+.gf-skipped-label {
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.gf-skipped-why {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+/* --- Export ------------------------------------------------------------- */
+
+.gf-export {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.gf-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0 0 0 18px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.gf-export .gf-code {
+  max-height: 320px;
+}
+
+/* --- Responses import: a column that is a question ---------------------- */
+
+.ri-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+@media (max-width: 559.98px) {
+  .gf-steps > li {
+    padding-left: 30px;
+  }
+
+  .gf-code {
+    max-height: 180px;
+  }
+}

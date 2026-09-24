@@ -118,3 +118,15 @@ export async function loadGroupEvent(
     roll: ((roll.data ?? []) as RollRow[]).map(mapRoll),
   };
 }
+
+/**
+ * The roll alone, for a page that already has the event and is keeping its
+ * register current while people check themselves in. Null when the read was
+ * refused, so a failed look leaves the screen as it was.
+ */
+export async function loadEventRoll(eventId: string): Promise<RollEntry[] | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('app_event_roll', { p_event: eventId });
+  if (error || !Array.isArray(data)) return null;
+  return (data as RollRow[]).map(mapRoll);
+}

@@ -112,6 +112,30 @@ import {
   type ScannedMachine,
 } from '@/lib/workflows/session';
 import {
+  APPS_SCRIPT_READER,
+  fieldsFromDraft,
+  googleFormScript,
+  readImportInput,
+  suggestedDirectory,
+  type FormDraft,
+} from '@/lib/domain/google-forms';
+import { fetchGoogleFormDraft } from '@/lib/google-forms/fetch';
+import {
+  RESPONSE_IMPORT_BATCH,
+  RESPONSE_IMPORT_MAX_ROWS,
+  guessTargets,
+  previewResponses,
+  targetProblems,
+} from '@/lib/domain/form-response-import';
+import { readSheet } from '@/lib/domain/ticket-import';
+import {
+  CHECKIN_IDENTITIES,
+  CHECKIN_IDENTITY_LABELS,
+  CHECKIN_STATE_LABELS,
+  checkinFromJson,
+  checkinPath,
+} from '@/lib/domain/checkin';
+import {
   answerText,
   AUDIENCE_LABELS,
   choiceCounts,
@@ -133,6 +157,8 @@ import {
   newFieldId,
   QUESTION_TYPES,
   respondentName,
+  responseVia,
+  VIA_LABELS,
   type FormField,
   type FormResponseRow,
 } from '@/lib/domain/forms';
@@ -751,7 +777,7 @@ function formResponseRow(row: Record<string, unknown>): FormResponseRow {
     externalId: text(row.external_id),
     answers: isRecord(row.answers) ? row.answers : {},
     changed: Array.isArray(row.changed) ? row.changed.map(String) : [],
-    via: row.via === 'kiosk' ? 'kiosk' : 'link',
+    via: responseVia(row.via),
     submittedAt: textOf(row.submitted_at),
     recordedByName: text(row.recorded_by_name),
   };
@@ -2038,7 +2064,7 @@ const TOOLS: Record<string, ToolSpec> = {
           respondent: respondentName(row, fields),
           id_number: row.externalId,
           submitted_at: row.submittedAt,
-          via: row.via === 'kiosk' ? 'Kiosk' : 'Link',
+          via: VIA_LABELS[row.via],
           answers,
         };
       });
@@ -4473,6 +4499,265 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  import_google_form: {
+    group: 'write',
+    description:
+      'Make a form here from a Google Form. Give the link people answer it at (docs.google.com/forms/… or forms.gle/…), or the JSON the Apps Script printed. The helpdesk reads the public page itself: title, description, and every question with its choices and whether it is required. Short answer, paragraph, multiple choice, checkboxes, dropdown and date come across as themselves; a linear scale becomes one choice of its numbers; a time becomes a short answer; a section heading is folded into the next question’s help text. Grids, file uploads, images and videos cannot come and are listed. A question whose title is a name, email, OSIS, class or guardian becomes a directory question unless use_directory is false. When the form needs a Google sign-in the answer says so and carries the Apps Script to hand the person, with three steps: run it in their own Google account and paste back what it prints, then call this again with json.',
+    fields: {
+      link: { type: 'string', maxLength: 2000, description: 'The Google Form link. Give this or json, not both.' },
+      json: {
+        type: 'string',
+        maxLength: 400_000,
+        description: 'What the Apps Script printed (the whole Execution log is fine), or a form downloaded from this helpdesk as JSON.',
+      },
+      title: { type: 'string', maxLength: FORM_TITLE_MAX, description: 'A different title for the new form. Default: the Google Form’s own.' },
+      who_can_answer: {
+        type: 'string',
+        choices: ['directory', 'anyone'],
+        description: 'directory: people in the school directory, who identify themselves first. anyone: anybody with the link. Default: directory when a directory question came across, otherwise anyone.',
+      },
+      use_directory: {
+        type: 'boolean',
+        description: 'Default true: questions that ask for a name, email, OSIS, class or guardian are filled in from the directory. False keeps every question as Google had it.',
+      },
+    },
+    run: async (args, ctx) => {
+      const link = typeof args.link === 'string' ? args.link : '';
+      const json = typeof args.json === 'string' ? args.json : '';
+      if ((link === '') === (json === '')) throw new ToolError('Give the Google Form link or the JSON, one of the two.');
+
+      let draft: FormDraft;
+      if (json !== '') {
+        const input = readImportInput(json);
+        if (input.kind !== 'draft') {
+          throw new ToolError(input.kind === 'unreadable' ? input.message : 'That is a link, not JSON. Send it as link.');
+        }
+        draft = input.draft;
+      } else {
+        const fetched = await fetchGoogleFormDraft(link);
+        if (!fetched.ok) {
+          if (fetched.reason === 'signin' || fetched.reason === 'unreadable' || fetched.reason === 'unreachable') {
+            return {
+              ok: false,
+              result: {
+                error: fetched.message,
+                needs_script: true,
+                steps: [
+                  'Open https://script.new and paste the script over what is there.',
+                  'Put the form’s EDIT link where the script says PASTE_THE_EDIT_LINK_HERE, press Run and allow access.',
+                  'Copy everything in the Execution log and paste it back here.',
+                ],
+                script: APPS_SCRIPT_READER,
+              },
+              summary: fetched.message,
+            };
+          }
+          throw new ToolError(fetched.message);
+        }
+        draft = fetched.draft;
+      }
+
+      if (draft.questions.length === 0) {
+        throw new ToolError(
+          draft.skipped.length > 0
+            ? `Nothing in that form can come across: ${draft.skipped.map((item) => `${item.label} (${item.reason})`).join('; ')}`
+            : 'That form has no questions.',
+        );
+      }
+      const useDirectory = args.use_directory !== false;
+      const fields = fieldsFromDraft(draft, useDirectory ? suggestedDirectory(draft) : new Set<number>());
+      const directoryCount = fields.filter((field) => field.type === 'directory').length;
+      const title = typeof args.title === 'string' ? args.title : draft.title;
+      const audience =
+        typeof args.who_can_answer === 'string' ? args.who_can_answer : directoryCount > 0 ? 'directory' : 'anyone';
+
+      const id = textOf(
+        await rpc(ctx, 'app_create_form', {
+          p_title: title,
+          p_description: draft.description,
+          p_fields: fields,
+          p_audience: audience,
+        }),
+      );
+      const detail = await rpc(ctx, 'app_get_form', { p_form: id });
+      return outcome(
+        {
+          id,
+          title,
+          who_can_answer: AUDIENCE_LABELS[audience === 'anyone' ? 'anyone' : 'directory'],
+          questions: fields.map((field) => ({
+            question: fieldLabel(field),
+            type: field.type === 'directory' && field.directory ? `directory (${DIRECTORY_LABELS[field.directory]})` : field.type,
+            required: field.required,
+          })),
+          changed_on_the_way: draft.questions.filter((entry) => entry.note).map((entry) => `${entry.label}: ${entry.note}`),
+          not_imported: draft.skipped.map((item) => `${item.label}: ${item.reason}`),
+          page: formBuilderPath(id),
+          link: isRecord(detail) ? formLinkPath(textOf(detail.slug)) : null,
+        },
+        `Imported ${title} with ${fields.length} ${fields.length === 1 ? 'question' : 'questions'}`,
+      );
+    },
+  },
+
+  google_form_script: {
+    group: 'read',
+    description:
+      'The Apps Script that makes one of these forms in Google Forms, for somebody who wants it there too. Answers the script to show them in a code block, the three steps (open https://script.new, paste it and press Run, allow access; the log prints the new form’s links) and what will not be the same: a signature is left out, and a directory question becomes an ordinary question with the same words. Nothing is sent to Google by the helpdesk.',
+    fields: {
+      form: { type: 'string', required: true, description: 'The form, by title or by id.' },
+    },
+    run: async (args, ctx) => {
+      const ref = await resolveForm(ctx, String(args.form));
+      const detail = await rpc(ctx, 'app_get_form', { p_form: ref.id });
+      if (!isRecord(detail)) throw new ToolError('There is no form with that id.');
+      const exported = googleFormScript({
+        title: textOf(detail.title),
+        description: textOf(detail.description),
+        fields: fieldsFromJson(detail.fields),
+      });
+      return outcome(
+        {
+          form: ref.title,
+          steps: [
+            'Open https://script.new and paste the script over what is there.',
+            'Press Run and allow access. It makes one new form in their Google Drive.',
+            'The Execution log shows the new form’s edit and share links.',
+          ],
+          not_the_same: exported.notes,
+          script: exported.script,
+        },
+        `Wrote the Google Forms script for ${ref.title}`,
+      );
+    },
+  },
+
+  import_form_responses: {
+    group: 'write',
+    description:
+      'Bring the responses from a Google Form’s sheet into one of these forms: the rows the person pasted, a CSV, or what you read off a screenshot of the sheet. Send the sheet as text with its heading row first, tab- or comma-separated. Each column is matched to a question by its heading, so keep the question’s own words as the heading; Timestamp is the time it was sent, and an Email, OSIS or Name column says who answered, which finds them in the directory. Safe to repeat: a row already imported is skipped, and a newer row replaces somebody’s older answer. A matched person joins the form’s linked group and is marked at its linked event. Answers how many came in, how many were already there, which rows were refused and why, and which columns matched no question.',
+    fields: {
+      form: { type: 'string', required: true, description: 'The form, by title or by id.' },
+      sheet: {
+        type: 'string',
+        required: true,
+        maxLength: 400_000,
+        description: 'The rows, heading row first, as tab-separated or comma-separated text.',
+      },
+    },
+    run: async (args, ctx) => {
+      const ref = await resolveForm(ctx, String(args.form));
+      const detail = await rpc(ctx, 'app_get_form', { p_form: ref.id });
+      if (!isRecord(detail)) throw new ToolError('There is no form with that id.');
+      const fields = fieldsFromJson(detail.fields);
+
+      const sheet = readSheet(String(args.sheet));
+      if (sheet === null || sheet.rows.length === 0) {
+        throw new ToolError('There are no rows under the heading row. Send the heading row and the rows under it.');
+      }
+      if (sheet.rows.length > RESPONSE_IMPORT_MAX_ROWS) {
+        throw new ToolError(`That is ${sheet.rows.length} rows. Send at most ${RESPONSE_IMPORT_MAX_ROWS} at a time.`);
+      }
+      const targets = guessTargets(sheet.headers, fields);
+      const problems = targetProblems(targets);
+      if (problems.length > 0) {
+        throw new ToolError(
+          `${problems.join(' ')} The headings were: ${sheet.headers.join(', ')}. The form asks: ${fields
+            .map((field) => fieldLabel(field))
+            .join(', ')}. Rename the headings to the question’s words and send it again.`,
+        );
+      }
+
+      const preview = previewResponses(sheet, targets, fields, [], Date.now());
+      const refused: string[] = preview
+        .filter((row) => row.payload === null)
+        .map((row) => `Row ${row.line}: ${row.errors.join(' ')}`);
+      const sendable = preview.filter((row) => row.payload !== null);
+      const counts = { made: 0, updated: 0, skipped: 0, refused: refused.length };
+      for (let start = 0; start < sendable.length; start += RESPONSE_IMPORT_BATCH) {
+        const chunk = sendable.slice(start, start + RESPONSE_IMPORT_BATCH);
+        const answered = rows(
+          await rpc(ctx, 'app_import_form_responses', { p_form: ref.id, p_rows: chunk.map((row) => row.payload) }),
+        );
+        for (const row of answered) {
+          const source = chunk[Number(row.row_index) - 1];
+          const kind = textOf(row.outcome);
+          if (kind === 'made' || kind === 'updated' || kind === 'skipped') counts[kind] += 1;
+          else {
+            counts.refused += 1;
+            refused.push(`Row ${source?.line ?? '?'}: ${textOf(row.message)}`);
+          }
+        }
+      }
+
+      const unused = sheet.headers.filter((_, index) => targets[index] === 'skip');
+      return outcome(
+        {
+          form: ref.title,
+          imported: counts.made + counts.updated,
+          replaced_older_answers: counts.updated,
+          already_here: counts.skipped,
+          refused: refused.slice(0, 20),
+          refused_count: counts.refused,
+          columns_left_out: unused,
+          page: `/forms/${ref.id}/responses`,
+        },
+        `Imported ${counts.made + counts.updated} ${counts.made + counts.updated === 1 ? 'response' : 'responses'} into ${ref.title}`,
+      );
+    },
+  },
+
+  set_self_checkin: {
+    group: 'write',
+    description:
+      'Turn self check-in on or off for one event, and set how people identify. On, the event gets a public link and a poster with a QR code; people scan it at the door and check themselves in on their own phones, on the event’s day only. identity is what they type: either (their name, or their OSIS when two people share a name; the default), osis, name, or both. walk_ins true lets somebody in the directory who is not in the group check in, and adds them to the group. Answers the link, the poster page to print, and whether it is taking check-ins today.',
+    fields: {
+      group: { type: 'string', required: true, description: 'The group, by name or by id.' },
+      event: { type: 'string', required: true, description: 'The event, by name or by id.' },
+      on: { type: 'boolean', required: true, description: 'True to open self check-in, false to close it.' },
+      identity: {
+        type: 'string',
+        choices: CHECKIN_IDENTITIES,
+        description: 'either, osis, name or both. Leave it out to keep the current setting (either for a new one).',
+      },
+      walk_ins: {
+        type: 'boolean',
+        description: 'Whether somebody not in the group may check in and be added. Leave it out to keep the current setting (off for a new one).',
+      },
+    },
+    run: async (args, ctx) => {
+      const group = await resolveGroup(ctx, String(args.group));
+      const event = await resolveGroupEvent(ctx, group, String(args.event));
+      const on = args.on === true;
+      if (!on && checkinFromJson(await rpc(ctx, 'app_event_checkin', { p_event: event.id })) === null) {
+        return outcome({ event: event.name, on: false }, `Self check-in was never on for ${event.name}`);
+      }
+      const settings = checkinFromJson(
+        await rpc(ctx, 'app_set_event_checkin', {
+          p_event: event.id,
+          p_open: on,
+          p_identity: typeof args.identity === 'string' ? args.identity : null,
+          p_walk_ins: typeof args.walk_ins === 'boolean' ? args.walk_ins : null,
+        }),
+      );
+      if (settings === null) throw new ToolError('That did not go through. Nothing changed.');
+      return outcome(
+        {
+          event: event.name,
+          held_on: event.heldOn,
+          state: CHECKIN_STATE_LABELS[settings.state],
+          people_type: CHECKIN_IDENTITY_LABELS[settings.identity],
+          walk_ins: settings.walkIns,
+          link: checkinPath(settings.slug),
+          poster: `/print/checkin/${event.id}`,
+          event_page: `/groups/${group.id}/events/${event.id}`,
+          checked_themselves_in: settings.selfCount,
+        },
+        `${on ? 'Opened' : 'Closed'} self check-in for ${event.name}`,
+      );
+    },
+  },
+
   bulk_assign_devices: {
     group: 'write',
     description:
@@ -5233,6 +5518,13 @@ const DIRECTORY_TOOLS = [
   'form_responses',
   'create_form',
   'set_form_open',
+  // Moving between Google Forms and these, and the sheet of answers an old
+  // Google Form left behind, are the same chapter business.
+  'import_google_form',
+  'google_form_script',
+  'import_form_responses',
+  // A poster on the door for a meeting nobody is standing at.
+  'set_self_checkin',
   // A sheet of people is directory work, exactly as one person is.
   'import_people',
   // Their own name and the note the whole desk shares, both on Settings.

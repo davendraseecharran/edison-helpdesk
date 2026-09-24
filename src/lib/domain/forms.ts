@@ -290,6 +290,19 @@ export function answerText(field: FormField | undefined, value: unknown): string
 // Responses as a table
 // ---------------------------------------------------------------------------
 
+/** Where a response came from: the public link, a kiosk, or a sheet imported later. */
+export type FormResponseVia = 'link' | 'kiosk' | 'import';
+
+export function responseVia(value: unknown): FormResponseVia {
+  return value === 'kiosk' ? 'kiosk' : value === 'import' ? 'import' : 'link';
+}
+
+export const VIA_LABELS: Record<FormResponseVia, string> = {
+  link: 'Link',
+  kiosk: 'Kiosk',
+  import: 'Imported',
+};
+
 export interface FormResponseRow {
   id: string;
   requesterId: string | null;
@@ -297,7 +310,7 @@ export interface FormResponseRow {
   externalId: string | null;
   answers: Record<string, unknown>;
   changed: string[];
-  via: 'link' | 'kiosk';
+  via: FormResponseVia;
   submittedAt: string;
   recordedByName: string | null;
 }
@@ -323,7 +336,7 @@ export function responseTable(
     respondentName(row, fields),
     row.externalId ?? '',
     ...fields.map((field) => answerText(field, row.answers[field.id])),
-    row.via === 'kiosk' ? `Kiosk${row.recordedByName ? ` (${row.recordedByName})` : ''}` : 'Link',
+    row.via === 'link' ? VIA_LABELS.link : `${VIA_LABELS[row.via]}${row.recordedByName ? ` (${row.recordedByName})` : ''}`,
   ]);
   return [header, ...body];
 }

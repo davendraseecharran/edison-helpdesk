@@ -16,7 +16,7 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ClipboardCopy, Download, Sheet as SheetIcon, Trash2 } from 'lucide-react';
+import { ClipboardCopy, Download, FileUp, Sheet as SheetIcon, Trash2 } from 'lucide-react';
 import { deleteFormResponseAction, logFormCopyAction } from '@/lib/data/form-actions';
 import {
   answerText,
@@ -26,6 +26,7 @@ import {
   respondentName,
   responseTable,
   toTsv,
+  VIA_LABELS,
   type FormField,
   type FormResponseRow,
 } from '@/lib/domain/forms';
@@ -41,6 +42,7 @@ import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { useApplePlatform } from '@/components/ui/media';
 import { useRowKeys } from '@/components/ui/useRowKeys';
 import { SignatureThumb } from './SignaturePad';
+import { ImportResponsesDialog } from './ImportResponsesDialog';
 import '@/styles/forms.css';
 
 type Show = 'all' | 'matched' | 'unmatched' | 'changed';
@@ -88,6 +90,10 @@ export function FormResponses({
   const [query, setQuery] = useState('');
   const [deleting, setDeleting] = useState<FormResponseRow | null>(null);
   const [copying, setCopying] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const importDialog = (
+    <ImportResponsesDialog open={importing} onClose={() => setImporting(false)} formId={formId} fields={fields} />
+  );
 
   const visible = useMemo(() => {
     const folded = query.trim().toLowerCase();
@@ -167,7 +173,7 @@ export function FormResponses({
             )}
           </span>
           <span className="dir-sub">
-            {[row.externalId, row.via === 'kiosk' ? 'Kiosk' : null].filter(Boolean).join(', ') || 'Link'}
+            {[row.externalId, row.via === 'link' ? null : VIA_LABELS[row.via]].filter(Boolean).join(', ') || 'Link'}
           </span>
         </div>
       ),
@@ -209,9 +215,18 @@ export function FormResponses({
   if (rows.length === 0) {
     return (
       <section className="panel">
-        <EmptyState title="No responses yet" action={null}>
-          Share the link or open the kiosk, and answers land here as they come in.
+        <EmptyState
+          title="No responses yet"
+          action={
+            <Button icon={FileUp} onClick={() => setImporting(true)}>
+              Import responses
+            </Button>
+          }
+        >
+          Share the link or open the kiosk, and answers land here as they come in. Moving from
+          Google Forms? Import the rows from its sheet.
         </EmptyState>
+        {importDialog}
       </section>
     );
   }
@@ -268,6 +283,9 @@ export function FormResponses({
             </Button>
             <Button size="sm" icon={SheetIcon} onClick={() => void copyForSheets(true)} disabled={copying}>
               Open in Google Sheets
+            </Button>
+            <Button size="sm" icon={FileUp} onClick={() => setImporting(true)}>
+              Import responses
             </Button>
           </div>
         </div>
@@ -332,7 +350,7 @@ export function FormResponses({
               </span>
             )}
             cardMeta={(row) =>
-              [row.externalId, row.via === 'kiosk' ? 'Kiosk' : 'Link', formatDateTime(row.submittedAt)]
+              [row.externalId, VIA_LABELS[row.via], formatDateTime(row.submittedAt)]
                 .filter(Boolean)
                 .join(', ')
             }
@@ -340,6 +358,7 @@ export function FormResponses({
         </div>
       </section>
 
+      {importDialog}
       <Dialog
         open={deleting !== null}
         onClose={() => setDeleting(null)}

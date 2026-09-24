@@ -1,4 +1,5 @@
 import { loadGroupEvents } from '@/lib/data/group-events';
+import { loadGroupEventCheckins } from '@/lib/data/checkin';
 import { loadGroup } from '@/lib/data/groups';
 import { loadPreferences } from '@/lib/data/preferences';
 import { EmptyState } from '@/components/Primitives';
@@ -9,9 +10,10 @@ export const metadata = { title: 'Group — Edison Helpdesk' };
 
 export default async function GroupPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [detail, events, preferences] = await Promise.all([
+  const [detail, events, checkins, preferences] = await Promise.all([
     loadGroup(id),
     loadGroupEvents(id),
+    loadGroupEventCheckins(id),
     loadPreferences(),
   ]);
 
@@ -31,5 +33,5 @@ export default async function GroupPage({ params }: { params: Promise<{ id: stri
     );
   }
 
-  return <GroupDetail detail={detail} events={events} gmailMode={preferences.gmailMode} />;
+  return <GroupDetail detail={detail} events={events} checkins={checkins} gmailMode={preferences.gmailMode} />;
 }

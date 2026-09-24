@@ -27,6 +27,8 @@ import {
   markByKeyAction,
 } from '@/lib/data/group-event-actions';
 import type { EventDetail, RollEntry } from '@/lib/data/group-events';
+import { liveRollAction } from '@/lib/data/checkin-actions';
+import { CHECKIN_POLL_MS, type CheckinCodeResult, type CheckinSettings } from '@/lib/domain/checkin';
 import { markLine } from '@/lib/domain/groups';
 import { PERSON_KIND_LABELS } from '@/lib/domain/types';
 import { copyText, linesOf } from '@/lib/groups/clipboard';
@@ -36,14 +38,45 @@ import { Field } from '@/components/Primitives';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Dialog } from '@/components/ui/Dialog';
+import { CountSwap } from '@/components/ui/Motion';
 import { ScanButton } from '@/components/shell/ScanButton';
+import { SelfCheckinBody } from '@/components/checkin/SelfCheckinPanel';
 import { usePaintSelect } from '@/components/ui/useSelection';
 import '@/styles/groups.css';
 
-export function EventRoll({ detail }: { detail: EventDetail }) {
+/** A roll's identity for "did anything change": who, and whether present. */
+function rollSignature(roll: readonly RollEntry[]): string {
+  return roll.map((entry) => `${entry.id}:${entry.present ? 1 : 0}`).join(',');
+}
+
+export function EventRoll({
+  detail,
+  checkin: initialCheckin = null,
+  checkinCode = null,
+}: {
+  detail: EventDetail;
+  checkin?: CheckinSettings | null;
+  /** The self check-in code, drawn on the server with the page. */
+  checkinCode?: CheckinCodeResult | null;
+}) {
   const { pendingKey, run, notify } = useRuntime();
   const router = useRouter();
-  const { event, groupId, groupName, roll } = detail;
+  const { event, groupId, groupName } = detail;
+
+  /*
+   * The roll and the check-in as they stand. The server's copy wins whenever
+   * the page is rendered again; between renders, while self check-in is open,
+   * the page looks every few seconds so a student checking in at the door
+   * appears on the officer's screen without anybody pressing anything.
+   */
+  const [live, setLive] = useState({ roll: detail.roll, checkin: initialCheckin });
+  const [served, setServed] = useState({ roll: detail.roll, checkin: initialCheckin });
+  if (served.roll !== detail.roll || served.checkin !== initialCheckin) {
+    setServed({ roll: detail.roll, checkin: initialCheckin });
+    setLive({ roll: detail.roll, checkin: initialCheckin });
+  }
+  const roll = live.roll;
+  const checkin = live.checkin;
   const [typed, setTyped] = useState('');
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const busy = pendingKey !== null;
@@ -65,6 +98,46 @@ export function EventRoll({ detail }: { detail: EventDetail }) {
   useEffect(() => () => {
     if (refreshTimer.current) clearTimeout(refreshTimer.current);
   }, []);
+
+  // Kept in refs so the poll reads the moment it fires, not the render it
+  // was scheduled in: a look that lands while a tick is being saved would
+  // otherwise put the old answer back under the person's finger.
+  const quiet = useRef(true);
+  useEffect(() => {
+    quiet.current = pendingKey === null && overrides.size === 0;
+  }, [pendingKey, overrides]);
+  const polling = checkin !== null && checkin.state === 'open';
+  useEffect(() => {
+    if (!polling) return;
+    let alive = true;
+    let inFlight = false;
+    async function look() {
+      if (!alive || inFlight || document.visibilityState !== 'visible' || !quiet.current) return;
+      inFlight = true;
+      try {
+        const next = await liveRollAction(event.id);
+        if (!alive || next === null || !quiet.current) return;
+        setLive((current) =>
+          rollSignature(current.roll) === rollSignature(next.roll) &&
+          current.checkin?.selfCount === next.checkin?.selfCount &&
+          current.checkin?.state === next.checkin?.state
+            ? current
+            : { roll: next.roll, checkin: next.checkin },
+        );
+      } catch {
+        // Keep what is on screen; the next look may reach the server.
+      } finally {
+        inFlight = false;
+      }
+    }
+    const timer = window.setInterval(look, CHECKIN_POLL_MS);
+    document.addEventListener('visibilitychange', look);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', look);
+    };
+  }, [polling, event.id]);
 
   const isPresent = (id: string) =>
     overrides.get(id) ?? roll.find((entry) => entry.id === id)?.present ?? false;
@@ -216,7 +289,7 @@ export function EventRoll({ detail }: { detail: EventDetail }) {
               </Link>
               <span className="ticket-meta-item">{formatDateKey(event.heldOn)}</span>
               <span className="ticket-meta-item">
-                {present} of {roll.length} present
+                <CountSwap value={present} /> of {roll.length} present
               </span>
             </div>
           </div>
@@ -278,6 +351,24 @@ export function EventRoll({ detail }: { detail: EventDetail }) {
                 </Button>
               </form>
             </div>
+          </div>
+        </section>
+
+        <section className="panel" aria-labelledby="event-checkin-heading">
+          <div className="panel-head">
+            <h2 className="panel-title" id="event-checkin-heading">
+              Self check-in
+            </h2>
+          </div>
+          <div className="panel-body">
+            <SelfCheckinBody
+              eventId={event.id}
+              eventName={event.name}
+              groupName={groupName}
+              settings={checkin}
+              onSettings={(next) => setLive((current) => ({ ...current, checkin: next }))}
+              initialCode={checkinCode}
+            />
           </div>
         </section>
 

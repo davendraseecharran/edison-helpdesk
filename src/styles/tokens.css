@@ -292,6 +292,21 @@
    */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* --- Paper ------------------------------------------------------------ */
+
+  /*
+   * The one surface that does NOT change with the theme: a sheet that will be
+   * printed. The check-in poster is previewed on screen as the page it will
+   * be — white, with ink on it — in the dark theme as much as the light,
+   * because a preview that inverts is a preview of something else, and a QR
+   * code printed light-on-dark defeats half the phone cameras that meet it.
+   * Deliberately not redefined under `data-theme='dark'`.
+   */
+  --paper-sheet: #ffffff;
+  --paper-ink: #111114;
+  --paper-ink-2: #55555c;
+  --paper-rule: #cfcfd4;
 }
 
 :root[data-theme='dark'] {

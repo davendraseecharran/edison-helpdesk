@@ -48,6 +48,8 @@ export default async function FormLayout({
           mine: form.mine,
           groupName: form.groupName,
           eventName: form.eventName,
+          description: form.description,
+          fields: form.fields,
         }}
       />
       {children}
