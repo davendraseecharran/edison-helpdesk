@@ -95,16 +95,16 @@ Do this first, and do it now: it ends the half-state described above.
 
 The changes are **additive**. No table the district's data lives in is dropped,
 renamed or rewritten, and no existing policy or grant is changed. There are
-fifty-seven new migration files, all numbered above the nineteen the hosted
+sixty-three new migration files, all numbered above the nineteen the hosted
 project already carries, so they apply in order after them.
 
-**Already ran `db push` before?** Run it again. September 24 adds three more
-(`20260924130000_m5_search_index`, `20260924130100_m5_live_changes`,
-`20260924130200_m5_weekly_summary`) after the September 23 four: forms and their public links (`20260923100000_m5_forms`), scan
-workflows (`20260923110000_workflows`), a ticket's opened time
-(`20260923120000_m5_ticket_opened_at`) and the spreadsheet import
-(`20260923120100_m5_import_sheet`). Until they are applied, Forms, Workflows
-and the Opened control on New ticket cannot load; everything else works. The
+**Already ran `db push` before?** Run it again. The September 23 and 24
+releases add eleven: forms and their public links, scan workflows, a
+ticket's opened time, the spreadsheet import (all `20260923…`), then event
+self check-in, form response import, device delete, the search index, live
+updates and the week in review (all `20260924…`). Until they are applied,
+Forms, Workflows, self check-in, labels, the week in review and the Opened
+control on New ticket cannot load; everything else works. The
 public form links (`/f/...`) need no setting of their own.
 
 **1.1 Take a backup.** Supabase dashboard → Database → Backups, and confirm a

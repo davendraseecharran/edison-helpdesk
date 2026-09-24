@@ -2,7 +2,7 @@
 
 Updated September 14, 2026.
 
-## Round 5 (September 23, 2026) — on `platform-overhaul`, NOT pushed
+## Round 5 (September 23–24, 2026) — pushed to `main`
 
 - **Vercel was failing** since the analytics release: `src/app/(app)/analytics/page.tsx`
   imported `tests/fixtures/analytics`, which `.vercelignore` drops. Fixed; guard test
@@ -18,7 +18,18 @@ Updated September 14, 2026.
   (`20260923120100_m5_import_sheet`); assistant on `gpt-6-luna`; motion polish pass.
 - Verified: typecheck, lint, 1395 unit tests, rehearsal 76 migrations → 683 DB + 57
   auth tests, Vercel-shaped clean build. Local main stack has the four new migrations.
-- Next: the user decides on pushing to `main`; the owner then runs `npx supabase db push`.
+- September 24 additions: QR self check-in + poster, Google Forms import/export and
+  response import, label printer (`/devices/labels`), Check a device
+  (`/workflows/check`), per-machine room-audit decisions + admin device delete,
+  shared camera viewfinder, hover glide / rolling numbers / gooey tabs / thinking
+  marks / 3D device model / arrival splash, intent prefetch + staleTimes, in-memory
+  search index, live updates (`app_change_stamps` over Realtime), week in review
+  (`/summary`, weekly notice, Monday email via Vercel Cron + `CRON_SECRET`).
+- Verified at push: typecheck, lint, 1501 unit tests, rehearsal 82 migrations -> 721
+  DB + 57 auth, Vercel-shaped clean build, Playwright audit of 33 routes x 3 widths x
+  2 themes (no overflow, nothing escaping the bars, no clipped buttons, no errors).
+- Pushed to `main` on the user's instruction; the owner runs `npx supabase db push`
+  next (63 migrations above the owner's 19 in total).
 
 
 Two things are true at once and this file keeps them apart:
