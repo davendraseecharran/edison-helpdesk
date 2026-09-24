@@ -17,6 +17,13 @@ const nextConfig: NextConfig = {
   },
   reactStrictMode: true,
   experimental: {
+    // The client keeps a page it has fetched for a short while, so Back and a
+    // second visit are instant, and a page prefetched on intent
+    // (IntentPrefetch) is still there when the click lands. Every action in
+    // the app revalidates the layout, which clears this cache, so nobody sees
+    // their own change late; a colleague's shows within half a minute, or at
+    // once on a refresh.
+    staleTimes: { dynamic: 30, static: 60 },
     serverActions: {
       // A Server Action's request body is capped at 1 MB by default, which the
       // admin import would hit on the master inventory: 7,500 machines is a
