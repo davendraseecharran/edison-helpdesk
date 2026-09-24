@@ -143,7 +143,14 @@ function intakeDescription(isAdminIntake: boolean, preset: TicketPresetDraft | n
   return `Started from the quick ticket ${preset.name}. Everything here can be changed. ${role}`;
 }
 
-export function IntakeForm({ preset = null }: { preset?: TicketPresetDraft | null }) {
+export function IntakeForm({
+  preset = null,
+  device = null,
+}: {
+  preset?: TicketPresetDraft | null;
+  /** The machine the ticket is about, when it was started from one (Check a device). */
+  device?: DeviceSearchResult | null;
+}) {
   const { directory, notify, pendingKey, run } = useRuntime();
   const actor = useActorAccount();
   const router = useRouter();
@@ -167,7 +174,7 @@ export function IntakeForm({ preset = null }: { preset?: TicketPresetDraft | nul
   const [requesterMode, setRequesterMode] = useState<RequesterMode>('existing');
   const [person, setPerson] = useState<PersonSearchResult | null>(null);
   const [location, setLocation] = useState(preset?.location ?? '');
-  const [linked, setLinked] = useState<DeviceSearchResult[]>([]);
+  const [linked, setLinked] = useState<DeviceSearchResult[]>(() => (device ? [device] : []));
   const [ownerId, setOwnerId] = useState<string>('');
   const [collaboratorIds, setCollaboratorIds] = useState<string[]>([]);
   const [devices, setDevices] = useState<DeviceDraft[]>([]);

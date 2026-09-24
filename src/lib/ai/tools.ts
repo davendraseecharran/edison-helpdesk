@@ -100,6 +100,8 @@ import {
   workflowFor,
   type WorkflowKind,
 } from '@/lib/domain/workflows';
+import { labelsHref, LABEL_DEVICE_CAP } from '@/lib/labels/layout';
+import { checkHref } from '@/lib/domain/device-check';
 import {
   auditDiff,
   expectedFrom,
@@ -2093,6 +2095,93 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  check_device: {
+    group: 'read',
+    description:
+      'Who has a machine, as Check a device shows it: the holder with their OSIS or staff id, the status and location, since when they have had it, the open tickets naming it that this person can see, and the last three changes to its record.',
+    fields: {
+      device: { type: 'string', required: true, description: 'Asset tag, serial number, inventory id or record id.' },
+    },
+    run: async (args, ctx) => {
+      const device = await resolveDevice(ctx, String(args.device));
+      const data = await rpc(ctx, 'app_get_inventory_device', { p_id: device.id });
+      if (!isRecord(data)) throw new ToolError('There is no device with that id.');
+      const holderId = textOf(data.assignedRequesterId);
+      const [links, events, holder] = await Promise.all([
+        ctx.supabase
+          .from('ticket_devices')
+          .select('tickets!inner(id, number, title, status)')
+          .eq('device_id', device.id)
+          .limit(25),
+        ctx.supabase
+          .from('record_events')
+          .select('kind, at, summary')
+          .eq('entity_type', 'inventory_device')
+          .eq('entity_id', device.id)
+          .order('at', { ascending: false })
+          .limit(20),
+        holderId ? rpc(ctx, 'app_get_person', { p_id: holderId }) : Promise.resolve(null),
+      ]);
+      const tickets = rows(links.data)
+        .flatMap((row) => (Array.isArray(row.tickets) ? rows(row.tickets) : isRecord(row.tickets) ? [row.tickets] : []))
+        .filter((ticket) => !['resolved', 'cancelled'].includes(textOf(ticket.status)))
+        .map((ticket) => ({ number: textOf(ticket.number), title: textOf(ticket.title), status: textOf(ticket.status) }));
+      const history = rows(events.data);
+      const assigned = history.find((event) => event.kind === 'assigned' || event.kind === 'returned');
+      const person = isRecord(holder) ? holder : null;
+      return outcome(
+        {
+          device: device.label,
+          status: textOf(data.status) || null,
+          location: textOf(data.location) || null,
+          holder: holderId
+            ? {
+                name: textOf(data.assignedName),
+                kind: textOf(data.assignedKind) || null,
+                id_number: person ? textOf(person.externalId) || null : null,
+                since: assigned?.kind === 'assigned' ? textOf(assigned.at) : null,
+              }
+            : null,
+          open_tickets: tickets,
+          recent_changes: history.slice(0, 3).map((event) => ({ at: textOf(event.at), summary: textOf(event.summary) })),
+          page: checkHref(device.label),
+        },
+        holderId ? `${device.label} is with ${textOf(data.assignedName)}.` : `Nobody has ${device.label}.`,
+      );
+    },
+  },
+
+  label_link: {
+    group: 'read',
+    description: `A link to Print labels with these machines already on it, up to ${LABEL_DEVICE_CAP}. The person picks the stock and prints from there; printing needs their browser. Give the link as the answer.`,
+    fields: {
+      devices: {
+        type: 'string[]',
+        required: true,
+        maxItems: LABEL_DEVICE_CAP,
+        description: 'Asset tags, serial numbers or inventory ids.',
+      },
+    },
+    run: async (args, ctx) => {
+      const found: DeviceRef[] = [];
+      const missing: string[] = [];
+      for (const code of distinctCodes(args.devices as string[])) {
+        try {
+          const device = await resolveDevice(ctx, code);
+          if (!found.some((one) => one.id === device.id)) found.push(device);
+        } catch (error) {
+          if (error instanceof ToolError && error.code === '42501') throw error;
+          missing.push(code);
+        }
+      }
+      if (found.length === 0) throw new ToolError('None of those machines are in the inventory.');
+      return outcome(
+        { link: labelsHref(found.map((one) => one.id)), devices: found.map((one) => one.label), not_found: missing },
+        `Labels ready for ${found.length === 1 ? found[0].label : `${found.length} machines`}`,
+      );
+    },
+  },
+
   list_attachments: {
     group: 'read',
     description:
@@ -2398,9 +2487,9 @@ const TOOLS: Record<string, ToolSpec> = {
   audit_location: {
     group: 'read',
     description:
-      'Check a room or cart against the inventory: given the codes of every machine actually seen there, say which recorded ones were found, which were not seen (missing), and which were seen but are recorded somewhere else. Changes nothing. To fix what it finds, use bulk_update_devices: location to bring the misplaced ones here, or status ' +
+      'Check a room or cart against the inventory: given the codes of every machine actually seen there, say which recorded ones were found, which were not seen (missing), and which were seen but are recorded somewhere else. Changes nothing. Each machine not seen gets its own answer, after the person agrees: bulk_update_devices with status ' +
       MISSING_STATUS +
-      ' for the ones nobody saw, after the person agrees.',
+      ' (or another status, or a location) for the ones that are really gone or elsewhere, and bulk_update_devices location to bring the misplaced ones here. A record that is a typo or a duplicate can be removed with delete_device (administrators only), never one somebody holds.',
     fields: {
       location: { type: 'string', required: true, description: 'The room or cart, as the inventory spells it.' },
       devices: {
@@ -4889,6 +4978,22 @@ const TOOLS: Record<string, ToolSpec> = {
         { id: group.id, name: group.name, members: group.members },
         `Deleted the group ${group.name} (${group.members} ${group.members === 1 ? 'member' : 'members'})`,
       );
+    },
+  },
+
+  delete_device: {
+    group: 'admin',
+    description:
+      'Delete one inventory record that should never have existed: a tag typed twice, a duplicate. Administrators only, and it always asks first. The database refuses while the machine is with somebody, named on a ticket or has files attached; say so and suggest set_device_status Retired instead. The whole record is kept in the inventory history.',
+    fields: {
+      device: { type: 'string', required: true, description: 'Asset tag, serial number, inventory id or record id.' },
+      reason: { type: 'string', description: 'Why it is being deleted, in a sentence: "Duplicate of DOE-LN0000412".' },
+    },
+    run: async (args, ctx) => {
+      const device = await resolveDevice(ctx, String(args.device));
+      const reason = typeof args.reason === 'string' ? args.reason.trim().slice(0, 500) : '';
+      await rpc(ctx, 'app_delete_inventory_device', { p_device: device.id, p_reason: reason || null });
+      return outcome({ id: device.id, device: device.label, reason: reason || null }, `Deleted the record ${device.label}`);
     },
   },
 

@@ -33,6 +33,13 @@ export interface ScanInputProps {
   active: boolean;
   /** A line under the field. */
   hint?: string;
+  /**
+   * A paste of several codes at once — a column out of a spreadsheet. A text
+   * field would join the lines into one; this hands them over as a list.
+   */
+  onPasteCodes?: (text: string) => boolean;
+  /** The button's word. */
+  submitLabel?: string;
 }
 
 function finePointer(): boolean {
@@ -40,7 +47,7 @@ function finePointer(): boolean {
 }
 
 export const ScanInput = forwardRef<ScanInputHandle, ScanInputProps>(function ScanInput(
-  { id, label, placeholder, onCode, active, hint },
+  { id, label, placeholder, onCode, active, hint, onPasteCodes, submitLabel = 'Add' },
   handle,
 ) {
   const input = useRef<HTMLInputElement>(null);
@@ -116,9 +123,15 @@ export const ScanInput = forwardRef<ScanInputHandle, ScanInputProps>(function Sc
           enterKeyHint="go"
           aria-describedby={hint ? `${id}-hint` : undefined}
           onChange={(event) => setValue(event.target.value)}
+          onPaste={(event) => {
+            if (!onPasteCodes) return;
+            const text = event.clipboardData.getData('text');
+            if (!/[\r\n,;\t]/.test(text.trim())) return;
+            if (onPasteCodes(text)) event.preventDefault();
+          }}
         />
         <Button type="submit" variant="secondary" size="sm" disabled={!active || value.trim() === ''}>
-          Add
+          {submitLabel}
         </Button>
       </div>
       {hint ? (

@@ -20,6 +20,7 @@ import { announceScannedDevice, ScannedDeviceCard } from '@/components/scan/Scan
 import { isEditable, chordOwnerOpen, modalOpen, useShortcut } from '@/components/ui/shortcuts';
 import { lookupDeviceCodeAction } from '@/lib/data/device-actions';
 import { routeScannedCode } from '@/lib/scan/route';
+import { SCANNED_CODE_EVENT } from '@/lib/domain/device-check';
 import type { QueueCounts } from '@/lib/data/tickets';
 import { BottomTabs } from './BottomTabs';
 import {
@@ -96,6 +97,10 @@ export function AppShell({
    */
   const onScanned = useCallback(
     (code: string) => {
+      // A page that is itself reading codes — Check a device — takes it
+      // first, and says so by cancelling the event.
+      const taken = !window.dispatchEvent(new CustomEvent(SCANNED_CODE_EVENT, { detail: code, cancelable: true }));
+      if (taken) return;
       void (async () => {
         const route = routeScannedCode(code, await lookupDeviceCodeAction(code));
         // A machine in somebody's hand is a thing to DO something with, not a

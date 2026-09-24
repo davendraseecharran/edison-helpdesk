@@ -17,7 +17,8 @@ import 'server-only';
 
 import { createClient } from '@/lib/supabase/server';
 import type { DeviceCatalogEntry, DeviceDetail, DeviceSummary } from '@/lib/domain/types';
-import { SEED_DEVICE_STATUSES } from '@/lib/domain/types';
+import { deviceLabel, SEED_DEVICE_STATUSES } from '@/lib/domain/types';
+import type { DeviceSearchResult } from '@/lib/data/device-actions';
 import {
   mapDeviceCatalogEntry,
   mapInventoryDevice,
@@ -117,6 +118,28 @@ export async function loadDevice(id: string): Promise<DeviceDetail | null> {
     device: mapInventoryDevice(data as DeviceJson),
     tickets,
     events: ((events.data ?? []) as RecordEventRow[]).map(mapRecordEvent),
+  };
+}
+
+/**
+ * One machine as the ticket form's device picker names it, for a ticket
+ * started from that machine. Null for an id that names nothing.
+ */
+export async function loadDeviceRef(id: string): Promise<DeviceSearchResult | null> {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc('app_get_inventory_device', { p_id: id });
+  if (error || !data) return null;
+  const device = mapInventoryDevice(data as DeviceJson);
+  return {
+    id: device.id,
+    label: deviceLabel(device),
+    assetTag: device.assetTag || null,
+    serialNumber: device.serialNumber || null,
+    type: device.deviceType,
+    model: device.model || null,
+    status: device.status,
+    holderName: device.assignedName,
   };
 }
 

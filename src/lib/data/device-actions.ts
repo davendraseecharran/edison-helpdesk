@@ -174,6 +174,25 @@ export async function returnDeviceAction(
   );
 }
 
+/**
+ * Take one record out of the inventory: a typo, a duplicate. Administrators
+ * only, and refused by the database while anything depends on the record —
+ * a holder, a ticket, a file — with a sentence that says to retire it
+ * instead. The trail (`inventory_events`, `record_events`) is written by the
+ * RPC.
+ */
+export async function deleteDeviceAction(
+  deviceId: string,
+  reason?: string | null,
+  version?: number | null,
+): Promise<ActionResult> {
+  return callRpc(
+    'app_delete_inventory_device',
+    { p_device: deviceId, p_reason: reason ?? null, p_version: version ?? null },
+    'Record deleted.',
+  );
+}
+
 export async function bulkUpdateDevicesAction(
   ids: string[],
   patch: BulkDevicePatch,

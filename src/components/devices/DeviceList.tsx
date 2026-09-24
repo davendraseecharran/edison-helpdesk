@@ -25,7 +25,7 @@
 import { useEffect, useMemo, useRef, useState, useTransition, type ComponentProps } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { Plus, Printer } from 'lucide-react';
 import type { ActionResult } from '@/lib/data/actions';
 import {
   bulkAssignDevicesAction,
@@ -41,6 +41,7 @@ import { DeviceStatusBadge } from '@/components/Badges';
 import { EmptyState, Field, TimeAgo } from '@/components/Primitives';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { deviceTypeLabel } from '@/lib/domain/device-types';
+import { labelsHref } from '@/lib/labels/layout';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { FilterBar } from '@/components/ui/FilterBar';
 import { Pagination } from '@/components/ui/Pagination';
@@ -459,6 +460,9 @@ export function DeviceList({
         <Button size="sm" disabled={bulkPending} onClick={() => setDialog('return')}>
           Return
         </Button>
+        <ButtonLink size="sm" icon={Printer} href={labelsHref(selection.items.map((device) => device.id))}>
+          Print labels
+        </ButtonLink>
       </SelectionTray>
 
       <ChangeStatusDialog

@@ -1,0 +1,394 @@
+/*
+ * The camera frame (`CameraViewfinder`), wherever a code is read.
+ *
+ * The one surface in the product that draws over a photograph, so it has its
+ * own ground and ink (`--camera-*`), which do not change with the theme. The
+ * marks are the product's own: hairline-thin, radius from the ladder, and
+ * nothing moves unless the camera has just come alive, is looking, or has
+ * just read something.
+ */
+
+.cam {
+  display: grid;
+  gap: 6px;
+}
+
+.cam-frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  max-height: 360px;
+  border-radius: var(--radius-3);
+  background: var(--camera-ground);
+  color: var(--camera-ink);
+  /* Two fingers on the picture are a pinch, not a page zoom. */
+  touch-action: none;
+  isolation: isolate;
+}
+
+.cam-fill {
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.cam-fill .cam-frame {
+  aspect-ratio: auto;
+  max-height: none;
+  height: 100%;
+  min-height: 240px;
+}
+
+.cam-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cam-video[data-mirror] {
+  transform: scaleX(-1);
+}
+
+/* --- The target -------------------------------------------------------- */
+
+.cam-reticle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(78%, 420px);
+  aspect-ratio: 5 / 2;
+  translate: -50% -50%;
+  border-radius: var(--radius-3);
+  /* Everything outside the target, dimmed: the eye goes where the label goes. */
+  box-shadow: 0 0 0 100vmax var(--camera-dim);
+  pointer-events: none;
+}
+
+.cam[data-target='square'] .cam-reticle {
+  width: min(56%, 260px);
+  aspect-ratio: 1;
+}
+
+.cam-brackets {
+  position: absolute;
+  inset: 0;
+  animation: cam-arrive var(--dur-surface) var(--ease-out) both;
+}
+
+.cam-brackets[data-snap] {
+  animation: cam-snap 320ms var(--ease-out);
+}
+
+.cam-corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 0 solid var(--camera-ink);
+  filter: drop-shadow(0 0 1px var(--camera-shade));
+}
+
+.cam-corner[data-corner='tl'] {
+  top: 0;
+  left: 0;
+  border-width: 3px 0 0 3px;
+  border-top-left-radius: var(--radius-3);
+}
+
+.cam-corner[data-corner='tr'] {
+  top: 0;
+  right: 0;
+  border-width: 3px 3px 0 0;
+  border-top-right-radius: var(--radius-3);
+}
+
+.cam-corner[data-corner='bl'] {
+  bottom: 0;
+  left: 0;
+  border-width: 0 0 3px 3px;
+  border-bottom-left-radius: var(--radius-3);
+}
+
+.cam-corner[data-corner='br'] {
+  right: 0;
+  bottom: 0;
+  border-width: 0 3px 3px 0;
+  border-bottom-right-radius: var(--radius-3);
+}
+
+/* The camera came alive: the brackets close in on the target once. */
+@keyframes cam-arrive {
+  from {
+    opacity: 0;
+    scale: 1.12;
+  }
+}
+
+/* A read: the brackets pull in and let go, the "got it, next" at the edge of vision. */
+@keyframes cam-snap {
+  40% {
+    scale: 0.94;
+  }
+}
+
+/* Looking: one line crosses the target, and back. The element spans the
+   target's height and the line is its top edge, so a translate of its own
+   height carries the line from the top of the target to the bottom. */
+.cam-sweep {
+  position: absolute;
+  top: 10%;
+  right: 10px;
+  left: 10px;
+  height: 80%;
+  animation: cam-sweep 1.8s var(--ease-in-out) infinite alternate;
+}
+
+.cam-sweep::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--camera-ink);
+  box-shadow: 0 0 10px 1px var(--camera-glow);
+  opacity: 0.7;
+}
+
+@keyframes cam-sweep {
+  to {
+    translate: 0 100%;
+  }
+}
+
+/* A read: the whole frame brightens once and settles. */
+.cam-flash {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  background: var(--camera-wash);
+  box-shadow: inset 0 0 0 3px var(--camera-ink);
+  opacity: 0;
+  pointer-events: none;
+  animation: cam-flash 420ms var(--ease-out);
+}
+
+@keyframes cam-flash {
+  from {
+    opacity: 1;
+  }
+}
+
+/* What was read, rising from under the target and gone. */
+.cam-read {
+  position: absolute;
+  bottom: 56px;
+  left: 50%;
+  z-index: 3;
+  max-width: calc(100% - 32px);
+  padding: 4px 10px;
+  overflow: hidden;
+  translate: -50% 0;
+  border-radius: 999px;
+  background: var(--camera-chip);
+  color: var(--camera-ink);
+  font-size: var(--fs-1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0;
+  animation: cam-read 1400ms var(--ease-out);
+}
+
+@keyframes cam-read {
+  0% {
+    opacity: 0;
+    translate: -50% 8px;
+  }
+  12%,
+  75% {
+    opacity: 1;
+    translate: -50% 0;
+  }
+  100% {
+    opacity: 0;
+    translate: -50% 0;
+  }
+}
+
+/* --- States ------------------------------------------------------------- */
+
+.cam-wait {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  color: var(--camera-ink);
+  font-size: var(--fs-2);
+  opacity: 0.8;
+}
+
+.cam-problem {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--surface-2);
+  color: var(--ink);
+  text-align: center;
+}
+
+.cam-problem-title {
+  margin: 0;
+  font-size: var(--fs-3);
+  font-weight: 600;
+  letter-spacing: var(--tracking-heading);
+}
+
+.cam-problem-body {
+  max-width: 40ch;
+  margin: 0 0 4px;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  line-height: 1.45;
+}
+
+/* --- Controls, over the picture ---------------------------------------- */
+
+.cam-controls {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 3;
+  display: flex;
+  gap: 8px;
+}
+
+.cam-control {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--camera-chip);
+  color: var(--camera-ink);
+  cursor: pointer;
+  transition: background-color var(--dur-hover) ease;
+}
+
+.cam-control[aria-pressed='true'] {
+  background: var(--camera-ink);
+  color: var(--camera-ground);
+}
+
+.cam-control:focus-visible {
+  outline: 2px solid var(--camera-ink);
+  outline-offset: 2px;
+}
+
+.cam-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+}
+
+.cam[data-status='problem'] .cam-close {
+  background: var(--surface-4);
+  color: var(--ink);
+}
+
+.cam-zoom {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 3;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--camera-chip);
+  color: var(--camera-ink);
+}
+
+.cam-zoom input[type='range'] {
+  width: min(160px, 32vw);
+  accent-color: var(--camera-ink);
+}
+
+.cam-zoom-value {
+  min-width: 3.5ch;
+  font-size: var(--fs-1);
+  text-align: right;
+}
+
+.cam-note {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cam-control:hover {
+    background: var(--camera-chip-hover);
+  }
+
+  .cam-control[aria-pressed='true']:hover {
+    background: var(--camera-ink);
+  }
+}
+
+/* --- The full-height sheet on a phone ----------------------------------- */
+
+.camera-sheet.sheet-bottom {
+  height: calc(100dvh - 24px);
+  max-height: none;
+}
+
+.camera-sheet .overlay-body {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 4px 12px 12px;
+  overflow: hidden;
+}
+
+.camera-sheet .cam-frame {
+  border-radius: var(--radius-4);
+}
+
+.camera-sheet-feed {
+  display: grid;
+  gap: 6px;
+  min-height: 0;
+  max-height: 30dvh;
+  overflow-y: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cam-brackets,
+  .cam-brackets[data-snap],
+  .cam-read {
+    animation: none;
+  }
+
+  .cam-read {
+    opacity: 1;
+  }
+
+  .cam-flash {
+    animation-duration: 200ms;
+  }
+}

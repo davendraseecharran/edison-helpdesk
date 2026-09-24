@@ -1,0 +1,562 @@
+/*
+ * The label printer: the page around the paper, the paper, and the print.
+ *
+ * The paper is the one thing on this screen that is not the interface. It is
+ * white with black marks in both themes (`--label-paper`, `--label-ink`),
+ * drawn in millimetres at its real size, and the preview only scales it.
+ * Everything around it is the product's ordinary panels and type.
+ */
+
+/* --- Page ------------------------------------------------------------------- */
+
+.lp {
+  display: grid;
+  gap: 20px;
+}
+
+.lp-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.lp-controls {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.lp-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+}
+
+.lp-panel-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lp-panel-title {
+  margin: 0;
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+
+.lp-count {
+  margin-left: 4px;
+  color: var(--ink-3);
+  font-weight: 500;
+}
+
+.lp-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.lp-adding {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.lp-empty,
+.lp-hint,
+.lp-print-note {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  line-height: 1.45;
+}
+
+.lp-missed {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  padding: 10px 12px;
+  border-radius: var(--radius-3);
+  background: var(--warn-soft);
+  color: var(--ink);
+  font-size: var(--fs-1);
+}
+
+.lp-missed p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.lp-machines {
+  display: grid;
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.lp-machine {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 0 6px 2px;
+}
+
+.lp-machine + .lp-machine {
+  border-top: 1px solid var(--line);
+}
+
+.lp-machine-text {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 1px;
+  min-width: 0;
+}
+
+.lp-machine-code {
+  overflow: hidden;
+  font-size: var(--fs-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-machine-meta {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-machines[data-compact] {
+  max-height: none;
+}
+
+/* --- Stock ------------------------------------------------------------------- */
+
+.lp-stock {
+  display: grid;
+  gap: 4px;
+}
+
+.lp-stock-option {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-3);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover) ease,
+    border-color var(--dur-hover) ease;
+}
+
+.lp-stock-option[data-checked] {
+  border-color: var(--line-strong);
+  background: var(--surface-3);
+}
+
+.lp-stock-option:has(input:focus-visible) {
+  box-shadow: var(--focus);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .lp-stock-option:hover {
+    background: var(--surface-2);
+  }
+
+  .lp-stock-option[data-checked]:hover {
+    background: var(--surface-3);
+  }
+}
+
+/* The label's own shape, to scale with its neighbours: the fastest way to
+   tell a ½″ strip from a 1″ address label is to see it. */
+.lp-stock-glyph {
+  display: grid;
+  flex: 0 0 40px;
+  place-items: center;
+  height: 28px;
+}
+
+.lp-stock-glyph span {
+  display: block;
+  border: 1.5px solid var(--ink-3);
+  border-radius: 2px;
+  transition: border-color var(--dur-hover) ease;
+}
+
+.lp-stock-option[data-checked] .lp-stock-glyph span {
+  border-color: var(--ink);
+  background: var(--accent-soft);
+}
+
+.lp-stock-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.lp-stock-name {
+  font-size: var(--fs-2);
+  font-weight: 500;
+}
+
+.lp-stock-detail {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+/* --- On the label ------------------------------------------------------------ */
+
+.lp-checks {
+  display: grid;
+  gap: 8px;
+  font-size: var(--fs-2);
+}
+
+.lp-checks .check {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  cursor: pointer;
+}
+
+.lp-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.lp-stepper {
+  display: grid;
+  gap: 4px;
+}
+
+.lp-stepper-label {
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  font-weight: 500;
+}
+
+.lp-stepper-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.lp-stepper-input {
+  width: 56px;
+  text-align: center;
+  -moz-appearance: textfield;
+}
+
+.lp-stepper-input::-webkit-inner-spin-button,
+.lp-stepper-input::-webkit-outer-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+/* --- Preview ------------------------------------------------------------------ */
+
+.lp-preview {
+  position: sticky;
+  top: calc(var(--topbar-h) + 16px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  min-width: 0;
+}
+
+.lp-preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 32px;
+}
+
+.lp-summary {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+}
+
+.lp-pager {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.lp-warnings {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-3);
+  background: var(--warn-soft);
+  font-size: var(--fs-1);
+  list-style: none;
+}
+
+/* The desk under the paper. */
+.lp-paper {
+  padding: 20px;
+  border-radius: var(--radius-4);
+  background: var(--surface-3);
+}
+
+.lp-paper .label-page {
+  box-shadow: var(--shadow-2);
+}
+
+.lp-scaled {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Out of flow, so the full-size page never widens the column it is scaled into. */
+.lp-scaled-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  transform-origin: top left;
+}
+
+.lp-roll {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  margin: 0;
+  padding: 20px;
+  border-radius: var(--radius-4);
+  background: var(--surface-3);
+  list-style: none;
+}
+
+.lp-roll-label {
+  width: 100%;
+  max-width: 560px;
+}
+
+.lp-roll .label-page {
+  border-radius: 1.5mm;
+  box-shadow: var(--shadow-1);
+}
+
+.lp-roll-more {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+/* --- The paper -------------------------------------------------------------- */
+
+.label-page {
+  position: relative;
+  overflow: hidden;
+  background: var(--label-paper);
+  color: var(--label-ink);
+}
+
+.label,
+.label-slot {
+  position: absolute;
+  box-sizing: border-box;
+}
+
+.label {
+  display: grid;
+  place-items: center;
+}
+
+/* On the preview the labels sit over their slots and let a press through to them. */
+.label[data-preview] {
+  pointer-events: none;
+}
+
+/* The die cut, drawn on the preview only: the printer never sees it. */
+.label[data-preview],
+.label-slot {
+  box-shadow: inset 0 0 0 0.25mm var(--label-cut);
+}
+
+.label-slot {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
+button.label-slot {
+  cursor: pointer;
+  transition: background-color var(--dur-hover) ease;
+}
+
+/* Already peeled off: hatched, the way a partly used sheet looks. */
+.label-slot[data-used] {
+  background: repeating-linear-gradient(135deg, var(--label-used) 0 1.2mm, transparent 1.2mm 2.4mm);
+}
+
+button.label-slot[aria-pressed='true'] {
+  box-shadow:
+    inset 0 0 0 0.25mm var(--label-cut),
+    0 0 0 0.6mm var(--label-ink);
+}
+
+button.label-slot:focus-visible {
+  outline: 0.5mm solid var(--label-ink);
+  outline-offset: -0.5mm;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button.label-slot:hover {
+    background-color: var(--label-used);
+  }
+}
+
+.label-face {
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.label-face[data-symbol='qr'] {
+  flex-direction: row;
+  gap: 1.5mm;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.label-bars,
+.label-qr {
+  display: block;
+  flex: none;
+  fill: var(--label-ink);
+}
+
+.label-lines {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  margin-top: 0.35mm;
+}
+
+.label-face[data-symbol='qr'] .label-lines {
+  flex: 1 1 auto;
+  justify-content: center;
+  margin-top: 0;
+}
+
+.label-line {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-weight: 450;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.label-line[data-line='tag'] {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.label-line[data-line='property'] {
+  font-weight: 500;
+}
+
+.label-nosymbol {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  font-size: 6pt;
+}
+
+/* --- Printing --------------------------------------------------------------- */
+
+.label-print {
+  display: none;
+}
+
+@media print {
+  html,
+  body {
+    width: auto !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: var(--label-paper) !important;
+  }
+
+  /* Only the pages: the application is not printed around them. */
+  body > :not(.label-print) {
+    display: none !important;
+  }
+
+  .label-print {
+    display: block !important;
+  }
+
+  .label-print .label-page {
+    break-after: page;
+    break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .label-print .label-page:last-child {
+    break-after: auto;
+  }
+}
+
+/* --- Narrower --------------------------------------------------------------- */
+
+@media (max-width: 1023.98px) {
+  .lp-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lp-preview {
+    position: static;
+  }
+}
+
+@media (max-width: 719.98px) {
+  .lp-panel {
+    padding: 12px;
+  }
+
+  .lp-paper,
+  .lp-roll {
+    padding: 12px;
+  }
+
+  /* The phone is the camera here, and pairing a phone to a phone is nothing. */
+  .lp-pair {
+    display: none;
+  }
+
+  .lp-head .btn {
+    width: 100%;
+  }
+}
