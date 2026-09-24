@@ -95,13 +95,13 @@ Do this first, and do it now: it ends the half-state described above.
 
 The changes are **additive**. No table the district's data lives in is dropped,
 renamed or rewritten, and no existing policy or grant is changed. There are
-sixty-three new migration files, all numbered above the nineteen the hosted
+sixty-four new migration files, all numbered above the nineteen the hosted
 project already carries, so they apply in order after them.
 
 **Already ran `db push` before?** Run it again. The September 23 and 24
-releases add eleven: forms and their public links, scan workflows, a
+releases add twelve: forms and their public links, scan workflows, a
 ticket's opened time, the spreadsheet import (all `20260923…`), then event
-self check-in, form response import, device delete, the search index, live
+self check-in, form response import, device delete (and NetRiders deleting), the search index, live
 updates and the week in review (all `20260924…`). Until they are applied,
 Forms, Workflows, self check-in, labels, the week in review and the Opened
 control on New ticket cannot load; everything else works. The
