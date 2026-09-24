@@ -13,6 +13,7 @@ import { AiSection } from '@/components/settings/AiSection';
 import { JumpToSection } from '@/components/settings/JumpToSection';
 import { AppearanceSection } from '@/components/settings/AppearanceSection';
 import { NotificationsSection } from '@/components/settings/NotificationsSection';
+import { loadWeeklySummaryEmail, mailConfigured } from '@/lib/data/summary';
 import { ProfileSection } from '@/components/settings/ProfileSection';
 import { QuickTicketsSection } from '@/components/settings/QuickTicketsSection';
 import { SignInMethodsSection } from '@/components/settings/SignInMethodsSection';
@@ -110,7 +111,11 @@ export default async function SettingsPage({
           notes={preferences.assistantNotes}
           sharedNotes={sharedNotes}
         />
-        <NotificationsSection notifyInApp={preferences.notifyInApp} />
+        <NotificationsSection
+          notifyInApp={preferences.notifyInApp}
+          weeklyEmail={await loadWeeklySummaryEmail()}
+          mail={mailConfigured()}
+        />
         <JumpToSection />
       </div>
     </div>

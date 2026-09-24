@@ -18,6 +18,7 @@
 
 import {
   Bell,
+  CalendarRange,
   HandHelping,
   KeyRound,
   ShieldCheck,
@@ -40,6 +41,7 @@ import { toDateKey } from '@/lib/format';
  *   - `access_requested`   app_trusted_link_identity  → active administrators
  *   - `access_approved`/`access_denied`
  *     app_admin_review_access_request → the requester
+ *   - `weekly_summary`     app_weekly_summary_notify  → the account itself, once a week
  */
 export const NOTIFICATION_KINDS = [
   'ticket_assigned',
@@ -51,6 +53,7 @@ export const NOTIFICATION_KINDS = [
   'access_requested',
   'access_approved',
   'access_denied',
+  'weekly_summary',
 ] as const;
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
@@ -89,6 +92,7 @@ const KIND_LABELS: Record<NotificationKind, string> = {
   access_requested: 'Access requested',
   access_approved: 'Access approved',
   access_denied: 'Access declined',
+  weekly_summary: 'Your week in review',
 };
 
 const KIND_ICONS: Record<NotificationKind, LucideIcon> = {
@@ -101,6 +105,7 @@ const KIND_ICONS: Record<NotificationKind, LucideIcon> = {
   access_requested: Bell,
   access_approved: ShieldCheck,
   access_denied: ShieldX,
+  weekly_summary: CalendarRange,
 };
 
 export function isNotificationKind(value: unknown): value is NotificationKind {

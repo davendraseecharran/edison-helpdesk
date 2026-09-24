@@ -98,8 +98,9 @@ renamed or rewritten, and no existing policy or grant is changed. There are
 fifty-seven new migration files, all numbered above the nineteen the hosted
 project already carries, so they apply in order after them.
 
-**Already ran `db push` before?** Run it again. The September 23 release adds
-four: forms and their public links (`20260923100000_m5_forms`), scan
+**Already ran `db push` before?** Run it again. September 24 adds three more
+(`20260924130000_m5_search_index`, `20260924130100_m5_live_changes`,
+`20260924130200_m5_weekly_summary`) after the September 23 four: forms and their public links (`20260923100000_m5_forms`), scan
 workflows (`20260923110000_workflows`), a ticket's opened time
 (`20260923120000_m5_ticket_opened_at`) and the spreadsheet import
 (`20260923120100_m5_import_sheet`). Until they are applied, Forms, Workflows
@@ -160,6 +161,7 @@ Add these, each for the **Production** environment:
 | `AI_TOKEN_KEY` | the output of `openssl rand -base64 32`, pasted whole | Encrypts each person's ChatGPT sign-in at rest. **A random secret you generate; not an API key.** Without it the assistant is simply absent from the app. | Optional, but wanted. |
 | `RESEND_API_KEY` | an API key from resend.com | Emailed invites. | Optional. |
 | `MAIL_FROM` | an address on a domain you have verified with Resend | The From address on those emails. | Optional. |
+| `CRON_SECRET` | any long random string (`openssl rand -hex 32`) | Lets Vercel Cron call the Monday "week in review" email (`vercel.json`). Only used when mail is set up too. | Optional. |
 
 To generate `AI_TOKEN_KEY` on a Mac or Linux terminal:
 
@@ -177,6 +179,10 @@ Three rules:
 - If you ever change `AI_TOKEN_KEY`, every saved assistant connection becomes
   unreadable and everybody reconnects (thirty seconds each, see section 6).
   Nothing else is lost.
+- The week in review reaches everybody as an in-app notice on their first
+  visit each week, and is always at `/summary`. With mail and `CRON_SECRET`
+  set, it is also emailed on Monday mornings; each person can turn that off
+  in Settings → Notifications.
 - Without `RESEND_API_KEY` and `MAIL_FROM`, invites still work: the
   Administration screen hands you the message to send yourself.
 

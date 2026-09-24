@@ -91,6 +91,7 @@ import {
 } from '@/lib/auth/roles';
 import { clipboardFor, gmailLink, type CopyKind, type PersonAddressee } from '@/lib/people/clipboard';
 import { isGmailMode, type GmailMode } from '@/lib/domain/preferences';
+import { parseSummary, summaryText, weekStartOf } from '@/lib/domain/summary';
 import {
   defaultShortcutName,
   MISSING_STATUS,
@@ -2141,6 +2142,26 @@ const TOOLS: Record<string, ToolSpec> = {
         p_unread_only: args.unread_only ?? false,
       });
       return outcome(data, `Read ${countOf(data)} notifications.`);
+    },
+  },
+
+  weekly_summary: {
+    group: 'read',
+    description:
+      "This person's week in review: what they resolved and how fast (for somebody who works tickets, with the desk's totals and the week before), the events held with how many were present, and responses to the forms they can see. Counts only. The same week is at /summary; `copy_text` is the plain sentences to paste into a message to an advisor or the IT lead.",
+    fields: {
+      week: {
+        type: 'string',
+        date: true,
+        description: 'Any day of the week wanted, as YYYY-MM-DD. Default this week; "last week" is seven days before today.',
+      },
+    },
+    run: async (args, ctx) => {
+      const week = typeof args.week === 'string' ? weekStartOf(args.week) : null;
+      const summary = parseSummary(await rpc(ctx, 'app_weekly_summary', { p_week_start: week }));
+      if (!summary) throw new ToolError('The week could not be read just now.');
+      const text = summaryText(summary, 'Your', `week of ${summary.weekStart}`);
+      return outcome({ ...summary, copy_text: text, href: `/summary?week=${summary.weekStart}` }, `The week of ${summary.weekStart}`);
     },
   },
 

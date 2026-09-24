@@ -44,6 +44,7 @@ describe('kinds', () => {
       'ticket_claimed',
       'ticket_reopened',
       'ticket_returned',
+      'weekly_summary',
     ]);
   });
 

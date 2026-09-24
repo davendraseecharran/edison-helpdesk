@@ -1,0 +1,115 @@
+/* The week in review: /summary. Reuses the analytics sections and stat cards. */
+
+.summary-facts {
+  margin: 16px 0 0;
+  color: var(--ink-2);
+}
+
+.summary-facts strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.summary-events,
+.summary-forms {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.summary-event,
+.summary-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(80px, 180px) 64px;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 12px;
+  border-radius: var(--radius-2);
+  color: var(--ink);
+  text-decoration: none;
+  transition: background-color var(--dur-hover) ease;
+}
+
+.summary-form {
+  grid-template-columns: minmax(0, 1fr) 64px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .summary-event:hover,
+  .summary-form:hover {
+    background: var(--surface-3);
+  }
+}
+
+.summary-event:focus-visible,
+.summary-form:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.summary-event-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.summary-event-name {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary-event-meta,
+.summary-quiet {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.summary-event-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
+
+.summary-bar {
+  position: relative;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+
+.summary-bar > span {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--ink);
+  transform-origin: left center;
+  animation: summary-bar-in 600ms var(--ease-out) both;
+}
+
+@keyframes summary-bar-in {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .summary-bar > span {
+    animation: none;
+  }
+}
+
+@media (max-width: 719.98px) {
+  .summary-event {
+    grid-template-columns: minmax(0, 1fr) 56px;
+  }
+
+  .summary-bar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}

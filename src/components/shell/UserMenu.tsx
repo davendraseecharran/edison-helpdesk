@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import Link from 'next/link';
-import { CircleUserRound, Monitor, Moon, Settings, Sun } from 'lucide-react';
+import { CalendarRange, CircleUserRound, Monitor, Moon, Settings, Sun } from 'lucide-react';
 import { useRuntime } from '@/components/AppRuntime';
 import { rolesLabel } from '@/lib/auth/roles';
 import { Avatar } from '@/components/Primitives';
@@ -34,6 +34,10 @@ function AccountPanel({ onNavigate }: { onNavigate: () => void }) {
           <p className="account-role">{rolesLabel(actor.roles)}</p>
         </div>
       </div>
+      <Link href="/summary" className="menu-item" onClick={onNavigate}>
+        <Icon icon={CalendarRange} size={16} weight="medium" />
+        <span>Your week</span>
+      </Link>
       <Link href="/settings" className="menu-item" onClick={onNavigate}>
         <Icon icon={Settings} size={16} weight="medium" />
         <span>Settings</span>
