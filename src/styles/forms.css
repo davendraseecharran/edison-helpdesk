@@ -1,0 +1,1863 @@
+/*
+ * Forms: the builder, the responses, the public page and the kiosk.
+ *
+ * Imported by the components that use it, so nothing else carries these rules.
+ * Built on the tokens and the primitives in `components.css`; nothing here
+ * names a colour.
+ *
+ * One moment moves on its own, and it answers the respondent proving who they
+ * are: the directory's answers are wiped into their fields one after another
+ * (`.form-q-reveal`). Every keyframe here runs FROM a start state TO the
+ * element's resting style, so under reduced motion — where `base.css` turns
+ * every animation off — each thing is simply drawn.
+ */
+
+/* --- Status ------------------------------------------------------------- */
+
+.form-state-open {
+  --badge-tone: var(--ok);
+}
+
+.form-state-closed {
+  --badge-tone: var(--ink-3);
+}
+
+.form-state-full {
+  --badge-tone: var(--warn);
+}
+
+.forms-private {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 500;
+}
+
+.ticket-meta-item.forms-private {
+  margin-left: 0;
+}
+
+.forms-search {
+  width: min(280px, 100%);
+}
+
+.forms-empty-filter {
+  padding: 24px 16px;
+}
+
+/* --- The page header ---------------------------------------------------- */
+
+.form-crumb {
+  margin-bottom: 2px;
+  font-size: var(--fs-1);
+}
+
+.form-crumb a {
+  color: var(--ink-3);
+  text-decoration: none;
+  transition: color var(--dur-hover) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .form-crumb a:hover {
+    color: var(--ink);
+  }
+}
+
+.form-page .tabs {
+  margin-top: 4px;
+}
+
+/* --- New form: the starting points -------------------------------------- */
+
+.form-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.form-templates legend {
+  margin-bottom: 6px;
+  padding: 0;
+}
+
+.form-template {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-hover) ease,
+    border-color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
+}
+
+.form-template:has(input:checked) {
+  border-color: var(--ink);
+  background: var(--surface-2);
+}
+
+.form-template:has(input:focus-visible) {
+  box-shadow: var(--focus);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .form-template:hover {
+    border-color: var(--line-strong);
+  }
+  .form-template:has(input:checked):hover {
+    border-color: var(--ink);
+  }
+}
+
+.form-template-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.form-template-name {
+  font-weight: 600;
+}
+
+.form-template-summary {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+/* --- Radios and checkboxes, drawn ---------------------------------------- */
+
+/*
+ * The browser's own radio and checkbox are blue in half the browsers this runs
+ * in. These are the same inputs — the keyboard, the form, the screen reader are
+ * all the browser's — with our ring and our ink.
+ */
+.form-choice input,
+.form-template input {
+  appearance: none;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  transition:
+    border-color var(--dur-hover) ease,
+    background-color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
+}
+
+.form-choice input[type='checkbox'] {
+  border-radius: 4px;
+}
+
+.form-choice input:checked,
+.form-template input:checked {
+  border-color: var(--ink);
+  background: var(--ink);
+  box-shadow: inset 0 0 0 3px var(--surface);
+}
+
+.form-choice input[type='checkbox']:checked {
+  box-shadow: none;
+}
+
+.form-choice input[type='checkbox']:checked::after {
+  content: '';
+  width: 12px;
+  height: 12px;
+  background: var(--accent-ink);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+  -webkit-mask-size: contain;
+  mask-size: contain;
+}
+
+.form-choice input:focus-visible,
+.form-template input:focus-visible {
+  outline: none;
+}
+
+/* --- The public page ---------------------------------------------------- */
+
+.pf {
+  min-height: 100dvh;
+  padding: 40px 16px 72px;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.pf-column {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.pf-school {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.pf-head {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pf-title {
+  margin: 0;
+  font-size: clamp(28px, 7vw, var(--fs-6));
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: var(--tracking-display);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.pf-description {
+  max-width: 60ch;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-3);
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.pf-card {
+  padding: 20px;
+  border-radius: var(--radius-4);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.pf-card-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pf-card-title {
+  margin: 0;
+  font-size: var(--fs-4);
+  font-weight: 600;
+  letter-spacing: var(--tracking-heading);
+}
+
+.pf-card-note {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+}
+
+.pf-identify {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pf-identify-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pf-identify-fields input[type='text'],
+.pf-identify-fields input[type='email'] {
+  height: 44px;
+  font-size: var(--fs-3);
+}
+
+/* Off the page for people, on it for a script that fills every field. */
+.pf-trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.pf-problem {
+  margin: 0;
+  color: var(--bad);
+  font-size: var(--fs-2);
+  font-weight: 500;
+}
+
+.pf-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 559.98px) {
+  .pf {
+    padding-top: 28px;
+  }
+
+  .pf-card {
+    padding: 16px;
+  }
+
+  .pf-actions .pf-primary {
+    width: 100%;
+  }
+}
+
+.pf-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pf-greeting {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  animation: pf-arrive 420ms var(--ease-out) both;
+}
+
+.pf-greeting-line {
+  margin: 0;
+  font-size: var(--fs-5);
+  font-weight: 600;
+  letter-spacing: var(--tracking-title);
+}
+
+.pf-greeting-note {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.pf-not-me {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  margin-top: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-3);
+  font: 500 var(--fs-1) / 1 var(--font-sans);
+  cursor: pointer;
+  transition: color var(--dur-hover) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pf-not-me:hover {
+    color: var(--ink);
+  }
+}
+
+.pf-not-me:focus-visible {
+  border-radius: var(--radius-1);
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.pf-sent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 56px 0 24px;
+  text-align: center;
+}
+
+.pf-sent-title {
+  margin: 0;
+  font-size: var(--fs-6);
+  font-weight: 600;
+  letter-spacing: var(--tracking-display);
+  animation: pf-arrive 420ms var(--ease-out) 360ms both;
+}
+
+.pf-sent-body {
+  max-width: 44ch;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-3);
+  animation: pf-arrive 420ms var(--ease-out) 440ms both;
+}
+
+.pf-closed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 0;
+}
+
+.pf-state {
+  padding: 2px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  font-weight: 500;
+}
+
+@keyframes pf-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+    filter: blur(3px);
+  }
+}
+
+/* The builder's preview: the same page, framed and smaller. */
+.pf-embedded {
+  min-height: 0;
+  padding: 20px 16px 24px;
+}
+
+.pf-embedded .pf-title {
+  font-size: var(--fs-5);
+}
+
+.pf-embedded .pf-greeting {
+  animation: none;
+}
+
+.pf-embedded .pf-greeting-line {
+  font-size: var(--fs-4);
+}
+
+/* --- Questions, as a respondent sees them -------------------------------- */
+
+.form-questions {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-q {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px 0;
+  border-top: 1px solid var(--line);
+}
+
+.form-q:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.form-q:last-child {
+  padding-bottom: 0;
+}
+
+.form-q-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.form-q-label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  color: var(--ink);
+  font-size: var(--fs-3);
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.form-q-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 500;
+}
+
+.form-q-help {
+  margin: -2px 0 0;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  white-space: pre-line;
+}
+
+.form-q-error {
+  margin: 0;
+}
+
+/* 16px in every field: below that, a phone zooms the page to read it. */
+.form-questions input[type='text'],
+.form-questions input[type='email'],
+.form-questions input[type='tel'],
+.form-questions input[type='date'] {
+  height: 44px;
+  font-size: var(--fs-3);
+}
+
+.form-questions textarea {
+  font-size: var(--fs-3);
+}
+
+.form-questions .form-input-number,
+.form-questions .form-input-date {
+  width: min(240px, 100%);
+}
+
+.form-questions .form-select {
+  width: 100%;
+  height: 44px;
+  font-size: var(--fs-3);
+}
+
+.form-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-choices-row {
+  flex-direction: row;
+}
+
+.form-choices-row .form-choice {
+  flex: 1 1 0;
+}
+
+.form-choice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  transition:
+    background-color var(--dur-hover) ease,
+    border-color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
+}
+
+.form-choice:has(input:checked) {
+  border-color: var(--ink);
+  background: var(--surface-2);
+}
+
+.form-choice:has(input:focus-visible) {
+  box-shadow: var(--focus);
+}
+
+.form-choice:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .form-choice:hover {
+    border-color: var(--line-strong);
+    background: var(--surface-2);
+  }
+  .form-choice:has(input:checked):hover {
+    border-color: var(--ink);
+  }
+}
+
+.form-q-invalid .form-choice,
+.form-q-invalid .form-masked {
+  border-color: var(--bad);
+}
+
+.form-choice-clear,
+.form-restore,
+.form-masked-change,
+.fb-retry {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 6px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: 500 var(--fs-1) / 1.3 var(--font-sans);
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition:
+    color var(--dur-hover) ease,
+    text-decoration-color var(--dur-hover) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .form-choice-clear:hover,
+  .form-restore:hover,
+  .form-masked-change:hover,
+  .fb-retry:hover {
+    color: var(--ink);
+    text-decoration-color: var(--ink);
+  }
+}
+
+.form-choice-clear:focus-visible,
+.form-restore:focus-visible,
+.form-masked-change:focus-visible,
+.fb-retry:focus-visible {
+  border-radius: var(--radius-1);
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+/* The guardian's number, which the page never had whole. */
+.form-masked {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+}
+
+.form-masked-value {
+  color: var(--ink);
+  font-size: var(--fs-3);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.form-masked-change {
+  align-self: center;
+  min-height: 32px;
+  color: var(--ink);
+}
+
+.form-prefill {
+  position: relative;
+  display: block;
+}
+
+/*
+ * The one moment: the directory writes itself in.
+ *
+ * A cover the colour of the field sits over each value and pulls back to the
+ * right, so the text is uncovered from the left the way it would be typed;
+ * each field waits ninety milliseconds longer than the one above it. The
+ * cover's resting state is gone (`scaleX(0)`), so with animations off there is
+ * nothing over anything.
+ */
+.form-q-reveal .form-prefill::after,
+.form-q-reveal .form-masked::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  border-radius: calc(var(--radius-2) - 1px);
+  background: var(--surface);
+  transform: scaleX(0);
+  transform-origin: right center;
+  pointer-events: none;
+  animation: form-write 560ms var(--ease-out) both;
+  animation-delay: calc(var(--reveal-i, 0) * 90ms + 260ms);
+}
+
+.form-q-reveal .form-masked::after {
+  background: var(--surface-2);
+}
+
+.form-q-reveal .form-q-source {
+  animation: form-source 300ms var(--ease-out) both;
+  animation-delay: calc(var(--reveal-i, 0) * 90ms + 560ms);
+}
+
+@keyframes form-write {
+  from {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes form-source {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+/* --- Signature ---------------------------------------------------------- */
+
+.signature {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.signature-surface {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 1;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+  color: var(--ink);
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.signature-invalid .signature-surface {
+  border-color: var(--bad);
+}
+
+.signature-surface[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.signature-baseline {
+  stroke: var(--line-strong);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 6;
+}
+
+.signature-ink {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.signature-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.signature-note {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.signature-thumb {
+  display: block;
+  width: 96px;
+  height: 32px;
+  color: var(--ink);
+}
+
+.signature-thumb .signature-ink {
+  stroke-width: 6;
+}
+
+/* --- The tick ------------------------------------------------------------ */
+
+.check-draw {
+  flex: none;
+  color: var(--ink);
+}
+
+.check-draw-ring,
+.check-draw-tick {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+.check-draw-ring {
+  stroke-width: 2;
+  opacity: 0.4;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: check-draw 520ms var(--ease-out) both;
+}
+
+.check-draw-tick {
+  stroke-width: 3.5;
+  animation: check-draw 380ms var(--ease-out) 360ms both;
+}
+
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+/* --- The builder --------------------------------------------------------- */
+
+.fb {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fb-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 32px;
+}
+
+.fb-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.fb-status-warn {
+  color: var(--warn);
+}
+
+.fb-retry {
+  margin-left: 4px;
+  padding: 0;
+}
+
+.fb-pane-switch {
+  display: none;
+}
+
+.fb-live-note {
+  max-width: 72ch;
+}
+
+.fb-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+
+.fb-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+@media (min-width: 1100px) {
+  .fb-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+  }
+
+  .fb-preview {
+    position: sticky;
+    top: calc(var(--topbar-h) + 16px);
+    max-height: calc(100dvh - var(--topbar-h) - 32px);
+    overflow: auto;
+    overscroll-behavior: contain;
+    border-radius: 20px;
+  }
+}
+
+@media (max-width: 1099.98px) {
+  .fb-pane-switch {
+    display: block;
+  }
+
+  .fb[data-pane='edit'] .fb-preview,
+  .fb[data-pane='preview'] .fb-edit {
+    display: none;
+  }
+}
+
+.fb-card {
+  padding: 12px;
+  border-radius: var(--radius-4);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.fb-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Borderless until touched, like a document: the title is the page, not a field on it. */
+.fb .fb-title-input,
+.fb .fb-description-input {
+  border-color: transparent;
+  background: transparent;
+  transition:
+    border-color var(--dur-hover) ease,
+    background-color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
+}
+
+.fb .fb-title-input {
+  min-height: 48px;
+  height: auto;
+  padding: 8px;
+  resize: none;
+  field-sizing: content;
+  line-height: 1.2;
+  font-size: var(--fs-5);
+  font-weight: 600;
+  letter-spacing: var(--tracking-title);
+}
+
+.fb .fb-description-input {
+  min-height: 48px;
+  padding: 8px;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  resize: none;
+  field-sizing: content;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .fb .fb-title-input:hover,
+  .fb .fb-description-input:hover {
+    border-color: var(--line);
+  }
+}
+
+.fb .fb-title-input:focus-visible,
+.fb .fb-description-input:focus-visible {
+  border-color: var(--line-focus);
+  background: var(--surface);
+}
+
+.fb .fb-title-input[aria-invalid='true'] {
+  border-color: var(--bad);
+}
+
+.fb-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 32px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-4);
+  text-align: center;
+}
+
+.fb-empty .empty-title,
+.fb-empty .empty-body {
+  margin: 0;
+}
+
+.fb-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.fb-add-note {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.fb-add-menu {
+  min-width: 240px;
+  max-height: min(70vh, 560px);
+  overflow-y: auto;
+}
+
+/* The preview, framed as the phone most people will open it on. */
+.fb-device {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fb-device-caption {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  text-align: center;
+}
+
+.fb-device-screen {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+}
+
+/* One question in the builder. */
+.fq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fq {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: var(--radius-4);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  transition:
+    border-color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
+}
+
+.fq-open {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-2);
+}
+
+.fq-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px 4px 4px;
+}
+
+.fq-handle {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 40px;
+  border: 0;
+  border-radius: var(--radius-1);
+  background: none;
+  color: var(--ink-3);
+  cursor: grab;
+  touch-action: none;
+  transition: color var(--dur-hover) ease;
+}
+
+.fq-handle:active {
+  cursor: grabbing;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .fq-handle:hover {
+    color: var(--ink);
+  }
+}
+
+.fq-summary {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-2);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-hover) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .fq-summary:hover {
+    background: var(--surface-2);
+  }
+}
+
+.fq-summary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.fq-kind {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-1);
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+
+.fq[data-directory] .fq-kind {
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.fq-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fq-title-empty {
+  color: var(--ink-3);
+  font-weight: 400;
+}
+
+.fq-tags {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+.fq-tag {
+  padding: 2px 6px;
+  border-radius: var(--radius-1);
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 500;
+}
+
+.fq-tag-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+@media (max-width: 519.98px) {
+  .fq-tags .fq-tag:not(.fq-tag-warn) {
+    display: none;
+  }
+}
+
+.fq-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 16px 12px 46px;
+}
+
+@media (max-width: 559.98px) {
+  .fq-body {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+.fq-main {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fq-label-field {
+  flex: 1 1 260px;
+}
+
+.fq-type {
+  flex: 0 1 190px;
+  min-width: 160px;
+}
+
+@media (max-width: 559.98px) {
+  .fq-type {
+    flex: 1 1 100%;
+  }
+}
+
+.fq .fq-label-input {
+  height: 40px;
+  font-size: var(--fs-3);
+  font-weight: 500;
+}
+
+.fq .fq-help-input {
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.fq-directory-note {
+  max-width: 64ch;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.fq-options {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.fq-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fq-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fq-option-mark {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 999px;
+}
+
+.fq-option-mark-multi_choice {
+  border-radius: 3px;
+}
+
+.fq-option-mark-dropdown {
+  width: 10px;
+  height: 2px;
+  border: 0;
+  border-radius: 1px;
+  background: var(--line-strong);
+}
+
+.fq-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.fq-required {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  cursor: pointer;
+}
+
+.fq-foot-actions {
+  display: flex;
+  gap: 2px;
+}
+
+/* --- Share -------------------------------------------------------------- */
+
+.form-share-body {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.form-share-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.form-share-section .qr-tile {
+  margin-inline: 0;
+}
+
+.form-share-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+
+.form-share-link {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+
+.form-share-url {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+  font-size: var(--fs-1);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.form-share-url-skeleton {
+  flex: 1;
+  height: 36px;
+}
+
+.form-share-note {
+  max-width: 48ch;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.form-share-download {
+  text-decoration: none;
+}
+
+/* --- Settings ------------------------------------------------------------ */
+
+.fs-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-settings .fs-datetime {
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  color: var(--ink);
+  font: 400 var(--fs-2) / 1.4 var(--font-sans);
+  transition:
+    border-color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
+}
+
+.form-settings .fs-datetime:focus-visible {
+  border-color: var(--line-focus);
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.form-settings .fs-cap {
+  width: 120px;
+}
+
+.form-settings .fs-select {
+  width: min(280px, 100%);
+}
+
+.fs-save {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: -16px;
+}
+
+.fs-save .field-error {
+  margin: 0;
+}
+
+/* --- Responses ----------------------------------------------------------- */
+
+.fr-summaries {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr));
+  gap: 24px 32px;
+  padding: 16px;
+}
+
+.fr-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+}
+
+.fr-summary-title {
+  overflow-wrap: anywhere;
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+
+.fr-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fr-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(64px, 1.4fr) 36px;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--fs-1);
+}
+
+.fr-bar-label {
+  overflow: hidden;
+  color: var(--ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fr-bar-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-3);
+}
+
+.fr-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ink-2);
+  transform-origin: left center;
+}
+
+.fr-bar-count {
+  color: var(--ink);
+  text-align: right;
+}
+
+.fr-exports {
+  flex-wrap: wrap;
+}
+
+.fr .panel-aside {
+  white-space: normal;
+}
+
+/*
+ * A column per question: the table scrolls inside its panel, never the page.
+ * `position: relative` makes the scroller the containing block of the
+ * screen-reader text in its cells, which is absolutely positioned and would
+ * otherwise stretch the page from a column scrolled out of view.
+ */
+.fr-table .data-table {
+  position: relative;
+}
+
+@media (min-width: 720px) {
+  .fr-table .data-table {
+    padding-bottom: 4px;
+    overflow-x: auto;
+  }
+
+  .fr-table .table {
+    width: max-content;
+    min-width: 100%;
+  }
+
+  .fr-table .table thead th {
+    position: static;
+  }
+}
+
+.fr-head {
+  display: inline-block;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  white-space: nowrap;
+}
+
+.fr-answer {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+
+.fr-answer-long {
+  display: block;
+  max-width: 320px;
+  white-space: normal;
+}
+
+.fr-changed {
+  flex: none;
+  align-self: center;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--warn);
+}
+
+/* --- The kiosk ------------------------------------------------------------ */
+
+.kiosk {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.kiosk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.kiosk-bar-text {
+  min-width: 0;
+}
+
+.kiosk-bar-title {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--fs-3);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kiosk-bar-sub {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.kiosk-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.kiosk-quiet-btn,
+.kiosk-exit {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: 500 var(--fs-1) / 1 var(--font-sans);
+  cursor: pointer;
+  transition:
+    color var(--dur-hover) ease,
+    border-color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
+}
+
+.kiosk-exit {
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  -webkit-touch-callout: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .kiosk-quiet-btn:hover,
+  .kiosk-exit:hover {
+    border-color: var(--line-strong);
+    color: var(--ink);
+  }
+}
+
+.kiosk-quiet-btn:focus-visible,
+.kiosk-exit:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.kiosk-exit > :not(.kiosk-exit-fill) {
+  position: relative;
+}
+
+/* The ring of a held press, drawn as a bar that fills while it is held. */
+.kiosk-exit-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--surface-4);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.kiosk-exit-holding {
+  color: var(--ink);
+}
+
+.kiosk-exit-holding .kiosk-exit-fill {
+  transform: scaleX(1);
+  transition: transform var(--hold-ms, 1250ms) linear;
+}
+
+.kiosk-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.kiosk-stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 32px 20px 56px;
+  text-align: center;
+}
+
+.kiosk-scan {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: min(620px, 100%);
+}
+
+.kiosk-prompt {
+  margin: 0;
+  font-size: clamp(28px, 5vw, 48px);
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: var(--tracking-display);
+  text-wrap: balance;
+}
+
+.kiosk-scan .kiosk-input {
+  width: 100%;
+  height: 76px;
+  padding: 0 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-4);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: clamp(24px, 4vw, 34px);
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.kiosk-scan .kiosk-input:focus-visible {
+  border-color: var(--line-focus);
+  box-shadow: var(--focus);
+}
+
+.kiosk-hint {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-3);
+}
+
+.kiosk-inline-problem {
+  margin: 0;
+  color: var(--bad);
+  font-size: var(--fs-3);
+  font-weight: 500;
+}
+
+.kiosk-count {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-3);
+}
+
+.kiosk-count .num {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.kiosk-message-slot {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: stretch;
+  pointer-events: none;
+}
+
+.kiosk-message-slot:empty {
+  display: none;
+}
+
+.kiosk-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 40px 24px;
+  background: var(--bg);
+  animation: kiosk-cover 180ms var(--ease-out) both;
+}
+
+.kiosk-message-title {
+  margin: 0;
+  font-size: clamp(40px, 8vw, 84px);
+  font-weight: 600;
+  line-height: 1.04;
+  letter-spacing: var(--tracking-display);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.kiosk-message-body {
+  max-width: 36ch;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: clamp(18px, 2.4vw, 24px);
+}
+
+.kiosk-welcome .kiosk-check {
+  color: var(--good);
+}
+
+.kiosk-welcome .kiosk-message-title {
+  animation: kiosk-name 460ms var(--ease-out) 220ms both;
+}
+
+.kiosk-welcome .kiosk-message-body {
+  animation: kiosk-name 460ms var(--ease-out) 320ms both;
+}
+
+.kiosk-problem-icon {
+  color: var(--warn);
+}
+
+@keyframes kiosk-cover {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes kiosk-name {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+    filter: blur(4px);
+  }
+}
+
+/* The form, answered at the kiosk: the public card, bigger. */
+.kiosk-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding: 24px 20px 56px;
+}
+
+.kiosk-answer-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kiosk-greeting {
+  margin: 0;
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 600;
+  letter-spacing: var(--tracking-display);
+}
+
+.kiosk-answer-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.form-questions-large .form-q-label {
+  font-size: var(--fs-4);
+}
+
+.form-questions-large input[type='text'],
+.form-questions-large input[type='email'],
+.form-questions-large input[type='tel'],
+.form-questions-large input[type='date'],
+.form-questions-large .form-select {
+  height: 52px;
+  font-size: 18px;
+}
+
+.form-questions-large .form-choice {
+  min-height: 52px;
+  font-size: 18px;
+}
+
+.kiosk-gone .kiosk-stage {
+  min-height: 100dvh;
+}
+
+/* The closing time's picker, in the kit's hand like the date field's. */
+.form-settings .fs-datetime::-webkit-calendar-picker-indicator {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin-left: 4px;
+  background: var(--ink-3);
+  cursor: pointer;
+  opacity: 1;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2v4'/%3E%3Cpath d='M16 2v4'/%3E%3Crect width='18' height='18' x='3' y='4' rx='2'/%3E%3Cpath d='M3 10h18'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-size: contain;
+}
+
+.form-settings .fs-datetime::-webkit-datetime-edit-text {
+  color: var(--ink-3);
+}
+
+.form-settings .fs-datetime::-webkit-datetime-edit-year-field:focus,
+.form-settings .fs-datetime::-webkit-datetime-edit-month-field:focus,
+.form-settings .fs-datetime::-webkit-datetime-edit-day-field:focus,
+.form-settings .fs-datetime::-webkit-datetime-edit-hour-field:focus,
+.form-settings .fs-datetime::-webkit-datetime-edit-minute-field:focus,
+.form-settings .fs-datetime::-webkit-datetime-edit-ampm-field:focus {
+  border-radius: var(--radius-1);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+
+/* On a phone the delete sits in the card's title row, not among the answers. */
+.fr-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}

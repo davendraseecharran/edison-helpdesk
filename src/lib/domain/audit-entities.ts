@@ -1,5 +1,5 @@
 /**
- * The seven things the audit log can be about.
+ * The eight things the audit log can be about.
  *
  * `record_events.entity_type` plus tickets, which come from `activity_events`.
  * A vocabulary rather than a rule: `app_audit_log` fails a filter it does not
@@ -9,7 +9,7 @@
  * rather than passing it through, and both need this list to do it.
  *
  * It lives here rather than in `audit.ts` because that module is `server-only`
- * and this is a list of seven words.
+ * and this is a list of eight words.
  */
 export const AUDIT_ENTITIES = [
   'ticket',
@@ -19,6 +19,9 @@ export const AUDIT_ENTITIES = [
   // A roster, its events and its checklist all file their history against the
   // group, which is the record with a page and a name.
   'group',
+  // A form's history — created, changed, opened, closed, exported, a response
+  // deleted — is filed against the form. A response arriving is not a change.
+  'form',
   'invite',
   'import',
 ] as const;

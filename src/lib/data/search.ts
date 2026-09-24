@@ -4,27 +4,29 @@
  *
  * Nothing here touches the network or the browser, so the command palette's
  * behaviour is testable without either. `searchAction` in `search-actions.ts`
- * is the one network call and maps `app_search` rows through `hitFromRow`.
+ * is the one network call and maps `app_search` rows through `hitFromRow`,
+ * and `app_search_forms` rows, which carry no kind, through `formHitFromRow`.
  */
 
-export type SearchKind = 'ticket' | 'person' | 'device' | 'group' | 'event';
+export type SearchKind = 'ticket' | 'person' | 'device' | 'group' | 'event' | 'form';
 
 export interface SearchHit {
   kind: SearchKind;
   id: string;
   /**
    * Ticket: "EDT-1042 <title>". Person: display name. Device: the identifier
-   * read off the machine. Group: its name. Event: its name.
+   * read off the machine. Group: its name. Event: its name. Form: its title.
    */
   title: string;
   /**
    * Ticket: requester. Person: "Student — 7-401". Device: model and type.
    * Group: its description, when it has one. Event: the group it belongs to.
+   * Form: the start of its description, when it has one.
    */
   subtitle: string | null;
   /**
    * Ticket: the raw status value. Person: OSIS or staff ID. Device: status and
-   * holder. Group: "12 members". Event: the day, "Sep 16".
+   * holder. Group: "12 members". Event: the day, "Sep 16". Form: "4 responses".
    */
   meta: string | null;
   href: string;
@@ -36,6 +38,7 @@ export interface GroupedHits {
   devices: SearchHit[];
   groups: SearchHit[];
   events: SearchHit[];
+  forms: SearchHit[];
 }
 
 /** One selected record, as remembered per browser. */
@@ -64,6 +67,7 @@ const KINDS: ReadonlySet<string> = new Set<SearchKind>([
   'device',
   'group',
   'event',
+  'form',
 ]);
 
 export function isSearchKind(value: unknown): value is SearchKind {
@@ -79,6 +83,7 @@ const ROUTES: Record<SearchKind, string> = {
   // id. `/events/{id}` is a server page that reads the group and redirects, so
   // the link stays derivable from the two fields every hit has.
   event: '/events',
+  form: '/forms',
 };
 
 /** The page a hit opens. */
@@ -88,13 +93,21 @@ export function hrefFor(hit: Pick<SearchHit, 'kind' | 'id'>): string {
 
 /** Split mixed hits into the palette's groups, keeping the server's rank order within each. */
 export function groupHits(hits: SearchHit[]): GroupedHits {
-  const grouped: GroupedHits = { tickets: [], people: [], devices: [], groups: [], events: [] };
+  const grouped: GroupedHits = {
+    tickets: [],
+    people: [],
+    devices: [],
+    groups: [],
+    events: [],
+    forms: [],
+  };
   for (const hit of hits) {
     if (hit.kind === 'ticket') grouped.tickets.push(hit);
     else if (hit.kind === 'person') grouped.people.push(hit);
     else if (hit.kind === 'device') grouped.devices.push(hit);
     else if (hit.kind === 'group') grouped.groups.push(hit);
-    else grouped.events.push(hit);
+    else if (hit.kind === 'event') grouped.events.push(hit);
+    else grouped.forms.push(hit);
   }
   return grouped;
 }
@@ -118,6 +131,15 @@ export function hitFromRow(row: unknown): SearchHit | null {
     meta: typeof meta === 'string' && meta !== '' ? meta : null,
     href: hrefFor({ kind, id }),
   };
+}
+
+/**
+ * One `app_search_forms` row as a hit. That function answers forms only, so
+ * its rows carry no kind column; the kind is supplied here rather than trusted.
+ */
+export function formHitFromRow(row: unknown): SearchHit | null {
+  if (!row || typeof row !== 'object') return null;
+  return hitFromRow({ ...(row as Record<string, unknown>), kind: 'form' });
 }
 
 /**

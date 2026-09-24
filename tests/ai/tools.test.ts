@@ -66,6 +66,7 @@ describe('tool classification', () => {
       'add_to_group',
       'archive_person',
       'contact_list',
+      'create_form',
       'create_group',
       'create_group_event',
       'create_person',
@@ -78,6 +79,7 @@ describe('tool classification', () => {
       // The one read a skills officer is offered and a NetRider is not.
       'export_people_csv',
       'find_people',
+      'form_responses',
       'get_device',
       'get_person',
       'group_checklist',
@@ -86,6 +88,7 @@ describe('tool classification', () => {
       'import_people',
       'list_attachments',
       'list_devices',
+      'list_forms',
       'list_groups',
       'list_notifications',
       'list_people',
@@ -98,6 +101,7 @@ describe('tool classification', () => {
       'set_checklist_mark',
       'set_checklist_marks',
       'set_display_name',
+      'set_form_open',
       'set_group_member_note',
       'set_preference',
       'update_group',
@@ -158,6 +162,9 @@ describe('tool classification', () => {
       'group_events',
       'event_attendance',
       'group_checklist',
+      // Forms: what exists, and what people answered on one.
+      'list_forms',
+      'form_responses',
       // The desk's own numbers, the same document the Analytics page draws.
       'desk_analytics',
       // Parity with the screens: the quick-ticket list, the three exports
@@ -226,6 +233,9 @@ describe('tool classification', () => {
       'set_checklist_marks',
       'create_group_event',
       'delete_group_event',
+      // Forms: making one, and opening or closing it.
+      'create_form',
+      'set_form_open',
       // Bulk, from a sheet, a CSV or a screenshot of one.
       'create_tickets',
       'claim_tickets',

@@ -20,7 +20,7 @@
 import { useCallback, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ClipboardCopy, Download, Trash2 } from 'lucide-react';
+import { ClipboardCopy, Download, MonitorSmartphone, Trash2 } from 'lucide-react';
 import {
   deleteGroupEventAction,
   markAttendanceAction,
@@ -172,6 +172,10 @@ export function EventRoll({ detail }: { detail: EventDetail }) {
           </div>
         </div>
         <div className="btn-row record-actions">
+          {/* Check-in at the door, full screen, for a scanner or a queue. */}
+          <ButtonLink href={`/kiosk/events/${event.id}`} icon={MonitorSmartphone} prefetch={false}>
+            Kiosk
+          </ButtonLink>
           <ButtonLink
             href={`/groups/${groupId}/events/${event.id}/export`}
             icon={Download}

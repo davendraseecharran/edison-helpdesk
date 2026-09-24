@@ -1,7 +1,7 @@
 'use client';
 
 import { Command } from 'cmdk';
-import { CalendarDays, Laptop, Ticket, User, Users } from 'lucide-react';
+import { CalendarDays, ClipboardPen, Laptop, Ticket, User, Users } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { StatusBadge } from '@/components/Badges';
 import { Icon, type LucideIcon } from '@/components/ui/Icon';
@@ -21,6 +21,7 @@ const KIND_ICON: Record<SearchKind, LucideIcon> = {
   device: Laptop,
   group: Users,
   event: CalendarDays,
+  form: ClipboardPen,
 };
 
 const KIND_LABEL: Record<SearchKind, string> = {
@@ -29,6 +30,7 @@ const KIND_LABEL: Record<SearchKind, string> = {
   device: 'Device',
   group: 'Group',
   event: 'Event',
+  form: 'Form',
 };
 
 /** A command the palette offers beside the records it finds. */
@@ -164,6 +166,7 @@ export function HitGroups({
     ['device', 'Devices', groups.devices],
     ['group', 'Groups', groups.groups],
     ['event', 'Events', groups.events],
+    ['form', 'Forms', groups.forms],
   ];
   return (
     <>
