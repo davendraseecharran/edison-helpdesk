@@ -17,7 +17,7 @@
  * hand. `markLine` owns the wording and is tested without a camera.
  */
 
-import { useCallback, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ClipboardCopy, Download, MonitorSmartphone, Trash2 } from 'lucide-react';
@@ -37,6 +37,7 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { Dialog } from '@/components/ui/Dialog';
 import { ScanButton } from '@/components/shell/ScanButton';
+import { usePaintSelect } from '@/components/ui/useSelection';
 import '@/styles/groups.css';
 
 export function EventRoll({ detail }: { detail: EventDetail }) {
@@ -47,8 +48,64 @@ export function EventRoll({ detail }: { detail: EventDetail }) {
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const busy = pendingKey !== null;
 
-  const present = roll.filter((entry) => entry.present).length;
-  const absentees = roll.filter((entry) => !entry.present);
+  /*
+   * Ticks shown before the database answers, so the column can be painted —
+   * press a box and drag down the roll, or shift-click a range — without each
+   * box waiting on the one before. Dropped when the server's roll arrives,
+   * after the last save of a stroke and a short pause; one refused springs
+   * back with a message.
+   */
+  const [overrides, setOverrides] = useState<ReadonlyMap<string, boolean>>(() => new Map());
+  const [rollSeen, setRollSeen] = useState(roll);
+  if (rollSeen !== roll) {
+    setRollSeen(roll);
+    setOverrides(new Map());
+  }
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+  }, []);
+
+  const isPresent = (id: string) =>
+    overrides.get(id) ?? roll.find((entry) => entry.id === id)?.present ?? false;
+
+  function applyPresence(ids: readonly string[], on: boolean) {
+    const changing = ids.filter((id) => isPresent(id) !== on);
+    if (changing.length === 0) return;
+    setOverrides((prev) => {
+      const next = new Map(prev);
+      for (const id of changing) next.set(id, on);
+      return next;
+    });
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    void Promise.all(
+      changing.map(async (id) => {
+        const result = await markAttendanceAction(event.id, id, on).catch(() => null);
+        return result?.ok ? null : { id, error: result?.error };
+      }),
+    ).then((outcomes) => {
+      const failed = outcomes.filter((outcome) => outcome !== null);
+      if (failed.length > 0) {
+        setOverrides((prev) => {
+          const next = new Map(prev);
+          for (const { id } of failed) next.set(id, !on);
+          return next;
+        });
+        notify('error', failed[0].error ?? `${failed.length} marks were not saved. Try again.`);
+      }
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      refreshTimer.current = setTimeout(() => router.refresh(), 600);
+    });
+  }
+
+  const paint = usePaintSelect({
+    order: roll.map((entry) => entry.id),
+    isOn: isPresent,
+    apply: applyPresence,
+  });
+
+  const present = roll.filter((entry) => isPresent(entry.id)).length;
+  const absentees = roll.filter((entry) => !isPresent(entry.id));
 
   /**
    * One key, scanned or typed, and the sentence it produces.
@@ -92,12 +149,6 @@ export function EventRoll({ detail }: { detail: EventDetail }) {
     [mark],
   );
 
-  async function toggle(entry: RollEntry) {
-    await run(`event:mark:${entry.id}`, () =>
-      markAttendanceAction(event.id, entry.id, !entry.present),
-    );
-  }
-
   async function copyAbsentees() {
     const copied = await copyText(linesOf(absentees.map((entry) => entry.displayName)));
     notify(
@@ -114,13 +165,12 @@ export function EventRoll({ detail }: { detail: EventDetail }) {
       header: 'Present',
       width: 88,
       cell: (entry) => (
-        <label className="row-check roll-check">
+        <label className="row-check roll-check" {...paint.boxProps(entry.id)}>
           <input
             type="checkbox"
-            checked={entry.present}
-            disabled={busy}
+            checked={isPresent(entry.id)}
             aria-label={`${entry.displayName} present`}
-            onChange={() => void toggle(entry)}
+            onChange={(change) => paint.change(entry.id, change.target.checked)}
           />
         </label>
       ),
@@ -231,7 +281,11 @@ export function EventRoll({ detail }: { detail: EventDetail }) {
           </div>
         </section>
 
-        <section className="panel directory" aria-labelledby="event-roll-heading">
+        <section
+          className="panel directory"
+          aria-labelledby="event-roll-heading"
+          data-painting={paint.painting || undefined}
+        >
           <div className="panel-head">
             <h2 className="panel-title" id="event-roll-heading">
               Roll
