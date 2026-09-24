@@ -2,37 +2,22 @@
 
 /**
  * Copies an identifier to the clipboard: an OSIS to paste into the roster, a
- * serial into a warranty form. The icon flips to a check for a moment and a
+ * serial into a warranty form. The icon crosses into a check for a moment and a
  * live region says "Copied" for anyone not looking at it. A browser that
  * refuses the clipboard gets told what to do instead.
  */
 
-import { useEffect, useRef, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { useRuntime } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
-
-const SHOW_COPIED_MS = 1500;
+import { useCopied } from '@/components/ui/useCopied';
 
 export function CopyButton({ value, label }: { value: string; label: string }) {
   const { notify } = useRuntime();
-  const [copied, setCopied] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current);
-    },
-    [],
-  );
+  const { copied, copy: write } = useCopied();
 
   async function copy() {
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopied(true);
-      if (timer.current) clearTimeout(timer.current);
-      timer.current = setTimeout(() => setCopied(false), SHOW_COPIED_MS);
-    } catch {
+    if (!(await write(value))) {
       notify('error', `Could not copy the ${label}. Select the text and copy it instead.`);
     }
   }
@@ -43,6 +28,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
         variant="ghost"
         size="sm"
         icon={copied ? Check : Copy}
+        iconKey={copied ? 'copied' : 'copy'}
         aria-label={`Copy ${label}`}
         title={`Copy ${label}`}
         className="copy-btn"

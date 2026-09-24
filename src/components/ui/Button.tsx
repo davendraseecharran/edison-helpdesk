@@ -4,10 +4,11 @@ import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
 import Link from 'next/link';
 import { LoaderCircle } from 'lucide-react';
 import { Icon, type LucideIcon } from './Icon';
+import { IconSwap } from './Motion';
 
 /*
  * `primary` is ink on ground: the most contrasted control on the screen, and
- * the one a screen normally has one of. `accent` is the blue, and it is for the
+ * the one a screen normally has one of. `accent` is the ink too (no blue), for the
  * single call to action a screen is actually making — the intake form's submit,
  * the one thing Today is asking for — never for "this is the main button here".
  */
@@ -36,6 +37,12 @@ export interface ButtonProps
     Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className' | 'children'> {
   /** Shows a spinner, announces busy state and blocks further presses. */
   loading?: boolean;
+  /**
+   * Names what the icon currently means, when it changes in answer to a press
+   * (copy becoming a check). Set, the old glyph crosses into the new one
+   * through `IconSwap` instead of cutting.
+   */
+  iconKey?: string;
 }
 
 export function buttonClass({
@@ -65,11 +72,11 @@ export function buttonClass({
 /**
  * The one button.
  *
- * `primary` is the accent fill and there should be one per view at most; the
+ * `primary` is the ink fill and there should be one per view at most; the
  * others are quiet. `loading` is the only state that changes the label area:
  * the spinner replaces the icon so the width barely moves.
  *
- * Every press gives: the button scales to 0.96 while it is held and comes back
+ * Every press gives: the button scales to 0.98 while it is held and comes back
  * when it is let go (`components.css`). That is the one piece of motion the
  * product spends on a high-frequency interaction, because it is answering the
  * finger rather than decorating the page. `static` takes it away.
@@ -82,6 +89,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     variant,
     size,
     icon,
+    iconKey,
     block,
     static: isStatic,
     className,
@@ -106,6 +114,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     >
       {loading ? (
         <Icon icon={LoaderCircle} size={iconSize} weight="medium" className="icon-spin" />
+      ) : icon && iconKey ? (
+        <IconSwap token={iconKey}>
+          <Icon icon={icon} size={iconSize} weight="medium" />
+        </IconSwap>
       ) : icon ? (
         <Icon icon={icon} size={iconSize} weight="medium" />
       ) : null}
