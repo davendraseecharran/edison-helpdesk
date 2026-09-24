@@ -1038,6 +1038,50 @@
   transition-delay: 220ms;
 }
 
+/*
+ * The WebKit cluster (MetaballCluster): the same silhouette drawn as a path
+ * each frame rather than filtered, the buttons riding on top of it.
+ */
+.fab-goo {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.fab-goo-gl {
+  width: 240px;
+  height: 200px;
+}
+
+.fab-goo-fill {
+  fill: var(--surface);
+}
+
+.fab-goo-shade {
+  fill: color-mix(in oklab, #000 28%, transparent);
+  transform: translateY(2px);
+}
+
+.fab-metaball-satellite {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  margin-left: -22px;
+  pointer-events: auto;
+  transition: none;
+  will-change: transform, opacity;
+}
+
+.fab-metaball-core {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  z-index: 2;
+  margin-left: -26px;
+  pointer-events: auto;
+}
+
 /* Reduced motion: an ordinary button and an ordinary menu above it. */
 .fab-core-plain {
   position: absolute;

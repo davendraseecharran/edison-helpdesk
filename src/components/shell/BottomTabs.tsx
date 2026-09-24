@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Liquid } from 'liquid-gooey';
@@ -14,6 +14,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { useEscape, useOutsidePress } from '@/components/ui/focus';
 import { useReducedMotion, useTokenValue } from '@/components/ui/media';
 import { CountPill, isCurrentPath, type NavItem } from './RailNav';
+import { MetaballCluster } from './MetaballCluster';
 import { openAssistant } from './TopBar';
 
 /**
@@ -97,6 +98,13 @@ interface ClusterAction {
   onSelect?: () => void;
 }
 
+/** Where the three satellites land, relative to the core's centre. */
+const FAB_POSITIONS = [
+  { x: -76, y: -64 },
+  { x: 0, y: -92 },
+  { x: 76, y: -64 },
+];
+
 /**
  * The lookup cluster: an accented core that opens into Search, New ticket and
  * Ask. The satellites are liquid-gooey items sharing one surface-coloured
@@ -117,11 +125,7 @@ function GooeyCluster({
   // syntax, so it needs the token's resolved value rather than `var()`.
   const shadow = useTokenValue('--shadow-2');
 
-  const positions = [
-    { x: -76, y: -64 },
-    { x: 0, y: -92 },
-    { x: 76, y: -64 },
-  ];
+  const positions = FAB_POSITIONS;
 
   return (
     <div className="fab" data-open={open ? 'true' : 'false'}>
@@ -204,6 +208,22 @@ function GooeyCluster({
       ))}
     </div>
   );
+}
+
+/** WebKit, where SVG filters are painted on the CPU: iOS and iPadOS (every browser there), and Safari. */
+function useWebKitFilters(): boolean {
+  const [webkit, setWebkit] = useState(false);
+  useEffect(() => {
+    const ua = navigator.userAgent;
+    const ios = /iP(hone|ad|od)/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const safari = /^((?!chrome|chromium|crios|fxios|edg|android).)*safari/i.test(ua);
+    // Decided after mount so the server's markup and the first client render
+    // agree; the cluster is closed and still at that moment, so the swap is
+    // invisible.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setWebkit(ios || safari);
+  }, []);
+  return webkit;
 }
 
 /** Under reduced motion: the same three actions as ordinary buttons. */
@@ -309,12 +329,21 @@ export function BottomTabs({
     },
   ];
 
+  const webkit = useWebKitFilters();
   const cluster: ReactNode = reduced ? (
     <PlainCluster
       open={clusterOpen}
       onToggle={() => setClusterOpen((value) => !value)}
       actions={actions}
       onSelect={closeCluster}
+    />
+  ) : webkit ? (
+    <MetaballCluster
+      open={clusterOpen}
+      onToggle={() => setClusterOpen((value) => !value)}
+      actions={actions}
+      onSelect={closeCluster}
+      positions={FAB_POSITIONS}
     />
   ) : (
     <GooeyCluster

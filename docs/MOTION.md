@@ -194,3 +194,15 @@ no page scrolls sideways, no page logs a browser error, and never more than one
 element wears the lamp. Motion itself is checked by eye at a tenth speed —
 Playwright with `Animation.setPlaybackRate(0.1)` through CDP — opening the
 palette, a menu, the assistant and a toast, and photographing the frames.
+
+## The lookup cluster on WebKit
+
+On an iPhone, an iPad or Safari the gooey cluster is `MetaballCluster`, not
+liquid-gooey: WebKit paints SVG filters on the CPU, so the filter stack
+stuttered there. The same silhouette is drawn by a WebGL fragment shader (a
+smooth minimum, k = 16px, of the distances to the core and the three
+satellites, anti-aliased, with a soft shadow 3px below), driven by springs
+(out: stiffness 320, damping 17, 40 ms stagger; back: 420 / 30, reverse
+stagger at 20 ms). Same geometry, same labels. Without WebGL the silhouette is
+an SVG path of circles and metaball bridges. Chromium keeps liquid-gooey.
+
