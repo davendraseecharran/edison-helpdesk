@@ -54,15 +54,19 @@ import { AddPeoplePanel } from './AddPeoplePanel';
 import { FieldsManager } from './FieldsManager';
 import { GroupDialog, type GroupValues } from './GroupDialog';
 import { GroupEvents } from './GroupEvents';
+import type { CheckinState } from '@/lib/domain/checkin';
 import '@/styles/groups.css';
 
 export function GroupDetail({
   detail,
   events,
+  checkins = {},
   gmailMode = 'cc',
 }: {
   detail: GroupDetailData;
   events: GroupEventSummary[];
+  /** Which events take self check-in, and whether each is open today. */
+  checkins?: Record<string, CheckinState>;
   /** How this account addresses a Gmail link. Their setting, not this screen's. */
   gmailMode?: GmailMode;
 }) {
@@ -376,7 +380,7 @@ export function GroupDetail({
 
         <AddPeoplePanel groupId={group.id} memberIds={members.map((member) => member.id)} />
 
-        <GroupEvents groupId={group.id} events={events} />
+        <GroupEvents groupId={group.id} groupName={group.name} events={events} checkins={checkins} />
       </div>
 
       <FieldsManager

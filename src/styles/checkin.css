@@ -1,0 +1,679 @@
+/*
+ * Self check-in: the phone page at `/c/<slug>`, the officer's panel on an
+ * event, and the poster that goes on the door.
+ *
+ * Imported by the components that use it. Built on the tokens and on the
+ * public form's own page (`forms.css`: `.pf`, `.pf-card`, `.check-draw`,
+ * `pf-arrive`); nothing here names a colour.
+ *
+ * Two moments move on their own and each answers something: on the phone,
+ * the tick and the first name, when somebody is checked in; on the poster,
+ * the code arriving the way a scanner reads one, a line passing down it once.
+ * Every keyframe runs FROM a start state TO the element's resting style, so
+ * under reduced motion each thing is simply there.
+ */
+
+/* --- The phone page ----------------------------------------------------- */
+
+.ci-column {
+  max-width: 480px;
+  gap: 24px;
+}
+
+.ci-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ci-group {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.ci-title {
+  margin: 0;
+  font-size: clamp(30px, 9vw, var(--fs-7));
+  font-weight: 650;
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.ci-date {
+  margin: 2px 0 0;
+  color: var(--ink-2);
+  font-size: var(--fs-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.ci-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 20px;
+  border-radius: var(--radius-4);
+  background: var(--surface);
+  box-shadow: var(--shadow-1), 0 0 0 1px var(--line);
+}
+
+.ci-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
+
+.ci-card-title {
+  margin: 0;
+  font-size: var(--fs-4);
+  font-weight: 600;
+  letter-spacing: var(--tracking-heading);
+}
+
+.ci-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ci-name-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* 16px in every box: below that, a phone zooms the page to read it. */
+.ci-fields input[type='text'] {
+  height: 48px;
+  font-size: var(--fs-3);
+}
+
+.ci-osis input {
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+/* The OSIS box a shared name asks for arrives under the name, 6px. */
+.ci-osis[data-added] {
+  animation: ci-arrive 200ms var(--ease-out) both;
+}
+
+.ci-problem {
+  margin: 0;
+  color: var(--bad);
+  font-size: var(--fs-2);
+  font-weight: 500;
+}
+
+.ci-submit {
+  height: 48px;
+}
+
+.ci-back {
+  align-self: center;
+}
+
+.ci-closed .ci-group {
+  margin-top: 4px;
+}
+
+@media (max-width: 379.98px) {
+  .ci-name-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 559.98px) {
+  .ci-card {
+    padding: 16px;
+  }
+}
+
+/* --- Checked in --------------------------------------------------------- */
+
+.ci-done {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 64px 0 24px;
+  text-align: center;
+}
+
+.ci-check {
+  margin-bottom: 8px;
+  color: var(--good);
+}
+
+.ci-done-title {
+  max-width: 16ch;
+  margin: 0;
+  font-size: clamp(28px, 8vw, var(--fs-6));
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: var(--tracking-display);
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+  animation: pf-arrive 420ms var(--ease-out) 360ms both;
+}
+
+.ci-done-body {
+  max-width: 40ch;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-3);
+  animation: pf-arrive 420ms var(--ease-out) 440ms both;
+}
+
+.ci-done-foot {
+  margin: 12px 0 0;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  animation: pf-arrive 420ms var(--ease-out) 520ms both;
+}
+
+@keyframes ci-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+/* --- The officer's panel ------------------------------------------------ */
+
+.checkin-state-open {
+  --badge-tone: var(--ok);
+}
+
+.checkin-state-closed,
+.checkin-state-ended {
+  --badge-tone: var(--ink-3);
+}
+
+.checkin-state-early {
+  --badge-tone: var(--warn);
+}
+
+.sci-off {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+}
+
+.sci-off-title {
+  margin: 0 0 4px;
+  font-size: var(--fs-4);
+  font-weight: 600;
+  letter-spacing: var(--tracking-heading);
+}
+
+.sci-off-text {
+  max-width: 56ch;
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.sci-body {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 20px 24px;
+}
+
+.sci-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.sci-qr .qr-tile {
+  margin: 0;
+  padding: 10px;
+}
+
+.sci-qr-skeleton {
+  width: 152px;
+  height: 152px;
+  border-radius: var(--radius-2);
+}
+
+.sci-qr-caption {
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.sci-main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.sci-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+
+.sci-count {
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.sci-count .count-swap {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.sci-link {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.sci-url {
+  display: block;
+  align-content: center;
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+  font-size: var(--fs-1);
+  overflow-wrap: break-word;
+  user-select: all;
+}
+
+.sci-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+
+.sci-settings .setting-row {
+  padding-inline: 0;
+}
+
+.sci-identity {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.sci-identity legend {
+  margin-bottom: 8px;
+  padding: 0;
+}
+
+.sci-identity .form-template {
+  padding: 10px 12px;
+}
+
+@media (max-width: 719.98px) {
+  .sci-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sci-qr {
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .sci-qr-caption {
+    max-width: 22ch;
+  }
+
+  .sci-identity {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* A tag beside an event on the group's list. */
+.event-checkin-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.event-checkin-tag[data-state='open'] {
+  color: var(--ok);
+}
+
+/* --- The poster --------------------------------------------------------- */
+
+/*
+ * One Letter page. On screen it is the page itself, white on either theme
+ * (`--paper-*`), scaled to the window: every size inside is a share of the
+ * sheet's width (`cqw`), so a phone shows the same poster smaller rather than
+ * a different poster.
+ */
+.poster-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  min-height: 100dvh;
+  padding: 20px 16px 56px;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.poster-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  width: min(100%, 680px);
+}
+
+.poster-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  text-decoration: none;
+  transition: color var(--dur-hover) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .poster-back:hover {
+    color: var(--ink);
+  }
+}
+
+.poster-back:focus-visible {
+  border-radius: var(--radius-1);
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+.poster-note {
+  width: min(100%, 680px);
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+/*
+ * The sheet is the size container and carries no padding: container units
+ * measure the container's content box, so padding here would shrink every
+ * size inside it. The margins are the body's.
+ */
+.poster-sheet {
+  container-type: inline-size;
+  display: flex;
+  width: min(100%, 680px);
+  aspect-ratio: 8.5 / 11;
+  border-radius: var(--radius-1);
+  background: var(--paper-sheet);
+  box-shadow: var(--shadow-3), 0 0 0 1px var(--line);
+  color: var(--paper-ink);
+  font-family: var(--font-sans);
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.poster-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  padding: 6.5cqw 8cqw 5.5cqw;
+}
+
+.poster-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4cqw;
+  color: var(--paper-ink-2);
+  font-size: 2.3cqw;
+  font-weight: 500;
+}
+
+.poster-top span:last-child {
+  text-align: right;
+}
+
+.poster-event {
+  margin: 5cqw 0 0;
+  font-size: 9.2cqw;
+  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.poster-event[data-length='long'] {
+  font-size: 7.2cqw;
+}
+
+.poster-event[data-length='longer'] {
+  font-size: 5.6cqw;
+  line-height: 1.04;
+}
+
+.poster-date {
+  /* Room under it for the code's top corners, whatever the title's length. */
+  margin: 2.2cqw 0 7cqw;
+  color: var(--paper-ink-2);
+  font-size: 3.6cqw;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/*
+ * The code, framed the way a phone's camera frames one: four corners, and
+ * nothing else around it.
+ */
+.poster-code {
+  position: relative;
+  align-self: center;
+  width: 44cqw;
+  aspect-ratio: 1;
+  margin: auto 0 0;
+}
+
+.poster-code-inner {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  animation: poster-read 1100ms var(--ease-out) 200ms both;
+}
+
+.poster-code-inner svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  shape-rendering: crispEdges;
+}
+
+/* The line that reads it, once, and is gone. */
+.poster-code-inner::after {
+  position: absolute;
+  top: 0;
+  right: -2%;
+  left: -2%;
+  height: 0.5cqw;
+  background: var(--paper-ink);
+  content: '';
+  opacity: 0;
+  animation: poster-line 1100ms var(--ease-out) 200ms both;
+}
+
+.poster-corner {
+  position: absolute;
+  width: 7cqw;
+  height: 7cqw;
+  border: 0 solid var(--paper-ink);
+}
+
+.poster-corner[data-at='tl'] {
+  top: -4.5cqw;
+  left: -4.5cqw;
+  border-top-width: 0.9cqw;
+  border-left-width: 0.9cqw;
+}
+
+.poster-corner[data-at='tr'] {
+  top: -4.5cqw;
+  right: -4.5cqw;
+  border-top-width: 0.9cqw;
+  border-right-width: 0.9cqw;
+}
+
+.poster-corner[data-at='bl'] {
+  bottom: -4.5cqw;
+  left: -4.5cqw;
+  border-bottom-width: 0.9cqw;
+  border-left-width: 0.9cqw;
+}
+
+.poster-corner[data-at='br'] {
+  right: -4.5cqw;
+  bottom: -4.5cqw;
+  border-right-width: 0.9cqw;
+  border-bottom-width: 0.9cqw;
+}
+
+.poster-scan {
+  margin: 7.5cqw 0 0;
+  font-size: 6.6cqw;
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-align: center;
+}
+
+.poster-hint {
+  margin: 2cqw 0 4cqw;
+  color: var(--paper-ink-2);
+  font-size: 2.9cqw;
+  text-align: center;
+}
+
+.poster-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1cqw 3cqw;
+  margin-top: auto;
+  padding-top: 2.6cqw;
+  border-top: 0.2cqw solid var(--paper-rule);
+  color: var(--paper-ink-2);
+  font-size: 2.3cqw;
+}
+
+.poster-url {
+  color: var(--paper-ink);
+  font-family: var(--font-mono);
+  font-size: 2.5cqw;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+@keyframes poster-read {
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+}
+
+@keyframes poster-line {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(44cqw);
+  }
+}
+
+@page {
+  size: letter portrait;
+  margin: 0.5in;
+}
+
+@media print {
+  html,
+  body {
+    background: var(--paper-sheet) !important;
+  }
+
+  .poster-page {
+    display: block;
+    min-height: 0;
+    padding: 0;
+    background: none;
+  }
+
+  .poster-bar,
+  .poster-note {
+    display: none;
+  }
+
+  .poster-sheet {
+    width: 7.5in;
+    height: 10in;
+    aspect-ratio: auto;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .poster-body {
+    padding: 4cqw 5cqw 3.5cqw;
+  }
+
+  .poster-code-inner,
+  .poster-code-inner::after {
+    animation: none;
+  }
+}
+
+/* In a sheet, one column at every width: the sheet is a phone's width. */
+.sci-sheet .sci-body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.sci-sheet .sci-qr {
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+}
+
+.sci-sheet .sci-identity {
+  grid-template-columns: minmax(0, 1fr);
+}

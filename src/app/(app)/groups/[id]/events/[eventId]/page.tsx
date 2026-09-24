@@ -1,4 +1,5 @@
 import { loadGroupEvent } from '@/lib/data/group-events';
+import { checkinCode, loadEventCheckin } from '@/lib/data/checkin';
 import { EmptyState } from '@/components/Primitives';
 import { ButtonLink } from '@/components/ui/Button';
 import { EventRoll } from '@/components/groups/EventRoll';
@@ -11,7 +12,7 @@ export default async function GroupEventPage({
   params: Promise<{ id: string; eventId: string }>;
 }) {
   const { id, eventId } = await params;
-  const detail = await loadGroupEvent(id, eventId);
+  const [detail, checkin] = await Promise.all([loadGroupEvent(id, eventId), loadEventCheckin(eventId)]);
 
   if (!detail) {
     // The same answer for an event that was deleted, an id that never existed
@@ -30,5 +31,7 @@ export default async function GroupEventPage({
     );
   }
 
-  return <EventRoll detail={detail} />;
+  // Drawn here so the code is on the first paint rather than a round trip later.
+  const code = checkin ? { ok: true as const, ...(await checkinCode(checkin.slug)) } : null;
+  return <EventRoll detail={detail} checkin={checkin} checkinCode={code} />;
 }
