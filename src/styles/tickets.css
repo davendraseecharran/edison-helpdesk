@@ -752,6 +752,58 @@
   overflow-wrap: anywhere;
 }
 
+/*
+ * The check beside a resolved ticket's solution: the resolved badge's glyph,
+ * in its quiet ink. Resolved a moment ago from this tab, it draws itself (the
+ * stroke over `pathLength` 1, 300ms) and the solution rises in under it on
+ * the voice's mark — opacity and 8px over 300ms, the numbers `voice.css`
+ * gives a queue emptied while you watched — an 80ms beat behind the check.
+ * The page's one moment for the press that finished the ticket; see
+ * docs/MOTION.md and docs/VOICE.md.
+ */
+.panel-title-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.resolved-mark {
+  flex: none;
+  stroke: var(--ink-3);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.resolved-mark[data-draw] path {
+  stroke-dasharray: 1;
+  animation: resolved-draw 300ms var(--ease-out) backwards;
+}
+
+.panel:has(.resolved-mark[data-draw]) .solution {
+  animation: solution-settle 300ms var(--ease-out) 80ms backwards;
+}
+
+@keyframes resolved-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+@keyframes solution-settle {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resolved-mark[data-draw] path,
+  .panel:has(.resolved-mark[data-draw]) .solution {
+    animation: none;
+  }
+}
+
 .solution-previous {
   border-left-color: var(--warn);
   background: var(--surface-2);

@@ -9,6 +9,7 @@ import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { say } from '@/lib/voice/moments';
 import { Field } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
+import { markJustResolved } from './ResolvedMark';
 import { revealControl, useTicketIntent } from './TicketActionBar';
 import '@/styles/lists.css';
 
@@ -52,6 +53,8 @@ export function ResolvePanel({ detail }: { detail: TicketDetail }) {
     const result = await run(key, () => resolveTicketAction(ticket.id, solution));
     if (result.ok) {
       setSolution('');
+      // The refreshed page draws the check beside the solution once.
+      markJustResolved(ticket.id);
       /*
        * The one line that names the win.
        *
