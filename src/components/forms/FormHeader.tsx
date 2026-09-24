@@ -11,10 +11,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Check, Copy, Download, Link2, Lock, MonitorSmartphone, Share2 } from 'lucide-react';
+import { Check, Copy, Download, Link2, Lock, MonitorSmartphone, MoreHorizontal, Share2 } from 'lucide-react';
 import { formShareAction, setFormOpenAction } from '@/lib/data/form-actions';
 import type { FormShareResult } from '@/lib/domain/forms';
-import { AUDIENCE_LABELS, type FormAudience, type FormState } from '@/lib/domain/forms';
+import { AUDIENCE_LABELS, type FormAudience, type FormField, type FormState } from '@/lib/domain/forms';
+import { formJson } from '@/lib/domain/google-forms';
 import { copyText } from '@/lib/groups/clipboard';
 import { useRuntime } from '@/components/AppRuntime';
 import { Button, ButtonLink } from '@/components/ui/Button';
@@ -23,6 +24,13 @@ import { QrCode } from '@/components/ui/QrCode';
 import { Sheet } from '@/components/ui/Sheet';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Tabs } from '@/components/ui/Tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/shadcn/dropdown-menu';
+import { ExportGoogleFormSheet } from './ExportGoogleFormSheet';
 import { usePhone } from '@/components/ui/media';
 import { FormStateBadge } from './FormStateBadge';
 import '@/styles/scan.css';
@@ -40,12 +48,32 @@ export interface FormHeaderData {
   mine: boolean;
   groupName: string | null;
   eventName: string | null;
+  description: string;
+  fields: FormField[];
+}
+
+/** The form as this helpdesk's own JSON, handed to the browser as a file. */
+function downloadJson(form: FormHeaderData) {
+  const body = JSON.stringify(
+    formJson({ title: form.title, description: form.description, audience: form.audience, fields: form.fields }),
+    null,
+    2,
+  );
+  const url = URL.createObjectURL(new Blob([body], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${form.title.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'Form'}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function FormHeader({ form }: { form: FormHeaderData }) {
   const { pendingKey, run } = useRuntime();
   const [sharing, setSharing] = useState(false);
   const [share, setShare] = useState<FormShareResult | null>(null);
+  const [exporting, setExporting] = useState(false);
   const toggling = pendingKey === 'form:open';
 
   // Asked for the first time the sheet opens: the link never changes, and the
@@ -107,6 +135,15 @@ export function FormHeader({ form }: { form: FormHeaderData }) {
           >
             {form.isOpen ? 'Close form' : 'Open form'}
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button icon={MoreHorizontal} aria-label="More for this form" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setExporting(true)}>Export to Google Forms</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => downloadJson(form)}>Download as JSON</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
       <Tabs
@@ -116,6 +153,13 @@ export function FormHeader({ form }: { form: FormHeaderData }) {
           { href: `/forms/${form.id}/responses`, label: 'Responses', count: form.responseCount },
           { href: `/forms/${form.id}/settings`, label: 'Settings' },
         ]}
+      />
+      <ExportGoogleFormSheet
+        open={exporting}
+        onClose={() => setExporting(false)}
+        title={form.title}
+        description={form.description}
+        fields={form.fields}
       />
       <ShareSheet
         open={sharing}

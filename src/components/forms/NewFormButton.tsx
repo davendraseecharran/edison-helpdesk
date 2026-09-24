@@ -18,6 +18,7 @@ import { useRuntime } from '@/components/AppRuntime';
 import { Field } from '@/components/Primitives';
 import { Button, type ButtonVariant } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
+import { ImportGoogleFormDialog } from './ImportGoogleFormDialog';
 
 export function NewFormButton({ variant = 'primary' }: { variant?: ButtonVariant }) {
   const { pendingKey, run } = useRuntime();
@@ -26,6 +27,7 @@ export function NewFormButton({ variant = 'primary' }: { variant?: ButtonVariant
   const [template, setTemplate] = useState<FormTemplateKey>('trip');
   const [title, setTitle] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   const pending = pendingKey === 'form:create';
 
   function close() {
@@ -102,8 +104,22 @@ export function NewFormButton({ variant = 'primary' }: { variant?: ButtonVariant
               onChange={(event) => setTitle(event.target.value)}
             />
           </Field>
+          <p className="field-hint">
+            Built it in Google Forms already?{' '}
+            <button
+              type="button"
+              className="gf-link-button"
+              onClick={() => {
+                close();
+                setImporting(true);
+              }}
+            >
+              Import it from Google Forms
+            </button>
+          </p>
         </form>
       </Dialog>
+      <ImportGoogleFormDialog open={importing} onClose={() => setImporting(false)} />
     </>
   );
 }
