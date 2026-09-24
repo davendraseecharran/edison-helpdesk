@@ -2,6 +2,25 @@
 
 Updated September 14, 2026.
 
+## Round 5 (September 23, 2026) — on `platform-overhaul`, NOT pushed
+
+- **Vercel was failing** since the analytics release: `src/app/(app)/analytics/page.tsx`
+  imported `tests/fixtures/analytics`, which `.vercelignore` drops. Fixed; guard test
+  `tests/vercel-upload.test.ts`. A tree without the ignored dirs builds clean.
+- Lists: search box keeps typing while results load (`useUrlSearch`); selection
+  survives searches/pages with a removable tray (`useKeptSelection`, `SelectionTray`);
+  paintable checkboxes (`usePaintSelect`) on People, Devices, checklists, the register.
+- Phone: 16px fields (no iOS zoom), round New-ticket button, tappable Lookup label,
+  folded filters, two-row selection bar.
+- Features: Forms + public `/f/<slug>` + kiosks (`20260923100000_m5_forms`), scan
+  Workflows (`20260923110000_workflows`), ticket opened time / resolved at intake
+  (`20260923120000_m5_ticket_opened_at`), spreadsheet import
+  (`20260923120100_m5_import_sheet`); assistant on `gpt-6-luna`; motion polish pass.
+- Verified: typecheck, lint, 1395 unit tests, rehearsal 76 migrations → 683 DB + 57
+  auth tests, Vercel-shaped clean build. Local main stack has the four new migrations.
+- Next: the user decides on pushing to `main`; the owner then runs `npx supabase db push`.
+
+
 Two things are true at once and this file keeps them apart:
 
 - **Hosted is live and carries the district's real directory and inventory.** The
