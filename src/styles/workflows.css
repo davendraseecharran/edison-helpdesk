@@ -1,0 +1,1226 @@
+/*
+ * Workflows: the hub, the run, and the one moment on it.
+ *
+ * Calm everywhere except the thing the run is filling: the cart on Load a
+ * cart, the three counts on a room audit. Those two move, on transform and
+ * opacity only, and only when a scan lands. Everything else is the product's
+ * ordinary surfaces, lines and type.
+ */
+
+/* --- Hub ----------------------------------------------------------------- */
+
+/* Links dressed as surfaces keep their text plain in every state. */
+.wf-tile,
+.wf-tile:hover,
+.wf-shortcut-link,
+.wf-shortcut-link:hover,
+.wf-back,
+.wf-back:hover,
+.wf-run-again:hover {
+  text-decoration: none;
+}
+
+.wf-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wf-tile {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  height: 100%;
+  min-height: 96px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-4);
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  transition:
+    background-color var(--dur-hover) ease,
+    border-color var(--dur-hover) ease;
+}
+
+.wf-tile:focus-visible {
+  box-shadow: var(--focus);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wf-tile:hover {
+    border-color: var(--line-strong);
+    background: var(--surface-2);
+  }
+}
+
+.wf-tile-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-3);
+  background: var(--surface-3);
+  color: var(--ink);
+}
+
+.wf-tile-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.wf-tile-title {
+  font-size: var(--fs-3);
+  font-weight: 600;
+  letter-spacing: var(--tracking-heading);
+}
+
+.wf-tile-description {
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  line-height: 1.45;
+}
+
+.wf-section {
+  margin-top: 32px;
+}
+
+.wf-section-title {
+  margin: 0 0 12px;
+  font-size: var(--fs-2);
+  font-weight: 600;
+}
+
+.wf-section-empty {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.wf-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wf-shortcut {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--surface);
+  transition: border-color var(--dur-hover) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wf-shortcut:hover {
+    border-color: var(--line-strong);
+  }
+}
+
+.wf-shortcut-link {
+  display: flex;
+  flex: 1 1 auto;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  min-height: 52px;
+  padding: 8px 4px 8px 12px;
+  border-radius: var(--radius-3);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.wf-shortcut-link:focus-visible {
+  box-shadow: var(--focus);
+}
+
+.wf-shortcut-text {
+  display: grid;
+  min-width: 0;
+}
+
+.wf-shortcut-name {
+  overflow: hidden;
+  font-size: var(--fs-2);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-shortcut-detail {
+  overflow: hidden;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-shortcut-more {
+  margin-right: 6px;
+}
+
+.wf-runs {
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-4);
+  background: var(--surface);
+  list-style: none;
+}
+
+.wf-run-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  min-height: 56px;
+  padding: 8px 12px;
+}
+
+.wf-run-row + .wf-run-row {
+  border-top: 1px solid var(--line);
+}
+
+.wf-run-row-icon {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-2);
+  background: var(--surface-3);
+  color: var(--ink-2);
+}
+
+.wf-run-row-text {
+  display: grid;
+  flex: 1 1 auto;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wf-run-row-title {
+  font-size: var(--fs-2);
+  font-weight: 500;
+}
+
+.wf-run-row-meta {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.wf-run-again {
+  flex: 0 0 auto;
+}
+
+.wf-dialog-note {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+/* --- Run: heading and setup ------------------------------------------------ */
+
+.wf-run {
+  display: grid;
+  gap: 16px;
+  max-width: 1120px;
+}
+
+.wf-run-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  align-items: flex-end;
+}
+
+.wf-back {
+  display: inline-flex;
+  flex: 1 0 100%;
+  gap: 4px;
+  align-items: center;
+  width: max-content;
+  min-height: 32px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  text-decoration: none;
+}
+
+.wf-back:focus-visible {
+  border-radius: var(--radius-1);
+  box-shadow: var(--focus);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .wf-back:hover {
+    color: var(--ink);
+  }
+}
+
+.wf-run-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.wf-run-title {
+  margin: 0;
+  font-size: var(--fs-5);
+  font-weight: 600;
+  letter-spacing: var(--tracking-title);
+}
+
+.wf-run-target {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink-2);
+  font-size: var(--fs-5);
+  font-weight: 500;
+  letter-spacing: var(--tracking-title);
+}
+
+.wf-run-lede {
+  max-width: 60ch;
+  margin: 0;
+  color: var(--ink-2);
+}
+
+.wf-step {
+  display: grid;
+  gap: 16px;
+  max-width: 560px;
+  padding: 20px;
+}
+
+.wf-step-title {
+  margin: 0;
+  font-size: var(--fs-4);
+  font-weight: 600;
+  letter-spacing: var(--tracking-title);
+}
+
+.wf-step-fields {
+  display: grid;
+  gap: 16px;
+}
+
+.wf-step-fields input[type='text'] {
+  height: 44px;
+  font-size: var(--fs-3);
+}
+
+.wf-step-foot {
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* --- Run: the stage -------------------------------------------------------- */
+
+.wf-stage {
+  display: grid;
+  grid-template-areas: 'main side';
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: 16px;
+  align-items: start;
+}
+
+.wf-stage-main {
+  display: grid;
+  grid-area: main;
+  gap: 12px;
+  min-width: 0;
+}
+
+.wf-stage-side {
+  display: grid;
+  position: sticky;
+  top: calc(var(--topbar-h) + 16px);
+  grid-area: side;
+  gap: 12px;
+  min-width: 0;
+}
+
+.wf-console {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.wf-scan-form {
+  display: grid;
+  gap: 6px;
+}
+
+.wf-scan-field {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  height: 52px;
+  padding: 0 8px 0 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-3);
+  background: var(--surface);
+  transition:
+    border-color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease;
+}
+
+.wf-scan-field:focus-within {
+  border-color: var(--line-focus);
+  box-shadow: var(--focus);
+}
+
+.wf-scan-glyph {
+  flex: 0 0 auto;
+  color: var(--ink-3);
+}
+
+/* The field is the frame above; the input inside it draws nothing of its own. */
+.wf-scan-field .wf-scan-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-family: var(--font-mono), ui-monospace;
+  font-size: var(--fs-4);
+  letter-spacing: 0.01em;
+}
+
+.wf-scan-field .wf-scan-input::placeholder {
+  font-family: var(--font-sans);
+  font-size: var(--fs-3);
+  letter-spacing: 0;
+}
+
+.wf-scan-field .wf-scan-input:focus-visible {
+  border: 0;
+  box-shadow: none;
+}
+
+.wf-scan-hint {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+.wf-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.wf-sound {
+  margin-left: auto;
+}
+
+/* --- Camera ------------------------------------------------------------------ */
+
+.wf-camera {
+  display: grid;
+  gap: 6px;
+}
+
+.wf-camera-frame {
+  position: relative;
+  overflow: hidden;
+  max-height: 320px;
+  border-radius: var(--radius-3);
+  background: var(--surface-4);
+  aspect-ratio: 4 / 3;
+}
+
+.wf-camera-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.wf-camera-wait {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.wf-camera-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+}
+
+/* A read: the frame's edge brightens once and fades. */
+.wf-camera-hit {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 3px var(--accent);
+  opacity: 0;
+  pointer-events: none;
+  animation: wf-hit 420ms var(--ease-out);
+}
+
+@keyframes wf-hit {
+  from {
+    opacity: 1;
+  }
+}
+
+.wf-camera-note {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+/* --- Paired phone ------------------------------------------------------------- */
+
+.wf-pair {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+  background: var(--surface-2);
+}
+
+.wf-pair-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wf-pair-status {
+  margin: 0;
+  font-size: var(--fs-1);
+}
+
+.wf-pair-body {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.wf-pair-qr-skeleton {
+  width: 172px;
+  height: 172px;
+}
+
+.wf-pair-text {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.wf-pair-url {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink-2);
+  font-size: var(--fs-0);
+}
+
+.wf-pair-note {
+  margin: 0;
+  color: var(--ink-3);
+  font-size: var(--fs-0);
+}
+
+/* --- Counts and clock ------------------------------------------------------------ */
+
+.wf-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 4px;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.wf-stat-main {
+  display: inline-flex;
+  align-items: baseline;
+  color: var(--ink);
+  font-size: var(--fs-4);
+  font-weight: 600;
+}
+
+.wf-stat-main .wf-settle {
+  margin-right: 5px;
+}
+
+.wf-stat-bad {
+  color: var(--bad);
+}
+
+.wf-clock {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  font-family: var(--font-mono), ui-monospace;
+}
+
+.wf-finish-button {
+  margin-left: auto;
+}
+
+/* --- The list ------------------------------------------------------------------ */
+
+.wf-list {
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-4);
+  background: var(--surface);
+  list-style: none;
+}
+
+.wf-list-empty {
+  margin: 0;
+  padding: 24px 16px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-4);
+  color: var(--ink-2);
+  text-align: center;
+}
+
+.wf-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  animation: wf-row-in var(--dur-surface) var(--ease-out);
+}
+
+.wf-row + .wf-row {
+  border-top: 1px solid var(--line);
+}
+
+/* A new row arrives from just above: the newest is at the top. */
+@keyframes wf-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.wf-row-mark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 22px;
+  color: var(--ink-3);
+}
+
+.wf-row[data-tone='done'] .wf-row-mark,
+.wf-row[data-tone='person'] .wf-row-mark {
+  color: var(--ink);
+}
+
+.wf-row[data-tone='error'] .wf-row-mark {
+  color: var(--bad);
+}
+
+.wf-row-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  animation: wf-dot 900ms ease-in-out infinite alternate;
+}
+
+/* Waiting on the database: the one thing on the row that is not settled. */
+@keyframes wf-dot {
+  to {
+    opacity: 0.25;
+  }
+}
+
+.wf-row-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wf-row-title {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+  align-items: baseline;
+  font-size: var(--fs-2);
+  font-weight: 500;
+}
+
+.wf-row-meta {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+  font-weight: 400;
+}
+
+.wf-row-change {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+  align-items: center;
+  font-size: var(--fs-1);
+}
+
+.wf-row-from {
+  color: var(--ink-3);
+}
+
+.wf-row-arrow {
+  color: var(--ink-3);
+}
+
+.wf-row-to {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.wf-row-note {
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.wf-row[data-tone='error'] .wf-row-note,
+.wf-row-bad {
+  color: var(--bad);
+}
+
+.wf-row[data-tone='undone'] .wf-row-title,
+.wf-row[data-tone='skipped'] .wf-row-title {
+  color: var(--ink-2);
+}
+
+.wf-row-undo {
+  align-self: center;
+}
+
+/* --- The cart ------------------------------------------------------------------ */
+
+.wf-cart-figure {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 20px 16px 16px;
+  border-radius: var(--radius-4);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.wf-cart-scene {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 8px 0 24px;
+  perspective: 1100px;
+}
+
+.wf-cart {
+  --w: 264px;
+  --d: 64px;
+  --h: calc(60px + var(--shelves) * 42px + 12px);
+  position: relative;
+  width: var(--w);
+  height: var(--h);
+  transform: rotateX(-11deg) rotateY(-22deg);
+  transform-style: preserve-3d;
+}
+
+.wf-cart-face {
+  position: absolute;
+  border: 1px solid var(--line-strong);
+  backface-visibility: hidden;
+}
+
+.wf-cart-front {
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  border-radius: var(--radius-2);
+  background: var(--surface-2);
+  transform: translateZ(calc(var(--d) / 2));
+}
+
+.wf-cart-side {
+  top: 0;
+  left: calc((var(--w) - var(--d)) / 2);
+  width: var(--d);
+  height: var(--h);
+  border-radius: var(--radius-2);
+  background: var(--surface-4);
+  transform: rotateY(90deg) translateZ(calc(var(--w) / 2));
+}
+
+.wf-cart-top {
+  top: calc((var(--h) - var(--d)) / 2);
+  left: 0;
+  width: var(--w);
+  height: var(--d);
+  border-radius: var(--radius-2);
+  background: var(--surface-3);
+  transform: rotateX(90deg) translateZ(calc(var(--h) / 2));
+}
+
+.wf-cart-plate {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  height: 60px;
+  padding: 10px 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.wf-cart-count {
+  font-family: var(--font-mono), ui-monospace;
+  font-size: var(--fs-6);
+  font-weight: 600;
+  letter-spacing: var(--tracking-display);
+  line-height: 1;
+}
+
+.wf-cart-name {
+  overflow: hidden;
+  color: var(--ink-2);
+  font-size: var(--fs-2);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wf-cart-bays {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.wf-cart-shelf {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 4px;
+  height: 36px;
+  padding: 3px 4px;
+  border-radius: var(--radius-1);
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.wf-cart-slot {
+  position: relative;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--surface-3);
+}
+
+/* A laptop standing on its edge, seen from the front: its spine. */
+.wf-cart-laptop {
+  position: absolute;
+  inset: 0;
+  border-radius: 2px;
+  background: var(--ink);
+  opacity: 0;
+  transform: translateY(-110%);
+}
+
+.wf-cart-slot[data-fill='resident'] .wf-cart-laptop {
+  opacity: 0.32;
+  transform: none;
+}
+
+.wf-cart-slot[data-fill='added'] .wf-cart-laptop {
+  opacity: 1;
+  transform: none;
+  animation: wf-slot-in 340ms var(--ease-out);
+}
+
+@keyframes wf-slot-in {
+  from {
+    opacity: 0.4;
+    transform: translateY(-110%);
+  }
+}
+
+.wf-cart-wheel {
+  position: absolute;
+  bottom: -14px;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface-4);
+  transform: translateZ(calc(var(--d) / 2));
+}
+
+.wf-cart-wheel-left {
+  left: 18px;
+}
+
+.wf-cart-wheel-right {
+  right: 18px;
+}
+
+.wf-cart-caption {
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+  text-align: center;
+}
+
+/* --- Counts that settle -------------------------------------------------------- */
+
+.wf-settle {
+  display: inline-flex;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+
+.wf-settle-value {
+  display: inline-block;
+}
+
+.wf-settle-value[data-dir='up'] {
+  animation: wf-settle-up 380ms var(--ease-out);
+}
+
+.wf-settle-value[data-dir='down'] {
+  animation: wf-settle-down 380ms var(--ease-out);
+}
+
+/* In from the side the number moved towards, past its place by a hair, back. */
+@keyframes wf-settle-up {
+  0% {
+    opacity: 0;
+    transform: translateY(70%);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translateY(-6%);
+  }
+}
+
+@keyframes wf-settle-down {
+  0% {
+    opacity: 0;
+    transform: translateY(-70%);
+  }
+
+  70% {
+    opacity: 1;
+    transform: translateY(6%);
+  }
+}
+
+/* --- Room audit ------------------------------------------------------------------ */
+
+.wf-audit {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--radius-4);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.wf-audit-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.wf-audit-count {
+  display: grid;
+  gap: 4px;
+  padding: 10px 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-3);
+}
+
+.wf-audit-number {
+  font-family: var(--font-mono), ui-monospace;
+  font-size: var(--fs-6);
+  font-weight: 600;
+  letter-spacing: var(--tracking-display);
+  line-height: 1.05;
+}
+
+.wf-audit-count[data-pile='missing'] .wf-audit-number,
+.wf-audit-count[data-pile='elsewhere'] .wf-audit-number {
+  color: var(--ink-2);
+}
+
+.wf-audit-label {
+  color: var(--ink-2);
+  font-size: var(--fs-0);
+  line-height: 1.3;
+}
+
+.wf-audit-of {
+  color: var(--ink-3);
+}
+
+.wf-audit-fixes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.wf-audit-pick {
+  overflow-x: auto;
+}
+
+.wf-pile {
+  display: grid;
+  max-height: 320px;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.wf-pile-row {
+  display: grid;
+  gap: 2px;
+  padding: 8px 2px;
+  font-size: var(--fs-2);
+}
+
+.wf-pile-row + .wf-pile-row {
+  border-top: 1px solid var(--line);
+}
+
+.wf-pile-meta {
+  color: var(--ink-3);
+  font-size: var(--fs-1);
+}
+
+.wf-audit-confirm-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wf-audit-confirm-more {
+  color: var(--ink-3);
+}
+
+/* --- Hand-out --------------------------------------------------------------------- */
+
+.wf-person {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  padding: 16px;
+  border-radius: var(--radius-4);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+.wf-person-empty {
+  display: grid;
+}
+
+.wf-person-prompt {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+.wf-person-avatar {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--ink-2);
+}
+
+.wf-person-text {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.wf-person-name {
+  margin: 0;
+  font-size: var(--fs-4);
+  font-weight: 600;
+  letter-spacing: var(--tracking-title);
+}
+
+.wf-person-meta {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: var(--fs-1);
+}
+
+/* --- Status and collect: one number ----------------------------------------------- */
+
+.wf-tally {
+  display: grid;
+  gap: 4px;
+  padding: 20px;
+}
+
+.wf-tally-number {
+  font-family: var(--font-mono), ui-monospace;
+  font-size: var(--fs-7);
+  font-weight: 600;
+  letter-spacing: var(--tracking-display);
+  line-height: 1;
+}
+
+.wf-tally-label {
+  margin: 0;
+  color: var(--ink-2);
+}
+
+/* --- Finished ------------------------------------------------------------------------ */
+
+.wf-finish {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.wf-finish-title {
+  margin: 0;
+  font-size: var(--fs-4);
+  font-weight: 600;
+  letter-spacing: var(--tracking-title);
+}
+
+.wf-finish-counts {
+  margin: 4px 0 0;
+  color: var(--ink-2);
+}
+
+.wf-finish-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* --- Narrower ------------------------------------------------------------------------ */
+
+@media (max-width: 1023.98px) {
+  .wf-stage {
+    grid-template-areas:
+      'side'
+      'main';
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wf-stage-side {
+    position: static;
+  }
+}
+
+@media (max-width: 719.98px) {
+  .wf-tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .wf-tile {
+    min-height: 0;
+  }
+
+  /* The phone is the scanner here, and pairing a phone to a phone is nothing. */
+  .wf-pair-button {
+    display: none;
+  }
+
+  .wf-run-title,
+  .wf-run-target {
+    font-size: var(--fs-4);
+  }
+
+  .wf-step {
+    padding: 16px;
+  }
+
+  .wf-cart-figure {
+    padding: 12px 8px 12px;
+  }
+
+  .wf-cart-scene {
+    padding: 0 0 18px;
+  }
+
+  .wf-cart {
+    --w: 232px;
+    --d: 52px;
+  }
+
+  .wf-cart-count {
+    font-size: var(--fs-5);
+  }
+
+  .wf-audit {
+    padding: 12px;
+  }
+
+  .wf-audit-number {
+    font-size: var(--fs-5);
+  }
+
+  .wf-tally {
+    padding: 14px 16px;
+  }
+
+  .wf-tally-number {
+    font-size: var(--fs-6);
+  }
+
+  .wf-row {
+    padding: 10px;
+  }
+
+  .wf-scan-field .wf-scan-input {
+    font-size: var(--fs-3);
+  }
+
+  /* The pile under the counts stays short, so the scan field is in reach. */
+  .wf-pile {
+    max-height: 176px;
+  }
+
+  .wf-row-undo {
+    align-self: start;
+  }
+}
+
+/* Movement goes; every state is still drawn. */
+@media (prefers-reduced-motion: reduce) {
+  .wf-row,
+  .wf-row-dot,
+  .wf-camera-hit,
+  .wf-cart-slot[data-fill='added'] .wf-cart-laptop,
+  .wf-settle-value[data-dir] {
+    animation: none;
+  }
+}

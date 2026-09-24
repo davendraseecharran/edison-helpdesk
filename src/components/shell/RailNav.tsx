@@ -14,6 +14,7 @@ import {
   Shield,
   Users,
   UsersRound,
+  Workflow,
 } from 'lucide-react';
 import { Icon, type LucideIcon } from '../ui/Icon';
 import { canWorkTickets, isAdmin, type AccountRole } from '../../lib/auth/roles';
@@ -96,6 +97,9 @@ export function navItems(roles: readonly AccountRole[], counts: QueueCounts): Na
         group: 'Work',
         count: counts.closed,
       },
+      // The repetitive device jobs as a scan loop: loading a cart, handing
+      // out, collecting, auditing a room. Inventory writes, so ticket workers.
+      { href: '/workflows', label: 'Workflows', icon: Workflow, group: 'Work' },
       // The counting: every ticket worker reads it, and the honours on it are
       // theirs. It carries no count because it is not a list of anything.
       { href: '/analytics', label: 'Analytics', icon: ChartColumn, group: 'Work' },

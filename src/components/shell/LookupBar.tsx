@@ -59,6 +59,9 @@ import { lookupDeviceCodeAction } from '@/lib/data/device-actions';
 import { matchesQuery, type RecentItem, type SearchHit } from '@/lib/data/search';
 import { presetActionLabel, presetHref, presetKeywords } from '@/lib/domain/ticket-presets';
 import { useTicketPresets } from '@/lib/presets/store';
+import { shortcutHref, shortcutKeywords, workflowHref, WORKFLOWS } from '@/lib/domain/workflows';
+import { useWorkflowShortcuts } from '@/lib/workflows/store';
+import { WORKFLOW_ICONS } from '@/components/workflows/icons';
 import { targetKind } from '@/lib/lookup/recognise';
 import { asksFirst, readAsk } from '@/lib/lookup/ask';
 import { routeScannedCode } from '@/lib/scan/route';
@@ -277,6 +280,7 @@ function Palette({
    * below is over a list that is already in memory.
    */
   const presets = useTicketPresets(canWorkTickets(actor.roles));
+  const workflowShortcuts = useWorkflowShortcuts(canWorkTickets(actor.roles));
   const [scanOpen, setScanOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -452,6 +456,33 @@ function Palette({
       }
     }
 
+    // The scan jobs, by the name somebody at a cart would type, and the
+    // desk's saved runs of them. Typed, not resting: the rail says Workflows.
+    if (canWorkTickets(actor.roles)) {
+      for (const workflow of WORKFLOWS) {
+        list.push({
+          id: `workflow:${workflow.kind}`,
+          label: workflow.title,
+          icon: WORKFLOW_ICONS[workflow.kind],
+          keywords: ['workflow', 'scan', 'barcode', 'cart', 'devices', 'laptops', workflow.slug.replace('-', ' ')],
+          subtitle: workflow.description,
+          matchOnly: true,
+          run: go(workflowHref(workflow.kind)),
+        });
+      }
+      for (const shortcut of workflowShortcuts) {
+        list.push({
+          id: `workflow-shortcut:${shortcut.id}`,
+          label: shortcut.name,
+          icon: WORKFLOW_ICONS[shortcut.kind],
+          keywords: shortcutKeywords(shortcut),
+          subtitle: 'Saved workflow run',
+          matchOnly: true,
+          run: go(shortcutHref(shortcut)),
+        });
+      }
+    }
+
     // The screen's own name, under a "Go to" heading. Written out, every one
     // of these began with the same two words, and a dozen rows that share a
     // prefix are a dozen rows the eye has to read past.
@@ -607,7 +638,7 @@ function Palette({
     }
 
     return list;
-  }, [ticketNumber, actor.roles, presets, theme, ask, onClose, router, claim, join, choose, phone]);
+  }, [ticketNumber, actor.roles, presets, workflowShortcuts, theme, ask, onClose, router, claim, join, choose, phone]);
 
   const visibleActions = useMemo(
     () =>

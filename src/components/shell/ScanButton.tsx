@@ -4,40 +4,12 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 import { ScanLine } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
-
-/** What the shape detection API reads: the formats asset tags, serials and labels come in. */
-const FORMATS = ['code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a', 'qr_code', 'data_matrix'];
-
-interface DetectedBarcode {
-  rawValue: string;
-  format: string;
-}
-
-interface BarcodeDetectorLike {
-  detect(source: HTMLVideoElement): Promise<DetectedBarcode[]>;
-}
-
-type BarcodeDetectorConstructor = new (options?: { formats?: string[] }) => BarcodeDetectorLike;
-
-/** Where `copy-zxing-wasm.cjs` puts the decoder, served by this deployment. */
-const WASM_PATH = '/zxing_reader.wasm';
-
-/**
- * The reader: the browser's own where it has one (Chrome on Android and
- * ChromeOS), otherwise a WebAssembly decoder fetched the first time the
- * camera opens — which is what puts the button on an iPhone. The two answer
- * the same interface, so nothing past this line knows which it got.
- */
-async function loadDetector(): Promise<BarcodeDetectorConstructor> {
-  const native = (window as unknown as { BarcodeDetector?: BarcodeDetectorConstructor })
-    .BarcodeDetector;
-  if (native) return native;
-  const { BarcodeDetector, setZXingModuleOverrides } = await import('barcode-detector/ponyfill');
-  setZXingModuleOverrides({
-    locateFile: (file: string, prefix: string) => (file.endsWith('.wasm') ? WASM_PATH : prefix + file),
-  });
-  return BarcodeDetector as unknown as BarcodeDetectorConstructor;
-}
+import {
+  DETECTOR_FORMATS as FORMATS,
+  DETECT_INTERVAL_MS as SCAN_INTERVAL_MS,
+  loadDetector,
+  type BarcodeDetectorConstructor,
+} from '@/lib/scan/detector';
 
 function subscribeToNothing(): () => void {
   return () => {};
@@ -51,9 +23,6 @@ function useCameraSupport(): boolean {
     () => false,
   );
 }
-
-/** Milliseconds between detection passes over the live frame. */
-const SCAN_INTERVAL_MS = 250;
 
 /**
  * The camera scan inside the palette input.
