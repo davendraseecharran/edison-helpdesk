@@ -8,6 +8,12 @@
  * ticket number gets nothing, and learns nothing from the absence. This action
  * adds no filtering of its own and passes nothing but the trimmed text.
  *
+ * Forms are asked for beside it, through `app_search_forms`, which checks the
+ * caller's own sight of each form (`app_form_can_see`) the way the forms list
+ * does. The two run together, and a failure of the second costs only its own
+ * hits: a palette that lost its tickets because a form search failed would be
+ * the wrong trade.
+ *
  * It never throws to the browser. A palette that crashed on a flaky request
  * would take the whole shell down with it, so every failure is an empty list,
  * logged server-side without the query text: what an operator types can be a
@@ -17,7 +23,7 @@
 import { createClient } from '@/lib/supabase/server';
 import { loadActor } from '@/lib/auth/session';
 import { openDuplicates, isStillOpen, type DuplicateHit } from '@/lib/intake/duplicates';
-import { hitFromRow, SEARCH_MIN_LENGTH, type SearchHit } from './search';
+import { formHitFromRow, hitFromRow, SEARCH_MIN_LENGTH, type SearchHit } from './search';
 
 /** Hits per kind. The palette shows a few of each, not a page. */
 const SEARCH_LIMIT = 8;
@@ -31,23 +37,49 @@ export async function searchAction(query: string): Promise<SearchHit[]> {
     if (actor.kind !== 'active') return [];
 
     const supabase = await createClient();
-    const { data, error } = await supabase.rpc('app_search', {
-      p_query: term,
-      p_limit: SEARCH_LIMIT,
-    });
-    if (error) {
-      console.error(`app_search failed (${error.code ?? 'no code'})`);
+    const [records, forms] = await Promise.all([
+      supabase.rpc('app_search', { p_query: term, p_limit: SEARCH_LIMIT }),
+      searchForms(supabase, term),
+    ]);
+    if (records.error) {
+      console.error(`app_search failed (${records.error.code ?? 'no code'})`);
       return [];
     }
 
     const hits: SearchHit[] = [];
-    for (const row of Array.isArray(data) ? data : []) {
+    for (const row of Array.isArray(records.data) ? records.data : []) {
       const hit = hitFromRow(row);
+      if (hit) hits.push(hit);
+    }
+    return [...hits, ...forms];
+  } catch (cause) {
+    console.error(`searchAction failed (${cause instanceof Error ? cause.name : 'unknown'})`);
+    return [];
+  }
+}
+
+/** Forms whose title contains the text, or none when the search fails. Never logs the text. */
+async function searchForms(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  term: string,
+): Promise<SearchHit[]> {
+  try {
+    const { data, error } = await supabase.rpc('app_search_forms', {
+      p_query: term,
+      p_limit: SEARCH_LIMIT,
+    });
+    if (error) {
+      console.error(`app_search_forms failed (${error.code ?? 'no code'})`);
+      return [];
+    }
+    const hits: SearchHit[] = [];
+    for (const row of Array.isArray(data) ? data : []) {
+      const hit = formHitFromRow(row);
       if (hit) hits.push(hit);
     }
     return hits;
   } catch (cause) {
-    console.error(`searchAction failed (${cause instanceof Error ? cause.name : 'unknown'})`);
+    console.error(`app_search_forms threw (${cause instanceof Error ? cause.name : 'unknown'})`);
     return [];
   }
 }

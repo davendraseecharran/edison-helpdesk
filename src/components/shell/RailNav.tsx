@@ -7,6 +7,7 @@ import {
   CircleCheck,
   CalendarCheck,
   ClipboardList,
+  ClipboardPen,
   Handshake,
   Inbox,
   Laptop,
@@ -114,6 +115,9 @@ export function navItems(roles: readonly AccountRole[], counts: QueueCounts): Na
   items.push(
     { href: '/people', label: 'People', icon: Users, group: 'Directory' },
     { href: '/groups', label: 'Groups', icon: UsersRound, group: 'Directory' },
+    // Forms follow the rosters: a sign-up or a check-in is chapter business
+    // too, and every role builds and reads them.
+    { href: '/forms', label: 'Forms', icon: ClipboardPen, group: 'Directory' },
     { href: '/devices', label: 'Devices', icon: Laptop, group: 'Directory' },
   );
 

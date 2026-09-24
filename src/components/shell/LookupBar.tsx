@@ -646,7 +646,7 @@ function Palette({
     // type it hoping to find a ticket whose title contains it.
     if (askLeads && askAction) return actionValue(askAction);
     if (showRecent) return `recent:${hitValue(lookup.recent[0])}`;
-    const { tickets, people, devices, groups, events } = lookup.groups;
+    const { tickets, people, devices, groups, events, forms } = lookup.groups;
     /*
      * The row Enter opens.
      *
@@ -660,7 +660,7 @@ function Palette({
     const preferred =
       named === 'device' ? devices[0] : named === 'person' ? people[0] : named === 'ticket' ? tickets[0] : undefined;
     const hit =
-      preferred ?? tickets[0] ?? people[0] ?? devices[0] ?? groups[0] ?? events[0];
+      preferred ?? tickets[0] ?? people[0] ?? devices[0] ?? groups[0] ?? events[0] ?? forms[0];
     if (searchable && hit) return hitValue(hit);
     const head = commands[0] ?? destinations[0];
     return head ? actionValue(head) : '';

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { ticketStatusFromMeta } from '../src/components/shell/LookupResults';
 import {
+  formHitFromRow,
   groupHits,
   hitFromRow,
   hrefFor,
@@ -26,6 +27,10 @@ describe('hrefFor', () => {
     expect(hrefFor({ kind: 'group', id: 'abc' })).toBe('/groups/abc');
   });
 
+  it('links a form to its builder', () => {
+    expect(hrefFor({ kind: 'form', id: 'abc' })).toBe('/forms/abc');
+  });
+
   it('links an event through the redirecting page, since a hit does not carry its group', () => {
     expect(hrefFor({ kind: 'event', id: 'abc' })).toBe('/events/abc');
   });
@@ -36,8 +41,8 @@ describe('hrefFor', () => {
 });
 
 describe('isSearchKind', () => {
-  it('accepts the five kinds the search returns and nothing else', () => {
-    for (const kind of ['ticket', 'person', 'device', 'group', 'event']) {
+  it('accepts the six kinds the search returns and nothing else', () => {
+    for (const kind of ['ticket', 'person', 'device', 'group', 'event', 'form']) {
       expect(isSearchKind(kind), kind).toBe(true);
     }
     expect(isSearchKind('account')).toBe(false);
@@ -49,8 +54,9 @@ describe('isSearchKind', () => {
 });
 
 describe('groupHits', () => {
-  it('splits mixed hits into tickets, people, devices, groups and events in the given order', () => {
+  it('splits mixed hits into tickets, people, devices, groups, events and forms in the given order', () => {
     const hits = [
+      hit('form', 'f1'),
       hit('event', 'e1'),
       hit('device', 'd1'),
       hit('group', 'g1'),
@@ -65,10 +71,18 @@ describe('groupHits', () => {
     expect(grouped.devices.map((h) => h.id)).toEqual(['d1']);
     expect(grouped.groups.map((h) => h.id)).toEqual(['g1', 'g2']);
     expect(grouped.events.map((h) => h.id)).toEqual(['e1']);
+    expect(grouped.forms.map((h) => h.id)).toEqual(['f1']);
   });
 
-  it('returns five empty lists for no hits', () => {
-    expect(groupHits([])).toEqual({ tickets: [], people: [], devices: [], groups: [], events: [] });
+  it('returns six empty lists for no hits', () => {
+    expect(groupHits([])).toEqual({
+      tickets: [],
+      people: [],
+      devices: [],
+      groups: [],
+      events: [],
+      forms: [],
+    });
   });
 });
 
@@ -105,6 +119,29 @@ describe('splitTicketTitle', () => {
 
   it('leaves a title without a number alone', () => {
     expect(splitTicketTitle('Priya Raman')).toEqual({ number: null, rest: 'Priya Raman' });
+  });
+});
+
+describe('formHitFromRow', () => {
+  it('reads an app_search_forms row, which carries no kind, as a form hit', () => {
+    expect(formHitFromRow({ id: 'f1', title: 'Trip sign-up', subtitle: null, meta: '4 responses' })).toEqual({
+      kind: 'form',
+      id: 'f1',
+      title: 'Trip sign-up',
+      subtitle: null,
+      meta: '4 responses',
+      href: '/forms/f1',
+    });
+  });
+
+  it('supplies the kind rather than trusting one on the row', () => {
+    expect(formHitFromRow({ kind: 'ticket', id: 'f1', title: 'Trip' })?.kind).toBe('form');
+  });
+
+  it('drops a row without an id or title', () => {
+    expect(formHitFromRow({ title: 'Trip' })).toBeNull();
+    expect(formHitFromRow({ id: 'f1' })).toBeNull();
+    expect(formHitFromRow(null)).toBeNull();
   });
 });
 

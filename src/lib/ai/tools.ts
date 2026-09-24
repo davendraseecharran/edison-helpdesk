@@ -91,6 +91,31 @@ import {
 } from '@/lib/auth/roles';
 import { clipboardFor, gmailLink, type CopyKind, type PersonAddressee } from '@/lib/people/clipboard';
 import { isGmailMode, type GmailMode } from '@/lib/domain/preferences';
+import {
+  answerText,
+  AUDIENCE_LABELS,
+  choiceCounts,
+  DIRECTORY_KEYS,
+  DIRECTORY_LABELS,
+  fieldLabel,
+  fieldsFromJson,
+  FORM_DESCRIPTION_MAX,
+  FORM_FIELD_LIMIT,
+  FORM_HELP_MAX,
+  FORM_LABEL_MAX,
+  FORM_OPTION_LIMIT,
+  FORM_OPTION_MAX,
+  FORM_STATE_LABELS,
+  FORM_TITLE_MAX,
+  isChoiceType,
+  isDirectoryKey,
+  isFormState,
+  newFieldId,
+  QUESTION_TYPES,
+  respondentName,
+  type FormField,
+  type FormResponseRow,
+} from '@/lib/domain/forms';
 
 // ---------------------------------------------------------------------------
 // Schema and validation vocabulary
@@ -639,6 +664,92 @@ async function resolveGroup(ctx: ToolContext, value: string): Promise<GroupRef> 
     throw new ToolError(`"${query}" matches more than one group: ${options}. Say which one.`);
   }
   return asRef(candidates[0]);
+}
+
+interface FormRef {
+  id: string;
+  title: string;
+}
+
+/**
+ * Which form somebody meant, by title or id: an exact title first, then a
+ * title containing what was said, and two candidates is a question rather
+ * than a pick. Read from `app_list_forms`, so a form this person cannot see
+ * is a form that does not exist.
+ */
+async function resolveForm(ctx: ToolContext, value: string): Promise<FormRef> {
+  const query = value.trim();
+  if (query === '') throw new ToolError('Name the form.');
+
+  const forms = rows(await rpc(ctx, 'app_list_forms', {}));
+  const asRef = (row: Record<string, unknown>): FormRef => ({
+    id: textOf(row.id),
+    title: textOf(row.title),
+  });
+  if (isUuid(query)) {
+    const row = forms.find((entry) => textOf(entry.id) === query);
+    if (row === undefined) throw new ToolError('There is no form with that id.');
+    return asRef(row);
+  }
+
+  const folded = query.toLowerCase();
+  const exact = forms.filter((entry) => textOf(entry.title).toLowerCase() === folded);
+  const partial = forms.filter((entry) => textOf(entry.title).toLowerCase().includes(folded));
+  const candidates = exact.length > 0 ? exact : partial;
+  if (candidates.length === 0) {
+    throw new ToolError(`There is no form called "${query}". List the forms rather than guessing.`);
+  }
+  if (candidates.length > 1) {
+    const options = candidates
+      .slice(0, 8)
+      .map((entry) => textOf(entry.title))
+      .join(', ');
+    throw new ToolError(`"${query}" matches more than one form: ${options}. Say which one.`);
+  }
+  return asRef(candidates[0]);
+}
+
+/** Where a form is answered, and where it is built. */
+function formLinkPath(slug: string): string | null {
+  return slug === '' ? null : `/f/${slug}`;
+}
+
+function formBuilderPath(id: string): string {
+  return `/forms/${id}`;
+}
+
+/** Most responses one form_responses call hands back row by row. */
+const FORM_RESPONSE_ROWS = 200;
+
+function formResponseRow(row: Record<string, unknown>): FormResponseRow {
+  const text = (value: unknown): string | null =>
+    typeof value === 'string' && value !== '' ? value : null;
+  return {
+    id: textOf(row.id),
+    requesterId: text(row.requester_id),
+    displayName: text(row.display_name),
+    externalId: text(row.external_id),
+    answers: isRecord(row.answers) ? row.answers : {},
+    changed: Array.isArray(row.changed) ? row.changed.map(String) : [],
+    via: row.via === 'kiosk' ? 'kiosk' : 'link',
+    submittedAt: textOf(row.submitted_at),
+    recordedByName: text(row.recorded_by_name),
+  };
+}
+
+/**
+ * Each question's label, made unique, so a row's answers can be keyed by what
+ * the question says rather than by an id nobody reads. Two questions that say
+ * the same thing get a number, rather than one silently overwriting the other.
+ */
+function answerKeys(fields: readonly FormField[]): string[] {
+  const seen = new Map<string, number>();
+  return fields.map((field) => {
+    const base = fieldLabel(field);
+    const count = (seen.get(base) ?? 0) + 1;
+    seen.set(base, count);
+    return count === 1 ? base : `${base} (${count})`;
+  });
 }
 
 interface EventRef {
@@ -1806,6 +1917,94 @@ const TOOLS: Record<string, ToolSpec> = {
               .map((column) => `${column.column} ${column.checked}/${column.of}`)
               .join(', ')}.`;
       return outcome({ group: group.name, members: roster.length, columns }, summary);
+    },
+  },
+
+  list_forms: {
+    group: 'read',
+    description:
+      'Every form this person can see: sign-ups, check-ins, questionnaires. Each answers with its title, whether it is open, closed or full, how many responses it has and when the last one came in, who can answer it, the link people answer it at, its page in the helpdesk and the group it fills, if any. Read this before naming a form, rather than guessing what one is called.',
+    fields: {},
+    run: async (_args, ctx) => {
+      const forms = rows(await rpc(ctx, 'app_list_forms', {}));
+      const listed = forms.map((row) => {
+        const state = isFormState(row.state) ? row.state : 'closed';
+        const audience = row.audience === 'anyone' ? 'anyone' : 'directory';
+        return {
+          id: textOf(row.id),
+          title: textOf(row.title),
+          description: textOf(row.description),
+          state: FORM_STATE_LABELS[state],
+          who_can_answer: AUDIENCE_LABELS[audience],
+          responses: Number(row.response_count ?? 0),
+          last_response_at: row.last_response_at ?? null,
+          link: formLinkPath(textOf(row.slug)),
+          page: formBuilderPath(textOf(row.id)),
+          group: row.group_name ?? null,
+          owner: row.owner_name ?? null,
+          mine: row.mine === true,
+          shared: row.shared === true,
+        };
+      });
+      return outcome(listed, `Listed ${listed.length} ${listed.length === 1 ? 'form' : 'forms'}.`);
+    },
+  },
+
+  form_responses: {
+    group: 'read',
+    description:
+      `What people answered on one form. Answers with a summary — how many responded, how many were matched to somebody in the directory, and the count for every choice on each choice or yes-or-no question — and then the responses themselves, newest first, each with who answered, when, and every answer as text keyed by the question. At most ${FORM_RESPONSE_ROWS} responses are listed; the counts always cover all of them. A signature is never shown, only whether it was signed.`,
+    fields: {
+      form: { type: 'string', required: true, description: 'The form, by title or by id.' },
+    },
+    run: async (args, ctx) => {
+      const ref = await resolveForm(ctx, String(args.form));
+      const [detail, answered] = await Promise.all([
+        rpc(ctx, 'app_get_form', { p_form: ref.id }),
+        rpc(ctx, 'app_form_responses', { p_form: ref.id }),
+      ]);
+      if (!isRecord(detail)) throw new ToolError('There is no form with that id.');
+
+      const fields = fieldsFromJson(detail.fields);
+      const keys = answerKeys(fields);
+      const responses = rows(answered).map(formResponseRow);
+      const matched = responses.filter((row) => row.requesterId !== null).length;
+
+      const questions = fields
+        .filter((field) => isChoiceType(field.type) || field.type === 'yes_no')
+        .map((field) => ({ question: fieldLabel(field), counts: choiceCounts(field, responses) }));
+
+      const listed = responses.slice(0, FORM_RESPONSE_ROWS).map((row) => {
+        const answers: Record<string, string> = {};
+        fields.forEach((field, at) => {
+          answers[keys[at]] = answerText(field, row.answers[field.id]);
+        });
+        return {
+          respondent: respondentName(row, fields),
+          id_number: row.externalId,
+          submitted_at: row.submittedAt,
+          via: row.via === 'kiosk' ? 'Kiosk' : 'Link',
+          answers,
+        };
+      });
+
+      const result: Record<string, unknown> = {
+        form: ref.title,
+        state: isFormState(detail.state) ? FORM_STATE_LABELS[detail.state] : null,
+        link: formLinkPath(textOf(detail.slug)),
+        summary: {
+          responses: responses.length,
+          matched_to_directory: matched,
+          not_matched: responses.length - matched,
+          questions,
+        },
+        responses: listed,
+      };
+      if (responses.length > listed.length) {
+        result.note = `Showing the newest ${listed.length} of ${responses.length} responses. The counts cover all of them; the form's responses page has the rest.`;
+      }
+      const count = responses.length;
+      return outcome(result, `Read ${ref.title}: ${count} ${count === 1 ? 'response' : 'responses'}.`);
     },
   },
 
@@ -3849,6 +4048,137 @@ const TOOLS: Record<string, ToolSpec> = {
     },
   },
 
+  create_form: {
+    group: 'write',
+    description:
+      'Make a new form: a sign-up, a check-in, a questionnaire. Give it a title, a line saying what it is for, who can answer it, and its questions in order. A directory question is filled in from the school directory for somebody who is in it, so ask for a name, OSIS, class or guardian that way rather than as a short answer; each directory fact can be asked once. The form starts open. Answers with its page in the helpdesk and the link people answer it at.',
+    fields: {
+      title: {
+        type: 'string',
+        required: true,
+        maxLength: FORM_TITLE_MAX,
+        description: `What the form is called. At most ${FORM_TITLE_MAX} characters.`,
+      },
+      description: {
+        type: 'string',
+        maxLength: FORM_DESCRIPTION_MAX,
+        description: 'What the form is for, shown above the questions.',
+      },
+      who_can_answer: {
+        type: 'string',
+        choices: ['directory', 'anyone'],
+        description:
+          'directory: only people in the school directory, who identify themselves first. anyone: anybody with the link. Default directory.',
+      },
+      questions: {
+        type: 'object[]',
+        maxItems: FORM_FIELD_LIMIT,
+        description: `The questions, in the order they are asked. At most ${FORM_FIELD_LIMIT}. Leave it out for a blank form.`,
+        items: {
+          type: {
+            type: 'string',
+            required: true,
+            choices: [...QUESTION_TYPES, 'directory'],
+            description:
+              'short_text, long_text (a paragraph), single_choice, multi_choice (checkboxes), dropdown, number, date, yes_no, signature, or directory for a fact the directory answers.',
+          },
+          label: {
+            type: 'string',
+            maxLength: FORM_LABEL_MAX,
+            description: 'The question as the person reads it. A directory question may leave it out and use the fact\'s own name.',
+          },
+          help: {
+            type: 'string',
+            maxLength: FORM_HELP_MAX,
+            description: 'A line under the question, when it needs one.',
+          },
+          required: { type: 'boolean', description: 'True when the question has to be answered. Default false.' },
+          options: {
+            type: 'string[]',
+            maxItems: FORM_OPTION_LIMIT,
+            description: `The choices, for single_choice, multi_choice and dropdown only. At most ${FORM_OPTION_LIMIT}.`,
+          },
+          directory: {
+            type: 'string',
+            choices: DIRECTORY_KEYS,
+            description: 'For a directory question only: which fact it asks for.',
+          },
+        },
+      },
+    },
+    run: async (args, ctx) => {
+      const questions = (args.questions as Record<string, unknown>[] | undefined) ?? [];
+      const fields: FormField[] = [];
+      const asked = new Set<string>();
+      for (const [at, row] of questions.entries()) {
+        const where = `Question ${at + 1}`;
+        const type = String(row.type) as FormField['type'];
+        const field: FormField = {
+          id: newFieldId(fields.map((entry) => entry.id)),
+          type,
+          label: typeof row.label === 'string' ? row.label : '',
+          help: typeof row.help === 'string' ? row.help : '',
+          required: row.required === true,
+        };
+        if (type === 'directory') {
+          if (!isDirectoryKey(row.directory)) {
+            throw new ToolError(`${where} is a directory question; say which fact it asks for.`);
+          }
+          if (asked.has(row.directory)) {
+            throw new ToolError(`${where} asks the directory for ${DIRECTORY_LABELS[row.directory]} again.`);
+          }
+          asked.add(row.directory);
+          field.directory = row.directory;
+          if (field.label === '') field.label = DIRECTORY_LABELS[row.directory];
+        } else if (field.label === '') {
+          throw new ToolError(`${where} needs a label.`);
+        }
+        if (isChoiceType(type)) {
+          const options = [...new Set(((row.options as string[] | undefined) ?? []).map((option) => option.trim()))];
+          if (options.length === 0) throw new ToolError(`${where} needs its choices.`);
+          const long = options.find((option) => option.length > FORM_OPTION_MAX);
+          if (long !== undefined) {
+            throw new ToolError(`${where} has a choice longer than ${FORM_OPTION_MAX} characters.`);
+          }
+          field.options = options;
+        }
+        fields.push(field);
+      }
+
+      const title = String(args.title);
+      const id = textOf(
+        await rpc(ctx, 'app_create_form', {
+          p_title: title,
+          p_description: args.description ?? '',
+          p_fields: fields,
+          p_audience: args.who_can_answer ?? 'directory',
+        }),
+      );
+      const detail = await rpc(ctx, 'app_get_form', { p_form: id });
+      const link = isRecord(detail) ? formLinkPath(textOf(detail.slug)) : null;
+      return outcome(
+        { id, title, questions: fields.length, page: formBuilderPath(id), link },
+        `Created the form ${title}`,
+      );
+    },
+  },
+
+  set_form_open: {
+    group: 'write',
+    description:
+      'Open a form to new responses, or close it. Closing keeps every response it already has. Reopening a form whose closing date has passed clears that date; a form that has reached its response limit stays full until the limit is raised on its settings page.',
+    fields: {
+      form: { type: 'string', required: true, description: 'The form, by title or by id.' },
+      open: { type: 'boolean', required: true, description: 'True to open it, false to close it.' },
+    },
+    run: async (args, ctx) => {
+      const ref = await resolveForm(ctx, String(args.form));
+      const open = args.open === true;
+      await rpc(ctx, 'app_set_form_open', { p_form: ref.id, p_open: open });
+      return outcome({ id: ref.id, open }, `${open ? 'Opened' : 'Closed'} ${ref.title}`);
+    },
+  },
+
   bulk_assign_devices: {
     group: 'write',
     description:
@@ -4419,6 +4749,12 @@ const DIRECTORY_TOOLS = [
   'set_checklist_marks',
   'create_group_event',
   'delete_group_event',
+  // Forms are chapter business too: the trip sign-up, the check-in at the
+  // door. Deleting one or changing its questions is done on its page.
+  'list_forms',
+  'form_responses',
+  'create_form',
+  'set_form_open',
   // A sheet of people is directory work, exactly as one person is.
   'import_people',
   // Their own name and the note the whole desk shares, both on Settings.
@@ -4708,7 +5044,9 @@ function describeValue(key: string, value: unknown): string {
             textOf(first.display_name) ||
             `${textOf(first.first_name)} ${textOf(first.last_name)}`.trim() ||
             textOf(first.external_id) ||
-            textOf(first.email);
+            textOf(first.email) ||
+            // A form's questions have a label.
+            textOf(first.label);
       return title === '' ? count : `${count}, starting "${title}"`;
     }
     const shown = value.slice(0, 5).map(String).join(', ');
