@@ -21,11 +21,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MapPin, Pencil, Printer, User, Wrench } from 'lucide-react';
+import { MapPin, Pencil, Printer, Trash2, User, Wrench } from 'lucide-react';
 import type { ActionResult } from '@/lib/data/actions';
 import {
   assignDeviceAction,
   bulkUpdateDevicesAction,
+  deleteDeviceAction,
   returnDeviceAction,
 } from '@/lib/data/device-actions';
 import { formatDateTime } from '@/lib/format';
@@ -40,6 +41,7 @@ import {
   type DeviceDetail as DeviceDetailData,
 } from '@/lib/domain/types';
 import { useActorAccount, useRuntime } from '@/components/AppRuntime';
+import { canWorkTickets } from '@/lib/auth/roles';
 import { AttachmentsPanel } from '@/components/attachments/AttachmentsPanel';
 import { DeviceStatusBadge } from '@/components/Badges';
 import { Avatar, TimeAgo } from '@/components/Primitives';
@@ -47,6 +49,7 @@ import { CopyButton } from '@/components/directory/CopyButton';
 import { RecordHistory } from '@/components/directory/RecordHistory';
 import { RecordTicketList } from '@/components/directory/RecordTicketList';
 import { Button, ButtonLink } from '@/components/ui/Button';
+import { Dialog } from '@/components/ui/Dialog';
 import { Icon } from '@/components/ui/Icon';
 import { Sheet } from '@/components/ui/Sheet';
 import '@/styles/device-model.css';
@@ -177,7 +180,7 @@ export function DeviceDetail({
   statuses: string[];
   catalog: DeviceCatalogEntry[];
 }) {
-  const { pendingKey, run } = useRuntime();
+  const { pendingKey, run, actor: runtimeActor } = useRuntime();
   const actor = useActorAccount();
   const router = useRouter();
   const { device } = detail;
@@ -198,6 +201,12 @@ export function DeviceDetail({
 
   const searchParams = useSearchParams();
   const [editing, setEditing] = useState(false);
+  // Deleting is for a record that should never have existed — a typo, a
+  // duplicate. Administrators and NetRiders; every delete keeps the whole row
+  // in the inventory history, so an administrator can see who and why.
+  const canDelete = canWorkTickets(runtimeActor.roles);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteReason, setDeleteReason] = useState('');
 
   /*
    * A dialog asked for by the URL.
@@ -343,6 +352,16 @@ export function DeviceDetail({
           <ButtonLink icon={Printer} href={labelsHref([device.id])}>
             Print label
           </ButtonLink>
+          {canDelete ? (
+            <Button
+              icon={Trash2}
+              variant="ghost"
+              aria-label={`Delete the record ${label}`}
+              title="Delete this record (typos and duplicates)"
+              disabled={busy}
+              onClick={() => setDeleting(true)}
+            />
+          ) : null}
         </div>
       </header>
 
@@ -538,6 +557,43 @@ export function DeviceDetail({
         pending={pendingKey === moveKey}
         onSubmit={onMove}
       />
+      <Dialog
+        open={deleting}
+        onClose={() => setDeleting(false)}
+        title={`Delete the record ${label}?`}
+        description="For a record that should never have existed: a tag typed twice, a duplicate. A machine somebody has, or one named on a ticket, is kept; mark it Retired instead. The whole record stays in the inventory history."
+        footer={
+          <>
+            <Button onClick={() => setDeleting(false)} disabled={busy}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              loading={pendingKey === 'device:delete'}
+              onClick={() =>
+                run('device:delete', () =>
+                  deleteDeviceAction(device.id, deleteReason.trim() || null, device.version),
+                ).then((result) => {
+                  if (result.ok) router.replace('/devices');
+                })
+              }
+            >
+              Delete record
+            </Button>
+          </>
+        }
+      >
+        <label className="field">
+          <span className="field-label">Why</span>
+          <input
+            type="text"
+            value={deleteReason}
+            maxLength={500}
+            placeholder="Duplicate of DOE-LN0000412"
+            onChange={(event) => setDeleteReason(event.target.value)}
+          />
+        </label>
+      </Dialog>
     </div>
   );
 }

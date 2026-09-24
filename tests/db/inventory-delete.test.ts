@@ -10,8 +10,8 @@
  *      written: the whole row in inventory_events, a readable line with the
  *      identifiers in record_events, attributed to the assistant when it was
  *      the assistant.
- *   2. Nobody else can: a NetRider, a skills officer and an anonymous caller
- *      are refused and nothing is written.
+ *   2. A NetRider can too (20260924140000; the trail names them). A skills
+ *      officer and an anonymous caller are refused and nothing is written.
  *   3. A record something depends on is refused with a sentence that says
  *      Retired: with somebody, linked to a ticket, or carrying a file.
  *   4. A stale version and a record that is already gone are refused.
@@ -113,14 +113,20 @@ describe('an administrator deletes a record nothing depends on', () => {
   });
 });
 
-describe('only an administrator', () => {
-  it('refuses a NetRider, a skills officer and anybody signed out, and writes nothing', async () => {
+describe('administrators and NetRiders', () => {
+  it('lets a NetRider delete, with the trail in their name', async () => {
     const device = await seedInventoryDevice();
-    for (const client of [netrider, officer]) {
-      const refused = await rpcFails(client, 'app_delete_inventory_device', { p_device: device.id });
-      expect(refused.code).toBe(REFUSED);
-      expect(refused.message).toContain('Retired');
-    }
+    await rpcOk(netrider, 'app_delete_inventory_device', { p_device: device.id, p_reason: 'Typo' });
+    expect(await exists(device.id)).toBe(false);
+    const [event] = await rawInventoryEvents('device', device.id);
+    expect(event.actor_id).toBe(identity('owner').id);
+  });
+
+  it('refuses a skills officer and anybody signed out, and writes nothing', async () => {
+    const device = await seedInventoryDevice();
+    const refused = await rpcFails(officer, 'app_delete_inventory_device', { p_device: device.id });
+    expect(refused.code).toBe(REFUSED);
+    expect(refused.message).toContain('Retired');
     const { error } = await anonClient().rpc('app_delete_inventory_device', { p_device: device.id });
     expect(error).not.toBeNull();
 

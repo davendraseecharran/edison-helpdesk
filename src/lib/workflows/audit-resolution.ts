@@ -33,11 +33,11 @@ export type MissingKind = MissingDecision['kind'];
 /** What becomes of one machine seen here but recorded somewhere else. */
 export type ElsewhereDecision = 'here' | 'leave';
 
-export const MISSING_CHOICES: ReadonlyArray<{ kind: MissingKind; label: string; adminOnly?: boolean }> = [
+export const MISSING_CHOICES: ReadonlyArray<{ kind: MissingKind; label: string }> = [
   { kind: 'missing', label: `Mark ${MISSING_STATUS.toLowerCase()}` },
   { kind: 'status', label: 'Set a status' },
   { kind: 'move', label: 'Move to a location' },
-  { kind: 'delete', label: 'Delete the record', adminOnly: true },
+  { kind: 'delete', label: 'Delete the record' },
   { kind: 'leave', label: 'Leave as is' },
 ];
 
@@ -81,10 +81,8 @@ function complete(decision: MissingDecision): boolean {
 export function blockedReason(
   decision: MissingDecision,
   device: Pick<ExpectedDevice, 'state'>,
-  isAdmin: boolean,
 ): string | null {
   if (decision.kind === 'delete') {
-    if (!isAdmin) return 'Only an administrator can delete a record.';
     if (device.state.holderId) {
       return `With ${device.state.holderName ?? 'somebody'}. Return it first, or mark it Retired.`;
     }
@@ -142,7 +140,6 @@ export function planAudit(
   diff: Pick<AuditDiff, 'missing' | 'elsewhere'>,
   decisions: AuditDecisions,
   location: string,
-  isAdmin: boolean,
 ): AuditPlan {
   const statuses: Array<{ key: string; id: string }> = [];
   const moves: Array<{ key: string; id: string }> = [];
@@ -152,7 +149,7 @@ export function planAudit(
 
   for (const device of diff.missing) {
     const decision = missingDecisionFor(decisions, device.id);
-    const reason = blockedReason(decision, device, isAdmin);
+    const reason = blockedReason(decision, device);
     if (reason) {
       blocked.push({ id: device.id, label: device.label, reason });
       continue;

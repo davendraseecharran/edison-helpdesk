@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ADMIN_TOOLS,
   executeTool,
   isWriteTool,
   READ_TOOLS,
@@ -43,11 +42,11 @@ function context(options: {
 }
 
 describe('delete_device', () => {
-  it('is an administrator tool that always asks first, whatever the setting', () => {
-    expect(ADMIN_TOOLS).toContain('delete_device');
+  it('is offered to NetRiders and administrators, and always asks first, whatever the setting', () => {
     expect(isWriteTool('delete_device')).toBe(true);
     expect(requiresApproval('delete_device', { device: 'DOE-1' }, false)).toBe(true);
-    expect(toolsFor(['netrider']).map((tool) => tool.name)).not.toContain('delete_device');
+    expect(toolsFor(['netrider']).map((tool) => tool.name)).toContain('delete_device');
+    expect(toolsFor(['skills_officer']).map((tool) => tool.name)).not.toContain('delete_device');
     expect(toolsFor(['admin']).map((tool) => tool.name)).toContain('delete_device');
   });
 

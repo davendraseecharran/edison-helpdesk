@@ -21,7 +21,6 @@
 
 import { useMemo, useState } from 'react';
 import { Check, CircleAlert, RotateCcw } from 'lucide-react';
-import { useRuntime } from '@/components/AppRuntime';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { Icon } from '@/components/ui/Icon';
@@ -76,8 +75,6 @@ function decisionOf(kind: MissingKind, previous: MissingDecision, fallbackStatus
 }
 
 export function AuditResolution({ location, diff, statuses, locations }: AuditResolutionProps) {
-  const { actor } = useRuntime();
-  const isAdmin = actor.roles.includes('admin');
   const [decisions, setDecisions] = useState<AuditDecisions>(initialDecisions);
   const [confirming, setConfirming] = useState(false);
   const [applying, setApplying] = useState(false);
@@ -88,9 +85,9 @@ export function AuditResolution({ location, diff, statuses, locations }: AuditRe
     [statuses],
   );
   const firstStatus = statusChoices.includes('In repair') ? 'In repair' : (statusChoices[0] ?? '');
-  const plan = useMemo(() => planAudit(diff, decisions, location, isAdmin), [diff, decisions, location, isAdmin]);
+  const plan = useMemo(() => planAudit(diff, decisions, location), [diff, decisions, location]);
 
-  const kindOptions: SelectOption[] = MISSING_CHOICES.filter((choice) => !choice.adminOnly || isAdmin).map(
+  const kindOptions: SelectOption[] = MISSING_CHOICES.map(
     (choice) => ({ value: choice.kind, label: choice.label }),
   );
   const statusOptions: SelectOption[] = statusChoices.map((status) => ({ value: status, label: status }));
@@ -223,7 +220,7 @@ export function AuditResolution({ location, diff, statuses, locations }: AuditRe
             {diff.missing.map((device) => {
               const own = decisions.missing[device.id];
               const effective = missingDecisionFor(decisions, device.id);
-              const reason = blockedReason(effective, device, isAdmin);
+              const reason = blockedReason(effective, device);
               return (
                 <li key={device.id} className="wf-resolve-row" data-own={own ? '' : undefined}>
                   <span className="wf-resolve-machine">

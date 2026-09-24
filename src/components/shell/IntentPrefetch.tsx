@@ -5,8 +5,10 @@
  *
  * Every page here is dynamic, so a link in view prefetches only as far as the
  * page's skeleton; the data waits for the click. This fetches the whole page
- * the moment intent shows — the pointer resting on a link for a beat, a press
- * going down (a click lands ~100 ms later), a tab onto it — so by the time the
+ * the moment intent shows — the pointer resting on a link for a beat (90 ms;
+ * a sweep across links fires nothing, and hover may start at most six loads
+ * in ten seconds, none on a data-saver or 2G connection), a press going down
+ * (a click lands ~100 ms later), a tab onto it — so by the time the
  * click arrives the answer is usually already here and the page swaps in.
  * `staleTimes` in next.config keeps what was fetched for a short while, which
  * also makes Back and a second visit instant; any change made through the app
@@ -33,7 +35,10 @@ import { warmSearchIndex } from '@/lib/lookup/local-store';
 const PAGES =
   /^\/(today|queue|my-tickets|collaborating|resolved|all-tickets|analytics|people|groups|devices|workflows|forms|tickets|events|notifications|settings|admin)(\/|$|\?)/;
 const NEVER = /\/(export|download|kiosk)(\/|$|\?)|\.(csv|json|png|pdf)(\?|$)/;
-const DWELL_MS = 65;
+const DWELL_MS = 90;
+/** Hover alone may start at most this many page loads in any window below. */
+const HOVER_BUDGET = 6;
+const HOVER_WINDOW_MS = 10_000;
 const REFETCH_AFTER_MS = 30_000;
 const REFRESH_AFTER_HIDDEN_MS = 60_000;
 
@@ -64,9 +69,27 @@ export function IntentPrefetch() {
   useEffect(() => {
     const fetchedAt = new Map<string, number>();
     let dwell: ReturnType<typeof setTimeout> | null = null;
+    // When hover last started a load. A pointer swept across a column of
+    // links fires nothing (each new element cancels the pending dwell); one
+    // that rests on link after link is still capped, so browsing the rail
+    // with the mouse never queues a dozen server renders.
+    const hoverStarts: number[] = [];
+    const connection = (navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }).connection;
+    const frugal = connection?.saveData === true || /(^|-)2g$/.test(connection?.effectiveType ?? '');
 
-    const prefetch = (href: string | null) => {
+    const prefetch = (href: string | null, viaHover = false) => {
       if (!href) return;
+      if (viaHover) {
+        if (frugal) return;
+        const now = Date.now();
+        while (hoverStarts.length > 0 && now - hoverStarts[0] > HOVER_WINDOW_MS) hoverStarts.shift();
+        const last = fetchedAt.get(href) ?? 0;
+        if (now - last < REFETCH_AFTER_MS) return;
+        if (hoverStarts.length >= HOVER_BUDGET) return;
+        hoverStarts.push(now);
+      }
       const last = fetchedAt.get(href) ?? 0;
       if (Date.now() - last < REFETCH_AFTER_MS) return;
       fetchedAt.set(href, Date.now());
@@ -81,7 +104,7 @@ export function IntentPrefetch() {
       if (event.pointerType !== 'mouse') return;
       const href = internalHref(event.target);
       if (dwell) clearTimeout(dwell);
-      if (href) dwell = setTimeout(() => prefetch(href), DWELL_MS);
+      if (href) dwell = setTimeout(() => prefetch(href, true), DWELL_MS);
     };
     const onDown = (event: PointerEvent) => prefetch(internalHref(event.target));
     const onFocus = (event: FocusEvent) => prefetch(internalHref(event.target));

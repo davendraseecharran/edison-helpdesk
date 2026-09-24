@@ -514,7 +514,10 @@ describe('requiresApproval', () => {
   it('leaves ordinary writes to the setting, and reads out of it entirely', () => {
     const known = new Set([...READ_TOOLS, ...WRITE_TOOLS, ...ADMIN_TOOLS]);
     for (const name of ADMIN_TOOLS) expect(known.has(name)).toBe(true);
-    for (const name of WRITE_TOOLS) expect(requiresApproval(name, {}, false)).toBe(false);
+    for (const name of WRITE_TOOLS) {
+      // delete_device is a NetRider's write that asks anyway.
+      expect(requiresApproval(name, {}, false)).toBe(name === 'delete_device');
+    }
     for (const name of READ_TOOLS) expect(requiresApproval(name, {}, false)).toBe(false);
   });
 });

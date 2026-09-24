@@ -1222,6 +1222,12 @@ interface ToolSpec {
    * flag does.
    */
   directoryExport?: true;
+  /**
+   * A change outside the administrator group that still always asks first,
+   * whatever the confirmation setting says: deleting a record is not
+   * ordinary work even when a NetRider may do it.
+   */
+  alwaysAsk?: true;
   run: (args: Record<string, unknown>, ctx: ToolContext) => Promise<ToolOutcome>;
 }
 
@@ -5288,9 +5294,10 @@ const TOOLS: Record<string, ToolSpec> = {
   },
 
   delete_device: {
-    group: 'admin',
+    group: 'write',
+    alwaysAsk: true,
     description:
-      'Delete one inventory record that should never have existed: a tag typed twice, a duplicate. Administrators only, and it always asks first. The database refuses while the machine is with somebody, named on a ticket or has files attached; say so and suggest set_device_status Retired instead. The whole record is kept in the inventory history.',
+      'Delete one inventory record that should never have existed: a tag typed twice, a duplicate. Administrators and NetRiders, and it always asks first; every delete is kept in the inventory history for an administrator to see. The database refuses while the machine is with somebody, named on a ticket or has files attached; say so and suggest set_device_status Retired instead. The whole record is kept in the inventory history.',
     fields: {
       device: { type: 'string', required: true, description: 'Asset tag, serial number, inventory id or record id.' },
       reason: { type: 'string', description: 'Why it is being deleted, in a sentence: "Duplicate of DOE-LN0000412".' },
@@ -5388,7 +5395,8 @@ export function requiresApproval(
   confirmChanges: boolean,
 ): boolean {
   if (!isWriteCall(name, args)) return false;
-  if (specFor(name)?.group === 'admin') return true;
+  const spec = specFor(name);
+  if (spec?.group === 'admin' || spec?.alwaysAsk === true) return true;
   return confirmChanges;
 }
 

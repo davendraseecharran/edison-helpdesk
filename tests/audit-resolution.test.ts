@@ -51,7 +51,7 @@ describe('room audit decisions', () => {
     const decisions = initialDecisions();
     expect(missingDecisionFor(decisions, 'id-A')).toEqual({ kind: 'missing' });
     expect(elsewhereDecisionFor(decisions, 'id-X')).toBe('here');
-    const plan = planAudit(diff, decisions, 'Room 204', false);
+    const plan = planAudit(diff, decisions, 'Room 204');
     expect(plan.summary).toEqual(['4 machines marked Missing', '2 machines recorded in Room 204']);
     expect(plan.changing).toBe(6);
     expect(plan.leaving).toBe(0);
@@ -68,7 +68,7 @@ describe('room audit decisions', () => {
       },
       elsewhere: { 'id-Y': 'leave' },
     });
-    const plan = planAudit(diff, decisions, 'Room 204', true);
+    const plan = planAudit(diff, decisions, 'Room 204');
     expect(plan.steps).toEqual([
       { kind: 'patch', patch: { status: 'In repair' }, ids: ['id-A'], label: 'set to In repair' },
       { kind: 'patch', patch: { location: 'Library' }, ids: ['id-B'], label: 'moved to Library' },
@@ -91,24 +91,19 @@ describe('room audit decisions', () => {
     expect(missingDecisionFor(decisions, 'id-B')).toEqual({ kind: 'missing' });
   });
 
-  it('keeps deletion for administrators, and never for a machine somebody has', () => {
+  it('lets anybody who audits delete, but never a machine somebody has', () => {
     const deleteAll = decided({ missingAll: { kind: 'delete' } });
-    const asNetRider = planAudit(diff, deleteAll, 'Room 204', false);
-    expect(asNetRider.blocked).toHaveLength(4);
-    expect(asNetRider.blocked[0].reason).toContain('administrator');
-    expect(asNetRider.steps).toEqual([expect.objectContaining({ kind: 'patch' })]);
-
-    const asAdmin = planAudit(diff, deleteAll, 'Room 204', true);
-    expect(asAdmin.blocked).toEqual([
+    const plan = planAudit(diff, deleteAll, 'Room 204');
+    expect(plan.blocked).toEqual([
       { id: 'id-D', label: 'D', reason: 'With Juniper Vale. Return it first, or mark it Retired.' },
     ]);
   });
 
   it('asks for the text a decision needs before it can be applied', () => {
-    expect(blockedReason({ kind: 'status', status: ' ' }, expected('A'), true)).toBe('Choose the status.');
-    expect(blockedReason({ kind: 'move', location: '' }, expected('A'), true)).toBe('Say where it goes.');
-    expect(blockedReason({ kind: 'status', status: 'Assigned' }, expected('A'), true)).toContain('Hand it out');
-    expect(blockedReason({ kind: 'missing' }, expected('D', 'Juniper Vale'), false)).toBeNull();
+    expect(blockedReason({ kind: 'status', status: ' ' }, expected('A'))).toBe('Choose the status.');
+    expect(blockedReason({ kind: 'move', location: '' }, expected('A'))).toBe('Say where it goes.');
+    expect(blockedReason({ kind: 'status', status: 'Assigned' }, expected('A'))).toContain('Hand it out');
+    expect(blockedReason({ kind: 'missing' }, expected('D', 'Juniper Vale'))).toBeNull();
   });
 
   it('with everything left, has nothing to apply', () => {
@@ -116,7 +111,6 @@ describe('room audit decisions', () => {
       diff,
       decided({ missingAll: { kind: 'leave' }, elsewhereAll: 'leave' }),
       'Room 204',
-      true,
     );
     expect(plan.steps).toEqual([]);
     expect(plan.changing).toBe(0);

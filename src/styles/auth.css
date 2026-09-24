@@ -207,6 +207,187 @@
   }
 }
 
+/* --- The seal: a coin -------------------------------------------------- */
+
+/*
+ * SealCoin: the school's seal stamped on a disc with a rim. The rim is ten
+ * thin discs stepped back in Z behind the face; the back is a plain disc that
+ * shows only while the coin spins in. The face's shading and the glare follow
+ * the lean the pointer gives it (--rx, --ry, --glare-x, --glare-y). Ink and
+ * paper only, mixed, so it is the same object in both themes.
+ */
+.seal-stage {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 128px;
+  height: 128px;
+  perspective: 760px;
+}
+
+/* A shadow on the page under the coin, so it sits on something. It narrows as
+   the coin turns edge-on during the spin, because the spin carries it too. */
+.seal-stage::after {
+  content: '';
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  width: 96px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in oklab, #000 45%, transparent), transparent);
+  translate: -50% 0;
+  filter: blur(4px);
+  animation: seal-shadow-in 1500ms var(--ease-out) both;
+}
+
+@keyframes seal-shadow-in {
+  from {
+    opacity: 0;
+    scale: 0.4 1;
+  }
+}
+
+.seal-stage .auth-bulb-halo {
+  top: 50%;
+  width: 168px;
+  height: 168px;
+  translate: 0 -50%;
+}
+
+.seal-spin {
+  display: block;
+  transform-style: preserve-3d;
+  animation: seal-spin-in 1500ms cubic-bezier(0.18, 0.9, 0.24, 1.04) both;
+}
+
+.seal-coin {
+  position: relative;
+  display: block;
+  width: 128px;
+  height: 128px;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transition: transform 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.seal-edge,
+.seal-back,
+.seal-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+.seal-edge {
+  background: color-mix(in oklab, var(--ink) 30%, var(--bg, var(--paper)));
+}
+
+.seal-edge:nth-child(even) {
+  background: color-mix(in oklab, var(--ink) 22%, var(--bg, var(--paper)));
+}
+
+.seal-back {
+  transform: translateZ(-12.5px) rotateY(180deg);
+  backface-visibility: hidden;
+  background: radial-gradient(
+    circle at 40% 35%,
+    color-mix(in oklab, var(--ink) 18%, var(--bg, var(--paper))),
+    color-mix(in oklab, var(--ink) 9%, var(--bg, var(--paper))) 70%
+  );
+  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--ink) 35%, transparent);
+}
+
+.seal-face {
+  transform: translateZ(0.5px);
+  backface-visibility: hidden;
+  overflow: hidden;
+  background: radial-gradient(
+    circle at var(--glare-x, 50%) var(--glare-y, 35%),
+    color-mix(in oklab, var(--ink) 16%, var(--bg, var(--paper))),
+    color-mix(in oklab, var(--ink) 6%, var(--bg, var(--paper))) 65%,
+    color-mix(in oklab, var(--ink) 12%, var(--bg, var(--paper)))
+  );
+  box-shadow:
+    inset 0 0 0 1.5px color-mix(in oklab, var(--ink) 40%, transparent),
+    inset 0 0 0 5px color-mix(in oklab, var(--ink) 7%, transparent);
+}
+
+.seal-stamp {
+  position: absolute;
+  inset: 7%;
+  background: var(--ink);
+  mask: url('/taehs-seal.png') center / contain no-repeat;
+  -webkit-mask: url('/taehs-seal.png') center / contain no-repeat;
+}
+
+.seal-glare {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    linear-gradient(
+        105deg,
+        transparent 35%,
+        color-mix(in oklab, var(--bg, var(--paper)) 55%, transparent) 50%,
+        transparent 65%
+      )
+      -170% 0 / 250% 100% no-repeat,
+    radial-gradient(
+      circle at var(--glare-x, 50%) var(--glare-y, 35%),
+      color-mix(in oklab, var(--ink) 22%, transparent),
+      transparent 55%
+    );
+  mix-blend-mode: soft-light;
+  animation: seal-sweep 1200ms var(--ease-in-out) 1100ms both;
+}
+
+@keyframes seal-spin-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) rotateY(-340deg) scale(0.86);
+  }
+  35% {
+    opacity: 1;
+  }
+}
+
+@keyframes seal-sweep {
+  from {
+    background-position: -170% 0, 0 0;
+  }
+  to {
+    background-position: 270% 0, 0 0;
+  }
+}
+
+/* A touch screen has no pointer to lean toward: the coin sways instead. */
+@media (hover: none), (pointer: coarse) {
+  .seal-coin {
+    animation: seal-sway 7s ease-in-out 1.6s infinite;
+  }
+}
+
+@keyframes seal-sway {
+  0%,
+  100% {
+    transform: rotateY(-10deg) rotateX(4deg);
+  }
+  50% {
+    transform: rotateY(10deg) rotateX(-3deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seal-spin,
+  .seal-coin,
+  .seal-glare,
+  .seal-stage::after {
+    animation: none;
+    transition: none;
+  }
+}
+
 /* --- Column ------------------------------------------------------------- */
 
 .auth-column {
