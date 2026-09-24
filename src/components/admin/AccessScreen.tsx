@@ -113,7 +113,7 @@ export function AccessScreen({
         const open = editing?.id === account.id;
         if (!open) {
           return (
-            <div className="btn-row admin-actions">
+            <div className="btn-row admin-roles">
               <RoleBadges roles={account.roles} />
               <Button
                 variant="ghost"
@@ -172,7 +172,7 @@ export function AccessScreen({
       key: 'active',
       header: 'Active tickets',
       align: 'right',
-      width: 120,
+      width: 160,
       cell: (account) =>
         account.activeTicketCount === 0 ? (
           <span className="muted">None</span>

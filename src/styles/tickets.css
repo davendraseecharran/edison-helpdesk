@@ -1472,10 +1472,16 @@
 
 .admin-sub-warn {
   color: var(--warn);
+  white-space: nowrap;
 }
 
 .admin-actions {
   justify-content: flex-end;
+}
+
+/* Under a left-aligned "Roles" heading, so the chips start where it does. */
+.admin-roles {
+  justify-content: flex-start;
 }
 
 .admin-link-row {

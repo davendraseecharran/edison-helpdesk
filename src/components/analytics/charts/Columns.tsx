@@ -108,9 +108,13 @@ export function Columns({
                 <line className="chart-baseline" x1="0" x2="100" y1="100" y2="100" />
                 {line.values.length > 1 ? (
                   <g clipPath={`url(#${clipId})`}>
+                    {/* The wash closes straight down from the line's own
+                        first and last points: the points sit mid-slot, and
+                        closing to the corners drew a slope the data never
+                        had at either end. */}
                     <polygon
                       className="chart-area"
-                      points={`0,100 ${linePoints(line.values, lineScale.top, true)} 100,100`}
+                      points={`${round((0.5 / line.values.length) * 100)},100 ${linePoints(line.values, lineScale.top, true)} ${round(((line.values.length - 0.5) / line.values.length) * 100)},100`}
                     />
                     <polyline
                       className="chart-line"

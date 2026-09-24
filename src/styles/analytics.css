@@ -101,6 +101,19 @@
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 164px), 1fr));
 }
 
+/*
+ * Two to a row on a phone. The auto-fill floor fits one 164px card in a
+ * 390px panel, which stacked six figures into a column taller than the
+ * screen; half the width still holds "100%" at this size and the lines under
+ * it wrap.
+ */
+@media (max-width: 519.98px) {
+  .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+}
+
 .stat-card {
   display: grid;
   gap: 4px;
@@ -273,10 +286,14 @@
   height: var(--chart-h, 160px);
 }
 
-/* The plot's own space between the band and the columns. */
+/*
+ * The plot's own space between the band and the columns. Enough that the
+ * columns' top tick, which is centred on its gridline, reads as the plot's
+ * and not as a second tick on the band's baseline just above it.
+ */
 .chart-band + .chart-ticks,
 .chart-band + .chart-ticks + .chart-plot {
-  margin-top: 10px;
+  margin-top: 20px;
 }
 
 .chart-band svg,
