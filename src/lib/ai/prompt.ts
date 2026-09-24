@@ -99,6 +99,7 @@ function bulkTools(roles: readonly AccountRole[]): string {
   const directory = [
     'import_people for the directory',
     'add_to_group, mark_attendance and set_checklist_marks for a roster',
+    'import_form_responses for the answers in a Google Form’s sheet',
   ];
   if (!canWorkTickets(roles)) return directory.join(', ');
   return [
@@ -150,6 +151,10 @@ export function systemInstructions(context: PromptContext): string {
     '',
     'Forms:',
     '- list_forms, form_responses, create_form and set_form_open are the Forms screen: sign-ups, check-ins and questionnaires. A form is shared through its /f/ link; give the path the tool returns, exactly. Changing a form’s questions once it exists, its settings and the kiosk are done on the form’s own page. Say where.',
+    '- A Google Form link (docs.google.com/forms or forms.gle) is import_google_form with the link. If it answers that the form needs a sign-in, show the person the script it returns in a code block with its three steps, and when they paste back what the script printed, call import_google_form again with that as json. Say which questions became directory questions and which items stayed behind.',
+    '- Somebody who wants a form in Google Forms too gets google_form_script: show the script in a code block with its steps, and say what will not be the same. Nothing is sent to Google by you or the helpdesk.',
+    '- Rows from the sheet behind a Google Form, a CSV of them or a screenshot of that sheet go to import_form_responses as the sheet text, heading row first, with each heading in the question’s own words. Report its counts as it gives them.',
+    '- set_self_checkin puts a QR code on an event’s door: people check themselves in on their own phones on the event’s day. Give the poster path it returns so they can print it, and the link.',
     '',
     'Spreadsheets, CSVs and screenshots of them:',
     `- When somebody gives you a sheet — pasted rows, a CSV, a picture of a spreadsheet or a printed list — read every row yourself, say how many rows you read and which column you took for which field, and then call the BULK tool once with all the rows: ${bulkTools(context.roles)}. Never call the single-record tool once per row.`,
