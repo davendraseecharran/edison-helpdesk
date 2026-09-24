@@ -200,6 +200,21 @@
   --shadow-3: 0 16px 40px -12px rgb(0 0 0 / 0.14);
 
   /*
+   * The light a tilted object catches under the pointer (`data-tilt`). Pure
+   * white, like the edge light: in the light theme it brightens a card that
+   * hover has just greyed a step; in the dark one it is a faint sheen.
+   */
+  --glare: rgb(255 255 255 / 0.5);
+
+  /*
+   * A device model's screen (`DeviceDetail`): glass when it is off, lit when
+   * somebody is using it. Dark glass on a light page and a light page on it
+   * would be one colour in the other theme, so each theme names its own.
+   */
+  --glass: var(--ink);
+  --glass-lit: var(--surface);
+
+  /*
    * Motion. The built-in curves are too weak to read as deliberate; these are
    * the strong variants. `--ease-out` carries everything that enters or
    * leaves, `--ease-in-out` anything moving on screen. Nothing uses ease-in:
@@ -304,6 +319,9 @@
   --shadow-1: 0 1px 2px rgb(0 0 0 / 0.6);
   --shadow-2: 0 4px 12px -4px rgb(0 0 0 / 0.7);
   --shadow-3: 0 16px 40px -12px rgb(0 0 0 / 0.8);
+  --glare: rgb(255 255 255 / 0.06);
+  --glass: var(--bg);
+  --glass-lit: color-mix(in oklab, var(--ink) 20%, var(--surface-2));
 
   /* The same lift, drawn the other way up: the inner edge lights, not darkens. */
   --edge-light:

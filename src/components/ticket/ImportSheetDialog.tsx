@@ -32,6 +32,8 @@ import { Icon } from '@/components/ui/Icon';
 import { Select } from '@/components/ui/Select';
 import { resolvePeopleAction } from '@/lib/data/group-actions';
 import { importResolvedSheetAction } from '@/lib/data/ticket-import-actions';
+import { RollingNumber } from '@/components/ui/RollingNumber';
+import { ThinkingMark } from '@/components/ui/ThinkingMark';
 import { PASTE_LIMIT } from '@/lib/domain/groups';
 import {
   autoMap,
@@ -379,9 +381,21 @@ export function ImportSheetDialog({ open, onClose }: { open: boolean; onClose: (
       {stage === 'review' && sheet ? (
         <div className="import-review">
           <p className="import-counts" role="status">
+            {lookup === 'loading' || progress ? (
+              <ThinkingMark
+                size={22}
+                state={progress ? 'solving' : 'searching'}
+                holdMs={0}
+                className="import-mark"
+              />
+            ) : null}
             {countLine(rows.length, sendable.length - withNotes, withNotes, blocked)}
             {lookup === 'loading' ? ' Looking up requesters in the directory.' : null}
-            {progress ? ` Importing ${progress.sent} of ${progress.total}.` : null}
+            {progress ? (
+              <>
+                {' '}Importing <RollingNumber value={progress.sent} /> of {progress.total}.
+              </>
+            ) : null}
           </p>
           {lookup === 'failed' ? (
             <p className="import-banner" role="alert">

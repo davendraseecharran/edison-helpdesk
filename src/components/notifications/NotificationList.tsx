@@ -21,6 +21,9 @@ import { CheckCheck } from 'lucide-react';
 import { useRuntime } from '@/components/AppRuntime';
 import { EmptyState } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
+import { GlideLayer } from '@/components/ui/HoverGlide';
+import { ThinkingMark } from '@/components/ui/ThinkingMark';
+import { RollingNumber } from '@/components/ui/RollingNumber';
 import { Pagination } from '@/components/ui/Pagination';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
 import { markReadAction } from '@/lib/data/notification-actions';
@@ -104,11 +107,17 @@ export function NotificationList({ items, read, now, onOpen, todayKey }: Notific
   }
 
   if (todayKey === undefined) {
-    return <div className="notification-rows">{items.map(row)}</div>;
+    return (
+      <div className="notification-rows glide-host">
+        <GlideLayer selector=".notification" />
+        {items.map(row)}
+      </div>
+    );
   }
 
   return (
-    <div className="notification-groups">
+    <div className="notification-groups glide-host">
+      <GlideLayer selector=".notification" />
       {groupNotifications(items, todayKey).map((group) => (
         <section key={group.key} className="notification-group">
           <h2 className="notification-group-title">{group.label}</h2>
@@ -184,7 +193,7 @@ export function NotificationsScreen({
         />
         <div className="notifications-toolbar-end">
           <span className="notifications-summary" aria-live="polite">
-            {total === 1 ? '1 notification' : `${total} notifications`}
+            <RollingNumber value={total} /> {total === 1 ? 'notification' : 'notifications'}
           </span>
           <Button
             variant="secondary"
@@ -201,7 +210,7 @@ export function NotificationsScreen({
 
       <div className="notifications-body" aria-busy={navigating || undefined}>
         {items.length === 0 ? (
-          <EmptyState title={ALL_CAUGHT_UP}>
+          <EmptyState title={ALL_CAUGHT_UP} mark={<ThinkingMark state="listening" size={56} />}>
             {filter === 'unread'
               ? 'Nothing is waiting to be read. Choose All to see everything from the past.'
               : 'Notices arrive when a ticket is assigned to you, someone adds you as a collaborator, or a ticket you own is reopened.'}

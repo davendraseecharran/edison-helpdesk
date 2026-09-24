@@ -14,6 +14,7 @@ import { useRuntime } from '@/components/AppRuntime';
 import { Flash } from '@/components/Primitives';
 import { AiPanel } from '@/components/ai/AiPanel';
 import { ScanPairingDialog } from '@/components/scan/ScanPairingDialog';
+import { TiltField } from '@/components/ui/TiltField';
 import { TooltipProvider } from '@/components/ui/Tooltip';
 import { DURATION, EASE_OUT_CSS } from '@/components/ui/Motion';
 import { announceScannedDevice, ScannedDeviceCard } from '@/components/scan/ScannedDeviceCard';
@@ -248,6 +249,9 @@ export function AppShell({
         {/* The assistant. Owns its own opening: the toggle, Ctrl/Cmd+J and the
           `edison:open-assistant` event all land inside it. */}
         <AiPanel queueCount={counts.openQueue} />
+        {/* Objects (`data-tilt`) lean towards a precise pointer: one listener
+          for the application. */}
+        <TiltField />
       </div>
     </TooltipProvider>
   );

@@ -134,7 +134,8 @@ describe('Tabs', () => {
         ],
       }),
     );
-    expect(html).toContain('<nav class="tabs" aria-label="Administration">');
+    expect(html).toContain('class="glide-host tabs"');
+    expect(html).toContain('aria-label="Administration"');
     expect(html).toContain('aria-current="page"');
     expect(html.match(/aria-current="page"/g)).toHaveLength(1);
     expect(html).toContain('count-pill');

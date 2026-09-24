@@ -1,0 +1,102 @@
+/*
+ * The empty forms page's stack of blank forms (`PaperStack` in
+ * `FormsList.tsx`). Three sheets in one 3D scene, tipped back and turned a
+ * few degrees so they read as paper on a desk; the top one carries a form's
+ * skeleton with its first field already filled, in ink, the way a directory
+ * answer arrives. Under a precise pointer the stack leans (`data-tilt`) and
+ * the sheets fan apart along Z. Monochrome, surfaces and hairlines only.
+ */
+.paper-stack {
+  --tilt-max: 4deg;
+  --fan: 0;
+  position: relative;
+  width: 132px;
+  height: 104px;
+  margin: 0 auto 4px;
+  border-radius: var(--radius-4);
+  perspective: 640px;
+  transform-style: preserve-3d;
+  transition: var(--tilt-ease, transform 0s);
+}
+
+.paper-stack[data-tilting] {
+  --fan: 1;
+}
+
+.paper-stack::before {
+  display: none;
+}
+
+.paper {
+  position: absolute;
+  top: 10px;
+  left: 30px;
+  width: 72px;
+  height: 90px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-1);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+  transition: transform 420ms var(--ease-out);
+}
+
+.paper-3 {
+  background: var(--surface-3);
+  transform: rotateX(18deg) rotateZ(-9deg) translate3d(-12px, 4px, calc(-18px - var(--fan) * 10px));
+}
+
+.paper-2 {
+  background: var(--surface-2);
+  transform: rotateX(18deg) rotateZ(5deg) translate3d(10px, 2px, calc(-9px - var(--fan) * 5px));
+}
+
+.paper-1 {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 9px;
+  box-shadow: var(--shadow-2);
+  transform: rotateX(18deg) rotateZ(-1deg) translate3d(0, 0, calc(var(--fan) * 6px));
+}
+
+.paper-title {
+  width: 60%;
+  height: 5px;
+  margin-bottom: 3px;
+  border-radius: 2px;
+  background: var(--ink-2);
+}
+
+.paper-field {
+  display: block;
+  height: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+}
+
+.paper-field-short {
+  width: 55%;
+}
+
+/* The field the directory filled: a name, written in. */
+.paper-field-filled {
+  display: flex;
+  align-items: center;
+  padding: 0 3px;
+  background: var(--surface-3);
+}
+
+.paper-field-filled > span {
+  width: 64%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--ink);
+}
+
+.paper-check {
+  width: 8px;
+  height: 8px;
+  margin-top: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 2px;
+}

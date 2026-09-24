@@ -20,6 +20,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useRuntime } from '@/components/AppRuntime';
 import { EmptyState, Field, TimeAgo } from '@/components/Primitives';
+import { RollingNumber } from '@/components/ui/RollingNumber';
 import { ActorLabel } from '@/components/ui/ActorLabel';
 import { ButtonLink } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -189,7 +190,11 @@ export function AuditLog({ page }: { page: AuditLogPage }) {
         label="Audit filters"
         active={filtersActive}
         clearHref={pathname}
-        summary={navigating ? 'Loading' : `${total} ${total === 1 ? 'event' : 'events'}`}
+        summary={
+          <span className="summary-count" data-busy={navigating || undefined}>
+            <RollingNumber value={total} /> {total === 1 ? 'event' : 'events'}
+          </span>
+        }
       >
         <div className="audit-filters">
           <Field label="Actor" htmlFor="audit-actor">

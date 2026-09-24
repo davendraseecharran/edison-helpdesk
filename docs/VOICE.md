@@ -77,13 +77,15 @@ mark of its own. Nothing else in the voice moves — a device coming back is a
 hundred-a-day action during a cart check-in and gets its line with no animation
 at all. Under `prefers-reduced-motion` the line is simply there.
 
-The other signature is the lamp (`.boot-lamp`): one second at the start of a
-session, the wordmark with `--edge-light`'s ring drawing itself around it, then
-both gone. The lamp carries no colour — it is a ring a step stronger than a
-hairline and a soft drop, the same lift that means "your next keystroke acts on
-this" everywhere else. It is rendered by the authenticated layout, so it
-never plays on an in-app navigation, and once per browsing session: one line of
-script stamps `data-boot-seen` before the element is painted, which is the only
-moment early enough to suppress an animation. That script can only ever hide the
-lamp. Taking it away is still pure CSS, so no failed script can leave it on
-screen.
+The other signature is the arrival (`.boot-lamp`, `BootLamp`): the first time
+in a session an authenticated page loads — a fresh tab, or the navigation that
+follows signing in — the sign-in screen's bulb is lit in the middle of the page
+with "Edison Helpdesk" under it and the light passing across the words. It is
+there only while that first page is actually loading and leaves the instant its
+content is in; a page that is ready at once still gets about half a second, so
+the mark never flashes. It carries no colour: ink, a halo of ink, and a band of
+brighter ink. All of it is CSS and inline SVG, so it paints with the first HTML;
+one line of script in the head can only ever suppress it (a reload later in the
+same session), and an eight-second cap in CSS takes it away whatever is still
+loading. Under `prefers-reduced-motion` it is the still wordmark for exactly as
+long as the page takes, and nothing more.

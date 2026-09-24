@@ -1,4 +1,5 @@
 import type { HTMLAttributes, KeyboardEvent, ReactNode } from 'react';
+import { GlideLayer } from './HoverGlide';
 import { StaggerItem, StaggerList } from './Motion';
 
 export interface Column<Row> {
@@ -90,7 +91,11 @@ export function DataTable<Row>({
 
   return (
     <StaggerList generation={rows} enabled={settle}>
-      <div className="data-table" {...listProps}>
+      <div className="data-table glide-host" {...listProps}>
+        {/* One highlight glides between the rows under a precise pointer;
+            the phone cards are tapped and have none. A client island, so the
+            table itself still renders from a server component. */}
+        <GlideLayer kind="row" selector=".table tbody tr" />
         <table className="table">
           {caption ? <caption className="visually-hidden">{caption}</caption> : null}
           <thead>

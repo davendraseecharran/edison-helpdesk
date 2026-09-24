@@ -1,16 +1,15 @@
 /*
  * The voice's two pieces of presentation: the mark a rare win gets, and the
- * bench lamp that warms up while the application loads.
+ * arrival — the bulb lit over the wordmark while the first page loads.
  *
  * Both are rationed. The mark plays for a queue that hit zero and a ticket that
  * closed — moments that happen a handful of times a day — and for nothing that
- * happens a hundred times. The lamp plays once per document load and never on
- * an in-app navigation, because it lives in the authenticated layout, which
- * mounts on a real page load and stays mounted while you move around inside it.
+ * happens a hundred times. The arrival plays once per session, on the first
+ * authenticated page, and never on an in-app navigation.
  *
- * Tokens only, no colour of its own. The lamp is `--edge-light`: whatever that
- * token is, this is the application announcing itself in the same terms as the
- * one lit element on every screen.
+ * Tokens only, no colour of its own. The arrival is the sign-in screen's bulb
+ * and its halo carried into the application, so the first thing after
+ * signing in is the last thing before it.
  */
 
 /* --- A win, marked once ------------------------------------------------- */
@@ -25,7 +24,7 @@
 :root {
   /* The two durations the voice owns, named where they are used. */
   --voice-mark: 300ms;
-  --boot-lamp: 1000ms;
+  --boot-lamp: 560ms;
 }
 
 .voice-mark {
@@ -43,28 +42,28 @@
   }
 }
 
-/* --- The bench lamp ----------------------------------------------------- */
+/* --- The arrival ------------------------------------------------------- */
 
 /*
- * A full-page moment at the start of a session: the wordmark on the page's own
- * ground with the lamp's ring drawing itself around it, then both go. One
- * second end to end, and it takes no pointer events at any point, so a fast
- * connection is never a page you cannot click.
+ * Once per session, while the first authenticated page loads: the sign-in
+ * screen's bulb, lit, above "Edison Helpdesk" with the light passing across
+ * it, centred on the page's own ground (`BootLamp`). Pure CSS and inline
+ * SVG, so it paints with the first HTML; it takes no pointer events at any
+ * point, so a page that is ready underneath is never a page you cannot
+ * click.
  *
- * Removed by CSS on purpose. A script that removes it could fail to run and
- * leave a sheet over the application; `animation-fill-mode: forwards` cannot.
- * The one script involved stamps `data-boot-seen` before the element is
- * painted, and it can only suppress the moment, never end it.
+ * Two identical sheets. The waiting sheet is up while `<main>` holds a
+ * route's skeleton and fades when the page replaces it; the holding sheet,
+ * over it, is up for a fixed beat so a page that is ready at once does not
+ * flash the mark. Whichever lasts longer is what is seen. A cap takes the
+ * whole thing away after eight seconds.
  */
 .boot-lamp {
   position: fixed;
   z-index: 200;
   inset: 0;
-  display: grid;
-  place-items: center;
-  background: var(--bg);
   pointer-events: none;
-  animation: boot-lamp-out var(--boot-lamp) var(--ease-out) forwards;
+  animation: boot-cap 1ms linear 8s forwards;
 }
 
 /* Seen already this session: a reload is not the application arriving again. */
@@ -72,59 +71,146 @@
   display: none;
 }
 
-.boot-lamp-mark {
+.boot-sheet {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding-bottom: 6vh;
+  background: var(--bg);
+  opacity: 0;
+  visibility: hidden;
+}
+
+/* The floor: about half a second of mark, fading over the last 200ms. */
+.boot-sheet-hold {
+  animation: boot-hold var(--boot-lamp) var(--ease-out) backwards;
+}
+
+/* Up while the first page is loading; gone the instant it is in. */
+.boot-sheet-wait {
+  transition:
+    opacity 240ms var(--ease-out),
+    visibility 0s linear 240ms;
+}
+
+:root:has(main .loading-region[data-scope='route']) .boot-lamp:not([data-done]) .boot-sheet-wait {
+  opacity: 1;
+  visibility: visible;
+  transition: none;
+}
+
+.boot-mark {
   display: inline-flex;
-  align-items: baseline;
-  gap: 0.28em;
-  padding: 14px 20px;
-  border-radius: var(--radius-3);
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.boot-bulb {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
   color: var(--ink);
-  font-size: var(--fs-4);
-  letter-spacing: var(--tracking-heading);
-  animation: boot-lamp-warm var(--boot-lamp) var(--ease-out) forwards;
 }
 
-.boot-lamp-mark b {
-  font-weight: 500;
-}
-
-.boot-lamp-mark span {
-  color: var(--ink-2);
-  font-weight: 400;
+.boot-bulb-mark {
+  position: relative;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
 }
 
 /*
- * The lamp coming up to temperature: the ring arrives, holds, and goes out.
- *
- * This is the one place outside `src/styles/lamp.css` that wears
- * `--edge-light`, and it is listed there as entry 0 with the reason: the light
- * arriving and going out is this animation, so it cannot be moved without
- * splitting the ceremony in half, and while it burns there is no application
- * on screen to share the light with. Anything else that wants the lamp goes in
- * lamp.css.
+ * The bulb arrives drawn, as the sign-in screen left it, and the strokes
+ * trace once more quickly — the same drawing, finishing — with the filament
+ * last, because the filament is what lights.
  */
-@keyframes boot-lamp-warm {
-  0% {
-    box-shadow: none;
-    opacity: 0;
-  }
-  35% {
-    box-shadow: var(--edge-light);
-    opacity: 1;
-  }
-  70% {
-    box-shadow: var(--edge-light);
-    opacity: 1;
-  }
-  100% {
-    box-shadow: none;
-    opacity: 0;
-  }
+.boot-bulb-globe,
+.boot-bulb-filament,
+.boot-bulb-base {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: boot-stroke 380ms var(--ease-out) backwards;
 }
 
-@keyframes boot-lamp-out {
+.boot-bulb-base {
+  animation-delay: 60ms;
+}
+
+.boot-bulb-filament {
+  stroke-width: 1.25;
+  animation-duration: 420ms;
+  animation-delay: 120ms;
+}
+
+/* The light: the sign-in halo, lit brighter, then breathing while the page loads. */
+.boot-bulb-halo {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--ink) 26%, transparent) 0%,
+    color-mix(in oklab, var(--ink) 9%, transparent) 45%,
+    transparent 72%
+  );
+  filter: blur(7px);
+  transform: translateX(-50%);
+  animation:
+    boot-halo 420ms var(--ease-out) 160ms backwards,
+    boot-breathe 2400ms ease-in-out 600ms infinite;
+}
+
+/*
+ * The words, with the light carried across them: the ink ramp is a gradient
+ * clipped to the letters, one step brighter in a band that travels left to
+ * right, so the name catches the bulb's light as it comes on.
+ */
+.boot-word {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.28em;
+  font-size: var(--fs-5);
+  letter-spacing: var(--tracking-heading);
+  background: linear-gradient(
+      100deg,
+      var(--ink-2) 0%,
+      var(--ink-2) 38%,
+      var(--ink) 50%,
+      var(--ink-2) 62%,
+      var(--ink-2) 100%
+    )
+    0 0 / 300% 100% no-repeat;
+  background-position: 0% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation:
+    boot-word-in 420ms var(--ease-out) 80ms backwards,
+    boot-shine 1400ms var(--ease-out) 200ms infinite;
+}
+
+.boot-word b {
+  font-weight: 600;
+}
+
+.boot-word span {
+  font-weight: 400;
+}
+
+@keyframes boot-hold {
   0%,
-  70% {
+  62% {
     opacity: 1;
     visibility: visible;
   }
@@ -134,16 +220,67 @@
   }
 }
 
+@keyframes boot-cap {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes boot-stroke {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+@keyframes boot-halo {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+
+@keyframes boot-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@keyframes boot-word-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    filter: blur(3px);
+  }
+}
+
+@keyframes boot-shine {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0% 0;
+  }
+}
+
 /*
- * Reduced motion takes the moment away entirely rather than freezing it. A
- * static sheet over the application is not a gentler animation, it is a bug.
+ * Reduced motion keeps what things mean and drops the movement: the win's
+ * mark simply appears, and the arrival is the still wordmark for exactly as
+ * long as the first page is loading — never a fixed beat on top.
  */
 @media (prefers-reduced-motion: reduce) {
   .voice-mark {
     animation: none;
   }
 
-  .boot-lamp {
+  /* The arrival stays, still: the waiting sheet shows the mark while the
+     page loads and goes when it is in. The fixed beat is an animation, so
+     it is simply not there. */
+  .boot-sheet-hold {
     display: none;
   }
 }

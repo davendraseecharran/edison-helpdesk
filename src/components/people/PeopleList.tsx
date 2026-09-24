@@ -40,6 +40,7 @@ import { type PersonKind, type PersonSummary } from '@/lib/domain/types';
 import type { PersonAddressee } from '@/lib/people/clipboard';
 import { ArchivedBadge } from '@/components/Badges';
 import { EmptyState, Field } from '@/components/Primitives';
+import { RollingNumber } from '@/components/ui/RollingNumber';
 import { ButtonLink } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { FilterBar } from '@/components/ui/FilterBar';
@@ -344,7 +345,11 @@ export function PeopleList({
         label="Directory filters"
         active={filtersActive}
         clearHref={current.kind === 'student' ? pathname : `${pathname}?kind=staff`}
-        summary={busy ? 'Loading' : `${total} ${total === 1 ? 'person' : 'people'}`}
+        summary={
+          <span className="summary-count" data-busy={busy || undefined}>
+            <RollingNumber value={total} /> {total === 1 ? 'person' : 'people'}
+          </span>
+        }
       >
         <div className="dir-filters">
           <div className="field field-segmented">

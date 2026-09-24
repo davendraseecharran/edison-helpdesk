@@ -40,6 +40,8 @@ import { useRuntime } from '@/components/AppRuntime';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { useApplePlatform, usePhone, useReducedMotion } from '@/components/ui/media';
 import { AnimatePresence, CountSwap, EASE_OUT_FAST, motion } from '@/components/ui/Motion';
+import { GlideLayer } from '@/components/ui/HoverGlide';
+import { ThinkingMark } from '@/components/ui/ThinkingMark';
 import { useRowKeys } from '@/components/ui/useRowKeys';
 import { claimTicketsAction } from '@/lib/data/actions';
 import { markDeviceAvailableAction, returnDeviceAction } from '@/lib/data/device-actions';
@@ -390,69 +392,72 @@ export function TodayScreen({
         {items.length === 0 ? (
           <ClearState briefing={briefing} cleared={cleared} reduced={reduced} hour={hour} weekday={weekday} />
         ) : (
-          <ul className="today-list" {...keys.arrowProps}>
-            {/* A row somebody finished leaves by folding shut rather than
-                vanishing, so the rows under it close up visibly and the eye
-                keeps its place. Rows arriving appear in place: only the
-                leaving answers something the reader did. */}
-            <AnimatePresence initial={false}>
-            {items.map((item, index) => (
-              <motion.li key={item.key} {...rowPresence(reduced)}>
-                <div className="today-row" {...keys.rowProps(item.key)}>
-                  <span className="today-row-main">
-                    <span className="today-row-title">
-                      <Link href={item.href} tabIndex={-1}>
-                        {item.title}
-                      </Link>
-                      {item.number ? <span className="today-row-number">{item.number}</span> : null}
+          <div className="today-list-host glide-host">
+            <GlideLayer selector=".today-row" />
+            <ul className="today-list" {...keys.arrowProps}>
+              {/* A row somebody finished leaves by folding shut rather than
+                  vanishing, so the rows under it close up visibly and the eye
+                  keeps its place. Rows arriving appear in place: only the
+                  leaving answers something the reader did. */}
+              <AnimatePresence initial={false}>
+              {items.map((item, index) => (
+                <motion.li key={item.key} {...rowPresence(reduced)}>
+                  <div className="today-row" {...keys.rowProps(item.key)}>
+                    <span className="today-row-main">
+                      <span className="today-row-title">
+                        <Link href={item.href} tabIndex={-1}>
+                          {item.title}
+                        </Link>
+                        {item.number ? <span className="today-row-number">{item.number}</span> : null}
+                      </span>
+                      <span className="today-row-sub">
+                        {/* The person first, because a name is the thing you
+                            recognise. The kind is dropped on a row that carries a
+                            Claim button: the button already says "unclaimed", and
+                            a word beside a button that means the same word is the
+                            easiest thing on this screen to delete. */}
+                        <span>{item.subtitle}</span>
+                        {item.claimable ? null : (
+                          <span className="today-row-kind">{item.state}</span>
+                        )}
+                        {item.priority === 'urgent' || item.priority === 'high' ? (
+                          <span className="today-row-flag" data-priority={item.priority}>
+                            {PRIORITY_LABELS[item.priority]}
+                          </span>
+                        ) : null}
+                      </span>
                     </span>
-                    <span className="today-row-sub">
-                      {/* The person first, because a name is the thing you
-                          recognise. The kind is dropped on a row that carries a
-                          Claim button: the button already says "unclaimed", and
-                          a word beside a button that means the same word is the
-                          easiest thing on this screen to delete. */}
-                      <span>{item.subtitle}</span>
-                      {item.claimable ? null : (
-                        <span className="today-row-kind">{item.state}</span>
+                    <span className="today-row-age">{shortAge(item.since, now)}</span>
+                    <span className="today-row-action">
+                      {item.claimable && item.ticketId ? (
+                        <Button
+                          size="sm"
+                          // The one action the screen is actually asking for is
+                          // the first row's. The rest are quiet, which is what
+                          // lets the first one mean anything.
+                          variant={index === 0 ? 'accent' : 'secondary'}
+                          disabled={pendingKey !== null}
+                          loading={pendingKey === `claim:${item.key}`}
+                          onClick={() => void claim(item)}
+                        >
+                          {item.count > 1 ? `Claim all ${item.count}` : 'Claim'}
+                        </Button>
+                      ) : (
+                        <ButtonLink
+                          size="sm"
+                          variant={index === 0 ? 'accent' : 'secondary'}
+                          href={item.href}
+                        >
+                          {item.kind === 'access' ? 'Review' : 'Open'}
+                        </ButtonLink>
                       )}
-                      {item.priority === 'urgent' || item.priority === 'high' ? (
-                        <span className="today-row-flag" data-priority={item.priority}>
-                          {PRIORITY_LABELS[item.priority]}
-                        </span>
-                      ) : null}
                     </span>
-                  </span>
-                  <span className="today-row-age">{shortAge(item.since, now)}</span>
-                  <span className="today-row-action">
-                    {item.claimable && item.ticketId ? (
-                      <Button
-                        size="sm"
-                        // The one action the screen is actually asking for is
-                        // the first row's. The rest are quiet, which is what
-                        // lets the first one mean anything.
-                        variant={index === 0 ? 'accent' : 'secondary'}
-                        disabled={pendingKey !== null}
-                        loading={pendingKey === `claim:${item.key}`}
-                        onClick={() => void claim(item)}
-                      >
-                        {item.count > 1 ? `Claim all ${item.count}` : 'Claim'}
-                      </Button>
-                    ) : (
-                      <ButtonLink
-                        size="sm"
-                        variant={index === 0 ? 'accent' : 'secondary'}
-                        href={item.href}
-                      >
-                        {item.kind === 'access' ? 'Review' : 'Open'}
-                      </ButtonLink>
-                    )}
-                  </span>
-                </div>
-              </motion.li>
-            ))}
-            </AnimatePresence>
-          </ul>
+                  </div>
+                </motion.li>
+              ))}
+              </AnimatePresence>
+            </ul>
+          </div>
         )}
         {/* Where the rest are, one link a kind: the section is a start, not the whole day. */}
         {needsRest.length > 0 ? (
@@ -499,40 +504,43 @@ export function TodayScreen({
             </p>
           </div>
           {dueSentence ? <p className="today-due-lead subtle">{dueSentence}</p> : null}
-          <ul className="today-list" {...keys.arrowProps}>
-            <AnimatePresence initial={false}>
-            {due.map((device) => (
-              <motion.li key={device.id} {...rowPresence(reduced)}>
-                <div className="today-row" {...keys.rowProps(`device:${device.id}`)}>
-                  <span className="today-row-main">
-                    <span className="today-row-title">
-                      <Link href={`/devices/${device.id}`} tabIndex={-1}>
-                        {deviceTitle(device)}
-                      </Link>
-                      <span className="today-row-number">{deviceCode(device)}</span>
+          <div className="today-list-host glide-host">
+            <GlideLayer selector=".today-row" />
+            <ul className="today-list" {...keys.arrowProps}>
+              <AnimatePresence initial={false}>
+              {due.map((device) => (
+                <motion.li key={device.id} {...rowPresence(reduced)}>
+                  <div className="today-row" {...keys.rowProps(`device:${device.id}`)}>
+                    <span className="today-row-main">
+                      <span className="today-row-title">
+                        <Link href={`/devices/${device.id}`} tabIndex={-1}>
+                          {deviceTitle(device)}
+                        </Link>
+                        <span className="today-row-number">{deviceCode(device)}</span>
+                      </span>
+                      <span className="today-row-sub">
+                        <span>{device.holderName ?? 'Nobody is holding it'}</span>
+                        <span className="today-row-kind">{DUE_LABELS[device.reason]}</span>
+                      </span>
                     </span>
-                    <span className="today-row-sub">
-                      <span>{device.holderName ?? 'Nobody is holding it'}</span>
-                      <span className="today-row-kind">{DUE_LABELS[device.reason]}</span>
+                    <span className="today-row-age">{shortAge(device.since, now)}</span>
+                    <span className="today-row-action">
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={pendingKey !== null}
+                        loading={pendingKey === `return:${device.id}`}
+                        onClick={() => void returnDevice(device)}
+                      >
+                        {dueAction(device)}
+                      </Button>
                     </span>
-                  </span>
-                  <span className="today-row-age">{shortAge(device.since, now)}</span>
-                  <span className="today-row-action">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={pendingKey !== null}
-                      loading={pendingKey === `return:${device.id}`}
-                      onClick={() => void returnDevice(device)}
-                    >
-                      {dueAction(device)}
-                    </Button>
-                  </span>
-                </div>
-              </motion.li>
-            ))}
-            </AnimatePresence>
-          </ul>
+                  </div>
+                </motion.li>
+              ))}
+              </AnimatePresence>
+            </ul>
+          </div>
           {/* Where the rest of them are: the same rule, the whole list, oldest first. */}
           {dueRest ? (
             <p className="today-more">
@@ -594,6 +602,9 @@ function ClearState({
   const line = voiceLine(cleared ? 'queue.cleared' : 'today.empty', { hour, weekday });
   return (
     <div className={cleared && !reduced ? 'today-clear voice-mark' : 'today-clear'}>
+      {/* The desk at rest: the application's own mark, listening for the
+          next thing to come in. */}
+      <ThinkingMark state="listening" size={40} className="today-clear-mark" />
       <p className="today-clear-lead">{line.text}</p>
       {/* The lighter second line an empty queue carries: the desk being idle
           with you, which it is allowed to be only here. */}

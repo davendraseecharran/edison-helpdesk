@@ -13,11 +13,15 @@
  * and runs on from it — and a mark that is scrolled or tabbed away stops its
  * clock rather than its picture, so what comes back is what left.
  *
+ * The first frame is painted before the browser paints (a layout effect),
+ * so a mark that mounts is already the assembled dotted logo in the very
+ * first frame anybody sees.
+ *
  * Under reduced motion one frame is painted, the assembled mark, and nothing
  * else happens.
  */
 
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { resolveLogo, type LogoPointSet, type LogoState } from 'thinking-logos';
 import { paintFrame, type ModeOpts } from 'thinking-logos/engine';
 import { cloudTime } from '@/lib/ai/mark-clock';
@@ -49,7 +53,10 @@ export function MarkCloud({
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
 
-  useEffect(() => {
+  // A layout effect, so the first frame is on the canvas before the browser
+  // paints: the mark is never seen as an empty box, or as the drawn glyph it
+  // sits over, for the frame between mounting and painting.
+  useLayoutEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
     const ratio = Math.min(2, (typeof devicePixelRatio === 'number' && devicePixelRatio) || 1);
@@ -71,6 +78,8 @@ export function MarkCloud({
     };
 
     paint(mark);
+    // For a caller that shows a drawn stand-in until the dots are there.
+    canvas.dataset.painted = '';
     if (reduced) return;
 
     // Elapsed time is accumulated only while the frames are running, so a

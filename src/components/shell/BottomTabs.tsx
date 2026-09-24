@@ -9,6 +9,7 @@ import { SignOutButton } from '@/components/auth/SignOutButton';
 import { AiMark } from '@/components/ai/AiMark';
 import { Icon, type LucideIcon } from '@/components/ui/Icon';
 import { IconSwap } from '@/components/ui/Motion';
+import { RollingNumber } from '@/components/ui/RollingNumber';
 import { Sheet } from '@/components/ui/Sheet';
 import { useEscape, useOutsidePress } from '@/components/ui/focus';
 import { useReducedMotion, useTokenValue } from '@/components/ui/media';
@@ -73,7 +74,7 @@ function Tab({
             }
             aria-hidden="true"
           >
-            {item.count > 99 ? '99+' : item.count}
+            <RollingNumber value={item.count > 99 ? '99+' : item.count} />
           </span>
         ) : null}
       </span>

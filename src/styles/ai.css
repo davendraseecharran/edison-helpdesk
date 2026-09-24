@@ -1066,6 +1066,16 @@
 }
 
 /*
+ * The welcome opens already thinking: no crossfade from the drawn glyph, so
+ * the first frame after the press is the dotted mark, painted before the
+ * browser paints (`MarkCloud` draws in a layout effect).
+ */
+.ai-mark[data-instant] .ai-mark-drawn,
+.ai-mark[data-instant] .ai-mark-cloud {
+  transition: none;
+}
+
+/*
  * Reduced motion never mounts the cloud, so the drawn mark is all there is.
  * It holds at the dim end of what the breath used to reach, which still reads
  * as "something is happening" without a pixel moving.

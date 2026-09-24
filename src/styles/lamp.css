@@ -10,21 +10,10 @@
  * keyboard, and each one is switched off while something nearer has claimed
  * it:
  *
- *   0. the boot mark, and it is the one exception — the rule is in
- *      `voice.css`, inside the `boot-lamp-warm` keyframes, because the light
- *      arriving and going out IS that animation and splitting it across two
- *      files would leave neither half legible. It does not belong to the list
- *      below for the reason the list exists: while it is lit there is no
- *      application to share a screen with. `.boot-lamp` is a fixed sheet over
- *      everything at `z-index: 200`, the wordmark on it is the only thing
- *      drawn, and the sheet ends itself in CSS — `animation-fill-mode:
- *      forwards`, not a script that could fail — about a second in, before
- *      anything below has been reached. The rule stays exactly one lit element
- *      while the application is running; this one is lit before it is.
- *
- *      A measurement taken during that second sees two lamps and is right to;
- *      `scripts/review-overhaul.cjs` waits for the sheet to be hidden before
- *      it counts, which is the same thing said from the other side.
+ *   0. (retired) the arrival used to draw `--edge-light` round the wordmark
+ *      in `voice.css`. It now lights the sign-in bulb instead — a halo, not
+ *      the lamp — so the light has no exception: nothing outside this list
+ *      wears it, including while the arrival sheet is up.
  *
  *   1. the palette's selected row — modal, drawn over everything, and the one
  *      thing Enter will act on while it is up;

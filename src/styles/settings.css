@@ -169,15 +169,27 @@
     border-color var(--dur-press) ease;
 }
 
+/*
+ * The thumb is placed by both edges, like the segmented control's pill, and
+ * the two move on different clocks: the edge in the direction of travel sets
+ * off at once and the other follows a beat behind, so the thumb stretches
+ * across the track and snaps round at the far end — a drop of the same
+ * liquid as every picker. Held down, it swells 4px towards where it will go,
+ * so the press itself is answered before the release. Track inside is 42px:
+ * 3px of inset, an 18px thumb, 21px to spare.
+ */
 .switch-thumb {
   position: absolute;
+  top: 50%;
   left: 3px;
-  width: 18px;
+  right: 21px;
   height: 18px;
-  border-radius: 50%;
+  margin-top: -9px;
+  border-radius: 999px;
   background: var(--ink-3);
   transition:
-    transform var(--dur-press) ease,
+    left 240ms var(--ease-out),
+    right 420ms var(--ease-out) 70ms,
     background-color var(--dur-press) ease;
 }
 
@@ -187,8 +199,24 @@
 }
 
 .switch[aria-checked='true'] .switch-thumb {
+  left: 21px;
+  right: 3px;
   background: var(--accent-ink);
-  transform: translateX(18px);
+  transition:
+    right 240ms var(--ease-out),
+    left 420ms var(--ease-out) 70ms,
+    background-color var(--dur-press) ease;
+}
+
+.switch:active:not(:disabled):not([aria-disabled='true']) .switch-thumb {
+  right: 17px;
+  transition-delay: 0ms;
+  transition-duration: var(--dur-press);
+}
+
+.switch[aria-checked='true']:active:not(:disabled):not([aria-disabled='true']) .switch-thumb {
+  right: 3px;
+  left: 17px;
 }
 
 /*

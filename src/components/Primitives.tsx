@@ -40,13 +40,21 @@ export function EmptyState({
   title,
   children,
   action,
+  mark,
 }: {
   title: string;
   children?: ReactNode;
   action?: ReactNode;
+  /**
+   * A picture above the title: a `ThinkingMark`, or a hero of the screen's
+   * own. For the empty states that are a moment (nothing to do, nothing yet),
+   * not for a filter that matched nothing.
+   */
+  mark?: ReactNode;
 }) {
   return (
     <div className="empty">
+      {mark ? <div className="empty-mark">{mark}</div> : null}
       <p className="empty-title">{title}</p>
       {children ? <p className="empty-body">{children}</p> : null}
       {action ? <div className="empty-action">{action}</div> : null}
