@@ -132,16 +132,24 @@
     transparent 72%
   );
   filter: blur(6px);
-  transform: translateX(-50%) scale(0.6);
-  opacity: 0;
+  /*
+   * The resting halo is the declared style and the entrance runs *from* the
+   * dark state (`backwards`), not to a lit one (`forwards`): a forwards fill
+   * outranks every later declaration, so the hover swell below never showed.
+   * `scale` rather than `transform`, so the swell leaves the centring alone.
+   */
+  transform: translateX(-50%);
+  scale: 1;
   animation:
-    auth-halo-light 620ms var(--ease-out) 900ms forwards,
+    auth-halo-light 620ms var(--ease-out) 900ms backwards,
     auth-halo-breathe 5200ms ease-in-out 1520ms infinite;
-  transition: transform var(--dur-surface) var(--ease-out);
+  transition: scale var(--dur-surface) var(--ease-out);
 }
 
-.auth-wordmark:hover .auth-bulb-halo {
-  transform: translateX(-50%) scale(1.25);
+@media (hover: hover) and (pointer: fine) {
+  .auth-wordmark:hover .auth-bulb-halo {
+    scale: 1.25;
+  }
 }
 
 @keyframes auth-stroke-draw {
@@ -164,9 +172,9 @@
 }
 
 @keyframes auth-halo-light {
-  to {
-    opacity: 1;
-    transform: translateX(-50%) scale(1);
+  from {
+    opacity: 0;
+    scale: 0.6;
   }
 }
 
@@ -194,8 +202,6 @@
   }
 
   .auth-bulb-halo {
-    opacity: 1;
-    transform: translateX(-50%) scale(1);
     animation: none;
     transition: none;
   }
@@ -292,8 +298,8 @@
   flex: 0 0 auto;
   color: var(--ink-3);
   /* A disclosure's chevron is a select's chevron: the same gesture, the same
-     200ms. */
-  transition: transform var(--dur-surface) ease-out;
+     200ms, the same curve. */
+  transition: transform var(--dur-surface) var(--ease-out);
 }
 
 @media (hover: hover) and (pointer: fine) {

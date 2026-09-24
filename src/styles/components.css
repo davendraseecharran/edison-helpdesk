@@ -311,6 +311,28 @@
   place-items: center;
 }
 
+/*
+ * A count turning over (`CountSwap`): the two figures share one cell while
+ * they cross, clipped to the line so the travel reads as a counter rolling.
+ * `clip`, not `hidden`: an inline box that hides its overflow drops its
+ * baseline to its bottom edge, and these sit on a baseline beside their label.
+ */
+.count-swap {
+  display: inline-flex;
+  font-variant-numeric: tabular-nums;
+}
+
+.count-swap-track {
+  position: relative;
+  display: inline-grid;
+  overflow: clip;
+  min-width: 1ch;
+}
+
+.count-swap-track > * {
+  grid-area: 1 / 1;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -1616,8 +1638,10 @@ p.flash {
   transition: color var(--dur-hover) ease;
 }
 
-.segmented-option:hover {
-  color: var(--ink-2);
+@media (hover: hover) and (pointer: fine) {
+  .segmented-option:hover {
+    color: var(--ink-2);
+  }
 }
 
 .segmented-option .icon {

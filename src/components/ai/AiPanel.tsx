@@ -42,7 +42,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/shadcn/dropdown-menu';
 import { useMediaQuery, usePhone, useReducedMotion } from '@/components/ui/media';
-import { AnimatePresence, DURATION, EASE_OUT_FAST, INSTANT, SPRING } from '@/components/ui/Motion';
+import { AnimatePresence, EASE_OUT_FAST, INSTANT, SCRIM_IN, SCRIM_OUT, SPRING } from '@/components/ui/Motion';
 import type { ConversationSummary } from '@/lib/ai/conversations';
 import type { Reasoning } from '@/lib/ai/responses-client';
 import { pickWelcomeState, type WelcomeState } from '@/lib/domain/preferences';
@@ -750,8 +750,8 @@ export function AiPanel({
               onClick={close}
               initial={reduced ? false : { opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={reduced ? undefined : { opacity: 0 }}
-              transition={reduced ? INSTANT : { duration: DURATION.fast }}
+              exit={reduced ? undefined : { opacity: 0, transition: SCRIM_OUT }}
+              transition={reduced ? INSTANT : SCRIM_IN}
             />
           ) : null}
           <motion.div

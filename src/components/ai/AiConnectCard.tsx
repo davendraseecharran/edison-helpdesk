@@ -20,6 +20,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Copy, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
+import { useCopied } from '@/components/ui/useCopied';
 import type { AiServices } from './services';
 
 const VERIFY_URL = 'https://chatgpt.com/codex/device';
@@ -65,7 +66,7 @@ export function AiConnectCard({
   const [step, setStep] = useState<Step>(() =>
     autoStart && connection === null ? { kind: 'starting' } : { kind: 'idle' },
   );
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopied();
   const [disconnecting, setDisconnecting] = useState(false);
   const alive = useRef(true);
   // When the code on screen stops being worth asking about. Set once, where the
@@ -142,11 +143,7 @@ export function AiConnectCard({
   }, [step, services, notify, onConnected]);
 
   async function copyCode(code: string) {
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
+    if (!(await copy(code))) {
       notify('error', 'Could not copy the code. Select it and copy it yourself.');
     }
   }
@@ -203,6 +200,7 @@ export function AiConnectCard({
           <Button
             variant="ghost"
             icon={copied ? Check : Copy}
+            iconKey={copied ? 'copied' : 'copy'}
             aria-label={copied ? 'Copied' : 'Copy code'}
             title={copied ? 'Copied' : 'Copy code'}
             onClick={() => void copyCode(step.userCode)}

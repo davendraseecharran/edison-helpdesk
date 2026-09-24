@@ -18,7 +18,9 @@ import { useRuntime } from '@/components/AppRuntime';
 import { formatDateTime } from '@/lib/format';
 import { Field } from '@/components/Primitives';
 import { RoleBadges } from '@/components/Badges';
+import { Check, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { useCopied } from '@/components/ui/useCopied';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import { RolePicker } from '@/components/ui/RolePicker';
 import type { AccountRole } from '@/lib/auth/roles';
@@ -55,13 +57,13 @@ export function InvitesPanel({
   /** Set when the list could not be read. An empty list is not the same thing. */
   loadError: string | null;
 }) {
-  const { pendingKey, run } = useRuntime();
+  const { notify, pendingKey, run } = useRuntime();
   const [email, setEmail] = useState('');
   const [roles, setRoles] = useState<AccountRole[]>(['netrider']);
   const [name, setName] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [unsent, setUnsent] = useState<{ email: string; text: string } | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopied();
 
   const busy = pendingKey !== null;
   const live = invites.filter((invite) => invite.state === 'pending').length;
@@ -70,7 +72,6 @@ export function InvitesPanel({
     event.preventDefault();
     setFormError(null);
     setUnsent(null);
-    setCopied(false);
 
     let emailed = true;
     let text: string | undefined;
@@ -264,12 +265,11 @@ export function InvitesPanel({
               />
               <Button
                 size="sm"
+                icon={copied ? Check : Copy}
+                iconKey={copied ? 'copied' : 'copy'}
                 onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(unsent.text);
-                    setCopied(true);
-                  } catch {
-                    setCopied(false);
+                  if (!(await copy(unsent.text))) {
+                    notify('error', 'Could not copy the message. Select it and copy it instead.');
                   }
                 }}
               >

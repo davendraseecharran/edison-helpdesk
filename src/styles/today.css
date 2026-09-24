@@ -5,8 +5,8 @@
  * The boldness is spent on exactly two things. The greeting is set at the
  * largest size the application uses outside the sign-in screen, because it is
  * the one line that says this desk is yours. And the screen gets ONE
- * orchestrated entrance — three semantic groups, 60ms apart, 180ms each, the
- * last landing at 300ms — which is the only staged animation anywhere in the
+ * orchestrated entrance — three semantic groups, 60ms apart, 200ms each, the
+ * last landing at 320ms — which is the only staged animation anywhere in the
  * product. Everything below it, and every list on every other screen, is
  * instant.
  *
@@ -25,11 +25,11 @@
 .today {
   /*
    * The entrance's numbers, named rather than scattered. Three groups, 60ms
-   * apart, 180ms each: the last one lands at 300ms, which is the budget the
-   * whole choreography was given. The curve is the project's own `--ease-out`.
+   * apart, each rising over `--dur-surface` like every other arrival: the
+   * last one lands at 320ms. The curve is the project's own `--ease-out`.
    */
   --today-step: 60ms;
-  --today-rise: 180ms;
+  --today-rise: var(--dur-surface);
 
   display: flex;
   flex-direction: column;
@@ -60,7 +60,7 @@
  *
  * "Devices due back" appears only when there are machines due, so the position
  * of everything after it moves. Pinning the two keeps the budget: three groups,
- * the last landing at 300ms, whether or not the fourth section is on screen.
+ * the last landing at 320ms, whether or not the fourth section is on screen.
  * The machines rise with the list they sit under.
  */
 .today-stage.today-due {
@@ -223,7 +223,7 @@
   border-bottom: 1px solid var(--line);
   /* Colour only. The lamp on the focused row is a box-shadow, and a shadow
      that animates on every `j` is the definition of a cost paid all day. */
-  transition: background-color var(--dur-hover) ease-out;
+  transition: background-color var(--dur-hover) ease;
 }
 
 .today-list li:last-child .today-row {
@@ -500,8 +500,11 @@
   text-decoration: underline;
   text-decoration-color: var(--line-strong);
   text-underline-offset: 3px;
+  transition: color var(--dur-hover) ease;
 }
 
-.today-more a:hover {
-  color: var(--ink-2);
+@media (hover: hover) and (pointer: fine) {
+  .today-more a:hover {
+    color: var(--ink-2);
+  }
 }

@@ -21,7 +21,9 @@ import { useRuntime } from '@/components/AppRuntime';
 import { formatDateTime } from '@/lib/format';
 import { Field } from '@/components/Primitives';
 import { AccountStatusBadge } from '@/components/Badges';
+import { Check, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { useCopied } from '@/components/ui/useCopied';
 import { DataTable, type Column } from '@/components/ui/DataTable';
 import type { AdminAccountView } from '@/lib/data/admin-view';
 
@@ -38,12 +40,12 @@ export function PasswordAccountsPanel({
   accounts: AdminAccountView[];
   currentAccountId: string;
 }) {
-  const { pendingKey, run } = useRuntime();
+  const { notify, pendingKey, run } = useRuntime();
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [issued, setIssued] = useState<IssuedLink | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopied();
 
   const busy = pendingKey !== null;
 
@@ -70,7 +72,6 @@ export function PasswordAccountsPanel({
 
   async function onIssue(account: AdminAccountView, purpose: 'setup' | 'recovery') {
     setIssued(null);
-    setCopied(false);
     let link: string | undefined;
     let ttl = 0;
 
@@ -214,12 +215,11 @@ export function PasswordAccountsPanel({
               />
               <Button
                 size="sm"
+                icon={copied ? Check : Copy}
+                iconKey={copied ? 'copied' : 'copy'}
                 onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(issued.url);
-                    setCopied(true);
-                  } catch {
-                    setCopied(false);
+                  if (!(await copy(issued.url))) {
+                    notify('error', 'Could not copy the link. Select it and copy it instead.');
                   }
                 }}
               >

@@ -31,7 +31,20 @@ vi.mock('sonner', () => ({
 
 import AdminLoading from '../src/app/(app)/admin/loading';
 import TicketLoading from '../src/app/(app)/tickets/[id]/loading';
-import { STAGGER_CAP, STAGGER_STEP, staggerDelay } from '../src/components/ui/Motion';
+import { markJustResolved, ResolvedMark } from '../src/components/ticket/ResolvedMark';
+import {
+  CountSwap,
+  DURATION,
+  EASE_OUT,
+  EASE_OUT_CSS,
+  EASE_OUT_CURVE,
+  EASE_OUT_FAST,
+  SCRIM_IN,
+  SCRIM_OUT,
+  STAGGER_CAP,
+  STAGGER_STEP,
+  staggerDelay,
+} from '../src/components/ui/Motion';
 import { showToast, Toaster } from '../src/components/ui/shadcn/sonner';
 import {
   TOAST_LIFETIME_MS,
@@ -229,5 +242,44 @@ describe('route skeletons', () => {
     expect(html).toContain('class="ticket"');
     expect(html.match(/class="ticket-bar-space"/g)).toHaveLength(1);
     expect(html.indexOf('ticket-bar-space')).toBeGreaterThan(html.indexOf('class="ticket-grid"'));
+  });
+});
+
+describe('one motion vocabulary', () => {
+  it('names the same three durations as the stylesheet tokens', () => {
+    // --dur-press, --dur-hover, --dur-surface in tokens.css.
+    expect(DURATION.fast).toBe(0.12);
+    expect(DURATION.hover).toBe(0.15);
+    expect(DURATION.base).toBe(0.2);
+  });
+
+  it('runs every JS transition on the --ease-out control points', () => {
+    expect(EASE_OUT.ease).toEqual(EASE_OUT_CURVE);
+    expect(EASE_OUT_FAST.ease).toEqual(EASE_OUT_CURVE);
+    expect(EASE_OUT_CSS).toBe(`cubic-bezier(${EASE_OUT_CURVE.join(', ')})`);
+  });
+
+  it('fades a scrim in with its surface and out faster than it came', () => {
+    expect(SCRIM_IN.duration).toBe(DURATION.base);
+    expect(SCRIM_OUT.duration).toBe(DURATION.fast);
+  });
+});
+
+describe('earned moments', () => {
+  it('reads a count once for assistive technology and hides the rolling digits', () => {
+    const html = renderToStaticMarkup(h(CountSwap, { value: 7 }));
+    expect(html).toContain('<span class="visually-hidden">7</span>');
+    expect(html).toContain('aria-hidden="true"');
+  });
+
+  it('draws the resolved check only for a ticket resolved from this tab', () => {
+    expect(renderToStaticMarkup(h(ResolvedMark, { ticketId: 't-1' }))).not.toContain('data-draw');
+    markJustResolved('t-2');
+    expect(renderToStaticMarkup(h(ResolvedMark, { ticketId: 't-2' }))).toContain('data-draw');
+  });
+
+  it('puts the skeleton settle inside every route skeleton', () => {
+    const html = renderToStaticMarkup(h(AdminLoading));
+    expect(html).toMatch(/aria-busy="true"[^>]*>(?:<span[^>]*>[^<]*<\/span>)?<span hidden=""><\/span>/);
   });
 });

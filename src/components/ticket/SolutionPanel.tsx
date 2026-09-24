@@ -1,6 +1,7 @@
 import type { TicketDetailView } from '@/lib/data/tickets';
 import { TimeAgo } from '@/components/Primitives';
 import { ActorLabel } from '@/components/ui/ActorLabel';
+import { ResolvedMark } from './ResolvedMark';
 
 /**
  * The recorded outcome: the solution of a resolved ticket, the previous
@@ -16,7 +17,8 @@ export function SolutionPanel({ detail }: { detail: TicketDetailView }) {
   return (
     <section className="panel" aria-labelledby={`solution-heading-${ticket.id}`}>
       <div className="panel-head">
-        <h2 className="panel-title" id={`solution-heading-${ticket.id}`}>
+        <h2 className="panel-title panel-title-mark" id={`solution-heading-${ticket.id}`}>
+          {resolved ? <ResolvedMark ticketId={ticket.id} /> : null}
           {cancelled ? 'Cancelled' : resolved ? 'Solution' : 'Previous solution'}
         </h2>
         {resolved && detail.resolver ? (

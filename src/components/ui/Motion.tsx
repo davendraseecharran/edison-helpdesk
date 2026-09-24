@@ -20,7 +20,9 @@
 import {
   createContext,
   useContext,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
   type ReactNode,
@@ -31,8 +33,24 @@ import { useReducedMotion } from './media';
 
 export { AnimatePresence, motion };
 
-/** Durations in seconds. Everything sits between 120 and 220 milliseconds. */
-export const DURATION = { fast: 0.12, base: 0.18, slow: 0.22 } as const;
+/**
+ * Durations in seconds, the same three numbers as the stylesheet's tokens:
+ * `fast` is `--dur-press` (a press, and every exit), `hover` is `--dur-hover`,
+ * and `base` is `--dur-surface` (anything arriving). `slow` is a spring's
+ * visual duration, a touch longer because a spring's tail is soft. A JS
+ * animation and a CSS one that do the same job read the same number.
+ */
+export const DURATION = { fast: 0.12, hover: 0.15, base: 0.2, slow: 0.22 } as const;
+
+/**
+ * `--ease-out` from `tokens.css`, as control points. Motion's own `easeOut`
+ * is the browser's weak curve; a panel that rose on it beside a menu that
+ * rose on the token read as two different products.
+ */
+export const EASE_OUT_CURVE = [0.23, 1, 0.32, 1] as const;
+
+/** The same curve for the Web Animations API, which takes a CSS string. */
+export const EASE_OUT_CSS = 'cubic-bezier(0.23, 1, 0.32, 1)';
 
 /** Seconds between one list row settling and the next. */
 export const STAGGER_STEP = 0.02;
@@ -51,8 +69,8 @@ export function staggerDelay(
 /** A stiff, quick spring with no bounce, for a panel arriving from an edge. */
 export const SPRING: Transition = { type: 'spring', visualDuration: DURATION.slow, bounce: 0 };
 
-/** The standard entrance: settle over 180ms. */
-export const EASE_OUT: Transition = { duration: DURATION.base, ease: 'easeOut' };
+/** The standard entrance: settle over 200ms on the token curve. */
+export const EASE_OUT: Transition = { duration: DURATION.base, ease: EASE_OUT_CURVE };
 
 /**
  * The standard exit: gone in 120ms, quicker than arriving, and still eased
@@ -60,7 +78,7 @@ export const EASE_OUT: Transition = { duration: DURATION.base, ease: 'easeOut' }
  * a surface leaving on it reads as sluggish even though the clock says it was
  * fast. Nothing in this product uses ease-in.
  */
-export const EASE_OUT_FAST: Transition = { duration: DURATION.fast, ease: 'easeOut' };
+export const EASE_OUT_FAST: Transition = { duration: DURATION.fast, ease: EASE_OUT_CURVE };
 
 /**
  * A surface dropping into place from above and bouncing once: a spring with
@@ -71,6 +89,13 @@ export const EASE_OUT_FAST: Transition = { duration: DURATION.fast, ease: 'easeO
  * than delivered.
  */
 export const DROP: Transition = { type: 'spring', visualDuration: 0.34, bounce: 0.6 };
+
+/**
+ * The scrim behind a modal surface: fades in with the surface (200ms) and out
+ * with it (120ms), the same two numbers as the CSS scrim on dialogs and sheets.
+ */
+export const SCRIM_IN: Transition = { duration: DURATION.base, ease: EASE_OUT_CURVE };
+export const SCRIM_OUT: Transition = { duration: DURATION.fast, ease: EASE_OUT_CURVE };
 
 /** No transition at all, for reduced motion. */
 export const INSTANT: Transition = { duration: 0 };
@@ -204,6 +229,87 @@ export function IconSwap({ token, children }: { token: string; children: ReactNo
   );
 }
 
+/**
+ * A number that changes while somebody is looking at it: the old figure
+ * leaves and the new one takes its place, travelling the way the count went —
+ * up when it grew, down when it shrank — like a counter turning over.
+ *
+ * The same moment as the selection bar's count (8px, 120ms, the token curve),
+ * so every count in the application turns over the same way. It moves only
+ * when the value changes after the first paint; a page that arrives with a
+ * number simply shows it. Under reduced motion the figure is swapped in place.
+ * The digits are `aria-hidden` inside a live wrapper that reads the plain
+ * value, so a screen reader hears the number once, not both of them.
+ */
+export function CountSwap({ value, className }: { value: number; className?: string }) {
+  const reduced = useReducedMotion();
+  const [seen, setSeen] = useState(value);
+  const [direction, setDirection] = useState<1 | -1>(1);
+  if (seen !== value) {
+    // Adjusted during render so the entering and leaving figures agree on the
+    // direction in the same frame.
+    setDirection(value > seen ? 1 : -1);
+    setSeen(value);
+  }
+  const classes = className ? `count-swap ${className}` : 'count-swap';
+  if (reduced) return <span className={classes}>{value}</span>;
+  return (
+    <span className={classes}>
+      <span className="visually-hidden">{value}</span>
+      <span className="count-swap-track" aria-hidden="true">
+        <AnimatePresence initial={false} mode="popLayout" custom={direction}>
+          <motion.span
+            key={value}
+            custom={direction}
+            variants={COUNT_VARIANTS}
+            initial="enter"
+            animate="rest"
+            exit="leave"
+            transition={EASE_OUT_FAST}
+          >
+            {value}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+    </span>
+  );
+}
+
+const COUNT_VARIANTS = {
+  enter: (direction: 1 | -1) => ({ y: 8 * direction, opacity: 0 }),
+  rest: { y: 0, opacity: 1 },
+  leave: (direction: 1 | -1) => ({ y: -8 * direction, opacity: 0 }),
+};
+
+/**
+ * The skeleton handing over to the content it stood in for.
+ *
+ * Rendered inside every `LoadingRegion`. When the content lands and the
+ * skeleton is taken away, the region's container — `<main>` for a route's
+ * loading screen, the panel body for a panel that loads on its own — settles
+ * from a little under full strength to full over 120ms instead of cutting in,
+ * so every swap in the application is the same small moment. Opacity only:
+ * on `<main>` a transform would re-parent the fixed bars, as the navigation
+ * fade in `AppShell` explains. It runs in a layout effect's cleanup, which
+ * React calls in the same commit that inserts the content, so the content's
+ * first frame is already the first frame of the settle.
+ */
+export function SkeletonSettle() {
+  const anchor = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const container = anchor.current?.parentElement?.parentElement;
+    return () => {
+      if (!container || !container.isConnected) return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      container.animate([{ opacity: 0.4 }, { opacity: 1 }], {
+        duration: DURATION.fast * 1000,
+        easing: EASE_OUT_CSS,
+      });
+    };
+  }, []);
+  return <span ref={anchor} hidden />;
+}
+
 export interface SpringSurfaceProps {
   /**
    * `sheet` arrives from an edge on a spring; `dialog` scales up from 0.98 in
@@ -235,7 +341,7 @@ export interface SpringSurfaceProps {
 
 /**
  * The backdrop and panel of a modal surface, with their one orchestrated
- * moment: the backdrop fades over 120ms while the panel springs in from its
+ * moment: the backdrop fades in over 200ms (out in 120ms) while the panel springs in from its
  * edge, or the dialog scales from 0.98 to 1. Render inside `AnimatePresence`
  * so closing plays the same in reverse, faster; while that exit plays the
  * root carries `data-exiting` and takes no pointer events, so a second press
@@ -291,8 +397,8 @@ export function SpringSurface({
         onClick={onBackdropPress}
         initial={reduced ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
-        exit={reduced ? undefined : { opacity: 0 }}
-        transition={reduced ? INSTANT : { duration: DURATION.fast }}
+        exit={reduced ? undefined : { opacity: 0, transition: SCRIM_OUT }}
+        transition={reduced ? INSTANT : SCRIM_IN}
       />
       <motion.div
         ref={panelRef}

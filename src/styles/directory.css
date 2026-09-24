@@ -472,6 +472,27 @@
   align-items: center;
   gap: 4px;
   min-width: 0;
+  /*
+   * The copy button is taller than the line it sits on. At 28px it is pulled
+   * into the line's box by half the difference, so the value stays level with
+   * its label instead of dropping to the button's centre.
+   */
+  margin-block: -4px;
+}
+
+/*
+ * On a phone the button is a 44px target, and pulling that into a 20px line
+ * would stack the targets of consecutive identifiers on top of each other.
+ * The row keeps its height and the label comes down to meet the value.
+ */
+@media (max-width: 719.98px) {
+  .fact-ident {
+    margin-block: 0;
+  }
+
+  .facts dt:has(+ dd > .fact-ident) {
+    padding-top: 12px;
+  }
 }
 
 .record-notes {
