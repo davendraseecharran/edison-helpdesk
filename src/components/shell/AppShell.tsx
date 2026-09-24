@@ -15,6 +15,7 @@ import { Flash } from '@/components/Primitives';
 import { AiPanel } from '@/components/ai/AiPanel';
 import { ScanPairingDialog } from '@/components/scan/ScanPairingDialog';
 import { TooltipProvider } from '@/components/ui/Tooltip';
+import { DURATION, EASE_OUT_CSS } from '@/components/ui/Motion';
 import { announceScannedDevice, ScannedDeviceCard } from '@/components/scan/ScannedDeviceCard';
 import { isEditable, chordOwnerOpen, modalOpen, useShortcut } from '@/components/ui/shortcuts';
 import { lookupDeviceCodeAction } from '@/lib/data/device-actions';
@@ -56,8 +57,8 @@ export function AppShell({
 
   /*
    * A new page arrives rather than cuts in: the content column fades up over
-   * 180 ms when the path changes (a search or a filter, which change only the
-   * query, do not). Opacity only, deliberately — a transform on <main> would
+   * 200 ms (`--dur-surface`, on `--ease-out`) when the path changes (a search
+   * or a filter, which change only the query, do not). Opacity only, deliberately — a transform on <main> would
    * make it the containing block of the fixed selection bar and the sticky
    * filter bar for as long as it ran. Reduced motion: no fade.
    */
@@ -68,7 +69,7 @@ export function AppShell({
     firstPath.current = pathname;
     const main = mainRef.current;
     if (!main || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    main.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' });
+    main.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: DURATION.base * 1000, easing: EASE_OUT_CSS });
   }, [pathname]);
 
   const items = useMemo(() => navItems(actor.roles, counts), [actor.roles, counts]);

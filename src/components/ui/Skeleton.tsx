@@ -1,4 +1,5 @@
 import { Fragment, type CSSProperties, type ReactNode } from 'react';
+import { SkeletonSettle } from './Motion';
 
 export interface SkeletonProps {
   /** Any CSS width; defaults to filling the container. */
@@ -39,7 +40,8 @@ export function SkeletonText({ lines = 3 }: { lines?: number }) {
 
 /**
  * Wraps a loading region so assistive technology hears one announcement and
- * the visual placeholders stay silent.
+ * the visual placeholders stay silent. When it is taken away, its container
+ * settles in over 120ms (`SkeletonSettle`), the same everywhere.
  */
 export function LoadingRegion({
   label,
@@ -51,6 +53,7 @@ export function LoadingRegion({
   return (
     <div aria-busy="true" aria-live="polite">
       <span className="visually-hidden">{label}</span>
+      <SkeletonSettle />
       {children}
     </div>
   );

@@ -7,7 +7,16 @@ a moment is not in this table it does not move.
 Durations and curves come from `src/styles/tokens.css` (`--dur-hover`,
 `--dur-press`, `--dur-surface`, `--ease-out`, `--ease-in-out`) and from
 `src/components/ui/Motion.tsx` (`DURATION`, `SPRING`, `EASE_OUT`,
-`EASE_OUT_FAST`). Nothing hard-codes a number that one of those already names.
+`EASE_OUT_FAST`, `SCRIM_IN`, `SCRIM_OUT`, `EASE_OUT_CURVE`, `EASE_OUT_CSS`).
+Nothing hard-codes a number that one of those already names, and the two
+sides agree: `DURATION.fast`, `.hover` and `.base` are `--dur-press`,
+`--dur-hover` and `--dur-surface`, and every JS transition runs on the same
+`--ease-out` control points as the stylesheets — Motion's own `easeOut` is the
+browser's weak curve and is not used.
+
+Three rules decide which curve a transition takes, and are not repeated per
+row: a colour change (hover, a focus edge, a fill) is `ease`; anything that
+enters, leaves or moves is `--ease-out`; a press is `ease-out` on `--dur-press`.
 
 Two rules hold everywhere and are not repeated per row:
 
@@ -23,7 +32,7 @@ Two rules hold everywhere and are not repeated per row:
 
 | Surface | Trigger | Properties | Duration | Curve | Reduced motion |
 | --- | --- | --- | --- | --- | --- |
-| Buttons, rail items, table rows, menu items, tabs, segmented options, Today's rows, saved-view chips, the lookup trigger, the palette's input row, the assistant's example chips | pointer enters or leaves | `background-color`, `color`, `border-color`, `box-shadow` | 150 ms (`--dur-hover`) | `ease` | colour changes, no transition |
+| Buttons, rail items, table rows, menu items, tabs, segmented options, Today's rows and footnote links, saved-view chips, the lookup trigger, the palette's input row, the assistant's example chips | pointer enters or leaves | `background-color`, `color`, `border-color`, `box-shadow` | 150 ms (`--dur-hover`) | `ease` — five of these said `ease-out` and warmed up on a different curve from the table beside them | colour changes, no transition |
 | Any pressable (`.btn`, `.pressable`) | pointer down | `scale` 1 → 0.98 | 120 ms (`--dur-press`) | `ease-out` | no scale |
 | Menus, selects and popovers | open | `opacity` 0 → 1, `scale` 0.97 → 1 from the corner Radix measured the surface into (`--radix-popper-transform-origin`) | 200 ms (`--dur-surface`) | `--ease-out` | opacity only |
 | Menus and popovers | close | `opacity`, `scale` | 120 ms (`--dur-press`) | `--ease-out` | opacity only |
@@ -35,12 +44,17 @@ Two rules hold everywhere and are not repeated per row:
 | Command palette (desktop) | open | `opacity` 0 → 1, `translateY` −48px → 0, overshooting by about twelve pixels, back by three, and settling: the surface is caught, not delivered | ~340 ms spring, bounce 0.6 (`DROP`) | spring | none |
 | Command palette (desktop) | close | `opacity` 1 → 0, `translateY` 0 → −8px: a slight lift | 120 ms (`--dur-press`) | `easeOut` | none |
 | Dialogs | close | `opacity`, `scale` | 120 ms (`--dur-press`) | `--ease-out` | none |
-| Scrim behind any modal surface | open | `opacity`; the ground is `--scrim` with `backdrop-filter: blur(12px) saturate(120%)` | 200 ms | `--ease-out` | opacity only |
+| Scrim behind any modal surface (dialogs, sheets, the palette, the assistant on a phone) | open | `opacity`; the ground is `--scrim` with `backdrop-filter: blur(12px) saturate(120%)` | 200 ms (`--dur-surface`, `SCRIM_IN`) | `--ease-out` | opacity only |
+| Scrim | close | `opacity` | 120 ms (`--dur-press`, `SCRIM_OUT`) | `--ease-out` | none |
 | Drawers (phone bottom sheets) | open | `translateY(100% → 0)`, then the finger | vaul's own | vaul's own | none |
 | Drawers | drag | follows the pointer, damped past the boundary; released above the velocity threshold it dismisses, below it returns | — | — | drag still works; nothing else moves |
-| The content column | the path changes (not a search or filter, which change only the query) | `opacity` 0.35 → 1 on `<main>`; opacity only, so the fixed selection bar and sticky filter bar keep their containing block | 180 ms | `cubic-bezier(0.23, 1, 0.32, 1)` | none |
+| The content column | the path changes (not a search or filter, which change only the query) | `opacity` 0.35 → 1 on `<main>`; opacity only, so the fixed selection bar and sticky filter bar keep their containing block | 200 ms (`DURATION.base`) | `--ease-out` (`EASE_OUT_CSS`) | none |
 | Checkboxes (`.row-check`, `.check`, `.setting-choice`) | ticked | box fills with ink; the tick draws left to right (`clip-path`); press `scale` 0.9 | 180 ms tick, 150 ms fill | `--ease-out` | fill only |
-| Selection count | the number changes | old digit leaves up, new one rises (8px) | 120 ms (`EASE_OUT_FAST`) | easeOut | swap, no movement |
+| Selection count | the number changes | old digit leaves up, new one rises (8px) | 120 ms (`EASE_OUT_FAST`) | `--ease-out` | swap, no movement |
+| Counts on Today's ledger (`CountSwap`): tickets you own, in the queue, waiting for access | the number changes after first paint — a claim moves one from the queue to you | the old figure leaves and the new one arrives 8px, clipped to the line, travelling the way the count went: up when it grew, down when it shrank | 120 ms (`EASE_OUT_FAST`) | `--ease-out` | swap, no movement |
+| Today's rows ("Needs you", "Devices due back") | a row leaves: claimed, returned, or gone on the next refresh | `opacity` 1 → 0 and `height` → 0 on the row, so the rows under it close up rather than jump. Rows arriving appear in place | 120 ms (`EASE_OUT_FAST`) | `--ease-out` | the row goes at once |
+| A resolved ticket's check (`ResolvedMark`) | the ticket was resolved from this tab a moment ago | the check beside "Solution" draws itself (`stroke-dashoffset` 1 → 0 over `pathLength` 1), and the solution rises in under it (`opacity`, `translate` 8px) an 80 ms beat behind: the voice's mark for a finished ticket. Opened later, the check is simply there | 300 ms each | `--ease-out` | drawn, no rise |
+| Copy controls (identifiers, the invite message, a password link, the ChatGPT device code) | copied | the copy glyph crosses into a check (`IconSwap`), holds 1.5 s (`COPIED_MS`), and crosses back; a browser that refuses says so in a toast | the swap's 300 ms spring | spring, no bounce | swap, no animation |
 | Phone filters | Filters pressed | the folded selects fade in, 4px down | 200 ms (`--dur-surface`) | `--ease-out` | none |
 | Sheets (desktop, from the right) | open | `translate: 100% → 0`, no fade | 200 ms (`--dur-surface`) | `--ease-out` | none |
 | Sheets (desktop, from the right) | close | `translate: 0 → 100%` | 120 ms (`--dur-press`) | `--ease-out` | none |
@@ -60,16 +74,17 @@ Two rules hold everywhere and are not repeated per row:
 | Toast clock | the pointer rests on one, focus lands inside it, or the tab goes to the background | **stops**, and resumes with the time that was left | — | — | same |
 | Toasts | a swipe away from the edge the stack sits on | follows the finger; past the threshold it goes | Sonner's | Sonner's | same |
 | Icon swaps (`IconSwap`) | the icon's meaning changes | `opacity`, `scale` 0.25 → 1, `blur(4px → 0)` | 300 ms | spring, no bounce | swap, no animation |
-| Today's list | first paint only | `opacity`, `translateY` staggered 20 ms a row, capped at 12 | 300 ms total | `easeOut` | no entrance |
+| Today | the screen's first arrival in a session (never a return within it) | three groups — the greeting, the lists, the ledger — rise 8px out of `opacity` 0, 60 ms apart | 200 ms each (`--dur-surface`), the last landing at 320 ms | `--ease-out` | no entrance |
+| The big lists — queue and ticket lists, people, devices, groups, due back, the audit log (`DataTable` with `settle`) | the list mounts on a client-side navigation; never server-rendered, never a filter, page or refresh of the same list | rows rise 4px out of `opacity` 0, 20 ms apart, capped at the twelfth row so a long page settles as one group (`StaggerList`) | 200 ms each (`EASE_OUT`) | `--ease-out` | no entrance |
 | Every other list | navigation | **none** | 0 | — | — |
 | Analytics charts (`/analytics`) | first paint only; the page is opened a few times a term | columns and bars grow from their baseline (`transform: scaleY` or `scaleX` 0 → 1, `transform-box: fill-box`), the backlog line and the sparklines are revealed from the left by a clip that widens (`transform: scaleX` 0 → 1 on a `clipPath` rect; a dash over `pathLength` leaves gaps under a non-scaling stroke in a stretched viewBox), the donut's arcs sweep open (`stroke-dasharray` from empty to their share), heat rows and area washes fade in | 300 ms, staggered 8–60 ms a mark by chart and capped at 240 ms, so sixty columns finish with seven | `--ease-out` | none: every keyframe runs from a start state to the mark's own resting style, so with animations off each mark is already drawn |
 | Analytics period control | a period is chosen | the pill moves at once (optimistic) and the control dims to 0.7 while the new page streams | `--dur-press` on the dim; the pill is the segmented control's own | `ease-out` | the pill jumps; the dim is opacity |
 | Analytics column slots and heat cells | pointer rests on a slot or cell | slot: the hit area behind the columns fills `--surface-3`; cell: a 1.5px `--ink` outline | 150 ms (`--dur-hover`) on the slot; none on the cell | `ease` | colour only |
-| Skeleton → content | the stream lands | content replaces the skeleton in place, no layout shift | 120 ms | `easeOut` | same |
+| Skeleton → content | the stream lands (a route's `loading.tsx`, or a panel that loads on its own) | content replaces the skeleton in place, no layout shift; the region's container (`<main>`, or the panel body) settles `opacity` 0.4 → 1 (`SkeletonSettle`, inside every `LoadingRegion`) | 120 ms (`DURATION.fast`) | `--ease-out` | content appears, no settle |
 | Switch | pressed | `transform` on the thumb, `background-color` on the track | 120 ms | `ease` | colour only |
 | Segmented controls, everywhere: reasoning level, theme, Gmail links, students or staff, notification and audit filters | a choice is picked | the pill's two edges, `left` and `right`, on different clocks under an SVG goo filter, so it stretches between options and snaps shut | 240 ms leading edge, 420 ms trailing edge after 70 ms | `--ease-out` | the pill jumps, no filter |
 | Sign-in mark (the bulb) | the page arrives | three strokes draw themselves (`stroke-dashoffset` 1 → 0 over `pathLength` 1): the globe, then the base, then the filament; the two words rise 8px out of a 3px blur; a halo behind the globe swells in and then breathes | globe 520 ms, base 320 ms from 180 ms, filament 600 ms from 300 ms, words 520 ms from 400 and 500 ms, halo 620 ms from 900 ms, breath 5.2 s | `--ease-out`, breath `ease-in-out` | everything already drawn, halo still |
-| Sign-in mark | pointer rests on the wordmark | the halo scales 1 → 1.25 | 200 ms (`--dur-surface`) | `--ease-out` | none |
+| Sign-in mark | pointer rests on the wordmark | the halo scales 1 → 1.25 (`scale`, so the centring transform is untouched; the entrance fills `backwards`, because a `forwards` fill outranked the hover and it never showed) | 200 ms (`--dur-surface`) | `--ease-out` | none |
 | Settings | arriving at a section link (`/settings#quick-tickets`) | the page scrolls to the section, which stops under the top bar (`scroll-margin-top`) | the browser's smooth scroll | — | jumps |
 | Theme switch | the preference changes | **none** — every transition is muted, a reflow is forced, the mute is lifted | 0 | — | same |
 
