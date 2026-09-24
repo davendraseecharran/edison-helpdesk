@@ -107,6 +107,7 @@ function bulkTools(roles: readonly AccountRole[]): string {
     'claim_tickets for a list of ticket numbers',
     ...directory,
     'bulk_update_devices, bulk_assign_devices and bulk_return_devices for the inventory',
+    'run_workflow and audit_location for a list of machines read off a cart or a room',
   ].join(', ');
 }
 

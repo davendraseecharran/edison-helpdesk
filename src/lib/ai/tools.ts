@@ -91,6 +91,23 @@ import {
 } from '@/lib/auth/roles';
 import { clipboardFor, gmailLink, type CopyKind, type PersonAddressee } from '@/lib/people/clipboard';
 import { isGmailMode, type GmailMode } from '@/lib/domain/preferences';
+import {
+  defaultShortcutName,
+  MISSING_STATUS,
+  runFromRow,
+  shortcutError,
+  shortcutFromRow,
+  workflowFor,
+  type WorkflowKind,
+} from '@/lib/domain/workflows';
+import {
+  auditDiff,
+  expectedFrom,
+  matchExpected,
+  parseScanAnswer,
+  type ExpectedDevice,
+  type ScannedMachine,
+} from '@/lib/workflows/session';
 
 // ---------------------------------------------------------------------------
 // Schema and validation vocabulary
@@ -1408,6 +1425,41 @@ function trimAnalytics(
   };
 }
 
+
+// ---------------------------------------------------------------------------
+// Workflows: the scan jobs, for a list somebody pasted or read out
+// ---------------------------------------------------------------------------
+
+/** What the model calls each job, and what the scan RPC and the runs table call it. */
+const WORKFLOW_CHOICES = ['move', 'set_status', 'collect', 'hand_out'] as const;
+const SHORTCUT_CHOICES = ['move', 'set_status', 'collect', 'audit'] as const;
+
+function workflowKindOf(choice: string): WorkflowKind {
+  if (choice === 'set_status') return 'status';
+  if (choice === 'hand_out') return 'handout';
+  return choice as WorkflowKind;
+}
+
+/** The codes once each, in the order given: a list read off a cart repeats itself. */
+function distinctCodes(values: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const codes: string[] = [];
+  for (const value of values) {
+    const code = value.trim();
+    if (code === '' || seen.has(code.toUpperCase())) continue;
+    seen.add(code.toUpperCase());
+    codes.push(code);
+  }
+  return codes;
+}
+
+/** How many names a result lists before it says "and N more". */
+const WORKFLOW_LIST_CAP = 40;
+
+function capped<T>(items: readonly T[]): { items: T[]; more: number } {
+  return { items: items.slice(0, WORKFLOW_LIST_CAP), more: Math.max(0, items.length - WORKFLOW_LIST_CAP) };
+}
+
 const TOOLS: Record<string, ToolSpec> = {
   // --- Read ---------------------------------------------------------------
 
@@ -2101,6 +2153,101 @@ const TOOLS: Record<string, ToolSpec> = {
         waiting.length === 0
           ? 'Nobody is waiting for access.'
           : `${waiting.length} ${waiting.length === 1 ? 'person is' : 'people are'} waiting for access.`,
+      );
+    },
+  },
+
+  list_workflows: {
+    group: 'read',
+    description:
+      "The desk's saved workflow runs (shortcuts such as Load Cart 3) and the most recent finished runs, with who ran them and how many machines each did.",
+    fields: {
+      limit: { type: 'integer', description: 'How many recent runs, 1 to 20. Default 8.' },
+    },
+    run: async (args, ctx) => {
+      const limit = Math.min(20, Math.max(1, Number(args.limit ?? 8)));
+      const shortcuts = rows(await rpc(ctx, 'app_list_workflow_shortcuts', {}))
+        .map(shortcutFromRow)
+        .filter((one) => one !== null);
+      const runs = rows(await rpc(ctx, 'app_list_workflow_runs', { p_limit: limit }))
+        .map(runFromRow)
+        .filter((one) => one !== null);
+      return outcome(
+        {
+          shortcuts: shortcuts.map((one) => ({
+            name: one.name,
+            workflow: workflowFor(one.kind).title,
+            location: one.location || null,
+            status: one.status || null,
+          })),
+          recent_runs: runs.map((run) => ({
+            workflow: workflowFor(run.kind).title,
+            target: run.label || null,
+            done: run.done,
+            skipped: run.skipped,
+            errors: run.errors,
+            run_by: run.runBy,
+            by_assistant: run.performedVia === 'ai',
+            finished_at: run.finishedAt,
+          })),
+        },
+        `${shortcuts.length} saved ${shortcuts.length === 1 ? 'run' : 'runs'}, ${runs.length} recent`,
+      );
+    },
+  },
+
+  audit_location: {
+    group: 'read',
+    description:
+      'Check a room or cart against the inventory: given the codes of every machine actually seen there, say which recorded ones were found, which were not seen (missing), and which were seen but are recorded somewhere else. Changes nothing. To fix what it finds, use bulk_update_devices: location to bring the misplaced ones here, or status ' +
+      MISSING_STATUS +
+      ' for the ones nobody saw, after the person agrees.',
+    fields: {
+      location: { type: 'string', required: true, description: 'The room or cart, as the inventory spells it.' },
+      devices: {
+        type: 'string[]',
+        required: true,
+        maxItems: 1000,
+        description: 'Asset tags, serial numbers or inventory ids of everything seen there.',
+      },
+    },
+    run: async (args, ctx) => {
+      const location = String(args.location).trim();
+      const expected = rows(await rpc(ctx, 'app_workflow_location_devices', { p_location: location }))
+        .map(expectedFrom)
+        .filter((one): one is ExpectedDevice => one !== null);
+      const seen: ScannedMachine[] = [];
+      const unknown: string[] = [];
+      for (const code of distinctCodes(args.devices as string[])) {
+        const known = matchExpected(expected, code);
+        if (known) {
+          const { state, ...device } = known;
+          seen.push({ device, state });
+          continue;
+        }
+        const answer = parseScanAnswer(
+          await rpc(ctx, 'app_workflow_scan', { p_code: code, p_action: 'resolve', p_target: {} }),
+        );
+        if (answer && answer.outcome === 'found') seen.push({ device: answer.device, state: answer.before });
+        else unknown.push(code);
+      }
+      const diff = auditDiff(location, expected, seen);
+      const missing = capped(diff.missing.map((one) => one.label));
+      const elsewhere = capped(
+        diff.elsewhere.map((one) => ({ device: one.device.label, recorded_in: one.state.location || null })),
+      );
+      return outcome(
+        {
+          location,
+          recorded_here: expected.length,
+          found: diff.found.length,
+          missing: missing.items,
+          missing_more: missing.more,
+          recorded_elsewhere: elsewhere.items,
+          recorded_elsewhere_more: elsewhere.more,
+          not_in_inventory: unknown,
+        },
+        `${diff.found.length} of ${expected.length} found in ${location}; ${diff.missing.length} not seen, ${diff.elsewhere.length} recorded elsewhere`,
       );
     },
   },
@@ -3946,6 +4093,174 @@ const TOOLS: Record<string, ToolSpec> = {
         { returned: done, of: devices.length, status },
         `Took back ${done} ${done === 1 ? 'device' : 'devices'} as ${status.toLowerCase()}`,
       );
+    },
+  },
+
+  run_workflow: {
+    group: 'write',
+    description:
+      'Run one of the Workflows page\'s scan jobs over a list of machines, exactly as scanning them one by one would: move (into a cart or room), set_status, collect (take back from whoever has it) or hand_out (to one person). Each machine is done in turn; one that is already done is skipped, one that is not in the inventory is reported, and the rest still go through. Up to 200. Recorded as a finished run on the Workflows page.',
+    fields: {
+      workflow: { type: 'string', required: true, choices: WORKFLOW_CHOICES, description: 'Which job.' },
+      devices: {
+        type: 'string[]',
+        required: true,
+        maxItems: 200,
+        description: 'Asset tags, serial numbers or inventory ids, as read off the machines.',
+      },
+      location: {
+        type: 'string',
+        description: 'For move, where they go (required). For collect, where returned machines go (optional).',
+      },
+      status: {
+        type: 'string',
+        description: `For set_status, the status (required, not Assigned). For collect, the state they come back in; default Available. Usually one of ${SEEDED_STATUSES}.`,
+      },
+      person: { type: 'string', description: 'For hand_out: name, email, OSIS or staff id of whoever takes them.' },
+    },
+    run: async (args, ctx) => {
+      const kind = workflowKindOf(String(args.workflow));
+      const location = typeof args.location === 'string' ? args.location.trim() : '';
+      const status = typeof args.status === 'string' ? args.status.trim() : '';
+      if (kind === 'move' && location === '') throw new ToolError('Say where the machines are going.');
+      if (kind === 'status' && status === '') throw new ToolError('Say which status to set.');
+      if (status === 'Assigned') throw new ToolError('Assigned means somebody has it. Use hand_out instead.');
+      if (kind === 'handout' && typeof args.person !== 'string') throw new ToolError('Say who is taking them.');
+
+      const person = kind === 'handout' ? await resolvePerson(ctx, String(args.person)) : null;
+      const action = kind === 'move' ? 'move' : kind === 'status' ? 'status' : kind === 'handout' ? 'assign' : 'collect';
+      const target: Record<string, string> =
+        kind === 'move'
+          ? { location }
+          : kind === 'status'
+            ? { status }
+            : kind === 'handout'
+              ? { requester: person!.id }
+              : { status: status || 'Available', ...(location ? { location } : {}) };
+
+      const startedAt = new Date().toISOString();
+      const changed: string[] = [];
+      const skipped: Array<{ device: string; reason: string }> = [];
+      const notFound: string[] = [];
+      const refused: Array<{ device: string; error: string }> = [];
+      for (const code of distinctCodes(args.devices as string[])) {
+        let answer;
+        try {
+          answer = parseScanAnswer(await rpc(ctx, 'app_workflow_scan', { p_code: code, p_action: action, p_target: target }));
+        } catch (error) {
+          // A refusal about the account stops the run: it will say the same
+          // thing for every machine after this one.
+          if (error instanceof ToolError && error.code === '42501') throw error;
+          refused.push({ device: code, error: error instanceof ToolError ? error.message : 'That one did not go through.' });
+          continue;
+        }
+        if (!answer) {
+          refused.push({ device: code, error: 'That one did not go through.' });
+        } else if (answer.outcome === 'done') {
+          changed.push(answer.device.label);
+        } else if (answer.outcome === 'already') {
+          skipped.push({ device: answer.device.label, reason: 'already done' });
+        } else if (answer.outcome === 'held') {
+          skipped.push({ device: answer.device.label, reason: `held by ${answer.before.holderName ?? 'somebody'}; collect it first` });
+        } else if (answer.outcome === 'person') {
+          refused.push({ device: code, error: `That is ${answer.person.displayName}'s ID, not a machine.` });
+        } else {
+          notFound.push(code);
+        }
+      }
+
+      const label = kind === 'handout' ? '' : kind === 'status' ? status : location || status || 'Available';
+      try {
+        await rpc(ctx, 'app_record_workflow_run', {
+          p_kind: kind,
+          p_label: label,
+          p_location: location,
+          p_status: status,
+          p_done: changed.length,
+          p_skipped: skipped.length,
+          p_errors: notFound.length + refused.length,
+          p_started_at: startedAt,
+        });
+      } catch {
+        // The machines are changed either way; the hub's history is a summary.
+      }
+
+      const verb =
+        kind === 'move'
+          ? `Moved ${changed.length} to ${location}`
+          : kind === 'status'
+            ? `Set ${changed.length} to ${status}`
+            : kind === 'handout'
+              ? `Handed ${changed.length} to ${person!.name}`
+              : `Collected ${changed.length}`;
+      const tail = [
+        skipped.length > 0 ? `${skipped.length} skipped` : '',
+        notFound.length > 0 ? `${notFound.length} not in the inventory` : '',
+        refused.length > 0 ? `${refused.length} refused` : '',
+      ].filter(Boolean);
+      return outcome(
+        {
+          done: changed.length,
+          changed: capped(changed).items,
+          skipped,
+          not_in_inventory: notFound,
+          refused,
+        },
+        tail.length === 0 ? verb : `${verb}; ${tail.join(', ')}`,
+      );
+    },
+  },
+
+  save_workflow_shortcut: {
+    group: 'write',
+    description:
+      'Save a workflow run as a one-tap shortcut on the Workflows page, for the whole desk: "Load Cart 3", "Audit Room 204". Hand-outs cannot be saved; the person is new each time.',
+    fields: {
+      workflow: { type: 'string', required: true, choices: SHORTCUT_CHOICES, description: 'Which job it starts.' },
+      location: { type: 'string', description: 'Required for move and audit; optional for collect.' },
+      status: { type: 'string', description: 'Required for set_status; optional for collect.' },
+      name: { type: 'string', description: 'What the tile says, 40 characters at most. Default: from the target.' },
+    },
+    run: async (args, ctx) => {
+      const kind = workflowKindOf(String(args.workflow));
+      const target = {
+        location: typeof args.location === 'string' ? args.location.trim() : '',
+        status: typeof args.status === 'string' ? args.status.trim() : '',
+      };
+      const name =
+        typeof args.name === 'string' && args.name.trim() !== ''
+          ? args.name.trim()
+          : kind === 'handout'
+            ? ''
+            : defaultShortcutName(kind, target);
+      const invalid = shortcutError({ name, kind, ...target });
+      if (invalid) throw new ToolError(invalid);
+      await rpc(ctx, 'app_save_workflow_shortcut', {
+        p_id: null,
+        p_name: name,
+        p_kind: kind,
+        p_location: target.location,
+        p_status: target.status,
+        p_position: null,
+      });
+      return outcome({ name }, `Saved the shortcut ${name}`);
+    },
+  },
+
+  delete_workflow_shortcut: {
+    group: 'write',
+    description: 'Remove one saved workflow shortcut from the Workflows page, for everybody.',
+    fields: {
+      name: { type: 'string', required: true, description: 'The shortcut\'s name, as the page shows it.' },
+    },
+    run: async (args, ctx) => {
+      const wanted = String(args.name).trim().toLowerCase();
+      const found = rows(await rpc(ctx, 'app_list_workflow_shortcuts', {}))
+        .map(shortcutFromRow)
+        .find((one) => one !== null && one.name.toLowerCase() === wanted);
+      if (!found) throw new ToolError(`There is no saved workflow called "${String(args.name).trim()}".`);
+      await rpc(ctx, 'app_delete_workflow_shortcut', { p_id: found.id });
+      return outcome({ name: found.name }, `Deleted the shortcut ${found.name}`);
     },
   },
 

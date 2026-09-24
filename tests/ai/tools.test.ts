@@ -168,6 +168,10 @@ describe('tool classification', () => {
       'export_group_csv',
       'list_invites',
       'list_access_requests',
+      // The Workflows page: its saved and recent runs, and a room checked
+      // against the inventory without changing it.
+      'list_workflows',
+      'audit_location',
     ]) {
       expect(READ_TOOLS).toContain(name);
     }
@@ -234,6 +238,10 @@ describe('tool classification', () => {
       'save_preset',
       'delete_preset',
       'move_preset',
+      // The Workflows page's scan jobs over a list, and its shortcuts.
+      'run_workflow',
+      'save_workflow_shortcut',
+      'delete_workflow_shortcut',
     ]) {
       expect(WRITE_TOOLS).toContain(name);
     }
