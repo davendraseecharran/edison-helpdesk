@@ -32,6 +32,8 @@ import { useActorAccount, useRuntime } from '@/components/AppRuntime';
 import { ageLabel, formatDateTime } from '@/lib/format';
 import { useNow } from '@/lib/useNow';
 import { Avatar, EmptyState, Field, TimeAgo } from '@/components/Primitives';
+import { RollingNumber } from '@/components/ui/RollingNumber';
+import { ThinkingMark } from '@/components/ui/ThinkingMark';
 import { PriorityBadge, StatusBadge } from '@/components/Badges';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { DataTable, type Column } from '@/components/ui/DataTable';
@@ -442,7 +444,9 @@ export function TicketListView({
         clearHref={pathname}
         summary={
           busy ? (
-            'Loading'
+            <span className="summary-count" data-busy="">
+              <RollingNumber value={total} /> {total === 1 ? 'ticket' : 'tickets'}
+            </span>
           ) : (
             <>
               {/* The keys, written where they are pressed. A shortcut nobody
@@ -460,7 +464,9 @@ export function TicketListView({
                   ) : null}
                 </span>
               ) : null}
-              {`${total} ${total === 1 ? 'ticket' : 'tickets'}`}
+              <span className="summary-count">
+                <RollingNumber value={total} /> {total === 1 ? 'ticket' : 'tickets'}
+              </span>
             </>
           )
         }
@@ -573,7 +579,11 @@ export function TicketListView({
             Widen the search text or the filters to see more.
           </EmptyState>
         ) : (
-          <EmptyState title={emptyTitle} action={emptyAction}>
+          <EmptyState
+            title={emptyTitle}
+            action={emptyAction}
+            mark={<ThinkingMark state="waiting" size={56} />}
+          >
             {emptyBody}
           </EmptyState>
         )

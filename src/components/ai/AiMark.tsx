@@ -148,6 +148,7 @@ export function AiMark({
   size = 20,
   state = 'still',
   delayMs = 0,
+  instant = false,
   className,
 }: {
   /** 20 in the top bar, 44 in the connect card, 64 in the welcome. */
@@ -159,6 +160,12 @@ export function AiMark({
    * from the moment it is mounted. Zero moves at once.
    */
   delayMs?: number;
+  /**
+   * No crossfade from the drawn glyph: the dotted mark is simply there. For
+   * the panel's welcome, which should open already thinking; the top bar's
+   * crossfade is for a glyph that comes apart in front of you.
+   */
+  instant?: boolean;
   className?: string;
 }) {
   const reduced = useReducedMotion();
@@ -175,6 +182,7 @@ export function AiMark({
     <span
       className={className ? `ai-mark ${className}` : 'ai-mark'}
       data-state={state}
+      data-instant={instant ? '' : undefined}
       style={{ '--ai-mark-size': `${size}px` } as CSSProperties}
       aria-hidden="true"
     >

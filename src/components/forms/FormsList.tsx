@@ -24,6 +24,32 @@ import { useRowKeys } from '@/components/ui/useRowKeys';
 import { FormStateBadge } from './FormStateBadge';
 import { NewFormButton } from './NewFormButton';
 import '@/styles/forms.css';
+import '@/styles/paper-stack.css';
+
+/**
+ * The empty forms page's picture: three blank forms in a loose stack, drawn
+ * in CSS 3D, the top one already showing a name filled in from the
+ * directory — which is the one thing a form here does that a paper one
+ * cannot. It leans towards a precise pointer (`data-tilt`) and the sheets
+ * fan apart a little under it. Decoration: the words beside it say it all.
+ */
+function PaperStack() {
+  return (
+    <div className="paper-stack" data-tilt="" aria-hidden="true">
+      <span className="paper paper-3" />
+      <span className="paper paper-2" />
+      <span className="paper paper-1">
+        <span className="paper-title" />
+        <span className="paper-field paper-field-filled">
+          <span />
+        </span>
+        <span className="paper-field" />
+        <span className="paper-field paper-field-short" />
+        <span className="paper-check" />
+      </span>
+    </div>
+  );
+}
 
 type Scope = 'all' | 'mine';
 
@@ -121,7 +147,7 @@ export function FormsList({ forms }: { forms: FormSummary[] }) {
   if (forms.length === 0) {
     return (
       <section className="panel directory">
-        <EmptyState title="No forms yet" action={<NewFormButton />}>
+        <EmptyState title="No forms yet" action={<NewFormButton />} mark={<PaperStack />}>
           A form is a sign-up sheet that already knows who is filling it in. Start a trip sign-up
           and people see their name, class and guardian filled in from the directory.
         </EmptyState>

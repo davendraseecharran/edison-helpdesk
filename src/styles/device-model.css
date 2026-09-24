@@ -1,0 +1,291 @@
+/*
+ * The device model on a machine's page (`DeviceModel` in `DeviceDetail.tsx`).
+ *
+ * A laptop is a deck lying in a plane that is turned and tipped away from
+ * the reader, and a lid hinged on the deck's back edge. Every dimension is a
+ * multiple of `--u`, so the phone's smaller model is the same drawing.
+ * Surfaces are the surface ladder, the screen is `--glass` / `--glass-lit`,
+ * the lines are the hairlines: no colour of its own.
+ *
+ * The pose is the lid's angle (`--lid`, degrees from lying open flat behind
+ * the deck): about 105° open, 65° half shut for a repair, and 178° shut. A
+ * status changed on the page moves the lid on `transform` (600 ms, the token
+ * curve), which is the change confirmed where it shows. Reduced motion takes
+ * the pose without the movement (`base.css`).
+ */
+
+.dm-stage {
+  --u: 1px;
+  --lid: -75deg;
+  position: relative;
+  flex: 0 0 auto;
+  width: calc(112 * var(--u));
+  height: calc(88 * var(--u));
+  margin: -6px 4px -6px -8px;
+  border-radius: var(--radius-4);
+  perspective: calc(520 * var(--u));
+  --tilt-max: 4deg;
+  transition: var(--tilt-ease, transform 0s);
+}
+
+.dm-stage[data-pose='repair'] {
+  --lid: -115deg;
+}
+
+.dm-stage[data-pose='shut'] {
+  --lid: -178deg;
+}
+
+.dm-scene {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: translateY(calc(10 * var(--u))) rotateX(58deg) rotateZ(-34deg);
+}
+
+/* --- A laptop: the deck ------------------------------------------------- */
+
+.dm-deck {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(72 * var(--u));
+  height: calc(48 * var(--u));
+  margin: calc(-24 * var(--u)) 0 0 calc(-36 * var(--u));
+  border: 1px solid var(--line-strong);
+  border-radius: calc(4 * var(--u));
+  background: var(--surface-4);
+  transform-style: preserve-3d;
+  box-shadow: 0 0 calc(18 * var(--u)) calc(-2 * var(--u)) color-mix(in oklab, var(--ink) 14%, transparent);
+}
+
+/* Rows of keys: a grid of hairlines, the way a keyboard reads at this size. */
+.dm-keys {
+  position: absolute;
+  top: calc(6 * var(--u));
+  right: calc(6 * var(--u));
+  left: calc(6 * var(--u));
+  height: calc(22 * var(--u));
+  border-radius: calc(2 * var(--u));
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 calc(4.2 * var(--u)),
+      var(--surface-4) calc(4.2 * var(--u)) calc(5 * var(--u))
+    ),
+    repeating-linear-gradient(
+      0deg,
+      transparent 0 calc(4.6 * var(--u)),
+      var(--surface-4) calc(4.6 * var(--u)) calc(5.5 * var(--u))
+    ),
+    var(--surface-2);
+}
+
+.dm-pad {
+  position: absolute;
+  bottom: calc(5 * var(--u));
+  left: 50%;
+  width: calc(22 * var(--u));
+  height: calc(12 * var(--u));
+  margin-left: calc(-11 * var(--u));
+  border: 1px solid var(--line-strong);
+  border-radius: calc(2 * var(--u));
+  background: var(--surface-3);
+}
+
+/* The deck's thickness: two faces hung below its front and right edges. */
+.dm-edge {
+  position: absolute;
+  background: var(--line-strong);
+}
+
+.dm-edge-front {
+  top: 100%;
+  left: 0;
+  width: 100%;
+  height: calc(3 * var(--u));
+  transform-origin: top center;
+  transform: rotateX(-90deg);
+}
+
+.dm-edge-side {
+  top: 0;
+  left: 100%;
+  width: calc(3 * var(--u));
+  height: 100%;
+  transform-origin: left center;
+  transform: rotateY(90deg);
+  background: var(--surface-4);
+  filter: brightness(0.92);
+}
+
+/* --- The lid, on its hinge ---------------------------------------------- */
+
+.dm-lid {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  width: 100%;
+  height: calc(46 * var(--u));
+  transform-origin: bottom center;
+  transform: rotateX(var(--lid));
+  transform-style: preserve-3d;
+  transition: transform 600ms var(--ease-out);
+}
+
+.dm-screen,
+.dm-lid-back {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(4 * var(--u)) calc(4 * var(--u)) calc(1 * var(--u)) calc(1 * var(--u));
+  backface-visibility: hidden;
+}
+
+/* The face towards the keyboard: a bezel round the glass. */
+.dm-screen {
+  border: calc(3 * var(--u)) solid var(--surface-4);
+  background: var(--glass);
+  overflow: hidden;
+  transition: background-color 400ms var(--ease-out) 200ms;
+}
+
+/* Lit: a few lines of a page, the way a screen in use reads from across a room. */
+.dm-glow {
+  position: absolute;
+  inset: calc(4 * var(--u));
+  border-radius: calc(1 * var(--u));
+  background:
+    linear-gradient(var(--surface-4), var(--surface-4)) 0 0 / 60% calc(3 * var(--u)) no-repeat,
+    linear-gradient(var(--surface-4), var(--surface-4)) 0 calc(8 * var(--u)) / 90% calc(2 * var(--u)) no-repeat,
+    linear-gradient(var(--surface-4), var(--surface-4)) 0 calc(13 * var(--u)) / 75% calc(2 * var(--u)) no-repeat,
+    linear-gradient(var(--surface-4), var(--surface-4)) 0 calc(18 * var(--u)) / 82% calc(2 * var(--u)) no-repeat;
+  opacity: 0;
+  transition: opacity 400ms var(--ease-out) 200ms;
+}
+
+.dm-stage[data-pose='on'] .dm-screen {
+  background: var(--glass-lit);
+}
+
+.dm-stage[data-pose='on'] .dm-glow {
+  opacity: 1;
+}
+
+.dm-lid-back {
+  border: 1px solid var(--line-strong);
+  background: var(--surface-4);
+  transform: rotateY(180deg);
+}
+
+/* A Chromebook's lid: the round mark, as a ring of ink. */
+.dm-emblem {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(9 * var(--u));
+  height: calc(9 * var(--u));
+  margin: calc(-4.5 * var(--u)) 0 0 calc(-4.5 * var(--u));
+  border: calc(2 * var(--u)) solid var(--ink-3);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 calc(1.5 * var(--u)) var(--surface-4), inset 0 0 0 calc(4 * var(--u)) var(--ink-3);
+  opacity: 0.8;
+}
+
+/* --- A tablet, a phone, a screen: standing on its edge ------------------ */
+
+.dm-floor {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: calc(44 * var(--u));
+  height: calc(30 * var(--u));
+  margin: calc(-6 * var(--u)) 0 0 calc(-22 * var(--u));
+  transform-style: preserve-3d;
+}
+
+.dm-floor .dm-lid {
+  height: calc(34 * var(--u));
+}
+
+.dm-stage[data-shape='slab'] .dm-floor {
+  width: calc(34 * var(--u));
+  margin-left: calc(-17 * var(--u));
+}
+
+.dm-stage[data-shape='slab'] .dm-floor .dm-lid {
+  height: calc(44 * var(--u));
+}
+
+.dm-stage[data-shape='screen'] .dm-floor {
+  width: calc(64 * var(--u));
+  margin-left: calc(-32 * var(--u));
+}
+
+.dm-stage[data-shape='screen'] .dm-floor .dm-lid {
+  bottom: calc(100% - 4 * var(--u));
+  height: calc(38 * var(--u));
+}
+
+/* A standing device leans back a little; shut, it lies face down. */
+.dm-stage:not([data-shape='laptop']):not([data-shape='chromebook']) {
+  --lid: -80deg;
+}
+
+.dm-stage:not([data-shape='laptop']):not([data-shape='chromebook'])[data-pose='shut'] {
+  --lid: -178deg;
+}
+
+/* A screen's foot: a plate lying on the desk under it. */
+.dm-neck {
+  position: absolute;
+  bottom: calc(100% - 12 * var(--u));
+  left: 50%;
+  width: calc(26 * var(--u));
+  height: calc(14 * var(--u));
+  margin-left: calc(-13 * var(--u));
+  border: 1px solid var(--line-strong);
+  border-radius: calc(3 * var(--u));
+  background: var(--surface-4);
+}
+
+/* --- In repair ---------------------------------------------------------- */
+
+.dm-badge {
+  position: absolute;
+  top: calc(8 * var(--u));
+  right: calc(10 * var(--u));
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--ink-2);
+  box-shadow: var(--shadow-1);
+  animation: dm-badge-in 360ms var(--ease-out) 300ms backwards;
+}
+
+@keyframes dm-badge-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) rotate(-30deg);
+  }
+}
+
+/* The model is lit by its own screen; the tilt's glare would light the page behind it. */
+.dm-stage::before {
+  display: none;
+}
+
+/* A lost or retired machine is the same object, set back. */
+.dm-stage[data-pose='shut'] .dm-scene {
+  opacity: 0.85;
+}
+
+@media (max-width: 719.98px) {
+  .dm-stage {
+    --u: 0.7px;
+    margin: -4px 0 -4px -6px;
+  }
+}

@@ -342,6 +342,11 @@
   border-radius: var(--radius-3);
   background: var(--surface);
 }
+/* The mark sits a little into the card's corner, the way an icon heads a note. */
+.today-clear-mark {
+  margin: -6px 0 -2px -4px;
+}
+
 /* Closer to its first line than the button is: the two are one remark. */
 .today-clear-aside {
   margin: -6px 0 2px;

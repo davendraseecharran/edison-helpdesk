@@ -30,6 +30,7 @@ import {
 } from 'react';
 import { AnimatePresence, motion, useIsPresent, type Transition } from 'motion/react';
 import { useReducedMotion } from './media';
+import { RollingNumber } from './RollingNumber';
 
 export { AnimatePresence, motion };
 
@@ -230,56 +231,13 @@ export function IconSwap({ token, children }: { token: string; children: ReactNo
 }
 
 /**
- * A number that changes while somebody is looking at it: the old figure
- * leaves and the new one takes its place, travelling the way the count went —
- * up when it grew, down when it shrank — like a counter turning over.
- *
- * The same moment as the selection bar's count (8px, 120ms, the token curve),
- * so every count in the application turns over the same way. It moves only
- * when the value changes after the first paint; a page that arrives with a
- * number simply shows it. Under reduced motion the figure is swapped in place.
- * The digits are `aria-hidden` inside a live wrapper that reads the plain
- * value, so a screen reader hears the number once, not both of them.
+ * A number that changes while somebody is looking at it. Today's ledger
+ * calls it by this name; it is `RollingNumber`, the one count component, so
+ * every count in the application turns over the same way.
  */
 export function CountSwap({ value, className }: { value: number; className?: string }) {
-  const reduced = useReducedMotion();
-  const [seen, setSeen] = useState(value);
-  const [direction, setDirection] = useState<1 | -1>(1);
-  if (seen !== value) {
-    // Adjusted during render so the entering and leaving figures agree on the
-    // direction in the same frame.
-    setDirection(value > seen ? 1 : -1);
-    setSeen(value);
-  }
-  const classes = className ? `count-swap ${className}` : 'count-swap';
-  if (reduced) return <span className={classes}>{value}</span>;
-  return (
-    <span className={classes}>
-      <span className="visually-hidden">{value}</span>
-      <span className="count-swap-track" aria-hidden="true">
-        <AnimatePresence initial={false} mode="popLayout" custom={direction}>
-          <motion.span
-            key={value}
-            custom={direction}
-            variants={COUNT_VARIANTS}
-            initial="enter"
-            animate="rest"
-            exit="leave"
-            transition={EASE_OUT_FAST}
-          >
-            {value}
-          </motion.span>
-        </AnimatePresence>
-      </span>
-    </span>
-  );
+  return <RollingNumber value={value} className={className ? `count-swap ${className}` : 'count-swap'} />;
 }
-
-const COUNT_VARIANTS = {
-  enter: (direction: 1 | -1) => ({ y: 8 * direction, opacity: 0 }),
-  rest: { y: 0, opacity: 1 },
-  leave: (direction: 1 | -1) => ({ y: -8 * direction, opacity: 0 }),
-};
 
 /**
  * The skeleton handing over to the content it stood in for.
@@ -365,7 +323,9 @@ export function SpringSurface({
     kind === 'dialog'
       ? { opacity: 0, scale: 0.98 }
       : kind === 'drop'
-        ? { opacity: 0, y: -48 }
+        ? // Depth: the palette arrives tipped back on its top edge, like a
+          // card set down onto the page, and lies flat as it lands.
+          { opacity: 0, y: -48, rotateX: 14, transformPerspective: 1100 }
         : side === 'bottom'
           ? { y: '100%' }
           : { x: '100%' };
@@ -373,7 +333,7 @@ export function SpringSurface({
     kind === 'dialog'
       ? { opacity: 1, scale: 1 }
       : kind === 'drop'
-        ? { opacity: 1, y: 0 }
+        ? { opacity: 1, y: 0, rotateX: 0, transformPerspective: 1100 }
         : side === 'bottom'
           ? { y: 0 }
           : { x: 0 };
@@ -383,7 +343,13 @@ export function SpringSurface({
   // The drop's spring is for position only: opacity on the same spring dips
   // below one on the return bounce, so it fades in on its own short curve.
   const arrive =
-    kind === 'dialog' ? EASE_OUT : kind === 'drop' ? { ...DROP, opacity: EASE_OUT_FAST } : SPRING;
+    kind === 'dialog'
+      ? EASE_OUT
+      : kind === 'drop'
+        ? // The tip settles without the drop's bounce: a surface that wobbles
+          // on its hinge reads as loose, not caught.
+          { ...DROP, opacity: EASE_OUT_FAST, rotateX: SPRING }
+        : SPRING;
 
   return (
     <div

@@ -35,6 +35,7 @@ import {
   useOptimisticReads,
 } from '@/components/notifications/NotificationList';
 import { Button } from '@/components/ui/Button';
+import { RollingNumber } from '@/components/ui/RollingNumber';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
 import { usePhone } from '@/components/ui/media';
 import { Sheet } from '@/components/ui/Sheet';
@@ -226,7 +227,7 @@ export function NotificationsBell({ unread, showCount = true }: NotificationsBel
       />
       {badge ? (
         <span className="bell-count" aria-hidden="true">
-          {badge}
+          <RollingNumber value={badge} />
         </span>
       ) : null}
     </span>

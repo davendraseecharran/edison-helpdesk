@@ -21,6 +21,7 @@ import { CheckIcon, ChevronRightIcon, CircleIcon } from 'lucide-react';
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui';
 
 import { cn } from '@/lib/utils';
+import { GlideLayer } from '@/components/ui/HoverGlide';
 
 function DropdownMenu({ ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
   return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />;
@@ -42,6 +43,7 @@ function DropdownMenuContent({
   className,
   sideOffset = 6,
   portal = true,
+  children,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Content> & {
   /**
@@ -64,9 +66,16 @@ function DropdownMenuContent({
          typeahead to "Notes" and navigate away to the new-ticket form. */
       data-keyboard-owner=""
       sideOffset={sideOffset}
-      className={cn('menu', className)}
+      className={cn('menu glide-host', className)}
       {...props}
-    />
+    >
+      {/* The highlight glides between items (`HoverGlide`), following
+          Radix's `data-highlighted`, so the pointer and the arrow keys move
+          the same light. A child of its own, so this wrapper stays free of
+          hooks. */}
+      <GlideLayer kind="menu" selector=".menu-item" follow="highlight" />
+      {children}
+    </DropdownMenuPrimitive.Content>
   );
   if (!portal) return content;
   return <DropdownMenuPrimitive.Portal>{content}</DropdownMenuPrimitive.Portal>;

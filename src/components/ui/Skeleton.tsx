@@ -45,13 +45,19 @@ export function SkeletonText({ lines = 3 }: { lines?: number }) {
  */
 export function LoadingRegion({
   label,
+  scope = 'route',
   children,
 }: {
   label: string;
+  /**
+   * `route` for a route's `loading.tsx`, `panel` for a panel that loads on
+   * its own. The arrival sheet (`BootLamp`) waits on a route's skeleton only.
+   */
+  scope?: 'route' | 'panel';
   children: ReactNode;
 }) {
   return (
-    <div aria-busy="true" aria-live="polite">
+    <div className="loading-region" data-scope={scope} aria-busy="true" aria-live="polite">
       <span className="visually-hidden">{label}</span>
       <SkeletonSettle />
       {children}

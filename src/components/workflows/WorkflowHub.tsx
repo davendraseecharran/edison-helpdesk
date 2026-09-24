@@ -15,6 +15,8 @@ import { MoreHorizontal } from 'lucide-react';
 import { EmptyState, TimeAgo } from '@/components/Primitives';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
+import { GlideLayer } from '@/components/ui/HoverGlide';
+import { ThinkingMark } from '@/components/ui/ThinkingMark';
 import { Icon } from '@/components/ui/Icon';
 import { showToast } from '@/components/ui/shadcn/sonner';
 import {
@@ -69,11 +71,12 @@ export function WorkflowHub({ shortcuts, runs }: { shortcuts: WorkflowShortcut[]
   }
 
   return (
-    <div className="wf-hub">
+    <div className="wf-hub glide-host">
+      <GlideLayer kind="pad" selector=".wf-tile" />
       <ul className="wf-tiles" aria-label="Workflows">
         {WORKFLOWS.map((workflow) => (
           <li key={workflow.kind}>
-            <Link href={`/workflows/${workflow.slug}`} className="wf-tile pressable">
+            <Link href={`/workflows/${workflow.slug}`} className="wf-tile pressable" data-tilt="">
               <span className="wf-tile-icon" aria-hidden="true">
                 <Icon icon={WORKFLOW_ICONS[workflow.kind]} size={20} weight="medium" />
               </span>
@@ -132,7 +135,7 @@ export function WorkflowHub({ shortcuts, runs }: { shortcuts: WorkflowShortcut[]
           Recent runs
         </h2>
         {runs.length === 0 ? (
-          <EmptyState title="No runs yet">
+          <EmptyState title="No runs yet" mark={<ThinkingMark state="waiting" size={48} />}>
             When somebody finishes a workflow it is listed here, with what it did.
           </EmptyState>
         ) : (

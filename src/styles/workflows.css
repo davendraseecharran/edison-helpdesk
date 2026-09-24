@@ -41,9 +41,14 @@
   background: var(--surface);
   color: var(--ink);
   text-decoration: none;
+  /* An object: it tilts under the pointer (`data-tilt`) and lifts a step. */
+  position: relative;
   transition:
     background-color var(--dur-hover) ease,
-    border-color var(--dur-hover) ease;
+    border-color var(--dur-hover) ease,
+    box-shadow var(--dur-hover) ease,
+    scale var(--dur-press) ease-out,
+    var(--tilt-ease, transform 0s);
 }
 
 .wf-tile:focus-visible {
@@ -53,7 +58,12 @@
 @media (hover: hover) and (pointer: fine) {
   .wf-tile:hover {
     border-color: var(--line-strong);
-    background: var(--surface-2);
+    box-shadow: var(--shadow-2);
+  }
+
+  /* The gliding pad (`HoverGlide`) is the hover fill; the tile keeps its face. */
+  .wf-hub.glide-host .wf-tile:hover {
+    background: var(--surface);
   }
 }
 

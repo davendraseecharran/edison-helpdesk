@@ -312,25 +312,106 @@
 }
 
 /*
- * A count turning over (`CountSwap`): the two figures share one cell while
- * they cross, clipped to the line so the travel reads as a counter rolling.
- * `clip`, not `hidden`: an inline box that hides its overflow drops its
- * baseline to its bottom edge, and these sit on a baseline beside their label.
+ * Rolling numbers (`RollingNumber`): every count in the application.
+ *
+ * One column per place, like an odometer's wheels. A column that changed
+ * holds the arriving digit in flow and the leaving one laid over it, and the
+ * column clips vertically so the two cross behind a window the height of the
+ * line. `clip`, not `hidden`: an inline box that hides its overflow drops its
+ * baseline to its bottom edge, and these sit on a baseline beside their
+ * label; `clip` also lets the x axis stay visible, so a place that is going
+ * away (10 → 9) can leave from a column that is already zero wide.
+ *
+ * The ones place turns first and each place to its left 40 ms after it
+ * (`--roll-i`, written by the component). Travel is the full line, with a
+ * 6% settle past the rest position, on the token curve.
+ *
+ * Under reduced motion `base.css` removes the animations, and the resting
+ * styles are the end states: the leaving digit is invisible, the arriving
+ * one is in place. The number swaps.
  */
-.count-swap {
+.roll {
   display: inline-flex;
   font-variant-numeric: tabular-nums;
 }
 
-.count-swap-track {
-  position: relative;
-  display: inline-grid;
-  overflow: clip;
-  min-width: 1ch;
+.roll-digits {
+  display: inline-flex;
 }
 
-.count-swap-track > * {
-  grid-area: 1 / 1;
+.roll-col {
+  position: relative;
+  display: inline-block;
+  overflow-x: visible;
+  overflow-y: clip;
+}
+
+.roll-in,
+.roll-out {
+  display: inline-block;
+}
+
+.roll-out {
+  position: absolute;
+  top: 0;
+  right: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.roll-col[data-roll] .roll-in {
+  animation: roll-in 360ms var(--ease-out) calc(var(--roll-i, 0) * 40ms) backwards;
+}
+
+.roll-col[data-roll] .roll-out {
+  animation: roll-out 200ms var(--ease-out) calc(var(--roll-i, 0) * 40ms) backwards;
+}
+
+/* A character that is not a digit (the "+" of "99+", a unit) crossfades. */
+.roll-col:not([data-roll]) .roll-in {
+  animation: roll-fade 200ms var(--ease-out) backwards;
+}
+
+.roll[data-dir='up'] {
+  --roll-from: 100%;
+  --roll-past: -6%;
+}
+
+.roll[data-dir='down'] {
+  --roll-from: -100%;
+  --roll-past: 6%;
+}
+
+@keyframes roll-in {
+  0% {
+    opacity: 0;
+    transform: translateY(var(--roll-from));
+  }
+  70% {
+    opacity: 1;
+    transform: translateY(var(--roll-past));
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes roll-out {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateY(calc(var(--roll-from) * -1));
+  }
+}
+
+@keyframes roll-fade {
+  from {
+    opacity: 0;
+  }
 }
 
 @keyframes spin {
@@ -1685,6 +1766,7 @@ p.flash {
  * end of the tabs from dragging the history gesture with it.
  */
 .tabs {
+  position: relative;
   display: flex;
   gap: 4px;
   margin-bottom: 16px;
@@ -1700,29 +1782,61 @@ p.flash {
   gap: 8px;
   height: 40px;
   padding: 0 12px;
-  border-bottom: 2px solid transparent;
   border-radius: var(--radius-2) var(--radius-2) 0 0;
   color: var(--ink-2);
   font-weight: 500;
   white-space: nowrap;
   transition:
     background-color var(--dur-hover) ease,
-    color var(--dur-hover) ease,
-    border-color var(--dur-surface) ease;
+    color var(--dur-hover) ease;
 }
 
 @media (hover: hover) and (pointer: fine) {
   .tab:hover {
-    background: var(--surface-3);
     color: var(--ink);
     text-decoration: none;
   }
 }
 
-/* The one place the accent marks a selection: the tab you are reading. */
-.tab[aria-current='page'] {
-  border-bottom-color: var(--accent);
+/* The tab you are reading, and the one just pressed while its page loads. */
+.tab[aria-current='page'],
+.tab[data-shown] {
   color: var(--ink);
+}
+
+/*
+ * The underline: one element for the whole strip, placed by both edges and
+ * moved on the segmented control's two clocks, so between tabs it stretches
+ * and snaps shut. The variables are written by `Tabs` from the tab's box.
+ * It sits on the strip's rule, inside the scroller, so it scrolls with the
+ * tabs on a phone.
+ */
+.tabs-line {
+  position: absolute;
+  bottom: 0;
+  left: var(--tab-x, 0px);
+  right: calc(100% - var(--tab-x, 0px) - var(--tab-w, 0px));
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.tabs:not([style]) .tabs-line {
+  display: none;
+}
+
+/* The leading edge sets off at once; the trailing edge follows a beat later. */
+.tabs[data-ready][data-dir='right'] .tabs-line {
+  transition:
+    right 240ms var(--ease-out),
+    left 420ms var(--ease-out) 70ms;
+}
+
+.tabs[data-ready][data-dir='left'] .tabs-line {
+  transition:
+    left 240ms var(--ease-out),
+    right 420ms var(--ease-out) 70ms;
 }
 
 /*
@@ -1732,6 +1846,217 @@ p.flash {
  */
 .tab:focus-visible {
   box-shadow: inset var(--focus);
+}
+
+/* --- Hover glide -------------------------------------------------------- */
+
+/*
+ * One highlight per list, moved by `HoverGlide` from the item the pointer
+ * left to the item it reached (a short spring, no more than a couple of
+ * pixels of give), lit in place with a fade on the first item and faded out
+ * where it stands when the pointer leaves. It sits under the items: the list
+ * is its own stacking context and the light is at `z-index: -1`, so it paints
+ * over the list's own background and under everything in it — text is never
+ * covered, and a current or selected item's own fill still shows through as
+ * the stronger state.
+ *
+ * `:where`, so a list that is already positioned (the rail is sticky) keeps
+ * its own position; anything static becomes the light's containing block.
+ */
+:where(.glide-host) {
+  position: relative;
+}
+
+.glide-host {
+  isolation: isolate;
+}
+
+.glide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: -1;
+  width: 0;
+  height: 0;
+  border-radius: var(--radius-2);
+  background: var(--surface-3);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Table rows run edge to edge; the fill is the row hover's own step. */
+.glide[data-glide-kind='row'] {
+  border-radius: 0;
+  background: var(--surface-2);
+}
+
+/* A tab is rounded at the top only, where it meets the strip's rule. */
+.glide[data-glide-kind='tab'] {
+  border-radius: var(--radius-2) var(--radius-2) 0 0;
+}
+
+/* Menus sit on `--overlay`; `--surface-4` is the step that moves away from it in both themes. */
+.glide[data-glide-kind='menu'] {
+  background: var(--surface-4);
+}
+
+/* Cards: a soft pad a little larger than the card, which the card lifts off. */
+.glide[data-glide-kind='pad'] {
+  border-radius: var(--radius-3);
+  background: var(--surface-3);
+  box-shadow: 0 0 0 6px var(--surface-3);
+}
+
+/*
+ * Where the light is, the items' own hover fills stand down: two fills on one
+ * item would be the light plus a second light. Text colour changes stay,
+ * because they belong to the item. Menus stand down on `data-highlighted` as
+ * well, which is the state the light follows there.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .glide-host [data-glide-item]:hover:not([aria-current='page']),
+  .glide-host .rail-link:hover:not([aria-current='page']),
+  .glide-host .menu-item:hover,
+  .glide-host > .table tbody tr:hover,
+  .glide-host .today-row:hover,
+  .glide-host a.notification:hover,
+  .glide-host .tray-item:hover {
+    background-color: transparent;
+  }
+}
+
+.glide-host .menu-item[data-highlighted] {
+  background-color: transparent;
+}
+
+/* --- Tilt ----------------------------------------------------------------- */
+
+/*
+ * Objects (`data-tilt`) lean towards a precise pointer. `TiltField` writes
+ * `--tilt-x` and `--tilt-y` (-1 to 1) and the glare's position; this turns
+ * them into at most `--tilt-max` of rotation on each axis, lifts the object
+ * a pixel and lets the glare in. Each object's own stylesheet owns its
+ * `transition`, because a shorthand here would erase the colours it already
+ * transitions; the `--tilt-ease` pair below is what they add.
+ *
+ * Outside the query nothing is rotated at all, so a phone, a coarse pointer
+ * and reduced motion never pay for the perspective.
+ */
+[data-tilt] {
+  --tilt-max: 4deg;
+  --tilt-ease: transform 460ms var(--ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  [data-tilt] {
+    transform: perspective(900px) rotateX(calc(var(--tilt-x, 0) * var(--tilt-max)))
+      rotateY(calc(var(--tilt-y, 0) * var(--tilt-max))) translateY(var(--tilt-lift, 0px));
+  }
+
+  /* While the pointer is on it the object follows closely, not on a lag. */
+  [data-tilt][data-tilting] {
+    --tilt-lift: -1px;
+    --tilt-ease: transform 120ms linear;
+  }
+
+  [data-tilt]::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    background: radial-gradient(
+      circle at var(--glare-x, 50%) var(--glare-y, 0%),
+      var(--glare) 0%,
+      transparent 62%
+    );
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-surface) var(--ease-out);
+  }
+
+  [data-tilt][data-tilting]::before {
+    opacity: 1;
+  }
+}
+
+/* --- Thinking mark ------------------------------------------------------- */
+
+/*
+ * The application's own loading language (`ThinkingMark`): the Edison bulb
+ * as a dotted cloud. The canvas is drawn larger than the box and centred
+ * over it, out of flow, because the engine puts the mark in the middle of a
+ * sphere; the drawn bulb underneath is the stand-in until the first frame is
+ * on the canvas (before hydration, and for a browser that cannot draw).
+ */
+.thinking-mark {
+  position: relative;
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  width: var(--thinking-size);
+  height: var(--thinking-size);
+  color: var(--ink-2);
+}
+
+.thinking-mark-drawn {
+  grid-area: 1 / 1;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.thinking-mark-cloud {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  pointer-events: none;
+}
+
+.thinking-mark:has(.thinking-mark-cloud[data-painted]) .thinking-mark-drawn {
+  opacity: 0;
+}
+
+/* An empty state that is also a moment: the mark above the words. */
+.empty-mark {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+/* A wait with words: the mark, then what is happening, on one line. */
+.thinking-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--ink-2);
+}
+
+/* --- Hover language ----------------------------------------------------- */
+
+/*
+ * An icon after a link's words points where the link goes, and nudges that
+ * way under the pointer: two pixels onward, or up and out for a link that
+ * leaves the application. Movement, never a colour change, and only on a
+ * precise pointer with motion allowed. A leading icon (a label's glyph) does
+ * not move: it names, it does not point.
+ */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  a > .icon:last-child:not(:first-child) {
+    transition: translate var(--dur-hover) var(--ease-out);
+  }
+
+  a:hover > .icon:last-child:not(:first-child) {
+    translate: 2px 0;
+  }
+
+  a[target='_blank']:hover > .icon:last-child:not(:first-child) {
+    translate: 1.5px -1.5px;
+  }
 }
 
 /* --- Data table --------------------------------------------------------- */
@@ -2132,6 +2457,19 @@ p.flash {
   font-size: var(--fs-1);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+/*
+ * The count stays on screen while the next page of results is read, a step
+ * dimmer, and rolls to the new figure when it lands: the number that changes
+ * is the answer to the filter somebody just chose.
+ */
+.summary-count {
+  transition: opacity var(--dur-press) ease-out;
+}
+
+.summary-count[data-busy] {
+  opacity: 0.5;
 }
 
 .filter-bar-fold {

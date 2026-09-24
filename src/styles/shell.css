@@ -255,6 +255,8 @@
   /* Hung from the top rather than centred: `.dialog` places itself now, and
      this only changes the vertical half of that. */
   translate: -50% 0;
+  /* The drop's tip is hinged on the top edge: the palette lies down onto the page. */
+  transform-origin: 50% 0;
 }
 
 .palette-frame,
@@ -833,7 +835,9 @@
   justify-content: center;
   gap: 2px;
   min-width: 0;
-  height: var(--tabs-h);
+  /* The bar's 1px top rule is inside its height: a full --tabs-h tab hung a
+     pixel past the bottom of the screen. */
+  height: calc(var(--tabs-h) - 1px);
   padding: 0;
   border: 0;
   border-radius: var(--radius-1);

@@ -17,6 +17,8 @@ import Link from 'next/link';
 import { ChevronUp, X } from 'lucide-react';
 import { AnimatePresence, EASE_OUT_FAST, motion } from '@/components/ui/Motion';
 import { useReducedMotion } from '@/components/ui/media';
+import { GlideLayer } from '@/components/ui/HoverGlide';
+import { RollingNumber } from '@/components/ui/RollingNumber';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/shadcn/popover';
 import { Button } from '@/components/ui/Button';
 
@@ -58,24 +60,14 @@ export function SelectionTray({
         <PopoverTrigger asChild>
           <button type="button" className="bulk-bar-count tray-trigger" aria-live="polite">
             <span className="tray-count" aria-hidden="true">
-              <AnimatePresence initial={false} mode="popLayout">
-                <motion.span
-                  key={count}
-                  initial={reduced ? false : { y: 8, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  exit={reduced ? undefined : { y: -8, opacity: 0 }}
-                  transition={EASE_OUT_FAST}
-                >
-                  {count}
-                </motion.span>
-              </AnimatePresence>
+              <RollingNumber value={count} />
             </span>
             <span className="visually-hidden">{count}</span> selected
             {offPage > 0 ? <span className="tray-off">{offPage} not shown</span> : null}
             <ChevronUp aria-hidden="true" className="tray-chevron" size={14} />
           </button>
         </PopoverTrigger>
-        <PopoverContent side="top" align="start" className="tray-list" aria-label={`Selected ${noun[1]}`}>
+        <PopoverContent side="top" align="start" className="tray-list glide-host" aria-label={`Selected ${noun[1]}`}>
           <div className="tray-head">
             <span>
               {count} {count === 1 ? noun[0] : noun[1]}
@@ -84,6 +76,7 @@ export function SelectionTray({
               Clear all
             </Button>
           </div>
+          <GlideLayer selector=".tray-item" />
           <ul className="tray-items">
             <AnimatePresence initial={false}>
               {items.map((item) => (

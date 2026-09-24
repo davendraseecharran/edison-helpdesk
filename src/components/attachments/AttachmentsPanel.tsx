@@ -80,7 +80,7 @@ export function AttachmentsPanel({ ticketId, deviceId, headingId }: AttachmentsP
       </div>
       <div className="panel-body stack">
         {items === null ? (
-          <LoadingRegion label="Loading attachments">
+          <LoadingRegion label="Loading attachments" scope="panel">
             <div className="attachments-grid">
               <Skeleton height={116} />
               <Skeleton height={116} />

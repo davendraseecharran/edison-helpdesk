@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Delta } from '@/lib/domain/analytics';
+import { RollingNumber } from '@/components/ui/RollingNumber';
 
 const ARROW: Record<Delta['direction'], string> = { up: '↑', down: '↓', same: '–' };
 
@@ -42,7 +43,8 @@ export function StatCard({
     <div className="stat-card">
       <span className="stat-card-label">{label}</span>
       <span className="stat-card-value">
-        <span>{value}</span>
+        {/* Figures roll to their new values when the period changes. */}
+        <span>{typeof value === 'number' || typeof value === 'string' ? <RollingNumber value={value} /> : value}</span>
         {delta ? <DeltaMark delta={delta} /> : null}
       </span>
       {lines.map((line, i) => (

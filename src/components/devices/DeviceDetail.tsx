@@ -21,7 +21,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MapPin, Pencil, User } from 'lucide-react';
+import { MapPin, Pencil, User, Wrench } from 'lucide-react';
 import type { ActionResult } from '@/lib/data/actions';
 import {
   assignDeviceAction,
@@ -32,6 +32,7 @@ import { formatDateTime } from '@/lib/format';
 import { deviceTypeLabel } from '@/lib/domain/device-types';
 import {
   ASSIGNED_STATUS,
+  AVAILABLE_STATUS,
   deviceLabel,
   PERSON_KIND_LABELS,
   type DeviceCatalogEntry,
@@ -47,6 +48,7 @@ import { RecordTicketList } from '@/components/directory/RecordTicketList';
 import { Button } from '@/components/ui/Button';
 import { Icon } from '@/components/ui/Icon';
 import { Sheet } from '@/components/ui/Sheet';
+import '@/styles/device-model.css';
 import { AssignDeviceDialog } from './AssignDeviceDialog';
 import { ChangeStatusDialog } from './ChangeStatusDialog';
 import { DeviceForm, DeviceFormSubmit } from './DeviceForm';
@@ -54,6 +56,89 @@ import { MoveDeviceDialog } from './MoveDeviceDialog';
 import { ReturnDeviceDialog } from './ReturnDeviceDialog';
 
 type DeviceDialog = 'assign' | 'return' | 'status' | 'move' | null;
+
+/**
+ * The machine, as an object.
+ *
+ * A small CSS 3D model beside the tag, drawn from what the record says
+ * rather than from a picture: its kind decides the shape and its state
+ * decides the pose, so the page says "a Chromebook, out with somebody" before
+ * a word of it is read.
+ *
+ * - A laptop or a Chromebook is a deck and a lid on a hinge. A Chromebook's
+ *   lid carries the round mark on its back.
+ * - A tablet or a phone stands on its edge; anything else is a screen on a
+ *   stand.
+ * - Assigned: open, the screen on. Available: open, the screen dark, ready.
+ *   In repair: half shut, with a wrench beside it. Retired, lost or any
+ *   status the district invented: shut.
+ *
+ * When the status changes on this page (assigned, returned, sent to repair)
+ * the lid moves to its new pose, which is the change confirmed in the one
+ * place that shows it. Only `transform` and `opacity` move; it leans towards
+ * a precise pointer (`data-tilt`); under reduced motion it simply takes the
+ * pose. Monochrome, from the surface ladder. Decoration for a reader, who
+ * has the tag, the type and the status in words beside it.
+ */
+type DeviceShape = 'laptop' | 'chromebook' | 'slab' | 'screen';
+type DevicePose = 'on' | 'ready' | 'repair' | 'shut';
+
+function deviceShape(type: string): DeviceShape {
+  const known = deviceTypeLabel(type).toLowerCase();
+  if (known === 'chromebook') return 'chromebook';
+  if (known === 'tablet' || known === 'phone') return 'slab';
+  if (known === 'desktop' || known === 'interactive panel' || known === 'projector') return 'screen';
+  return 'laptop';
+}
+
+function devicePose(status: string | null | undefined): DevicePose {
+  const value = (status ?? '').trim().toLowerCase();
+  if (value === ASSIGNED_STATUS.toLowerCase()) return 'on';
+  if (value === AVAILABLE_STATUS.toLowerCase()) return 'ready';
+  if (value.includes('repair')) return 'repair';
+  return 'shut';
+}
+
+function DeviceModel({ type, status }: { type: string; status: string | null | undefined }) {
+  const shape = deviceShape(type);
+  const pose = devicePose(status);
+  const hinged = shape === 'laptop' || shape === 'chromebook';
+  return (
+    <div className="dm-stage" data-tilt="" data-shape={shape} data-pose={pose} aria-hidden="true">
+      <div className="dm-scene">
+        {hinged ? (
+          <div className="dm-deck">
+            <span className="dm-keys" />
+            <span className="dm-pad" />
+            <span className="dm-edge dm-edge-front" />
+            <span className="dm-edge dm-edge-side" />
+            <div className="dm-lid">
+              <span className="dm-screen">
+                <span className="dm-glow" />
+              </span>
+              <span className="dm-lid-back">{shape === 'chromebook' ? <span className="dm-emblem" /> : null}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="dm-floor">
+            <div className="dm-lid">
+              <span className="dm-screen">
+                <span className="dm-glow" />
+              </span>
+              <span className="dm-lid-back" />
+            </div>
+            {shape === 'screen' ? <span className="dm-neck" /> : null}
+          </div>
+        )}
+      </div>
+      {pose === 'repair' ? (
+        <span className="dm-badge">
+          <Icon icon={Wrench} size={12} />
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 function IdentFact({ label, value }: { label: string; value: string | null }) {
   return (
@@ -217,27 +302,30 @@ export function DeviceDetail({
   return (
     <div className="ticket record">
       <header className="ticket-head record-head">
-        <div className="ticket-head-text">
-          <h1 className="record-tag mono">{label}</h1>
-          {subtitle || typeLabel ? (
-            <p className="record-subtitle">
-              {subtitle && typeLabel ? `${subtitle}, ${typeLabel}` : subtitle || typeLabel}
-            </p>
-          ) : null}
-          <div className="ticket-meta">
-            <DeviceStatusBadge status={device.status} />
-            <span className="ticket-meta-item">
-              <Icon icon={MapPin} size={14} />
-              <span>{device.location || 'No location recorded'}</span>
-            </span>
-            {holder ? (
-              <span className="ticket-meta-item">
-                <Icon icon={User} size={14} />
-                <span>
-                  Held by <Link href={`/people/${holder.id}`}>{holder.displayName}</Link>
-                </span>
-              </span>
+        <div className="record-head-main">
+          <DeviceModel type={device.deviceType} status={device.status} />
+          <div className="ticket-head-text">
+            <h1 className="record-tag mono">{label}</h1>
+            {subtitle || typeLabel ? (
+              <p className="record-subtitle">
+                {subtitle && typeLabel ? `${subtitle}, ${typeLabel}` : subtitle || typeLabel}
+              </p>
             ) : null}
+            <div className="ticket-meta">
+              <DeviceStatusBadge status={device.status} />
+              <span className="ticket-meta-item">
+                <Icon icon={MapPin} size={14} />
+                <span>{device.location || 'No location recorded'}</span>
+              </span>
+              {holder ? (
+                <span className="ticket-meta-item">
+                  <Icon icon={User} size={14} />
+                  <span>
+                    Held by <Link href={`/people/${holder.id}`}>{holder.displayName}</Link>
+                  </span>
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
         <div className="btn-row record-actions">

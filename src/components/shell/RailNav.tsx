@@ -18,6 +18,8 @@ import {
   Workflow,
 } from 'lucide-react';
 import { Icon, type LucideIcon } from '../ui/Icon';
+import { HoverGlide } from '../ui/HoverGlide';
+import { RollingNumber } from '../ui/RollingNumber';
 import { canWorkTickets, isAdmin, type AccountRole } from '../../lib/auth/roles';
 import type { QueueCounts } from '../../lib/data/tickets';
 
@@ -151,7 +153,11 @@ export function isCurrentPath(pathname: string | null, href: string): boolean {
  */
 export function CountPill({ count, callToAction }: { count: number; callToAction?: boolean }) {
   const lit = callToAction && count > 0;
-  return <span className={lit ? 'count-pill' : 'count-pill count-pill-quiet'}>{count}</span>;
+  return (
+    <span className={lit ? 'count-pill' : 'count-pill count-pill-quiet'}>
+      <RollingNumber value={count} />
+    </span>
+  );
 }
 
 /**
@@ -168,7 +174,7 @@ export function RailNav({ items }: { items: NavItem[] }) {
   })).filter((group) => group.items.length > 0);
 
   return (
-    <nav className="rail" aria-label="Primary">
+    <HoverGlide as="nav" className="rail" aria-label="Primary" selector=".rail-link">
       {groups.map((group) => {
         // A heading that only repeats its single item's name is noise.
         const heading = group.items.length === 1 && group.items[0].label === group.name ? null : group.name;
@@ -199,6 +205,6 @@ export function RailNav({ items }: { items: NavItem[] }) {
           </div>
         );
       })}
-    </nav>
+    </HoverGlide>
   );
 }

@@ -45,7 +45,7 @@ import { useMediaQuery, usePhone, useReducedMotion } from '@/components/ui/media
 import { AnimatePresence, EASE_OUT_FAST, INSTANT, SCRIM_IN, SCRIM_OUT, SPRING } from '@/components/ui/Motion';
 import type { ConversationSummary } from '@/lib/ai/conversations';
 import type { Reasoning } from '@/lib/ai/responses-client';
-import { pickWelcomeState, type WelcomeState } from '@/lib/domain/preferences';
+import { DEFAULT_WELCOME_STATES, pickWelcomeState, type WelcomeState } from '@/lib/domain/preferences';
 import { AiComposer, type AiComposerHandle } from './AiComposer';
 import { AiConnectCard } from './AiConnectCard';
 import { AiMessage } from './AiMessage';
@@ -129,14 +129,14 @@ const WELCOME_HOLD_MS = 1000;
 /** The effect shown last, for this page session, so the next draw is a different one. */
 let lastWelcome: WelcomeState | null = null;
 
-function WelcomeMark({ states }: { states: WelcomeState[] }) {
+function WelcomeMark({ states }: { states: readonly WelcomeState[] }) {
   const [effect] = useState(() => {
     const pick = pickWelcomeState(states, Math.random, lastWelcome);
     lastWelcome = pick;
     return pick;
   });
   return (
-    <AiMark size={64} state={effect} delayMs={WELCOME_HOLD_MS} className="ai-welcome-mark" />
+    <AiMark size={64} state={effect} delayMs={WELCOME_HOLD_MS} instant className="ai-welcome-mark" />
   );
 }
 
@@ -496,6 +496,41 @@ export function AiPanel({
       cancelled = true;
     };
   }, [open, status, services, applyStatus]);
+
+  /*
+   * Warm the status before the panel is asked for, so it opens on the
+   * account's own welcome rather than the defaults: when the pointer reaches
+   * anything that opens the assistant (the top-bar toggle, the phone's
+   * cluster) or focus lands on it, and otherwise once the tab is idle.
+   */
+  useEffect(() => {
+    if (status !== null) return;
+    let asked = false;
+    let cancelled = false;
+    const warm = () => {
+      if (asked) return;
+      asked = true;
+      void services.status().then((next) => {
+        if (!cancelled) applyStatus(next);
+      });
+    };
+    const near = (event: Event) => {
+      if (event.target instanceof Element && event.target.closest('[data-ai-toggle], .fab')) warm();
+    };
+    document.addEventListener('pointerover', near, { passive: true });
+    document.addEventListener('focusin', near);
+    const idle =
+      typeof window.requestIdleCallback === 'function'
+        ? window.requestIdleCallback(warm, { timeout: 8000 })
+        : window.setTimeout(warm, 4000);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('pointerover', near);
+      document.removeEventListener('focusin', near);
+      if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idle);
+      else window.clearTimeout(idle);
+    };
+  }, [status, services, applyStatus]);
 
   // --- Opening and closing ------------------------------------------------
 
@@ -932,13 +967,19 @@ export function AiPanel({
                     <div className="ai-welcome-orb">
                       {moment !== 'idle' ? (
                         <Orb moment={moment} size={64} level={level} />
-                      ) : status ? (
-                        <WelcomeMark key={`${chat.conversationId ?? 'new'}:${welcomeRun}`} states={status.welcomeStates} />
                       ) : (
-                        /* The drawn mark until the account's list is known:
-                           the same frame the effect starts on, so nothing
-                           changes shape when it arrives. */
-                        <AiMark size={64} state="still" className="ai-welcome-mark" />
+                        /* The dotted mark from the first frame, whether or
+                           not the account's list has arrived: before it has,
+                           the pick is from the defaults, and the same key
+                           keeps that pick when the list lands, so nothing
+                           changes shape under the reader. The status is
+                           usually here already — it is fetched when the
+                           pointer comes near the toggle, or when the tab
+                           goes idle. */
+                        <WelcomeMark
+                          key={`${chat.conversationId ?? 'new'}:${welcomeRun}`}
+                          states={status?.welcomeStates ?? DEFAULT_WELCOME_STATES}
+                        />
                       )}
                     </div>
                     <p className="ai-welcome-text">{welcomeLine}</p>

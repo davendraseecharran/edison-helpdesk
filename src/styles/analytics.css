@@ -36,6 +36,16 @@
   display: inline-flex;
 }
 
+/* The wait's one line sits where the lead sentence will, left-aligned like it. */
+.analytics-thinking {
+  justify-content: flex-start;
+}
+
+/* A figure on its own keeps proportional digits, rolling or not. */
+.stat-card-value .roll {
+  font-variant-numeric: normal;
+}
+
 .analytics-period[data-busy] {
   opacity: 0.7;
   transition: opacity var(--dur-press) ease-out;
